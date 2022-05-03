@@ -1,0 +1,33 @@
+{
+	"name": "joyride",
+	"version": "1.0.0",
+	"description": "",
+	"main": "index.js",
+	"scripts": {
+		"start": "spago build && webpack serve --open",
+		"build": "spago build && webpack --mode=production",
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"keywords": [],
+	"author": "Mike Solomon",
+	"license": "ISC",
+	"devDependencies": {
+		"@babel/core": "^7.17.10",
+		"@babel/preset-env": "^7.17.10",
+		"babel-loader": "^8.2.5",
+		"css-loader": "^6.7.1",
+		"html-webpack-plugin": "^5.5.0",
+		"postcss": "^8.4.13",
+		"postcss-loader": "^6.2.1",
+		"postcss-preset-env": "^7.5.0",
+		"purescript": "^0.15.0",
+		"purs-tidy": "^0.8.0",
+		"spago": "^0.20.8",
+		"style-loader": "^3.3.1",
+		"tailwind": "^4.0.0",
+		"tailwindcss": "^3.0.24",
+		"webpack": "^5.72.0",
+		"webpack-cli": "^4.9.2",
+		"webpack-dev-server": "^4.8.1"
+	}
+}
