@@ -12,9 +12,9 @@ import Deku.Toplevel (runInBodyA)
 import Effect (Effect)
 import Effect.Class (liftEffect)
 import FRP.Event (bang)
-import Rito.Cameras.PerspectiveCamera (perspectiveCamera)
+import Rito.Cameras.PerspectiveCamera (defaultOrbitControls, perspectiveCamera)
 import Rito.Color (RGB(..))
-import Rito.Core (toScene)
+import Rito.Core (OrbitControls(..), toScene)
 import Rito.Geometries.Sphere (sphere)
 import Rito.Materials.MeshBasicMaterial (meshBasicMaterial)
 import Rito.Mesh (mesh)
@@ -22,7 +22,6 @@ import Rito.Properties (positionX, positionY, positionZ, render, size)
 import Rito.Renderers.WebGL (webGLRenderer)
 import Rito.Run as Rito.Run
 import Rito.Scene (scene)
-import Web.DOM as DOM
 import Web.HTML (window)
 import Web.HTML.HTMLCanvasElement as HTMLCanvasElement
 import Web.HTML.Window (innerHeight, innerWidth)
@@ -56,6 +55,7 @@ runThree wh canvas = do
             , aspect: wh.w / wh.h
             , near: 0.1
             , far: 100.0
+            , orbitControls: OrbitControls (defaultOrbitControls canvas)
             }
             ( oneOf
                 [ bang (positionX 0.0)
