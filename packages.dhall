@@ -1,6 +1,6 @@
 let upstream =
-      https://github.com/purescript/package-sets/releases/download/psc-0.15.0-20220429/packages.dhall
-        sha256:03c682bff56fc8f9d8c495ffcc6f524cbd3c89fe04778f965265c08757de8c9d
+      https://github.com/purescript/package-sets/releases/download/psc-0.15.0-20220513/packages.dhall
+        sha256:1ed784f37ae6131d99acd542d058d5ce39954ccaacc3adba5cc7cf1549d2bffa
 
 let overrides =
       { js-timers =
@@ -22,7 +22,25 @@ let additions =
           , "now"
           ]
         , repo = "https://github.com/mikesol/purescript-event.git"
-        , version = "v1.6.3"
+        , version = "v1.6.5"
+        }
+      , fast-vect =
+        { dependencies =
+          [ "console"
+          , "effect"
+          , "filterable"
+          , "nullable"
+          , "unsafe-reference"
+          , "js-timers"
+          , "now"
+          ]
+        , repo = "https://github.com/mikesol/purescript-fast-vect.git"
+        , version = "head-impl"
+        }
+      , bolson =
+        { dependencies = [ "heterogeneous", "fast-vect" ]
+        , repo = "https://github.com/mikesol/purescript-bolson.git"
+        , version = "v0.0.1"
         }
       , variant =
         { dependencies =
@@ -81,7 +99,7 @@ let additions =
           , "web-uievents"
           ]
         , repo = "https://github.com/mikesol/purescript-behaviors.git"
-        , version = "v8.2.0"
+        , version = "v8.2.1"
         }
       , row-options =
         { dependencies = [ "homogeneous", "heterogeneous" ]
@@ -94,9 +112,15 @@ let additions =
             "https://github.com/natefaubion/purescript-convertable-options.git"
         , version = "v1.0.0"
         }
+      , monoid-extras =
+        { dependencies = [ "profunctor-lenses" ]
+        , repo = "https://github.com/mikesol/purescript-monoid-extras.git"
+        , version = "v0.0.1"
+        }
       , deku =
         { dependencies =
           [ "arrays"
+          , "monoid-extras"
           , "behaviors"
           , "control"
           , "datetime"
@@ -129,7 +153,7 @@ let additions =
           , "web-events"
           ]
         , repo = "https://github.com/mikesol/purescript-deku.git"
-        , version = "v0.3.6"
+        , version = "v0.4.1"
         }
       , wags =
         { dependencies =
@@ -169,7 +193,39 @@ let additions =
           , "web-events"
           ]
         , repo = "https://github.com/mikesol/purescript-wags.git"
-        , version = "v1.1.2"
+        , version = "v1.1.5"
+        }
+      , rito =
+        { dependencies =
+          [ "aff"
+          , "avar"
+          , "bolson"
+          , "control"
+          , "convertable-options"
+          , "effect"
+          , "either"
+          , "event"
+          , "exceptions"
+          , "exists"
+          , "fast-vect"
+          , "foldable-traversable"
+          , "integers"
+          , "maybe"
+          , "newtype"
+          , "numbers"
+          , "prelude"
+          , "profunctor"
+          , "profunctor-lenses"
+          , "random"
+          , "record"
+          , "refs"
+          , "safe-coerce"
+          , "unsafe-coerce"
+          , "variant"
+          , "web-html"
+          ]
+        , repo = "https://github.com/mikesol/purescript-rito.git"
+        , version = "main"
         }
       , homogeneous =
         { dependencies =
