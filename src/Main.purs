@@ -61,8 +61,8 @@ import Rito.Core (OrbitControls(..), toScene)
 import Rito.Geometries.Box (box)
 import Rito.Materials.MeshBasicMaterial (meshBasicMaterial)
 import Rito.Mesh (mesh)
+import Rito.Properties (color, onMouseDown, onTouchStart, target) as P
 import Rito.Properties (positionX, positionY, positionZ, render, scaleX, scaleY, scaleZ, size)
-import Rito.Properties (color, onMouseDown, target) as P
 import Rito.Renderers.WebGL (webGLRenderer)
 import Rito.Run as Rito.Run
 import Rito.Scene (scene)
@@ -105,7 +105,8 @@ type UIEvents = V
 speed = 4.0 :: Number
 
 runThree
-  :: (Number -> Effect Unit -> Effect Unit)
+  :: Boolean
+  -> (Number -> Effect Unit -> Effect Unit)
   -> Int
   -> Event AnimatedS
   -> Event Number
@@ -113,7 +114,7 @@ runThree
   -> Number
   -> HTMLCanvasElement
   -> Effect Unit
-runThree lps pcMax e afE iw ih canvas = do
+runThree ete lps pcMax e afE iw ih canvas = do
   _ <- Rito.Run.run
     ( webGLRenderer
         ( scene empty
@@ -167,7 +168,9 @@ runThree lps pcMax e afE iw ih canvas = do
                                               , scaleX $ (s * 3.0)
                                               , scaleY $ (s * 0.3)
                                               , scaleZ $ (s * 2.5)
-                                              , P.onMouseDown \_ -> setCol
+                                              , if ete then P.onTouchStart \_ -> setCol
+                                                  (RGB 0.1 0.8 0.6)
+                                                else P.onMouseDown \_ -> setCol
                                                   (RGB 0.1 0.8 0.6)
                                               ]
                                         )
@@ -353,6 +356,8 @@ cvsys = show cvsy <> "px"
 cvsyn :: Number
 cvsyn = Int.toNumber cvsy
 
+foreign import emitsTouchEvents :: Effect Boolean
+
 dlInChunks
   :: Object.Object String
   -> Int
@@ -384,6 +389,7 @@ r2b r = behavior \e -> makeEvent \k -> subscribe e \f -> Ref.read r >>=
 main :: { bme01 :: String } -> Object.Object String -> Effect Unit
 main { bme01 } silentRoom = launchAff_ do
   w <- liftEffect $ window
+  ete <- liftEffect $ emitsTouchEvents
   iw <- liftEffect $ Int.toNumber <$> innerWidth w
   ih <- liftEffect $ Int.toNumber <$> innerHeight w
   soundObj <- liftEffect $ Ref.new Object.empty
@@ -475,6 +481,7 @@ main { bme01 } silentRoom = launchAff_ do
                               , D.Self := HTMLCanvasElement.fromElement >>>
                                   traverse_
                                     ( runThree
+                                        ete
                                         unsched
                                         pcMax
                                         ( keepLatest $ map (oneOfMap bang)
