@@ -26,16 +26,20 @@ module.exports = {
 			},
 			{
 				test: /\.s[ac]ss$/i,
-				include: [
-					path.resolve(__dirname, "src"),
-				],
+				include: [path.resolve(__dirname, "src")],
 				use: ["style-loader", "css-loader", "sass-loader"],
 			},
 			{
+				test: /\.bme/,
+				type: "asset/source",
+			},
+			{
+				test: /\.mp3/,
+				type: "asset/resource",
+			},
+			{
 				test: /\.css$/i,
-				include: [
-					path.resolve(__dirname, "src"),
-				],
+				include: [path.resolve(__dirname, "src")],
 				use: ["style-loader", "css-loader", "postcss-loader"],
 			},
 		],

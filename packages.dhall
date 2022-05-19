@@ -22,7 +22,7 @@ let additions =
           , "now"
           ]
         , repo = "https://github.com/mikesol/purescript-event.git"
-        , version = "v1.6.5"
+        , version = "v1.6.6"
         }
       , fast-vect =
         { dependencies =
@@ -40,7 +40,7 @@ let additions =
       , bolson =
         { dependencies = [ "heterogeneous", "fast-vect" ]
         , repo = "https://github.com/mikesol/purescript-bolson.git"
-        , version = "v0.0.1"
+        , version = "v0.0.2"
         }
       , variant =
         { dependencies =
@@ -153,7 +153,7 @@ let additions =
           , "web-events"
           ]
         , repo = "https://github.com/mikesol/purescript-deku.git"
-        , version = "v0.4.1"
+        , version = "v0.4.3"
         }
       , wags =
         { dependencies =
@@ -193,36 +193,38 @@ let additions =
           , "web-events"
           ]
         , repo = "https://github.com/mikesol/purescript-wags.git"
-        , version = "v1.1.5"
+        , version = "v1.1.6"
         }
       , rito =
         { dependencies =
           [ "aff"
-          , "avar"
-          , "bolson"
-          , "control"
-          , "convertable-options"
-          , "effect"
-          , "either"
-          , "event"
-          , "exceptions"
-          , "exists"
-          , "fast-vect"
-          , "foldable-traversable"
-          , "integers"
-          , "maybe"
-          , "newtype"
-          , "numbers"
-          , "prelude"
-          , "profunctor"
-          , "profunctor-lenses"
-          , "random"
-          , "record"
-          , "refs"
-          , "safe-coerce"
-          , "unsafe-coerce"
-          , "variant"
-          , "web-html"
+  , "bolson"
+  , "control"
+  , "convertable-options"
+  , "effect"
+  , "either"
+  , "event"
+  , "exceptions"
+  , "exists"
+  , "fast-vect"
+  , "foldable-traversable"
+  , "heterogeneous"
+  , "integers"
+  , "maybe"
+  , "newtype"
+  , "numbers"
+  , "prelude"
+  , "profunctor"
+  , "profunctor-lenses"
+  , "random"
+  , "record"
+  , "refs"
+  , "safe-coerce"
+  , "unsafe-coerce"
+  , "variant"
+  , "web-html"
+  , "web-touchevents"
+  , "web-uievents"
           ]
         , repo = "https://github.com/mikesol/purescript-rito.git"
         , version = "main"
