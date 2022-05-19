@@ -34,7 +34,7 @@ let additions =
           , "js-timers"
           , "now"
           ]
-        , repo = "https://github.com/mikesol/purescript-fast-vect.git"
+        , repo = "https://github.com/sigma-andex/purescript-fast-vect.git"
         , version = "main"
         }
       , bolson =
