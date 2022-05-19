@@ -35,7 +35,7 @@ let additions =
           , "now"
           ]
         , repo = "https://github.com/mikesol/purescript-fast-vect.git"
-        , version = "head-impl"
+        , version = "main"
         }
       , bolson =
         { dependencies = [ "heterogeneous", "fast-vect" ]
