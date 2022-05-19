@@ -2,9 +2,6 @@ module Main where
 
 import Prelude
 
-import Affjax.ResponseFormat (string)
-import Affjax.StatusCode (StatusCode(..))
-import Affjax.Web as AX
 import BMS.Parser (bms)
 import BMS.Timing (gatherAll, noteOffsets)
 import BMS.Types (Column(..), Note(..), Offset(..))
@@ -17,7 +14,6 @@ import Data.Array as Array
 import Data.Array.NonEmpty as NEA
 import Data.Compactable (compact)
 import Data.DateTime.Instant (unInstant)
-import Data.Either (Either(..))
 import Data.Foldable (fold, foldl, oneOf, oneOfMap, traverse_)
 import Data.FunctorWithIndex (mapWithIndex)
 import Data.Int as Int
@@ -49,7 +45,7 @@ import Effect.Ref as Ref
 import Effect.Timer (clearInterval, setInterval)
 import FRP.Behavior (Behavior, behavior, sampleBy, step)
 import FRP.Behavior.Time (instant)
-import FRP.Event (Event, bang, bus, filterMap, hot, keepLatest, makeEvent, mapAccum, subscribe)
+import FRP.Event (Event, bang, bus, create, filterMap, hot, keepLatest, makeEvent, mapAccum, subscribe)
 import FRP.Event as Event
 import FRP.Event.AnimationFrame (animationFrame)
 import FRP.Event.VBus (V, vbus)
@@ -61,7 +57,7 @@ import Rito.Core (OrbitControls(..), toScene)
 import Rito.Geometries.Box (box)
 import Rito.Materials.MeshBasicMaterial (meshBasicMaterial)
 import Rito.Mesh (mesh)
-import Rito.Properties (color, onMouseDown, onTouchStart, target) as P
+import Rito.Properties (aspect, color, onMouseDown, onTouchStart, target) as P
 import Rito.Properties (positionX, positionY, positionZ, render, scaleX, scaleY, scaleZ, size)
 import Rito.Renderers.WebGL (webGLRenderer)
 import Rito.Run as Rito.Run
@@ -77,12 +73,13 @@ import WAGS.Math (calcSlope)
 import WAGS.Properties (onOff) as P
 import WAGS.Run (run2)
 import WAGS.WebAPI (AudioContext, BrowserAudioBuffer)
-import Web.Event.Event (target)
+import Web.Event.Event (EventType(..), target)
+import Web.Event.EventTarget (addEventListener, eventListener)
 import Web.HTML (window)
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 import Web.HTML.HTMLCanvasElement as HTMLCanvasElement
 import Web.HTML.HTMLInputElement (fromEventTarget, valueAsNumber)
-import Web.HTML.Window (cancelIdleCallback, innerHeight, innerWidth, requestIdleCallback)
+import Web.HTML.Window (cancelIdleCallback, innerHeight, innerWidth, requestIdleCallback, toEventTarget)
 
 twoPi = 2.0 * pi :: Number
 type Span = { s :: Int, n :: Int, d :: Int }
@@ -108,71 +105,73 @@ runThree
   :: Boolean
   -> (Number -> Effect Unit -> Effect Unit)
   -> Int
+  -> Event { iw :: Number, ih :: Number }
   -> Event AnimatedS
   -> Event Number
-  -> Number
-  -> Number
+  -> { iw :: Number, ih :: Number }
   -> HTMLCanvasElement
   -> Effect Unit
-runThree ete lps pcMax e afE iw ih canvas = do
+runThree ete lps pcMax resizeE e afE iwih canvas = do
   _ <- Rito.Run.run
     ( webGLRenderer
         ( scene empty
-            ( [ toScene $ mesh (box {} empty)
-                  ( meshBasicMaterial
-                      { color: RGB 1.0 1.0 1.0
-                      }
-                      empty
-                  )
-                  ( oneOf
-                      [ bang (positionX 0.0)
-                      , bang (positionY (-1.0))
-                      , positionZ <$>
-                          (map (negate >>> mul speed >>> add 0.1) afE)
-                      , bang (scaleX 4.0)
-                      , bang (scaleY 0.02)
-                      , bang (scaleZ 0.03)
-                      ]
-                  )
-              , toScene $ dyn $
-                  map
-                    ( \itm -> case itm.column of
-                        BGMColumn _ -> empty
+            [
+              -- bar
+              toScene $ mesh (box {} empty)
+                ( meshBasicMaterial
+                    { color: RGB 1.0 1.0 1.0
+                    }
+                    empty
+                )
+                ( oneOf
+                    [ bang (positionX 0.0)
+                    , bang (positionY (-1.0))
+                    , positionZ <$>
+                        (map (negate >>> mul speed >>> add 0.1) afE)
+                    , bang (scaleX 10.0)
+                    , bang (scaleY 0.02)
+                    , bang (scaleZ 0.03)
+                    ]
+                )
+            -- notes
+            , toScene $ dyn $
+                map
+                  ( \itm -> case itm.column of
+                      BGMColumn _ -> empty
 
-                        PlayColumn x ->
+                      PlayColumn x ->
+                        let
+                          xr = Int.toNumber x /
+                            Int.toNumber pcMax
+                        in
                           ( ( bang
                                 ( Insert
                                     $ envy
                                     $ bus \setCol col -> mesh
                                         (box {} empty)
                                         ( meshBasicMaterial
-                                            { color: RGB 1.0 1.0 1.0
-                                            }
+                                            { color: RGB 1.0 1.0 1.0 }
                                             (col <#> P.color)
                                         )
-                                        ( let
-                                            s =
-                                              if itm.time < 2.0 then 0.0
-                                              else 0.2
-                                          in
-                                            oneOfMap bang
-                                              [ positionX
-                                                  ( ( ( Int.toNumber x /
-                                                          Int.toNumber pcMax
-                                                      ) - 0.5
-                                                    ) * 2.0
-                                                  )
-                                              , positionY (-1.0)
-                                              , positionZ
-                                                  (-1.0 * speed * itm.time - 0.25)
-                                              , scaleX $ (s * 3.0)
-                                              , scaleY $ (s * 0.3)
-                                              , scaleZ $ (s * 2.5)
-                                              , if ete then P.onTouchStart \_ -> setCol
-                                                  (RGB 0.1 0.8 0.6)
-                                                else P.onMouseDown \_ -> setCol
-                                                  (RGB 0.1 0.8 0.6)
-                                              ]
+                                        ( keepLatest $ (bang iwih <|> resizeE) <#> \i ->
+                                            let
+                                              ratio = i.iw / i.ih
+                                            in
+                                              oneOfMap bang
+                                                [ positionX
+                                                    ( (xr - 0.5) * 2.0 * ratio
+                                                    )
+                                                , positionY (-1.0)
+                                                , positionZ
+                                                    (-1.0 * speed * itm.time - 0.25)
+                                                , scaleX (0.5 * ratio)
+                                                , scaleY 0.04
+                                                , scaleZ 0.4
+                                                , if ete then P.onTouchStart \_ -> setCol
+                                                    (RGB 0.1 0.8 0.6)
+                                                  else P.onMouseDown \_ -> setCol
+                                                    (RGB 0.1 0.8 0.6)
+                                                ]
                                         )
                                 )
                             )
@@ -182,15 +181,13 @@ runThree ete lps pcMax e afE iw ih canvas = do
                                     (bang Remove)
                                 )
                           )
-                    )
-                    e
-              ]
-            )
-
+                  )
+                  e
+            ]
         )
         ( perspectiveCamera
             { fov: 75.0
-            , aspect: iw / ih
+            , aspect: iwih.iw / iwih.ih
             , near: 0.1
             , far: 100.0
             , orbitControls: OrbitControls (defaultOrbitControls canvas)
@@ -201,12 +198,17 @@ runThree ete lps pcMax e afE iw ih canvas = do
                 , positionZ <$> (map (negate >>> mul speed >>> add 2.0) afE)
                 , afE <#> \t -> P.target $ vector3
                     { x: 0.0, y: 0.0, z: t * -1.0 * speed - 2.0 }
+                , resizeE <#> \i -> P.aspect (i.iw / i.ih)
                 ]
             )
         )
         { canvas }
-        ( bang (size { width: iw, height: ih }) <|> bang render <|>
-            (afE $> render)
+        ( oneOf
+            [ bang (size { width: iwih.iw, height: iwih.ih })
+            , bang render
+            , afE $> render
+            , resizeE <#> \i -> size { width: i.iw, height: i.ih }
+            ]
         )
     )
   pure unit
@@ -338,24 +340,6 @@ graph lps e =
       ]
   ]
 
-cvsx :: Int
-cvsx = 1200
-
-cvsxs :: String
-cvsxs = show cvsx <> "px"
-
-cvsxn :: Number
-cvsxn = Int.toNumber cvsx
-
-cvsy :: Int
-cvsy = 600
-
-cvsys :: String
-cvsys = show cvsy <> "px"
-
-cvsyn :: Number
-cvsyn = Int.toNumber cvsy
-
 foreign import emitsTouchEvents :: Effect Boolean
 
 dlInChunks
@@ -389,6 +373,12 @@ r2b r = behavior \e -> makeEvent \k -> subscribe e \f -> Ref.read r >>=
 main :: { bme01 :: String } -> Object.Object String -> Effect Unit
 main { bme01 } silentRoom = launchAff_ do
   w <- liftEffect $ window
+  resizeE <- liftEffect create
+  resizeListener <- liftEffect $ eventListener \_ -> do
+    iw <- liftEffect $ Int.toNumber <$> innerWidth w
+    ih <- liftEffect $ Int.toNumber <$> innerHeight w
+    resizeE.push { iw, ih }
+  liftEffect $ addEventListener (EventType "resize") resizeListener true (toEventTarget w)
   ete <- liftEffect $ emitsTouchEvents
   iw <- liftEffect $ Int.toNumber <$> innerWidth w
   ih <- liftEffect $ Int.toNumber <$> innerHeight w
@@ -468,28 +458,21 @@ main { bme01 } silentRoom = launchAff_ do
 
                 D.div_
                   [ D.div
-                      ( bang
-                          ( D.Style :=
-                              "position:absolute;"
-                          )
-                      )
+                      (bang (D.Style := "position:absolute;"))
                       [ D.canvas
                           ( oneOfMap bang
-                              [ D.Width := cvsxs
-                              , D.Height := cvsys
-                              , D.Style := "width: 100%;"
-                              , D.Self := HTMLCanvasElement.fromElement >>>
+                              [ D.Self := HTMLCanvasElement.fromElement >>>
                                   traverse_
                                     ( runThree
                                         ete
                                         unsched
                                         pcMax
+                                        resizeE.event
                                         ( keepLatest $ map (oneOfMap bang)
                                             event.toAnimate
                                         )
                                         event.animationFrame
-                                        iw
-                                        ih
+                                        { iw, ih }
                                     )
                               ]
                           )
