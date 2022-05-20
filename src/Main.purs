@@ -55,7 +55,9 @@ import Rito.Cameras.PerspectiveCamera (defaultOrbitControls, perspectiveCamera)
 import Rito.Color (RGB(..))
 import Rito.Core (OrbitControls(..), toScene)
 import Rito.Geometries.Box (box)
+import Rito.Lights.PointLight (pointLight)
 import Rito.Materials.MeshBasicMaterial (meshBasicMaterial)
+import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.Mesh (mesh)
 import Rito.Properties (aspect, color, onMouseDown, onTouchStart, target) as P
 import Rito.Properties (positionX, positionY, positionZ, render, scaleX, scaleY, scaleZ, size)
@@ -118,7 +120,7 @@ runThree ete lps pcMax resizeE e afE iwih canvas = do
             [
               -- bar
               toScene $ mesh (box {} empty)
-                ( meshBasicMaterial
+                ( meshStandardMaterial
                     { color: RGB 1.0 1.0 1.0
                     }
                     empty
@@ -131,6 +133,15 @@ runThree ete lps pcMax resizeE e afE iwih canvas = do
                     , bang (scaleX 10.0)
                     , bang (scaleY 0.02)
                     , bang (scaleZ 0.03)
+                    ]
+                )
+            -- light
+            , toScene $ pointLight {}
+                ( oneOf
+                    [ bang (positionX 0.0)
+                    , bang (positionY 0.0)
+                    , positionZ <$>
+                        (map (negate >>> mul speed >>> add 0.1) afE)
                     ]
                 )
             -- notes
