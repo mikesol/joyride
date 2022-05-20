@@ -36,4 +36,6 @@ jobs:
           github_token: ${{ secrets.GH_TOKEN }}
           publish_dir: ./dist
       - name: deploy to netlify
-        run: NETLIFY_SITE_ID=${{ secrets.NETLIFY_JOYRIDE_SITE_ID }} NETLIFY_AUTH_TOKEN=${{ secrets.NETLIFY_AUTH_TOKEN }} netlify deploy --dir=dist --prod
+        run: |
+          cp _redirects dist/
+          NETLIFY_SITE_ID=${{ secrets.NETLIFY_JOYRIDE_SITE_ID }} NETLIFY_AUTH_TOKEN=${{ secrets.NETLIFY_AUTH_TOKEN }} netlify deploy --dir=dist --prod
