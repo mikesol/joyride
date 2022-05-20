@@ -5,8 +5,8 @@ export const pubnub_ = (listener) => {
 	return function () {
 		var publisher = uuidv4();
 		var pn = new PubNub({
-			publishKey: "pub-c-ce744358-2fba-4c34-ac63-a8c1b06a826e",
-			subscribeKey: "sub-c-fb43997a-9871-11ec-82a0-02d5075437d9",
+			publishKey: "pub-c-672671ca-ea5d-4c31-9bbf-1c123cddfa2b",
+			subscribeKey: "sub-c-9e61eeea-570c-48cd-8088-ad367df0dcf7",
 			uuid: publisher,
 		});
 		pn.subscribe({
