@@ -33,6 +33,7 @@
   , "prelude"
   , "profunctor-lenses"
   , "random"
+  , "record"
   , "refs"
   , "rito"
   , "routing"
