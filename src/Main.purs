@@ -3,7 +3,7 @@ module Main where
 import Prelude
 
 import BMS.Parser (bms)
-import BMS.Timing (gatherAll, noteOffsets)
+import BMS.Timing (gatherAll)
 import BMS.Types (Column(..), Note(..), Offset(..))
 import Bolson.Core (Child(..), envy)
 import Control.Alt ((<|>))
@@ -56,7 +56,6 @@ import Rito.Color (RGB(..))
 import Rito.Core (OrbitControls(..), toScene)
 import Rito.Geometries.Box (box)
 import Rito.Lights.PointLight (pointLight)
-import Rito.Materials.MeshBasicMaterial (meshBasicMaterial)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.Mesh (mesh)
 import Rito.Properties (aspect, color, onMouseDown, onTouchStart, target) as P
@@ -66,6 +65,7 @@ import Rito.Run as Rito.Run
 import Rito.Scene (scene)
 import Rito.Vector3 (vector3)
 import Simple.JSON as JSON
+import TestData (testData)
 import Type.Proxy (Proxy(..))
 import WAGS.Clock (withACTime)
 import WAGS.Control (gain_, playBuf)
@@ -136,7 +136,7 @@ runThree ete lps pcMax resizeE e afE iwih canvas = do
                     ]
                 )
             -- light
-            , toScene $ pointLight {}
+            , toScene $ pointLight { distance: 4.0, decay: 2.0}
                 ( oneOf
                     [ bang (positionX 0.0)
                     , bang (positionY 0.0)
@@ -160,7 +160,7 @@ runThree ete lps pcMax resizeE e afE iwih canvas = do
                                     $ envy
                                     $ bus \setCol col -> mesh
                                         (box {} empty)
-                                        ( meshBasicMaterial
+                                        ( meshStandardMaterial
                                             { color: RGB 1.0 1.0 1.0 }
                                             (col <#> P.color)
                                         )
@@ -401,8 +401,8 @@ main { bme01 } silentRoom = launchAff_ do
   let
     bmsRes = bms bme01
     info = gatherAll bmsRes
-    noffsets = noteOffsets info
-
+    -- noffsets = noteOffsets info
+    noffsets = testData
     -- list of notes in the order we need them
     folded :: Map.Map Offset (List (Column /\ Note))
     folded = unwrap
