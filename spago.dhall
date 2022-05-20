@@ -10,6 +10,7 @@
   , "console"
   , "control"
   , "datetime"
+  , "debug"
   , "deku"
   , "effect"
   , "either"
@@ -34,17 +35,20 @@
   , "random"
   , "refs"
   , "rito"
+  , "routing"
   , "safe-coerce"
   , "simple-json"
   , "strings"
   , "transformers"
   , "tuples"
   , "typelevel"
+  , "unsafe-coerce"
   , "variant"
   , "wags"
   , "web-dom"
   , "web-events"
   , "web-html"
+  , "web-uievents"
   ]
 , packages = ./packages.dhall
 , sources = [ "src/**/*.purs" ]
