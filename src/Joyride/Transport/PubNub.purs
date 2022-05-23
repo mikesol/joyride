@@ -1,4 +1,4 @@
-module Joyride.PubNub where
+module Joyride.Transport.PubNub where
 
 import Prelude
 

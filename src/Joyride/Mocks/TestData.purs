@@ -1,4 +1,4 @@
-module TestData where
+module Joyride.Mocks.TestData where
 
 import Prelude
 

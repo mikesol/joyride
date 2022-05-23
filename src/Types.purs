@@ -2,11 +2,70 @@ module Types where
 
 import Prelude
 
+import BMS.Types (Column, Note(..), Offset(..))
+import Data.Array.NonEmpty as NEA
 import Data.Generic.Rep (class Generic)
+import Data.List (List)
+import Data.Map as Map
 import Data.Maybe (Maybe)
+import Data.Tuple.Nested (type (/\))
+import Effect (Effect)
+import Effect.Ref as Ref
+import FRP.Behavior (Behavior)
+import FRP.Event (Event)
+import FRP.Event.VBus (V)
 import Foreign (ForeignError(..), fail)
+import Foreign.Object as Object
+import Rito.THREE (ThreeStuff)
 import Simple.JSON (writeJSON)
 import Simple.JSON as JSON
+import WAGS.WebAPI (BrowserAudioBuffer)
+import Web.HTML.Window (RequestIdleCallbackId, Window)
+
+
+type CanvasInfo = { x :: Number, y :: Number } /\ Number
+type UIEvents = V
+  ( start :: Unit
+  , stop :: Effect Unit
+  , slider :: Number
+  , animationFrame :: Number
+  , toAnimate :: Animated
+  )
+
+type ToplevelInfo =
+  { loaded :: Event Boolean
+  , threeStuff :: ThreeStuff
+  , isMobile :: Boolean
+  , lowPriorityCb :: Number -> Effect Unit -> Effect Unit
+  , maxColumns :: Int
+  , myPlayer :: Player
+  , player2XBehavior :: Behavior (Number -> Number)
+  , xPosB :: Behavior (Number -> Number)
+  , resizeE :: Event WindowDims
+  , initialDims ::WindowDims
+  , icid :: Ref.Ref (Maybe RequestIdleCallbackId)
+  , wdw :: Window
+  , unschedule :: Ref.Ref (Map.Map Number (Effect Unit))
+  , soundObj :: Ref.Ref (Object.Object BrowserAudioBuffer)
+  , offsetsToNoteColumns :: Map.Map Offset (List (Column /\ Note))
+  }
+
+type WindowDims = { iw :: Number, ih :: Number }
+
+type Animated = NEA.NonEmptyArray
+  { startsAt :: Number
+  , time :: Number
+  , column :: Column
+  , buffer :: BrowserAudioBuffer
+  }
+
+type AnimatedS =
+  { startsAt :: Number
+  , time :: Number
+  , buffer :: BrowserAudioBuffer
+  , column :: Column
+  }
+
 
 type Orientation = { absolute :: Number, alpha :: Number, beta :: Number, gamma :: Number }
 type GTP = { gamma :: Number, time :: Maybe Number, pos :: Number }
