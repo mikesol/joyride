@@ -3,10 +3,13 @@ module Joyride.PubNub where
 import Prelude
 
 import Control.Monad.Except (runExcept, throwError)
+import Control.Promise (Promise, toAffE)
 import Data.Either (either)
 import Data.Newtype (class Newtype)
 import Data.Tuple.Nested (type (/\), (/\))
 import Effect (Effect)
+import Effect.Aff (Aff)
+import Effect.Class (liftEffect)
 import Effect.Exception (error)
 import FRP.Event (Event, create)
 import Foreign (Foreign, ForeignError(..), fail)
@@ -16,6 +19,9 @@ import Simple.JSON as JSON
 import Types (KTP, Player, GTP)
 
 data PubNub
+data PubNubJS
+
+foreign import _PubNub :: Effect (Promise PubNubJS)
 
 data PlayerAction
   = XPositionKeyboard KTP
@@ -48,13 +54,15 @@ derive instance newtypePubNubEvent :: Newtype PubNubEvent _
 derive newtype instance toJSONPubNubEvent :: JSON.ReadForeign PubNubEvent
 derive newtype instance fromJSONPubNubEvent :: JSON.WriteForeign PubNubEvent
 
-foreign import pubnub_ :: (Foreign -> Effect Unit) -> Effect PubNub
+foreign import pubnub_ :: PubNubJS -> (Foreign -> Effect Unit) -> Effect PubNub
 
-pubnub :: (PubNubEvent -> Effect Unit) -> Effect PubNub
-pubnub f = pubnub_ ((=<<) f <<< either (throwError <<< error <<< show) pure <<< runExcept <<< readImpl)
+pubnub :: PubNubJS -> (PubNubEvent -> Effect Unit) -> Effect PubNub
+pubnub pjs f = pubnub_ pjs ((=<<) f <<< either (throwError <<< error <<< show) pure <<< runExcept <<< readImpl)
 
-pubnubEvent :: Effect (PubNub /\ Event PubNubEvent)
-pubnubEvent = create >>= map <$> ((flip (/\)) <<< _.event) <*> (pubnub <<< _.push)
+pubnubEvent :: Aff (PubNub /\ Event PubNubEvent)
+pubnubEvent = do
+  pjs <- toAffE _PubNub
+  liftEffect (create >>= map <$> ((flip (/\)) <<< _.event) <*> (pubnub pjs <<< _.push))
 
 foreign import publish_ :: PubNub -> Foreign -> Effect Unit
 

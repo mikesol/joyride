@@ -1,6 +1,7 @@
 { name = "joyride"
 , dependencies =
   [ "aff"
+  , "aff-promise"
   , "affjax"
   , "affjax-web"
   , "arrays"

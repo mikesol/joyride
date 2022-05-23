@@ -51,10 +51,11 @@ import FRP.Event.VBus (V, vbus)
 import Foreign.Object as Object
 import Joyride.PubNub (PlayerAction(..), PubNubEvent(..), publish, pubnubEvent)
 import Rito.Cameras.PerspectiveCamera (defaultOrbitControls, perspectiveCamera)
-import Rito.Color (RGB(..))
+import Rito.Color (RGB(..), color)
 import Rito.Core (OrbitControls(..), toScene)
 import Rito.Geometries.Box (box)
 import Rito.Geometries.Sphere (sphere)
+import Rito.Interpret (orbitControlsAff, threeAff)
 import Rito.Lights.PointLight (pointLight)
 import Rito.Materials.MeshBasicMaterial (meshBasicMaterial)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
@@ -64,6 +65,7 @@ import Rito.Properties (positionX, positionY, positionZ, render, scaleX, scaleY,
 import Rito.Renderers.WebGL (webGLRenderer)
 import Rito.Run as Rito.Run
 import Rito.Scene (scene)
+import Rito.THREE (ThreeStuff)
 import Rito.Vector3 (vector3)
 import TestData (testData)
 import Type.Proxy (Proxy(..))
@@ -102,7 +104,8 @@ type UIEvents = V
 speed = 4.0 :: Number
 
 runThree
-  :: { isMobile :: Boolean
+  :: { threeStuff :: ThreeStuff
+     , isMobile :: Boolean
      , lowPriorityCb :: Number -> Effect Unit -> Effect Unit
      , myPlayer :: Player
      , maxColumns :: Int
@@ -115,8 +118,10 @@ runThree
      , canvas :: HTMLCanvasElement
      }
   -> Effect Unit
-runThree opts = do
-  _ <- Rito.Run.run
+runThree opts@{ threeStuff: { three } } = do
+  let c3 = color three
+  let v33 = vector3 three
+  _ <- Rito.Run.run opts.threeStuff
     ( webGLRenderer
         ( scene empty $
             ( case opts.myPlayer of
@@ -124,7 +129,7 @@ runThree opts = do
                 Player1 ->
                   [ toScene $ mesh (sphere {} empty)
                       ( meshBasicMaterial
-                          { color: RGB 1.0 1.0 1.0
+                          { color: c3 $ RGB 1.0 1.0 1.0
                           }
                           empty
                       )
@@ -145,7 +150,7 @@ runThree opts = do
                 -- bar 1
                 toScene $ mesh (box {} empty)
                   ( meshStandardMaterial
-                      { color: RGB 1.0 1.0 1.0
+                      { color: c3 $ RGB 1.0 1.0 1.0
                       }
                       empty
                   )
@@ -162,7 +167,7 @@ runThree opts = do
               -- bar 2
               , toScene $ mesh (box {} empty)
                   ( meshStandardMaterial
-                      { color: RGB 1.0 1.0 1.0
+                      { color: c3 $ RGB 1.0 1.0 1.0
                       }
                       empty
                   )
@@ -177,7 +182,7 @@ runThree opts = do
                       ]
                   )
               -- light
-              , toScene $ pointLight { distance: 4.0, decay: 2.0 }
+              , toScene $ pointLight { distance: 4.0, decay: 2.0, color: c3 $ RGB 1.0 1.0 1.0 }
                   ( oneOf
                       [ bang (positionX 0.0)
                       , bang (positionY 0.0)
@@ -202,7 +207,7 @@ runThree opts = do
                                       $ bus \setCol col -> mesh
                                           (box {} empty)
                                           ( meshStandardMaterial
-                                              { color: RGB 1.0 1.0 1.0 }
+                                              { color: c3 $ RGB 1.0 1.0 1.0 }
                                               (col <#> P.color)
                                           )
                                           ( keepLatest $ (bang opts.initialDims <|> opts.resizeE) <#> \i ->
@@ -220,9 +225,9 @@ runThree opts = do
                                                   , scaleY 0.04
                                                   , scaleZ 0.4
                                                   , if opts.isMobile then P.onTouchStart \_ -> setCol
-                                                      (RGB 0.1 0.8 0.6)
+                                                      $ c3 (RGB 0.1 0.8 0.6)
                                                     else P.onMouseDown \_ -> setCol
-                                                      (RGB 0.1 0.8 0.6)
+                                                      $ c3 (RGB 0.1 0.8 0.6)
                                                   ]
                                           )
                                   )
@@ -257,7 +262,7 @@ runThree opts = do
                         )
                         opts.renderE
                     )
-                , sample opts.xPosB ({ t: _, xp: _ } <$> opts.renderE) <#> \{ t, xp } -> P.target $ vector3
+                , sample opts.xPosB ({ t: _, xp: _ } <$> opts.renderE) <#> \{ t, xp } -> P.target $ v33
                     { x: xp, y: 0.0, z: t * -1.0 * speed - 2.0 }
                 , opts.resizeE <#> \i -> P.aspect (i.iw / i.ih)
                 ]
@@ -436,7 +441,7 @@ posFromOrientation gtp time = case gtp.time of
   Nothing -> 0.0
   Just t -> min 1.0 $ max (-1.0) $ (time - t) * gtp.gamma * orientationDampening + gtp.pos
   where
-  orientationDampening = 0.1 :: Number
+  orientationDampening = 0.01 :: Number
 
 -- primitive, but no need to worry about friction...
 posFromKeypress :: KTP -> Number -> Number
@@ -454,6 +459,9 @@ posFromKeypress ktp time = case ktp.time of
 
 main :: { bme01 :: String } -> Object.Object String -> Effect Unit
 main { bme01 } silentRoom = launchAff_ do
+  three <- threeAff
+  orbitControls <- orbitControlsAff
+  let threeStuff = { three, orbitControls }
   w <- liftEffect $ window
   loc <- liftEffect $ location w
   pn <- liftEffect $ pathname loc
@@ -463,7 +471,7 @@ main { bme01 } silentRoom = launchAff_ do
     myPlayer
       | pn == "/2" = Player2
       | otherwise = Player1
-  pubNub /\ pnEvent <- liftEffect
+  pubNub /\ pnEvent <-
     ( (map <<< map)
         ( filterMap
             ( \(PubNubEvent pne) -> if pne.message.player /= myPlayer then Just pne.message.action else Nothing
@@ -471,13 +479,14 @@ main { bme01 } silentRoom = launchAff_ do
         )
         pubnubEvent
     )
-  let player2XBehavior = step (const 0.0) $ case myPlayer of
-          Player2 -> empty
-          -- player1 can see player2
-          Player1 -> pnEvent # filterMap case _ of
-            XPositionKeyboard i -> Just $ posFromKeypress i
-            XPositionMobile i -> Just $ posFromOrientation i
-            _ -> Nothing
+  let
+    player2XBehavior = step (const 0.0) $ case myPlayer of
+      Player2 -> empty
+      -- player1 can see player2
+      Player1 -> pnEvent # filterMap case _ of
+        XPositionKeyboard i -> Just $ posFromKeypress i
+        XPositionMobile i -> Just $ posFromOrientation i
+        _ -> Nothing
   resizeListener <- liftEffect $ eventListener \_ -> do
     iw <- liftEffect $ Int.toNumber <$> innerWidth w
     ih <- liftEffect $ Int.toNumber <$> innerHeight w
@@ -601,7 +610,8 @@ main { bme01 } silentRoom = launchAff_ do
                               [ D.Self := HTMLCanvasElement.fromElement >>>
                                   traverse_
                                     ( runThree <<<
-                                        { isMobile: ete
+                                        { threeStuff
+                                        , isMobile: ete
                                         , lowPriorityCb: unsched
                                         , maxColumns: pcMax
                                         , myPlayer

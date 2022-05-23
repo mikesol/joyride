@@ -1,10 +1,11 @@
-import PubNub from "pubnub";
 import { v4 as uuidv4 } from "uuid";
 
-export const pubnub_ = (listener) => {
+export const _PubNub = () => import("pubnub");
+
+export const pubnub_ = (PubNub) => (listener) => {
 	return function () {
 		var publisher = uuidv4();
-		var pn = new PubNub({
+		var pn = new PubNub.default({
 			publishKey: "pub-c-672671ca-ea5d-4c31-9bbf-1c123cddfa2b",
 			subscribeKey: "sub-c-9e61eeea-570c-48cd-8088-ad367df0dcf7",
 			uuid: publisher,
