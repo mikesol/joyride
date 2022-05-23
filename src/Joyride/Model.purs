@@ -28,6 +28,7 @@ type LeapfrogAudio = AudioGraph Unit
 type MandateAudio = AudioGraph Unit
 type LaneAudio = AudioGraph Unit
 type ArealAudio = AudioGraph Unit
+type ArealFilter = AudioFilter Unit
 
 type BasicVisual = VisualGraph Unit
 type BombVisual = VisualGraph Unit
@@ -129,10 +130,22 @@ data Note
       }
   -- | This is the answer to the mandate.
   | MandateAnswer SingleMandateAnswer
+  -- | This is some sort of effect that lasts for a period of time
+  -- | Can be a drone, an echo, granular synthesis, etc
+  -- | Adds texture/color
   | Lane
       { audio :: LaneAudio
       , visual :: LaneVisual
       , headHitsLineOneAt :: Milliseconds
       , tailHitsLineOneAt :: Milliseconds
+      | PlayerInfo
+      }
+  -- | This is always some sort of base with a filter. It represents a "following"
+  -- | motion, meaning something appears that we follow on the screen.
+  | Areal
+      { audio :: ArealAudio
+      , filter :: ArealFilter
+      , visual :: ArealVisual
+      , startsAt :: Milliseconds
       | PlayerInfo
       }
