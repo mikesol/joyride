@@ -1,10 +1,25 @@
-module Types where
+module Types
+  ( Player(..)
+  , Position(..)
+  , AnimatedS
+  , Orientation
+  , ToplevelInfo
+  , WindowDims
+  , Positionable
+  , XDirection(..)
+  , Animated
+  , KTP
+  , GTP
+  , Points
+  , Penalty
+  , UIEvents
+  ) where
 
 import Prelude
 
 import BMS.Types (Column, Note, Offset)
 import Data.Array.NonEmpty as NEA
-import Data.Generic.Rep (class Generic)
+import Data.FastVect.FastVect (Vect)
 import Data.List (List)
 import Data.Map as Map
 import Data.Maybe (Maybe)
@@ -21,7 +36,6 @@ import Simple.JSON (writeJSON)
 import Simple.JSON as JSON
 import WAGS.WebAPI (BrowserAudioBuffer)
 import Web.HTML.Window (RequestIdleCallbackId, Window)
-
 
 type CanvasInfo = { x :: Number, y :: Number } /\ Number
 type UIEvents = V
@@ -42,7 +56,7 @@ type ToplevelInfo =
   , player2XBehavior :: Behavior (Number -> Number)
   , xPosB :: Behavior (Number -> Number)
   , resizeE :: Event WindowDims
-  , initialDims ::WindowDims
+  , initialDims :: WindowDims
   , icid :: Ref.Ref (Maybe RequestIdleCallbackId)
   , wdw :: Window
   , unschedule :: Ref.Ref (Map.Map Number (Effect Unit))
@@ -66,15 +80,13 @@ type AnimatedS =
   , column :: Column
   }
 
-
 type Orientation = { absolute :: Number, alpha :: Number, beta :: Number, gamma :: Number }
 type GTP = { gamma :: Number, time :: Maybe Number, pos :: Number }
 type KTP = { curXDir :: XDirection, time :: Maybe Number, pos :: Number }
 
-
 data XDirection = ToLeft | ToRight | Still
+
 derive instance Eq XDirection
-derive instance Generic XDirection _
 instance Show XDirection where
   show = JSON.writeJSON
 
@@ -93,8 +105,8 @@ instance JSON.WriteForeign XDirection where
   writeImpl Still = JSON.writeImpl "Still"
 
 data Player = Player1 | Player2 | Player3 | Player4
+
 derive instance Eq Player
-derive instance Generic Player _
 instance Show Player where
   show = JSON.writeJSON
 
@@ -115,8 +127,8 @@ instance JSON.WriteForeign Player where
   writeImpl Player4 = JSON.writeImpl "Player4"
 
 data Position = Position1 | Position2 | Position3 | Position4
+
 derive instance Eq Position
-derive instance Generic Position _
 instance Show Position where
   show = JSON.writeJSON
 
@@ -135,3 +147,7 @@ instance JSON.WriteForeign Position where
   writeImpl Position2 = JSON.writeImpl "Position2"
   writeImpl Position3 = JSON.writeImpl "Position3"
   writeImpl Position4 = JSON.writeImpl "Position4"
+
+newtype Points = Points Number
+newtype Penalty = Penalty Number
+type Positionable a = Vect 4 a
