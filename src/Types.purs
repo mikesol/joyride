@@ -2,7 +2,7 @@ module Types where
 
 import Prelude
 
-import BMS.Types (Column, Note(..), Offset(..))
+import BMS.Types (Column, Note, Offset)
 import Data.Array.NonEmpty as NEA
 import Data.Generic.Rep (class Generic)
 import Data.List (List)
@@ -92,7 +92,7 @@ instance JSON.WriteForeign XDirection where
   writeImpl ToRight = JSON.writeImpl "ToRight"
   writeImpl Still = JSON.writeImpl "Still"
 
-data Player = Player1 | Player2
+data Player = Player1 | Player2 | Player3 | Player4
 derive instance Eq Player
 derive instance Generic Player _
 instance Show Player where
@@ -104,8 +104,34 @@ instance JSON.ReadForeign Player where
     case ri of
       "Player1" -> pure Player1
       "Player2" -> pure Player2
+      "Player3" -> pure Player3
+      "Player4" -> pure Player4
       _ -> fail $ ForeignError ("No idea how to parse: " <> writeJSON i)
 
 instance JSON.WriteForeign Player where
   writeImpl Player1 = JSON.writeImpl "Player1"
   writeImpl Player2 = JSON.writeImpl "Player2"
+  writeImpl Player3 = JSON.writeImpl "Player3"
+  writeImpl Player4 = JSON.writeImpl "Player4"
+
+data Position = Position1 | Position2 | Position3 | Position4
+derive instance Eq Position
+derive instance Generic Position _
+instance Show Position where
+  show = JSON.writeJSON
+
+instance JSON.ReadForeign Position where
+  readImpl i = do
+    ri <- JSON.readImpl i
+    case ri of
+      "Position1" -> pure Position1
+      "Position2" -> pure Position2
+      "Position3" -> pure Position3
+      "Position4" -> pure Position4
+      _ -> fail $ ForeignError ("No idea how to parse: " <> writeJSON i)
+
+instance JSON.WriteForeign Position where
+  writeImpl Position1 = JSON.writeImpl "Position1"
+  writeImpl Position2 = JSON.writeImpl "Position2"
+  writeImpl Position3 = JSON.writeImpl "Position3"
+  writeImpl Position4 = JSON.writeImpl "Position4"

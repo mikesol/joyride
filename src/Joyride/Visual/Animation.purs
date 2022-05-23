@@ -78,7 +78,7 @@ runThree opts@{ threeStuff: { three } } = do
                           ]
                       )
                   ]
-                Player2 -> []
+                _ -> []
             ) <>
               [
                 -- bar 1
@@ -191,7 +191,7 @@ runThree opts@{ threeStuff: { three } } = do
                         ( negate >>> mul speed >>> add
                             ( case opts.myPlayer of
                                 Player1 -> 2.0
-                                Player2 -> 0.0
+                                _ -> 0.0
                             )
                         )
                         opts.renderE

@@ -83,12 +83,12 @@ main { bme01 } silentRoom = launchAff_ do
     )
   let
     player2XBehavior = step (const 0.0) $ case myPlayer of
-      Player2 -> empty
       -- player1 can see player2
       Player1 -> pnEvent # filterMap case _ of
         XPositionKeyboard i -> Just $ posFromKeypress i
         XPositionMobile i -> Just $ posFromOrientation i
         _ -> Nothing
+      _ -> empty
   resizeListener <- liftEffect $ eventListener \_ -> do
     ({ iw: _, ih: _ } <$> (Int.toNumber <$> innerWidth w) <*> (Int.toNumber <$> innerHeight w)) >>= resizeE.push
   liftEffect $ addEventListener (EventType "resize") resizeListener true (toEventTarget w)
