@@ -27,7 +27,7 @@ posFromOrientation gtp time = case gtp.time of
   Nothing -> 0.0
   Just t -> min 1.0 $ max (-1.0) $ (time - t) * gtp.gamma * orientationDampening + gtp.pos
   where
-  orientationDampening = 0.01 :: Number
+  orientationDampening = 0.001 :: Number
 
 xForTouch ::  Window ->Player -> PubNub -> Effect (Behavior (Number -> Number))
 xForTouch w myPlayer pubNub = do
