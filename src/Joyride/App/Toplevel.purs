@@ -7,56 +7,95 @@ import Data.Array (span)
 import Data.DateTime.Instant (unInstant)
 import Data.Foldable (oneOf, oneOfMap, traverse_)
 import Data.Map as Map
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), maybe)
 import Data.Newtype (unwrap)
 import Data.Number (pi)
+import Data.Time.Duration (Seconds(..))
 import Data.Tuple (fst, snd)
 import Deku.Attribute (attr, cb, (:=))
 import Deku.Control (switcher, text, text_)
 import Deku.Core (Nut, vbussed)
 import Deku.DOM as D
-import Effect (foreachE)
+import Effect (Effect, foreachE)
 import Effect.Now (now)
 import Effect.Ref as Ref
 import Effect.Timer (clearInterval, setInterval)
-import FRP.Behavior (step)
+import FRP.Behavior (Behavior, sampleBy, step)
 import FRP.Behavior.Time (instant)
-import FRP.Event (bang, fromEvent, hot, keepLatest, subscribe)
+import FRP.Event (Event, bang, fromEvent, hot, subscribe)
 import FRP.Event.AnimationFrame (animationFrame)
+import FRP.Event.VBus (V)
+import Foreign.Object as Object
 import Joyride.Audio.Graph (graph)
-import Joyride.FRP.Animate (animate)
 import Joyride.FRP.Behavior (refToBehavior)
+import Joyride.FRP.Rate (timeFromRate)
+import Joyride.FRP.Schedule (scheduleCf)
+import Joyride.Model (Note, NoteFSM)
 import Joyride.Visual.Animation (runThree)
+import Joyride.Wags (AudibleEnd)
+import Record (union)
+import Rito.Color (color)
+import Rito.THREE (ThreeStuff)
 import Type.Proxy (Proxy(..))
-import Types (ToplevelInfo, UIEvents)
+import Types (Player, WindowDims)
 import WAGS.Clock (withACTime)
 import WAGS.Interpret (close, constant0Hack, context)
 import WAGS.Math (calcSlope)
 import WAGS.Run (run2)
+import WAGS.WebAPI (BrowserAudioBuffer)
 import Web.Event.Event (target)
 import Web.HTML.HTMLCanvasElement as HTMLCanvasElement
 import Web.HTML.HTMLInputElement (fromEventTarget, valueAsNumber)
-import Web.HTML.Window (cancelIdleCallback, requestIdleCallback)
+import Web.HTML.Window (RequestIdleCallbackId, Window, cancelIdleCallback, requestIdleCallback)
 
 twoPi = 2.0 * pi :: Number
+
+type UIEvents = V
+  ( start :: Unit
+  , stop :: Effect Unit
+  , slider :: Number
+  , animationFrame :: Number
+  , toAnimate :: Note
+  , basic :: { audio :: AudibleEnd, startsAt :: Seconds }
+  )
+
+type ToplevelInfo =
+  { loaded :: Event Boolean
+  , threeStuff :: ThreeStuff
+  , isMobile :: Boolean
+  , lpsCallback :: Number -> Effect Unit -> Effect Unit
+  , myPlayer :: Player
+  , player2XBehavior :: Behavior (Number -> Number)
+  , xPosB :: Behavior (Number -> Number)
+  , resizeE :: Event WindowDims
+  , initialDims :: WindowDims
+  , noteScrollSpeed :: Number
+  , silence :: BrowserAudioBuffer
+  , icid :: Ref.Ref (Maybe RequestIdleCallbackId)
+  , wdw :: Window
+  , unschedule :: Ref.Ref (Map.Map Number (Effect Unit))
+  , soundObj :: Ref.Ref (Object.Object BrowserAudioBuffer)
+  , score :: NoteFSM
+  }
 
 toplevel :: ToplevelInfo -> Nut
 toplevel
   { loaded
   , threeStuff
   , isMobile
-  , lowPriorityCb
-  , maxColumns
+  , lpsCallback
   , myPlayer
   , resizeE
   , player2XBehavior
   , xPosB
+  , noteScrollSpeed
   , initialDims
   , icid
   , wdw
+  , silence
   , unschedule
   , soundObj
-  , offsetsToNoteColumns
+  , score
   } =
   ( (fromEvent loaded <|> bang false) # switcher case _ of
       false -> D.div_
@@ -78,13 +117,11 @@ toplevel
                                   ( runThree <<<
                                       { threeStuff
                                       , isMobile
-                                      , lowPriorityCb
-                                      , maxColumns
+                                      , lowPriorityCb: lpsCallback
                                       , myPlayer
                                       , player2XBehavior: player2XBehavior <*> (map (unInstant >>> unwrap) instant)
                                       , resizeE: resizeE
-                                      , animE: keepLatest $ map (oneOfMap bang)
-                                          event.toAnimate
+                                      , animE: event.toAnimate
                                       , renderE: event.animationFrame
                                       , xPosB: xPosB <*> (map (unInstant >>> unwrap) instant)
                                       , initialDims
@@ -137,8 +174,7 @@ toplevel
                                               n <- unwrap <<< unInstant <$>
                                                 now
                                               mp <- Map.toUnfoldable <$>
-                                                Ref.read
-                                                  unschedule
+                                                Ref.read unschedule
                                               let
                                                 lr = span (fst >>> (_ < n)) mp
                                               foreachE lr.init snd
@@ -152,34 +188,58 @@ toplevel
                                         ( withACTime ctx animationFrame <#>
                                             _.acTime
                                         )
-                                      animated <- hot
-                                        ( animate (refToBehavior soundObj)
-                                            ( step 1.0
-                                                ( map
-                                                    ( calcSlope 0.0 0.75 100.0
-                                                        1.25
-                                                    )
-                                                    event.slider
-                                                )
-                                            )
-                                            offsetsToNoteColumns
-                                            afE.event
-                                        )
+                                      let sounds = refToBehavior soundObj
+                                      withRate <-
+                                        hot
+                                          $ timeFromRate
+                                              ( { rate: _ } <$> step 1.0
+                                                  ( map
+                                                      ( calcSlope 0.0 0.75 100.0
+                                                          1.25
+                                                      )
+                                                      event.slider
+                                                  )
+                                              )
+                                              (Seconds >>> { real: _ } <$> afE.event)
+
                                       iu0 <- subscribe afE.event
                                         push.animationFrame
-                                      iu1 <- subscribe animated.event
-                                        push.toAnimate
+
+                                      iu1 <- subscribe
+                                        ( scheduleCf score
+                                            ( map
+                                                ( \{ real, prevReal, adjusted, buffers } ->
+                                                    { realTime: real
+                                                    , adjustedTime: adjusted
+                                                    , lookAheadInRealTime: maybe (Seconds 0.1) (\(Seconds pr) -> Seconds (2.0 * (unwrap real - pr))) prevReal
+                                                    , buffers
+                                                    , speed: noteScrollSpeed
+                                                    , isMobile
+                                                    , initialDims
+                                                    , animationE: Seconds <$> afE.event
+                                                    , resizeE: resizeE
+                                                    , silence
+                                                    , mkColor: color threeStuff.three
+                                                    , pushBasic: push.basic
+                                                    }
+                                                )
+                                                (sampleBy ({ buffers: _ } >>> union) sounds withRate.event)
+                                            )
+                                        )
+                                        (flip foreachE push.toAnimate)
                                       st <- run2 ctx
                                         ( graph
-                                            lowPriorityCb
-                                            animated.event
+                                            { lpsCallback
+                                            , basics: event.basic
+                                            }
+
                                         )
                                       push.stop
                                         ( st *> hk *> clearInterval ci
                                             *> afE.unsubscribe
                                             *> iu0
                                             *> iu1
-                                            *> animated.unsubscribe
+                                            *> withRate.unsubscribe
                                             *> close ctx
                                         )
                                   ]

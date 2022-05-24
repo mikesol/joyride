@@ -2,49 +2,56 @@ module Joyride.Model where
 
 import Prelude
 
+import Control.Comonad.Cofree (Cofree)
+import Data.FastVect.FastVect (Vect)
 import Data.List (List)
 import Data.Maybe (Maybe)
-import Data.Time.Duration (Milliseconds)
+import Data.Time.Duration (Seconds)
 import Data.Typelevel.Num (D2)
+import Effect (Effect)
+import FRP.Event (Event)
+import Foreign.Object (Object)
+import Joyride.Wags (AudibleEnd)
+import Rito.Color (Color, RGB)
 import Rito.Core (AMesh)
-import Types (Penalty, Player, Points, Positionable)
+import Types (Column, Penalty, Player, Points, WindowDims)
 import WAGS.Core (Audible)
+import WAGS.WebAPI (BrowserAudioBuffer)
 
-type Claimed = { player :: Player }
+type Claimed = { who :: Player }
 type PlayerInfo = (player :: Maybe Claimed)
-type AudioGraph i = i -> forall lock payload. Audible D2 lock payload
+type AudioGraph = forall lock payload. Audible D2 lock payload
 type AudioFilter i = i -> forall lock payload. Audible D2 lock payload -> Audible D2 lock payload
-type VisualGraph i = i -> forall lock payload. AMesh lock payload
+type VisualGraph = forall lock payload. AMesh lock payload
 
-type BasicAudio = AudioGraph Unit
-type BasicBeats = { startsAt :: Milliseconds, audio :: BasicAudio }
-type BombAudio = AudioGraph Unit
+type BasicBeats = forall lock payload. Unit -> Vect 4 { startsAt :: Seconds, audio :: Audible D2 lock payload }
+type BombAudio = AudioGraph
 type BombFilter = AudioFilter Unit
-type ComboStartAudio = AudioGraph Unit
-type ComboEltAudio = AudioGraph Unit
-type BeautifyAudio = AudioGraph Unit
-type BeautifulAudio = AudioGraph Unit
-type LeapfrogAudio = AudioGraph Unit
-type MandateAudio = AudioGraph Unit
-type LaneAudio = AudioGraph Unit
-type ArealAudio = AudioGraph Unit
+type ComboStartAudio = AudioGraph
+type ComboEltAudio = AudioGraph
+type BeautifyAudio = AudioGraph
+type BeautifulAudio = AudioGraph
+type LeapfrogAudio = AudioGraph
+type MandateAudio = AudioGraph
+type LaneAudio = AudioGraph
+type ArealAudio = AudioGraph
 type ArealFilter = AudioFilter Unit
 
-type BasicVisual = VisualGraph Unit
-type BombVisual = VisualGraph Unit
-type ComboStartVisual = VisualGraph Unit
-type ComboEltVisual = VisualGraph Unit
-type BeautifyVisual = VisualGraph Unit
-type BeautifulVisual = VisualGraph Unit
-type LeapfrogVisual = VisualGraph Unit
-type MandateVisual = VisualGraph Unit
-type LaneVisual = VisualGraph Unit
-type ArealVisual = VisualGraph Unit
+type BasicVisual = VisualGraph
+type BombVisual = VisualGraph
+type ComboStartVisual = VisualGraph
+type ComboEltVisual = VisualGraph
+type BeautifyVisual = VisualGraph
+type BeautifulVisual = VisualGraph
+type LeapfrogVisual = VisualGraph
+type MandateVisual = VisualGraph
+type LaneVisual = VisualGraph
+type ArealVisual = VisualGraph
 
 newtype SingleComboElt = SingleComboElt
   { audio :: ComboEltAudio
   , visual :: ComboEltVisual
-  , startsAt :: Milliseconds
+  , startsAt :: Seconds
   , points :: Points
   | PlayerInfo
   }
@@ -52,19 +59,25 @@ newtype SingleComboElt = SingleComboElt
 newtype SingleMandateAnswer = SingleMandateAnswer
   { audio :: MandateAudio
   , visual :: MandateVisual
-  , startsAt :: Milliseconds
+  , startsAt :: Seconds
+  -- | If a mandate is unfulfilled, we penalize
+  , penaltyWhenUnanswered :: Penalty
   | PlayerInfo
   }
 
-newtype SingleBeautiful = SingleBeautiful { audio :: BeautifulAudio
-      , visual :: BeautifulVisual
-      , thrownBy :: Player
-      , startsAt :: Milliseconds
-      , pointsWhenUnanswered :: Points
-      , pointsWhenAnsweredForThrower :: Points
-      , pointsWhenAnsweredForReceiver :: Points
-      | PlayerInfo
-      }
+newtype SingleBeautiful = SingleBeautiful
+  { audio :: BeautifulAudio
+  , visual :: BeautifulVisual
+  , thrownBy :: Player
+  , startsAt :: Seconds
+  -- | if not answered, the thrower gets points
+  , pointsWhenUnanswered :: Points
+  -- | if answered, the asker thrower some points
+  , pointsWhenAnsweredForThrower :: Points
+  -- | if answered, the receiver gets more points
+  , pointsWhenAnsweredForReceiver :: Points
+  | PlayerInfo
+  }
 
 data Note
   -- | A collection of four notes
@@ -72,9 +85,10 @@ data Note
   -- | Notes don't move through the lines at equal intensity. Each one speeds up or slows down depending on what mark it needs to hit.
   -- | There's a small victory sound for each player when the note is played. We hear it loud and clear for us and in the distance for other players.
   = Basic
-      { beats :: Positionable BasicBeats
-      , visual :: BasicVisual
+      { event :: Unit -> BasicVisual
+      , column :: Column
       , points :: Points
+      , scheduledAt :: Seconds
       | PlayerInfo
       }
   -- | Bombs flow through at a steady rate and look subtly different than basic (perhaps when rotating one corner shows that it is a bomb).
@@ -84,7 +98,7 @@ data Note
       , filter :: BombFilter
       , visual :: BombVisual
       , penalty :: Penalty
-      , hitsLineOneAt :: Milliseconds
+      , hitsLineOneAt :: Seconds
       | PlayerInfo
       }
   -- | Combos can only be started by the first player
@@ -94,8 +108,8 @@ data Note
   | ComboStart
       { audio :: ComboStartAudio
       , visual :: ComboStartVisual
-      , hitsLineOneAt :: Milliseconds
-      , comboElts :: Milliseconds -> List SingleComboElt
+      , hitsLineOneAt :: Seconds
+      , comboElts :: Seconds -> List SingleComboElt
       | PlayerInfo
       }
   -- | Combo elements are only dischargeable by the first player after triggering a combo. As soon as one is missed, the whole thing falls apart. Should be a coherent muscial phrase.
@@ -104,9 +118,9 @@ data Note
   | Beautifuy
       { audio :: BeautifyAudio
       , visual :: BeautifyVisual
-      , startsAt :: Milliseconds
+      , startsAt :: Seconds
       , points :: Points
-      , injectable :: Milliseconds -> SingleBeautiful
+      , injectable :: Seconds -> SingleBeautiful
       | PlayerInfo
       }
   -- | The response to beautify
@@ -116,16 +130,16 @@ data Note
       { audio :: LeapfrogAudio
       , goTo :: Player
       , visual :: LeapfrogVisual
-      , startsAt :: Milliseconds
+      , startsAt :: Seconds
       | PlayerInfo
       }
   -- | Mandate ask is separate from the lanes. It is an element we pull in from the side and inject into the game. We "mandate" that another player plays this note.  If it is not answered, we get lots of points, and if it is, we still get a few.
   | MandateAsk
       { audio :: MandateAudio
       , visual :: MandateVisual
-      , hitsLineOneAt :: Milliseconds
+      , hitsLineOneAt :: Seconds
       , playerMandated :: Player
-      , answerable :: Milliseconds -> SingleMandateAnswer
+      , answerable :: Seconds -> SingleMandateAnswer
       | PlayerInfo
       }
   -- | This is the answer to the mandate.
@@ -136,8 +150,9 @@ data Note
   | Lane
       { audio :: LaneAudio
       , visual :: LaneVisual
-      , headHitsLineOneAt :: Milliseconds
-      , tailHitsLineOneAt :: Milliseconds
+      , headHitsLineOneAt :: Seconds
+      , tailHitsLineOneAt :: Seconds
+      , points :: Points
       | PlayerInfo
       }
   -- | This is always some sort of base with a filter. It represents a "following"
@@ -146,6 +161,26 @@ data Note
       { audio :: ArealAudio
       , filter :: ArealFilter
       , visual :: ArealVisual
-      , startsAt :: Milliseconds
+      , startsAt :: Seconds
+      , points :: Points
       | PlayerInfo
       }
+
+type AudioFiles = Object BrowserAudioBuffer
+
+type NoteFSMI =
+  { realTime :: Seconds
+  , adjustedTime :: Seconds
+  , lookAheadInRealTime :: Seconds
+  , buffers :: AudioFiles
+  , speed :: Number
+  , isMobile :: Boolean
+  , initialDims :: WindowDims
+  , animationE :: Event Seconds
+  , resizeE :: Event WindowDims
+  , silence :: BrowserAudioBuffer
+  , mkColor :: RGB -> Color
+  , pushBasic :: { audio :: AudibleEnd, startsAt :: Seconds } -> Effect Unit
+  }
+
+type NoteFSM = NoteFSMI -> Cofree ((->) NoteFSMI) (Array Note)

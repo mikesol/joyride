@@ -2,22 +2,14 @@ module Main where
 
 import Prelude
 
-import BMS.Parser (bms)
-import BMS.Timing (gatherAll)
-import BMS.Types (Column(..), Note, Offset)
 import Control.Plus (empty)
-import Data.Compactable (compact)
-import Data.Foldable (fold, foldl)
 import Data.Int as Int
-import Data.List (List, drop, nub, take)
-import Data.Map (SemigroupMap(..))
+import Data.List (List(..), drop, take, (:))
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
-import Data.Newtype (unwrap)
 import Data.Number (pi)
-import Data.Traversable (sequence)
-import Data.Tuple (snd)
 import Data.Tuple.Nested (type (/\), (/\))
+import Data.Unfoldable (replicate)
 import Deku.Toplevel (runInBody)
 import Effect (Effect)
 import Effect.Aff (forkAff, launchAff_)
@@ -33,12 +25,12 @@ import Foreign.Object as Object
 import Joyride.App.Toplevel (toplevel)
 import Joyride.FRP.Keypress (posFromKeypress, xForKeyboard)
 import Joyride.FRP.Orientation (posFromOrientation, xForTouch)
+import Joyride.Mocks.TestData (testData)
 import Joyride.Network.Download (dlInChunks)
 import Joyride.Transport.PubNub (PlayerAction(..), PubNubEvent(..), pubnubEvent)
 import Rito.Interpret (orbitControlsAff, threeAff)
-import Joyride.Mocks.TestData (testData)
-import Types (Animated, Player(..))
-import WAGS.Interpret (context)
+import Types (BufferName(..), Player(..))
+import WAGS.Interpret (AudioBuffer(..), context, makeAudioBuffer)
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
 import Web.HTML (window)
@@ -49,13 +41,6 @@ twoPi = 2.0 * pi :: Number
 
 type StartStop = V (start :: Unit, stop :: Effect Unit)
 type CanvasInfo = { x :: Number, y :: Number } /\ Number
-type UIEvents = V
-  ( start :: Unit
-  , stop :: Effect Unit
-  , slider :: Number
-  , animationFrame :: Number
-  , toAnimate :: Animated
-  )
 
 foreign import emitsTouchEvents :: Effect Boolean
 
@@ -99,46 +84,21 @@ main { bme01 } silentRoom = launchAff_ do
   loaded <- liftEffect $ Event.create
   unschedule <- liftEffect $ new Map.empty
   ctx' <- liftEffect $ context
+  silence <- liftEffect $ makeAudioBuffer ctx' (AudioBuffer 44100 [replicate 1000 0.0])
   let
-    bmsRes = bms bme01
-    info = gatherAll bmsRes
-    -- noffsets = noteOffsets info
-    noffsets = testData
 
-    -- list of notes in the order we need them
-    offsetsToNoteColumns :: Map.Map Offset (List (Column /\ Note))
-    offsetsToNoteColumns = unwrap
-      $ fold
-      $ map SemigroupMap
-      $ (map <<< map) pure
-      $ map (\(a /\ b) -> map (\c -> a /\ c) b)
-      $ (Map.toUnfoldable :: _ -> List _) noffsets
-
-    maxColumns :: Int
-    maxColumns = foldl
-      ( foldl
-          ( \b (c /\ _) -> case c of
-              PlayColumn i -> max b i
-              _ -> b
-          )
-      )
-      0
-      offsetsToNoteColumns
-
-    n2o :: List (Note /\ String)
-    n2o = compact
-      $ map (sequence <<< ((/\) <*> flip Map.lookup info.headers.wavs))
-      $ nub
-      $ map snd
-      $ join
-      $ Map.values
-      $ offsetsToNoteColumns
+    bufferNames :: List (BufferName /\ String)
+    bufferNames = (BufferName "kick" /\ "drum1_001")
+      : (BufferName "hihat" /\ "drum2_001")
+      : (BufferName "note" /\ "chord_111")
+      : (BufferName "tambourine" /\ "submelo_012")
+      : Nil
   let
     lowPriorityCb k v = do
       n <- Random.random
       Ref.modify_ (Map.insert (k + (n * 0.25)) v) unschedule
-  let n2oh = take 300 n2o
-  let n2ot = drop 300 n2o
+  let n2oh = take 300 bufferNames
+  let n2ot = drop 300 bufferNames
   _ <- forkAff do
     dlInChunks silentRoom 100 n2oh ctx' soundObj
     liftEffect $ loaded.push true
@@ -148,17 +108,18 @@ main { bme01 } silentRoom = launchAff_ do
         { loaded: loaded.event
         , threeStuff
         , isMobile
-        , lowPriorityCb
-        , maxColumns
+        , lpsCallback: lowPriorityCb
         , myPlayer
         , resizeE: resizeE.event
         , player2XBehavior
         , xPosB
+        , silence
         , initialDims
         , icid
         , wdw: w
         , unschedule
         , soundObj
-        , offsetsToNoteColumns
+        , score: testData
+        , noteScrollSpeed: 5.0
         }
     )

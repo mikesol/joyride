@@ -2,34 +2,33 @@ module Joyride.Visual.Animation where
 
 import Prelude
 
-import BMS.Types (Column(..))
-import Bolson.Core (Child(..), envy)
+import Bolson.Core (Child(..))
 import Control.Alt ((<|>))
 import Control.Plus (empty)
-import Data.Foldable (oneOf, oneOfMap)
-import Data.Int as Int
+import Data.Foldable (oneOf)
+import Data.Newtype (unwrap)
 import Data.Number (pi)
 import Effect (Effect)
 import FRP.Behavior (Behavior, sample, sample_)
-import FRP.Event (Event, bang, bus, keepLatest)
+import FRP.Event (Event, bang)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
+import Joyride.Model (Note(..))
+import Joyride.Visual.Bar (makeBar)
 import Rito.Cameras.PerspectiveCamera (defaultOrbitControls, perspectiveCamera)
 import Rito.Color (RGB(..), color)
 import Rito.Core (OrbitControls(..), toScene)
-import Rito.Geometries.Box (box)
 import Rito.Geometries.Sphere (sphere)
 import Rito.Lights.PointLight (pointLight)
 import Rito.Materials.MeshBasicMaterial (meshBasicMaterial)
-import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.Mesh (mesh)
-import Rito.Properties (aspect, color, onMouseDown, onTouchStart, target) as P
+import Rito.Properties (aspect, target) as P
 import Rito.Properties (positionX, positionY, positionZ, render, scaleX, scaleY, scaleZ, size)
 import Rito.Renderers.WebGL (webGLRenderer)
 import Rito.Run as Rito.Run
 import Rito.Scene (scene)
 import Rito.THREE (ThreeStuff)
 import Rito.Vector3 (vector3)
-import Types (AnimatedS, Player(..))
+import Types (Player(..), allPlayers)
 import WAGS.Core (dyn)
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 
@@ -42,10 +41,9 @@ runThree
      , isMobile :: Boolean
      , lowPriorityCb :: Number -> Effect Unit -> Effect Unit
      , myPlayer :: Player
-     , maxColumns :: Int
      , player2XBehavior :: Behavior Number
      , resizeE :: Event { iw :: Number, ih :: Number }
-     , animE :: Event AnimatedS
+     , animE :: Event Note
      , renderE :: Event Number
      , xPosB :: Behavior Number
      , initialDims :: { iw :: Number, ih :: Number }
@@ -79,102 +77,47 @@ runThree opts@{ threeStuff: { three } } = do
                       )
                   ]
                 _ -> []
-            ) <>
-              [
-                -- bar 1
-                toScene $ mesh (box {} empty)
-                  ( meshStandardMaterial
-                      { color: c3 $ RGB 1.0 1.0 1.0
+            )
+              <>
+                ( ( makeBar <<<
+                      { c3
+                      , renderE: opts.renderE
+                      , speed
+                      , player: _
                       }
-                      empty
-                  )
-                  ( oneOf
-                      [ bang (positionX 0.0)
-                      , bang (positionY (-1.0))
-                      , positionZ <$>
-                          (map (negate >>> mul speed) opts.renderE)
-                      , bang (scaleX 10.0)
-                      , bang (scaleY 0.02)
-                      , bang (scaleZ 0.03)
-                      ]
-                  )
-              -- bar 2
-              , toScene $ mesh (box {} empty)
-                  ( meshStandardMaterial
-                      { color: c3 $ RGB 1.0 1.0 1.0
-                      }
-                      empty
-                  )
-                  ( oneOf
-                      [ bang (positionX 0.0)
-                      , bang (positionY (-1.0))
-                      , positionZ <$>
-                          (map (negate >>> mul speed >>> add (-2.0)) opts.renderE)
-                      , bang (scaleX 10.0)
-                      , bang (scaleY 0.02)
-                      , bang (scaleZ 0.03)
-                      ]
-                  )
-              -- light
-              , toScene $ pointLight { distance: 4.0, decay: 2.0, color: c3 $ RGB 1.0 1.0 1.0 }
-                  ( oneOf
-                      [ bang (positionX 0.0)
-                      , bang (positionY 0.0)
-                      , positionZ <$>
-                          (map (negate >>> mul speed >>> add 0.1) opts.renderE)
-                      ]
-                  )
-              -- notes
-              , toScene $ dyn $
-                  map
-                    ( \itm -> case itm.column of
-                        BGMColumn _ -> empty
-
-                        PlayColumn x ->
-                          let
-                            xr = Int.toNumber x /
-                              Int.toNumber opts.maxColumns
-                          in
-                            ( ( bang
-                                  ( Insert
-                                      $ envy
-                                      $ bus \setCol col -> mesh
-                                          (box {} empty)
-                                          ( meshStandardMaterial
-                                              { color: c3 $ RGB 1.0 1.0 1.0 }
-                                              (col <#> P.color)
-                                          )
-                                          ( keepLatest $ (bang opts.initialDims <|> opts.resizeE) <#> \i ->
-                                              let
-                                                ratio = i.iw / i.ih
-                                              in
-                                                oneOfMap bang
-                                                  [ positionX
-                                                      ( (xr - 0.5) * 2.0 * ratio
-                                                      )
-                                                  , positionY (-1.0)
-                                                  , positionZ
-                                                      (-1.0 * speed * itm.time - 0.25)
-                                                  , scaleX (0.5 * ratio)
-                                                  , scaleY 0.04
-                                                  , scaleZ 0.4
-                                                  , if opts.isMobile then P.onTouchStart \_ -> setCol
-                                                      $ c3 (RGB 0.1 0.8 0.6)
-                                                    else P.onMouseDown \_ -> setCol
-                                                      $ c3 (RGB 0.1 0.8 0.6)
-                                                  ]
-                                          )
-                                  )
-                              )
+                  ) <$> allPlayers
+                )
+              <>
+                -- light
+                [ toScene $ pointLight
+                    { distance: 4.0
+                    , decay: 2.0
+                    , color: c3 $ RGB 1.0 1.0 1.0
+                    }
+                    ( oneOf
+                        [ bang (positionX 0.0)
+                        , bang (positionY 0.0)
+                        , positionZ <$>
+                            (map (negate >>> mul speed >>> add 0.1) opts.renderE)
+                        ]
+                    )
+                -- notes
+                , toScene $ dyn $
+                    map
+                      ( \itm -> case itm of
+                          Basic x ->
+                            ( (bang (Insert $ x.event unit))
                                 <|>
                                   ( lowPrioritySchedule opts.lowPriorityCb
-                                      (itm.startsAt + 1000.0)
+                                      -- todo: is this too much? not enough?
+                                      (unwrap x.scheduledAt + 6000.0)
                                       (bang Remove)
                                   )
                             )
-                    )
-                    opts.animE
-              ]
+                          _ -> empty
+                      )
+                      opts.animE
+                ]
         )
         ( perspectiveCamera
             { fov: 75.0

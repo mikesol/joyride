@@ -1,84 +1,33 @@
 module Types
   ( Player(..)
   , Position(..)
-  , AnimatedS
+  , Column(..)
+  , normalizedColumn
   , Orientation
-  , ToplevelInfo
   , WindowDims
-  , Positionable
   , XDirection(..)
-  , Animated
   , KTP
   , GTP
-  , Points
-  , Penalty
-  , UIEvents
+  , Points(..)
+  , Penalty(..)
+  , BufferName(..)
+  , allPlayers
   ) where
 
 import Prelude
 
-import BMS.Types (Column, Note, Offset)
-import Data.Array.NonEmpty as NEA
-import Data.FastVect.FastVect (Vect)
-import Data.List (List)
-import Data.Map as Map
 import Data.Maybe (Maybe)
+import Data.Newtype (class Newtype)
 import Data.Tuple.Nested (type (/\))
 import Effect (Effect)
-import Effect.Ref as Ref
-import FRP.Behavior (Behavior)
-import FRP.Event (Event)
 import FRP.Event.VBus (V)
 import Foreign (ForeignError(..), fail)
-import Foreign.Object as Object
-import Rito.THREE (ThreeStuff)
 import Simple.JSON (writeJSON)
 import Simple.JSON as JSON
-import WAGS.WebAPI (BrowserAudioBuffer)
-import Web.HTML.Window (RequestIdleCallbackId, Window)
 
 type CanvasInfo = { x :: Number, y :: Number } /\ Number
-type UIEvents = V
-  ( start :: Unit
-  , stop :: Effect Unit
-  , slider :: Number
-  , animationFrame :: Number
-  , toAnimate :: Animated
-  )
-
-type ToplevelInfo =
-  { loaded :: Event Boolean
-  , threeStuff :: ThreeStuff
-  , isMobile :: Boolean
-  , lowPriorityCb :: Number -> Effect Unit -> Effect Unit
-  , maxColumns :: Int
-  , myPlayer :: Player
-  , player2XBehavior :: Behavior (Number -> Number)
-  , xPosB :: Behavior (Number -> Number)
-  , resizeE :: Event WindowDims
-  , initialDims :: WindowDims
-  , icid :: Ref.Ref (Maybe RequestIdleCallbackId)
-  , wdw :: Window
-  , unschedule :: Ref.Ref (Map.Map Number (Effect Unit))
-  , soundObj :: Ref.Ref (Object.Object BrowserAudioBuffer)
-  , offsetsToNoteColumns :: Map.Map Offset (List (Column /\ Note))
-  }
 
 type WindowDims = { iw :: Number, ih :: Number }
-
-type Animated = NEA.NonEmptyArray
-  { startsAt :: Number
-  , time :: Number
-  , column :: Column
-  , buffer :: BrowserAudioBuffer
-  }
-
-type AnimatedS =
-  { startsAt :: Number
-  , time :: Number
-  , buffer :: BrowserAudioBuffer
-  , column :: Column
-  }
 
 type Orientation = { absolute :: Number, alpha :: Number, beta :: Number, gamma :: Number }
 type GTP = { gamma :: Number, time :: Maybe Number, pos :: Number }
@@ -126,6 +75,9 @@ instance JSON.WriteForeign Player where
   writeImpl Player3 = JSON.writeImpl "Player3"
   writeImpl Player4 = JSON.writeImpl "Player4"
 
+allPlayers :: Array Player
+allPlayers = [Player1, Player2, Player3, Player4]
+
 data Position = Position1 | Position2 | Position3 | Position4
 
 derive instance Eq Position
@@ -149,5 +101,27 @@ instance JSON.WriteForeign Position where
   writeImpl Position4 = JSON.writeImpl "Position4"
 
 newtype Points = Points Number
+derive instance Newtype Points _
 newtype Penalty = Penalty Number
-type Positionable a = Vect 4 a
+derive instance Newtype Penalty _
+newtype BufferName = BufferName String
+derive instance Newtype BufferName _
+data Column = C0 | C1 | C2 | C3 | C4 | C5 | C6 | C7 | C8 | C9 | C10 | C11 | C12 | C13 | C14 | C15
+
+normalizedColumn :: Column -> Number
+normalizedColumn C0 = 0.0 / 16.0
+normalizedColumn C1 = 1.0 / 16.0
+normalizedColumn C2 = 2.0 / 16.0
+normalizedColumn C3 = 3.0 / 16.0
+normalizedColumn C4 = 4.0 / 16.0
+normalizedColumn C5 = 5.0 / 16.0
+normalizedColumn C6 = 6.0 / 16.0
+normalizedColumn C7 = 7.0 / 16.0
+normalizedColumn C8 = 8.0 / 16.0
+normalizedColumn C9 = 9.0 / 16.0
+normalizedColumn C10 = 10.0 / 16.0
+normalizedColumn C11 = 11.0 / 16.0
+normalizedColumn C12 = 12.0 / 16.0
+normalizedColumn C13 = 13.0 / 16.0
+normalizedColumn C14 = 14.0 / 16.0
+normalizedColumn C15 = 15.0 / 16.0
