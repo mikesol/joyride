@@ -193,7 +193,7 @@ let additions =
           , "web-events"
           ]
         , repo = "https://github.com/mikesol/purescript-wags.git"
-        , version = "v1.1.6"
+        , version = "v1.1.8"
         }
       , rito =
         { dependencies =

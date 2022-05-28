@@ -2,139 +2,116 @@ module Joyride.Mocks.TestData where
 
 import Prelude
 
+import Bolson.Core (Child(..), dyn, envy)
 import Control.Comonad.Cofree ((:<))
 import Control.Plus (empty)
-import Data.Array as Array
-import Data.FastVect.FastVect (cons)
+import Data.FastVect.FastVect (Vect, cons)
 import Data.FastVect.FastVect as V
-import Data.List (List(..), (:))
-import Data.Maybe (Maybe(..), fromMaybe, maybe)
-import Data.Newtype (unwrap)
+import Data.Foldable (oneOfMap)
+import Data.List (List(..), span, (:))
+import Data.Maybe (Maybe(..))
 import Data.Time.Duration (Seconds(..))
-import FRP.Event (bang)
-import Foreign.Object as O
-import Joyride.Purs.List (spanMap)
+import Effect (Effect)
+import FRP.Behavior (Behavior, sample_)
+import FRP.Event (Event, keepLatest, memoize)
+import FRP.Event.Class (bang)
+import Foreign.Object as Object
 import Joyride.Audio.Basic as BasicA
-import Joyride.Model (Note(..), NoteFSMI, NoteFSM)
+import Joyride.FRP.Behavior (misbehavior)
+import Joyride.FRP.Schedule (oneOff, scheduleCf)
 import Joyride.Visual.Basic as BasicV
 import Joyride.Wags (AudibleEnd(..))
-import Types (BufferName(..), Column(..), Points(..), normalizedColumn)
+import Record (union)
+import Rito.Core (ASceneful, Mesh, toScene)
+import Safe.Coerce (coerce)
+import Types (Beats(..), Column(..), MakeBasics, RateInfo, beatToTime)
+import WAGS.WebAPI (BrowserAudioBuffer)
 
 infixr 4 cons as :/
+infixr 4 union as |+|
 
-mock :: List (NoteFSMI -> Note)
-mock =
-  ( \{ column, scheduledAt } { buffers, isMobile, speed, silence, mkColor, initialDims, resizeE, animationE, pushBasic } ->
-      let
-        buffy = fromMaybe silence <<< flip O.lookup buffers <<< unwrap
-        startsAt = scheduledAt + 1.0
-        xr = normalizedColumn column
-      in
-        Basic
-          { event: \_ -> BasicV.basic
-              ( ( let
-                    t = startsAt + 0.0
-                  in
-                    { startsAt: Seconds t
-                    , audio: AudibleEnd
-                        ( BasicA.basic
-                            { buffer: buffy $ BufferName "kick"
-                            , offAt: empty
-                            -- todo: this is the bit that will need to be modulated
-                            -- it's not really onAt: bang t
-                            -- the time changes based on what the rate is
-                            , onAt: bang t
-                            }
-                        )
-                    }
+lookAhead :: Beats
+lookAhead = Beats 0.1
 
-                )
-                  :/
-                    ( let
-                        t = startsAt + 1.0
-                      in
-                        { startsAt: Seconds t
-                        , audio: AudibleEnd
-                            ( BasicA.basic
-                                { buffer: buffy $ BufferName "hihat"
-                                , offAt: empty
-                                , onAt: bang t
-                                }
-                            )
-                        }
-                    )
-                  :/
-                    ( let
-                        t = startsAt + 1.25
-                      in
-                        { startsAt: Seconds t
-                        , audio: AudibleEnd
-                            ( BasicA.basic
-                                { buffer: buffy $ BufferName "note"
-                                , offAt: empty
-                                , onAt: bang t
-                                }
-                            )
-                        }
-                    )
-                  :/
-                    ( let
-                        t = startsAt + 2.0
-                      in
-                        { startsAt: Seconds t
-                        , audio: AudibleEnd
-                            ( BasicA.basic
-                                { buffer: buffy $ BufferName "tambourine"
-                                , offAt: empty
-                                , onAt: bang t
-                                }
-                            )
-                        }
-                    )
-                  :/ V.empty
+singleBeat
+  :: { buffer :: Behavior BrowserAudioBuffer
+     , silence :: BrowserAudioBuffer
+     , myBeat :: Beats
+     }
+  -> { startsAt :: Beats, audio :: Event RateInfo -> AudibleEnd }
+singleBeat { buffer, silence, myBeat } =
+  { startsAt: myBeat
+  , audio: \riE -> AudibleEnd
+      ( envy
+          ( memoize
+              ( oneOff identity
+                  ( riE <#> \ri ->
+                      if ri.beats + lookAhead >= myBeat then Just (beatToTime ri myBeat)
+                      else Nothing
+                  )
               )
-              { initialDims
-              , isMobile
-              , mkColor
-              , resizeE
-              , speed
-              , startsAt
-              , animationE
-              , pushAudio: pushBasic
-              , xr
-              }
-          , points: Points 50.0
-          , column
-          , scheduledAt: Seconds scheduledAt
-          , player: Nothing
-          }
-  ) <$>
-    ( { column: C4, scheduledAt: 1.0 }
-        : { column: C5, scheduledAt: 3.0 }
-        : { column: C6, scheduledAt: 4.0 }
-        : { column: C4, scheduledAt: 5.0 }
-        : Nil
-    )
+              \oa -> BasicA.basic
+                { buffer: sample_ (buffer) oa
+                , offAt: empty
+                , silence
+                , onAt: coerce oa
+                }
+          )
 
-getScheduleStart :: Note -> Maybe Number
-getScheduleStart (Basic { scheduledAt: Seconds n }) = Just n
-getScheduleStart _ = Nothing
+      )
+  }
 
-testData :: NoteFSM
-testData = go mock
+severalBeats
+  :: { startsAt :: Beats
+     , silence :: BrowserAudioBuffer
+     , buffers :: Behavior (Object.Object BrowserAudioBuffer)
+     }
+  -> Vect 4 { startsAt :: Beats, audio :: Event RateInfo -> AudibleEnd }
+severalBeats { startsAt, buffers, silence } = singleBeat (f "kick" $ Beats 0.0)
+  :/ singleBeat (f "hihat" $ Beats 1.0)
+  :/ singleBeat (f "note" $ Beats 1.25)
+  :/ singleBeat (f "tambourine" $ Beats 1.5)
+  :/ V.empty
   where
-  -- todo: deal with adjusted time
-  go l nfsmi@{ realTime: Seconds time', lookAheadInRealTime: Seconds lookAhead' } =
-    let
-      endpoint = time' + lookAhead'
-      spanned = spanMap
-        ( \n ->
-            let
-              actualized = n nfsmi
-              st' = getScheduleStart actualized
-            in
-              st' # maybe Nothing \st -> if st >= time' && st < endpoint then Just actualized else Nothing
+  f
+    :: String
+    -> Beats
+    -> { buffer :: Behavior BrowserAudioBuffer
+       , silence :: BrowserAudioBuffer
+       , myBeat :: Beats
+       }
+  f name offset =
+    { myBeat: startsAt + offset
+    , buffer: misbehavior (Object.lookup name) buffers
+    , silence
+    }
+
+mockBasics :: forall lock payload. { | MakeBasics () } -> ASceneful lock payload
+mockBasics makeBasics = toScene (dyn children)
+
+  where
+  children = keepLatest $ map (oneOfMap bang) eventList
+  eventList = scheduleCf (go score) makeBasics.rateInfo
+
+  transform :: _ -> Event (Child Void (Mesh lock payload) Effect lock)
+  transform input = bang $ Insert
+    ( BasicV.basic
+        ( makeBasics |+| input |+|
+            { beats: severalBeats
+                { startsAt: input.appearsAt + Beats 1.0
+                , silence: makeBasics.silence
+                , buffers: makeBasics.buffers
+                }
+            }
         )
-        l
-    in
-      Array.fromFoldable spanned.init :< go spanned.rest
+    )
+  go Nil _ = Nil :< go Nil
+  go l { beats } = do
+    let
+      { init, rest } = span (\{ appearsAt } -> appearsAt <= beats + lookAhead) l
+    (transform <$> init) :< go rest
+  score = { column: C4, appearsAt: Beats 0.0 }
+    : { column: C5, appearsAt: Beats 2.0 }
+    : { column: C6, appearsAt: Beats 3.0 }
+    : { column: C4, appearsAt: Beats 5.0 }
+    : Nil

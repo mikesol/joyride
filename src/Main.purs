@@ -12,7 +12,7 @@ import Data.Tuple.Nested (type (/\), (/\))
 import Data.Unfoldable (replicate)
 import Deku.Toplevel (runInBody)
 import Effect (Effect)
-import Effect.Aff (forkAff, launchAff_)
+import Effect.Aff (Milliseconds(..), forkAff, launchAff_)
 import Effect.Class (liftEffect)
 import Effect.Random as Random
 import Effect.Ref (new)
@@ -25,7 +25,7 @@ import Foreign.Object as Object
 import Joyride.App.Toplevel (toplevel)
 import Joyride.FRP.Keypress (posFromKeypress, xForKeyboard)
 import Joyride.FRP.Orientation (posFromOrientation, xForTouch)
-import Joyride.Mocks.TestData (testData)
+import Joyride.Mocks.TestData (mockBasics)
 import Joyride.Network.Download (dlInChunks)
 import Joyride.Transport.PubNub (PlayerAction(..), PubNubEvent(..), pubnubEvent)
 import Rito.Interpret (orbitControlsAff, threeAff)
@@ -94,7 +94,7 @@ main { bme01 } silentRoom = launchAff_ do
       : (BufferName "tambourine" /\ "submelo_012")
       : Nil
   let
-    lowPriorityCb k v = do
+    lowPriorityCb (Milliseconds k) v = do
       n <- Random.random
       Ref.modify_ (Map.insert (k + (n * 0.25)) v) unschedule
   let n2oh = take 300 bufferNames
@@ -112,6 +112,8 @@ main { bme01 } silentRoom = launchAff_ do
         , myPlayer
         , resizeE: resizeE.event
         , player2XBehavior
+        , renderingInfo: {  halfAmbitus : 2.0, barZSpacing : 1.0, cameraOffset : 1.0}
+        , basicE: mockBasics
         , xPosB
         , silence
         , initialDims
@@ -119,7 +121,24 @@ main { bme01 } silentRoom = launchAff_ do
         , wdw: w
         , unschedule
         , soundObj
-        , score: testData
-        , noteScrollSpeed: 5.0
         }
     )
+
+  -- { loaded :: Event Boolean
+  -- , threeStuff :: ThreeStuff
+  -- , isMobile :: Boolean
+  -- , lpsCallback :: Milliseconds -> Effect Unit -> Effect Unit
+  -- , myPlayer :: Player
+  -- , player2XBehavior :: Behavior (Number -> Number)
+  -- , xPosB :: Behavior (Number -> Number)
+  -- , resizeE :: Event WindowDims
+  -- , basicE :: { | MakeBasics () } -> AScenefulEnd
+  -- , renderingInfo :: RenderingInfo
+  -- , initialDims :: WindowDims
+  -- , noteScrollSpeed :: Number
+  -- , silence :: BrowserAudioBuffer
+  -- , icid :: Ref.Ref (Maybe RequestIdleCallbackId)
+  -- , wdw :: Window
+  -- , unschedule :: Ref.Ref (Map.Map Number (Effect Unit))
+  -- , soundObj :: Ref.Ref (Object.Object BrowserAudioBuffer)
+  -- }

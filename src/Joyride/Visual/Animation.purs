@@ -2,21 +2,17 @@ module Joyride.Visual.Animation where
 
 import Prelude
 
-import Bolson.Core (Child(..))
-import Control.Alt ((<|>))
 import Control.Plus (empty)
 import Data.Foldable (oneOf)
-import Data.Newtype (unwrap)
 import Data.Number (pi)
+import Data.Time.Duration (Milliseconds)
 import Effect (Effect)
-import FRP.Behavior (Behavior, sample, sample_)
+import FRP.Behavior (Behavior, sample_)
 import FRP.Event (Event, bang)
-import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
-import Joyride.Model (Note(..))
 import Joyride.Visual.Bar (makeBar)
 import Rito.Cameras.PerspectiveCamera (defaultOrbitControls, perspectiveCamera)
 import Rito.Color (RGB(..), color)
-import Rito.Core (OrbitControls(..), toScene)
+import Rito.Core (OrbitControls(..), ASceneful, toScene)
 import Rito.Geometries.Sphere (sphere)
 import Rito.Lights.PointLight (pointLight)
 import Rito.Materials.MeshBasicMaterial (meshBasicMaterial)
@@ -28,8 +24,7 @@ import Rito.Run as Rito.Run
 import Rito.Scene (scene)
 import Rito.THREE (ThreeStuff)
 import Rito.Vector3 (vector3)
-import Types (Player(..), allPlayers)
-import WAGS.Core (dyn)
+import Types (Player(..), RateInfo, RenderingInfo, WindowDims, allPlayers, playerZ)
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 
 twoPi = 2.0 * pi :: Number
@@ -39,14 +34,15 @@ speed = 4.0 :: Number
 runThree
   :: { threeStuff :: ThreeStuff
      , isMobile :: Boolean
-     , lowPriorityCb :: Number -> Effect Unit -> Effect Unit
+     , lowPriorityCb :: Milliseconds -> Effect Unit -> Effect Unit
      , myPlayer :: Player
+     , renderingInfo :: RenderingInfo
      , player2XBehavior :: Behavior Number
-     , resizeE :: Event { iw :: Number, ih :: Number }
-     , animE :: Event Note
-     , renderE :: Event Number
+     , rateE :: Event RateInfo
+     , resizeE :: Event WindowDims
+     , basicE :: forall lock payload. ASceneful lock payload
      , xPosB :: Behavior Number
-     , initialDims :: { iw :: Number, ih :: Number }
+     , initialDims :: WindowDims
      , canvas :: HTMLCanvasElement
      }
   -> Effect Unit
@@ -66,10 +62,9 @@ runThree opts@{ threeStuff: { three } } = do
                           empty
                       )
                       ( oneOf
-                          [ positionX <$> sample_ opts.player2XBehavior opts.renderE
+                          [ positionX <$> sample_ opts.player2XBehavior opts.rateE
                           , bang (positionY (0.0))
-                          , positionZ <$>
-                              (map (negate >>> mul speed >>> add (-2.0)) opts.renderE)
+                          , bang (positionZ (playerZ opts.renderingInfo Player1))
                           , bang (scaleX 0.1)
                           , bang (scaleY 0.1)
                           , bang (scaleZ 0.1)
@@ -81,8 +76,7 @@ runThree opts@{ threeStuff: { three } } = do
               <>
                 ( ( makeBar <<<
                       { c3
-                      , renderE: opts.renderE
-                      , speed
+                      , renderingInfo: opts.renderingInfo
                       , player: _
                       }
                   ) <$> allPlayers
@@ -97,26 +91,11 @@ runThree opts@{ threeStuff: { three } } = do
                     ( oneOf
                         [ bang (positionX 0.0)
                         , bang (positionY 0.0)
-                        , positionZ <$>
-                            (map (negate >>> mul speed >>> add 0.1) opts.renderE)
+                        , bang (positionZ (playerZ opts.renderingInfo Player1))
                         ]
                     )
                 -- notes
-                , toScene $ dyn $
-                    map
-                      ( \itm -> case itm of
-                          Basic x ->
-                            ( (bang (Insert $ x.event unit))
-                                <|>
-                                  ( lowPrioritySchedule opts.lowPriorityCb
-                                      -- todo: is this too much? not enough?
-                                      (unwrap x.scheduledAt + 6000.0)
-                                      (bang Remove)
-                                  )
-                            )
-                          _ -> empty
-                      )
-                      opts.animE
+                , opts.basicE
                 ]
         )
         ( perspectiveCamera
@@ -127,20 +106,11 @@ runThree opts@{ threeStuff: { three } } = do
             , orbitControls: OrbitControls (defaultOrbitControls opts.canvas)
             }
             ( oneOf
-                [ positionX <$> sample_ opts.xPosB opts.renderE
+                [ positionX <$> sample_ opts.xPosB opts.rateE
                 , bang (positionY 0.0)
-                , positionZ <$>
-                    ( map
-                        ( negate >>> mul speed >>> add
-                            ( case opts.myPlayer of
-                                Player1 -> 2.0
-                                _ -> 0.0
-                            )
-                        )
-                        opts.renderE
-                    )
-                , sample opts.xPosB ({ t: _, xp: _ } <$> opts.renderE) <#> \{ t, xp } -> P.target $ v33
-                    { x: xp, y: 0.0, z: t * -1.0 * speed - 2.0 }
+                , bang (positionZ (playerZ opts.renderingInfo Player1 + opts.renderingInfo.cameraOffset))
+                , sample_ opts.xPosB  opts.rateE <#> \xp -> P.target $ v33
+                    { x: xp, y: 0.0, z: (playerZ opts.renderingInfo Player1) }
                 , opts.resizeE <#> \i -> P.aspect (i.iw / i.ih)
                 ]
             )
@@ -149,7 +119,7 @@ runThree opts@{ threeStuff: { three } } = do
         ( oneOf
             [ bang (size { width: opts.initialDims.iw, height: opts.initialDims.ih })
             , bang render
-            , opts.renderE $> render
+            , opts.rateE $> render
             , opts.resizeE <#> \i -> size { width: i.iw, height: i.ih }
             ]
         )

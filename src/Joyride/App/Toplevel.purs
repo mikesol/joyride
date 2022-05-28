@@ -7,10 +7,10 @@ import Data.Array (span)
 import Data.DateTime.Instant (unInstant)
 import Data.Foldable (oneOf, oneOfMap, traverse_)
 import Data.Map as Map
-import Data.Maybe (Maybe(..), maybe)
+import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.Number (pi)
-import Data.Time.Duration (Seconds(..))
+import Data.Time.Duration (Milliseconds)
 import Data.Tuple (fst, snd)
 import Deku.Attribute (attr, cb, (:=))
 import Deku.Control (switcher, text, text_)
@@ -20,7 +20,7 @@ import Effect (Effect, foreachE)
 import Effect.Now (now)
 import Effect.Ref as Ref
 import Effect.Timer (clearInterval, setInterval)
-import FRP.Behavior (Behavior, sampleBy, step)
+import FRP.Behavior (Behavior, step)
 import FRP.Behavior.Time (instant)
 import FRP.Event (Event, bang, fromEvent, hot, subscribe)
 import FRP.Event.AnimationFrame (animationFrame)
@@ -29,15 +29,13 @@ import Foreign.Object as Object
 import Joyride.Audio.Graph (graph)
 import Joyride.FRP.Behavior (refToBehavior)
 import Joyride.FRP.Rate (timeFromRate)
-import Joyride.FRP.Schedule (scheduleCf)
-import Joyride.Model (Note, NoteFSM)
 import Joyride.Visual.Animation (runThree)
-import Joyride.Wags (AudibleEnd)
-import Record (union)
+import Joyride.Wags (AudibleChildEnd)
 import Rito.Color (color)
+import Rito.Core (ASceneful)
 import Rito.THREE (ThreeStuff)
 import Type.Proxy (Proxy(..))
-import Types (Player, WindowDims)
+import Types (MakeBasics, Player, RateInfo, RenderingInfo, Seconds(..), WindowDims)
 import WAGS.Clock (withACTime)
 import WAGS.Interpret (close, constant0Hack, context)
 import WAGS.Math (calcSlope)
@@ -54,50 +52,32 @@ type UIEvents = V
   ( start :: Unit
   , stop :: Effect Unit
   , slider :: Number
-  , animationFrame :: Number
-  , toAnimate :: Note
-  , basic :: { audio :: AudibleEnd, startsAt :: Seconds }
+  , rateInfo :: RateInfo
+  , basicAudio :: Event AudibleChildEnd
   )
 
 type ToplevelInfo =
   { loaded :: Event Boolean
   , threeStuff :: ThreeStuff
   , isMobile :: Boolean
-  , lpsCallback :: Number -> Effect Unit -> Effect Unit
+  , lpsCallback :: Milliseconds -> Effect Unit -> Effect Unit
   , myPlayer :: Player
   , player2XBehavior :: Behavior (Number -> Number)
   , xPosB :: Behavior (Number -> Number)
   , resizeE :: Event WindowDims
+  , basicE :: forall lock payload. { | MakeBasics () } -> ASceneful lock payload
+  , renderingInfo :: RenderingInfo
   , initialDims :: WindowDims
-  , noteScrollSpeed :: Number
   , silence :: BrowserAudioBuffer
   , icid :: Ref.Ref (Maybe RequestIdleCallbackId)
   , wdw :: Window
   , unschedule :: Ref.Ref (Map.Map Number (Effect Unit))
   , soundObj :: Ref.Ref (Object.Object BrowserAudioBuffer)
-  , score :: NoteFSM
   }
 
 toplevel :: ToplevelInfo -> Nut
-toplevel
-  { loaded
-  , threeStuff
-  , isMobile
-  , lpsCallback
-  , myPlayer
-  , resizeE
-  , player2XBehavior
-  , xPosB
-  , noteScrollSpeed
-  , initialDims
-  , icid
-  , wdw
-  , silence
-  , unschedule
-  , soundObj
-  , score
-  } =
-  ( (fromEvent loaded <|> bang false) # switcher case _ of
+toplevel tli =
+  ( (fromEvent tli.loaded <|> bang false) # switcher case _ of
       false -> D.div_
         [ D.h1_ [ text_ "Loading (should take less than 10s)" ] ]
       true ->
@@ -115,16 +95,28 @@ toplevel
                             [ D.Self := HTMLCanvasElement.fromElement >>>
                                 traverse_
                                   ( runThree <<<
-                                      { threeStuff
-                                      , isMobile
-                                      , lowPriorityCb: lpsCallback
-                                      , myPlayer
-                                      , player2XBehavior: player2XBehavior <*> (map (unInstant >>> unwrap) instant)
-                                      , resizeE: resizeE
-                                      , animE: event.toAnimate
-                                      , renderE: event.animationFrame
-                                      , xPosB: xPosB <*> (map (unInstant >>> unwrap) instant)
-                                      , initialDims
+                                      { threeStuff: tli.threeStuff
+                                      , isMobile: tli.isMobile
+                                      , renderingInfo: tli.renderingInfo
+                                      , lowPriorityCb: tli.lpsCallback
+                                      , myPlayer: tli.myPlayer
+                                      , basicE: tli.basicE
+                                          { initialDims: tli.initialDims
+                                          , renderingInfo: tli.renderingInfo
+                                          , resizeEvent: tli.resizeE
+                                          , isMobile: tli.isMobile
+                                          , lpsCallback: tli.lpsCallback
+                                          , pushAudio: push.basicAudio
+                                          , mkColor: color tli.threeStuff.three
+                                          , rateInfo: event.rateInfo
+                                          , buffers: refToBehavior tli.soundObj
+                                          , silence: tli.silence
+                                          }
+                                      , player2XBehavior: tli.player2XBehavior <*> (map (unInstant >>> unwrap) instant)
+                                      , resizeE: tli.resizeE
+                                      , rateE: event.rateInfo
+                                      , xPosB: tli.xPosB <*> (map (unInstant >>> unwrap) instant)
+                                      , initialDims: tli.initialDims
                                       , canvas: _
                                       }
                                   )
@@ -167,28 +159,27 @@ toplevel
                                       ctx <- context
                                       hk <- constant0Hack ctx
                                       ci <- setInterval 5000 do
-                                        Ref.read icid >>= traverse_
-                                          (flip cancelIdleCallback wdw)
+                                        Ref.read tli.icid >>= traverse_
+                                          (flip cancelIdleCallback tli.wdw)
                                         requestIdleCallback { timeout: 0 }
                                           ( do
                                               n <- unwrap <<< unInstant <$>
                                                 now
                                               mp <- Map.toUnfoldable <$>
-                                                Ref.read unschedule
+                                                Ref.read tli.unschedule
                                               let
                                                 lr = span (fst >>> (_ < n)) mp
                                               foreachE lr.init snd
                                               Ref.write
                                                 (Map.fromFoldable lr.rest)
-                                                unschedule
+                                                tli.unschedule
                                               pure unit
                                           )
-                                          wdw <#> Just >>= flip Ref.write icid
+                                          tli.wdw <#> Just >>= flip Ref.write tli.icid
                                       afE <- hot
                                         ( withACTime ctx animationFrame <#>
                                             _.acTime
                                         )
-                                      let sounds = refToBehavior soundObj
                                       withRate <-
                                         hot
                                           $ timeFromRate
@@ -202,43 +193,13 @@ toplevel
                                               )
                                               (Seconds >>> { real: _ } <$> afE.event)
 
-                                      iu0 <- subscribe afE.event
-                                        push.animationFrame
-
-                                      iu1 <- subscribe
-                                        ( scheduleCf score
-                                            ( map
-                                                ( \{ real, prevReal, adjusted, buffers } ->
-                                                    { realTime: real
-                                                    , adjustedTime: adjusted
-                                                    , lookAheadInRealTime: maybe (Seconds 0.1) (\(Seconds pr) -> Seconds (2.0 * (unwrap real - pr))) prevReal
-                                                    , buffers
-                                                    , speed: noteScrollSpeed
-                                                    , isMobile
-                                                    , initialDims
-                                                    , animationE: Seconds <$> afE.event
-                                                    , resizeE: resizeE
-                                                    , silence
-                                                    , mkColor: color threeStuff.three
-                                                    , pushBasic: push.basic
-                                                    }
-                                                )
-                                                (sampleBy ({ buffers: _ } >>> union) sounds withRate.event)
-                                            )
-                                        )
-                                        (flip foreachE push.toAnimate)
-                                      st <- run2 ctx
-                                        ( graph
-                                            { lpsCallback
-                                            , basics: event.basic
-                                            }
-
-                                        )
+                                      iu0 <- subscribe withRate.event push.rateInfo
+                                      st <- run2 ctx (graph { basics: event.basicAudio })
                                       push.stop
                                         ( st *> hk *> clearInterval ci
                                             *> afE.unsubscribe
                                             *> iu0
-                                            *> iu1
+                                           --  *> iu1
                                             *> withRate.unsubscribe
                                             *> close ctx
                                         )

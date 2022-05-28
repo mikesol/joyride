@@ -1,5 +1,8 @@
 module Types
   ( Player(..)
+  , playerZ
+  , entryZ
+  , RenderingInfo
   , Position(..)
   , Column(..)
   , normalizedColumn
@@ -11,19 +14,33 @@ module Types
   , Points(..)
   , Penalty(..)
   , BufferName(..)
+  , Beats(..)
+  , Seconds(..)
+  , RateInfo
+  , beatToTime
   , allPlayers
+  , MakeBasic
+  , MakeBasics
   ) where
 
 import Prelude
 
-import Data.Maybe (Maybe)
+import Data.FastVect.FastVect (Vect)
+import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype)
+import Data.Time.Duration (Milliseconds)
 import Data.Tuple.Nested (type (/\))
 import Effect (Effect)
-import FRP.Event.VBus (V)
+import FRP.Behavior (Behavior)
+import FRP.Event (Event)
 import Foreign (ForeignError(..), fail)
+import Foreign.Object as Object
+import Joyride.Wags (AudibleChildEnd, AudibleEnd)
+import Rito.Color (Color, RGB)
 import Simple.JSON (writeJSON)
 import Simple.JSON as JSON
+import WAGS.Math (calcSlope)
+import WAGS.WebAPI (BrowserAudioBuffer)
 
 type CanvasInfo = { x :: Number, y :: Number } /\ Number
 
@@ -76,7 +93,7 @@ instance JSON.WriteForeign Player where
   writeImpl Player4 = JSON.writeImpl "Player4"
 
 allPlayers :: Array Player
-allPlayers = [Player1, Player2, Player3, Player4]
+allPlayers = [ Player1, Player2, Player3, Player4 ]
 
 data Position = Position1 | Position2 | Position3 | Position4
 
@@ -101,10 +118,13 @@ instance JSON.WriteForeign Position where
   writeImpl Position4 = JSON.writeImpl "Position4"
 
 newtype Points = Points Number
+
 derive instance Newtype Points _
 newtype Penalty = Penalty Number
+
 derive instance Newtype Penalty _
 newtype BufferName = BufferName String
+
 derive instance Newtype BufferName _
 data Column = C0 | C1 | C2 | C3 | C4 | C5 | C6 | C7 | C8 | C9 | C10 | C11 | C12 | C13 | C14 | C15
 
@@ -125,3 +145,80 @@ normalizedColumn C12 = 12.0 / 16.0
 normalizedColumn C13 = 13.0 / 16.0
 normalizedColumn C14 = 14.0 / 16.0
 normalizedColumn C15 = 15.0 / 16.0
+
+-- | Beats, or a temporal unit based on seconds modulated by a tempo.
+newtype Beats = Beats Number
+
+derive instance Newtype Beats _
+derive newtype instance Eq Beats
+derive newtype instance Ord Beats
+derive newtype instance Semiring Beats
+derive newtype instance Ring Beats
+derive newtype instance CommutativeRing Beats
+derive newtype instance EuclideanRing Beats
+instance showBeats :: Show Beats where
+  show (Beats n) = "(Beats " <> show n <> ")"
+
+newtype Seconds = Seconds Number
+
+derive instance Newtype Seconds _
+derive newtype instance Eq Seconds
+derive newtype instance Ord Seconds
+derive newtype instance Semiring Seconds
+derive newtype instance Ring Seconds
+derive newtype instance CommutativeRing Seconds
+derive newtype instance EuclideanRing Seconds
+instance showSeconds :: Show Seconds where
+  show (Seconds n) = "(Seconds " <> show n <> ")"
+
+type RateInfo =
+  { prevTime :: Maybe Seconds
+  , time :: Seconds
+  , prevBeats :: Maybe Beats
+  , beats :: Beats
+  }
+
+beatToTime :: RateInfo -> Beats -> Seconds
+beatToTime
+  { beats: Beats beats
+  , prevBeats
+  , time: Seconds time
+  , prevTime
+  }
+  (Beats b) = case prevBeats, prevTime of
+  Just (Beats pb), Just (Seconds pt) -> Seconds (calcSlope pb pt beats time b)
+  _, _ -> Seconds 0.0
+
+type RenderingInfo = { halfAmbitus :: Number, barZSpacing :: Number, cameraOffset :: Number }
+
+playerZ :: RenderingInfo -> Player -> Number
+playerZ { barZSpacing } = go
+  where
+  go Player1 = -3.0 * barZSpacing
+  go Player2 = -2.0 * barZSpacing
+  go Player3 = -1.0 * barZSpacing
+  go Player4 = 0.0
+
+entryZ :: RenderingInfo -> Number
+entryZ { barZSpacing } = -4.0 * barZSpacing
+
+type MakeBasic r =
+  ( column :: Column
+  , appearsAt :: Beats
+  , beats :: Vect 4 { startsAt :: Beats, audio :: Event RateInfo -> AudibleEnd }
+  | MakeBasics r
+  )
+
+type MakeBasics r =
+  ( initialDims :: WindowDims
+  , renderingInfo :: RenderingInfo
+  , resizeEvent :: Event WindowDims
+  , isMobile :: Boolean
+  , lpsCallback :: Milliseconds -> Effect Unit -> Effect Unit
+  , pushAudio :: Event AudibleChildEnd -> Effect Unit
+  , mkColor :: RGB -> Color
+  , rateInfo :: Event RateInfo
+  , buffers :: Behavior (Object.Object BrowserAudioBuffer)
+  , silence :: BrowserAudioBuffer
+  | r
+  )

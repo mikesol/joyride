@@ -6,7 +6,7 @@ import Data.Newtype (class Newtype)
 import Data.Typelevel.Num (D2)
 import Data.Variant (Variant)
 import FRP.Event (Event)
-import WAGS.Core (AudioOnOff(..), Audible, _off, _on)
+import WAGS.Core (AudioOnOff(..), Audible, AudibleChild, _off, _on)
 import WAGS.Properties as P
 
 onAt
@@ -24,3 +24,4 @@ offAt
 offAt = map (\o -> P.onOff $ AudioOnOff $ { o , x: _off })
 
 newtype AudibleEnd = AudibleEnd (forall lock payload. Audible D2 lock payload)
+newtype AudibleChildEnd = AudibleChildEnd (forall lock payload. AudibleChild D2 lock payload)
