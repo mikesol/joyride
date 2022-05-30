@@ -61,7 +61,10 @@ main silentRoom = launchAff_ do
   playerPositions <- liftEffect $ Ref.new (initialPositions renderingInfo)
   let
     myPlayer
+      | pn == "/4" = Player4
+      | pn == "/3" = Player3
       | pn == "/2" = Player2
+      | pn == "/1" = Player1
       | otherwise = Player1
   pubNub /\ pnEvent <-
     ( (map <<< map)

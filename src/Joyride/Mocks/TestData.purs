@@ -114,4 +114,12 @@ mockBasics makeBasics = toScene (dyn children)
     : { column: C5, appearsAt: Beats 2.0 }
     : { column: C6, appearsAt: Beats 3.0 }
     : { column: C4, appearsAt: Beats 5.0 }
+    : { column: C4, appearsAt: Beats 6.0 }
+    : { column: C5, appearsAt: Beats 8.0 }
+    : { column: C6, appearsAt: Beats 9.0 }
+    : { column: C4, appearsAt: Beats 11.0 }
+    : { column: C4, appearsAt: Beats 12.0 }
+    : { column: C5, appearsAt: Beats 14.0 }
+    : { column: C6, appearsAt: Beats 15.0 }
+    : { column: C4, appearsAt: Beats 17.0 }
     : Nil
