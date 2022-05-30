@@ -22,7 +22,7 @@ import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.Mesh (mesh)
 import Rito.Properties as P
 import Type.Proxy (Proxy(..))
-import Types (MakeBasic, Player(..), entryZ, normalizedColumn, playerZ)
+import Types (MakeBasic, Position(..), entryZ, normalizedColumn, touchPointZ)
 import WAGS.Core (envy, sound, silence)
 import WAGS.Math (calcSlope)
 
@@ -83,7 +83,7 @@ basic
                   ( oneOf
                       [ ratioEvent <#> \ratio -> P.positionX
                           ((renderingInfo.halfAmbitus * (2.0 * (normalizedColumn column) - 1.0)) * ratio)
-                      , bang $ P.positionY (-1.0)
+                      , bang $ P.positionY 0.0
                       , rateInfo <#> \{ beats: currentBeats } ->
                           let
                             o
@@ -109,9 +109,9 @@ basic
   p2 = index (Proxy :: _ 1) beats
   p3 = index (Proxy :: _ 2) beats
   p4 = index (Proxy :: _ 3) beats
-  p1bar = playerZ renderingInfo Player1
-  p2bar = playerZ renderingInfo Player2
-  p3bar = playerZ renderingInfo Player3
-  p4bar = playerZ renderingInfo Player4
+  p1bar = touchPointZ renderingInfo Position1
+  p2bar = touchPointZ renderingInfo Position2
+  p3bar = touchPointZ renderingInfo Position3
+  p4bar = touchPointZ renderingInfo Position4
   appearancePoint = entryZ renderingInfo
   ratioEvent = map (\i -> i.iw / i.ih) (bang initialDims <|> resizeEvent)

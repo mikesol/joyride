@@ -10,10 +10,9 @@ import Data.Number (pow)
 import Effect (Effect)
 import Effect.Now (now)
 import Effect.Ref as Ref
-import FRP.Behavior (Behavior)
-import Joyride.FRP.Behavior (refToBehavior)
+import FRP.Event (Event, create)
 import Joyride.Transport.PubNub (PlayerAction(..), PubNub, publish)
-import Types (KTP, Player, XDirection(..))
+import Types (Player, XDirection(..), KTP)
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
 import Web.HTML (Window)
@@ -36,8 +35,9 @@ posFromKeypress ktp time = case ktp.time of
         ToLeft -> -2.0 * tdiffsqo2 + ktp.pos
         ToRight -> 2.0 * tdiffsqo2 + ktp.pos
 
-xForKeyboard :: Window -> Player -> PubNub -> Effect (Behavior (Number -> Number))
+xForKeyboard :: Window -> Player -> PubNub -> Effect (Event (Number -> Number))
 xForKeyboard w myPlayer pubNub = do
+  evt <- create
   xpe <- Ref.new { curXDir: Still, time: Nothing, pos: 0.0 }
   let
     makeListener isUp = eventListener
@@ -52,9 +52,10 @@ xForKeyboard w myPlayer pubNub = do
             -- Log.info keyCode
             time <- map (unInstant >>> unwrap) now
             nw <- Ref.modify (\ktp -> if ktp.curXDir == curXDir then ktp else { curXDir, time: Just time, pos: posFromKeypress ktp time }) xpe
+            evt.push nw
             publish pubNub { action: XPositionKeyboard nw, player: myPlayer }
   keydownListener <- makeListener false
   keyupListener <- makeListener true
   addEventListener (EventType "keydown") keydownListener true (toEventTarget w)
   addEventListener (EventType "keyup") keyupListener true (toEventTarget w)
-  pure (map posFromKeypress (refToBehavior xpe))
+  pure (posFromKeypress <$> evt.event)

@@ -2,7 +2,6 @@ module Main where
 
 import Prelude
 
-import Control.Plus (empty)
 import Data.Int as Int
 import Data.List (List(..), drop, take, (:))
 import Data.Map as Map
@@ -17,19 +16,21 @@ import Effect.Class (liftEffect)
 import Effect.Random as Random
 import Effect.Ref (new)
 import Effect.Ref as Ref
-import FRP.Behavior (step)
-import FRP.Event (create, filterMap)
+import FRP.Event (create, filterMap, subscribe)
 import FRP.Event as Event
 import FRP.Event.VBus (V)
 import Foreign.Object as Object
 import Joyride.App.Toplevel (toplevel)
+import Joyride.Effect.Ref (writeToRecord)
+import Joyride.FRP.Behavior (refToBehavior)
 import Joyride.FRP.Keypress (posFromKeypress, xForKeyboard)
 import Joyride.FRP.Orientation (posFromOrientation, xForTouch)
 import Joyride.Mocks.TestData (mockBasics)
 import Joyride.Network.Download (dlInChunks)
 import Joyride.Transport.PubNub (PlayerAction(..), PubNubEvent(..), pubnubEvent)
 import Rito.Interpret (orbitControlsAff, threeAff)
-import Types (BufferName(..), Player(..))
+import Type.Proxy (Proxy(..))
+import Types (BufferName(..), Player(..), RenderingInfo, initialPositions)
 import WAGS.Interpret (AudioBuffer(..), context, makeAudioBuffer)
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
@@ -44,8 +45,11 @@ type CanvasInfo = { x :: Number, y :: Number } /\ Number
 
 foreign import emitsTouchEvents :: Effect Boolean
 
-main :: { bme01 :: String } -> Object.Object String -> Effect Unit
-main { bme01 } silentRoom = launchAff_ do
+renderingInfo :: RenderingInfo
+renderingInfo = { halfAmbitus: 2.0, barZSpacing: 1.0, cameraOffsetZ: 1.0, cameraOffsetY: 1.0 }
+
+main :: Object.Object String -> Effect Unit
+main silentRoom = launchAff_ do
   three <- threeAff
   orbitControls <- orbitControlsAff
   let threeStuff = { three, orbitControls }
@@ -54,6 +58,7 @@ main { bme01 } silentRoom = launchAff_ do
   pn <- liftEffect $ pathname loc
   isMobile <- liftEffect $ emitsTouchEvents
   resizeE <- liftEffect create
+  playerPositions <- liftEffect $ Ref.new (initialPositions renderingInfo)
   let
     myPlayer
       | pn == "/2" = Player2
@@ -61,30 +66,40 @@ main { bme01 } silentRoom = launchAff_ do
   pubNub /\ pnEvent <-
     ( (map <<< map)
         ( filterMap
-            ( \(PubNubEvent pne) -> if pne.message.player /= myPlayer then Just pne.message.action else Nothing
+            ( \(PubNubEvent pne) -> if pne.message.player /= myPlayer then Just pne.message else Nothing
             )
         )
         pubnubEvent
     )
-  let
-    player2XBehavior = step (const 0.0) $ case myPlayer of
-      -- player1 can see player2
-      Player1 -> pnEvent # filterMap case _ of
-        XPositionKeyboard i -> Just $ posFromKeypress i
-        XPositionMobile i -> Just $ posFromOrientation i
-        _ -> Nothing
-      _ -> empty
   resizeListener <- liftEffect $ eventListener \_ -> do
     ({ iw: _, ih: _ } <$> (Int.toNumber <$> innerWidth w) <*> (Int.toNumber <$> innerHeight w)) >>= resizeE.push
   liftEffect $ addEventListener (EventType "resize") resizeListener true (toEventTarget w)
-  xPosB <- liftEffect $ (if isMobile then xForTouch else xForKeyboard) w myPlayer pubNub
+  xPosE <- liftEffect $ (if isMobile then xForTouch else xForKeyboard) w myPlayer pubNub
+  -- ignore subscription
+  _ <- liftEffect $ subscribe xPosE \xp -> case myPlayer of
+    Player1 -> writeToRecord (Proxy :: _ "p1x") xp playerPositions
+    Player2 -> writeToRecord (Proxy :: _ "p2x") xp playerPositions
+    Player3 -> writeToRecord (Proxy :: _ "p3x") xp playerPositions
+    Player4 -> writeToRecord (Proxy :: _ "p4x") xp playerPositions
+  _ <- liftEffect $ subscribe pnEvent \pevt -> do
+    let
+      pfun = case pevt.player of
+        Player1 -> writeToRecord (Proxy :: _ "p1x")
+        Player2 -> writeToRecord (Proxy :: _ "p2x")
+        Player3 -> writeToRecord (Proxy :: _ "p3x")
+        Player4 -> writeToRecord (Proxy :: _ "p4x")
+    case pevt.action of
+      XPositionKeyboard i -> pfun (posFromKeypress i) playerPositions
+      XPositionMobile i -> pfun (posFromOrientation i) playerPositions
+      -- not implemented yet
+      Hit _ -> pure unit
   initialDims <- liftEffect $ ({ iw: _, ih: _ } <$> (Int.toNumber <$> innerWidth w) <*> (Int.toNumber <$> innerHeight w))
   soundObj <- liftEffect $ Ref.new Object.empty
   icid <- liftEffect $ new Nothing
   loaded <- liftEffect $ Event.create
   unschedule <- liftEffect $ new Map.empty
   ctx' <- liftEffect $ context
-  silence <- liftEffect $ makeAudioBuffer ctx' (AudioBuffer 44100 [replicate 1000 0.0])
+  silence <- liftEffect $ makeAudioBuffer ctx' (AudioBuffer 44100 [ replicate 1000 0.0 ])
   let
 
     bufferNames :: List (BufferName /\ String)
@@ -111,10 +126,11 @@ main { bme01 } silentRoom = launchAff_ do
         , lpsCallback: lowPriorityCb
         , myPlayer
         , resizeE: resizeE.event
-        , player2XBehavior
-        , renderingInfo: {  halfAmbitus : 2.0, barZSpacing : 1.0, cameraOffset : 1.0}
+        , playerPositions: refToBehavior playerPositions
+        -- , player2XBehavior
+        , renderingInfo
         , basicE: mockBasics
-        , xPosB
+        -- , xPosB
         , silence
         , initialDims
         , icid
@@ -124,21 +140,21 @@ main { bme01 } silentRoom = launchAff_ do
         }
     )
 
-  -- { loaded :: Event Boolean
-  -- , threeStuff :: ThreeStuff
-  -- , isMobile :: Boolean
-  -- , lpsCallback :: Milliseconds -> Effect Unit -> Effect Unit
-  -- , myPlayer :: Player
-  -- , player2XBehavior :: Behavior (Number -> Number)
-  -- , xPosB :: Behavior (Number -> Number)
-  -- , resizeE :: Event WindowDims
-  -- , basicE :: { | MakeBasics () } -> AScenefulEnd
-  -- , renderingInfo :: RenderingInfo
-  -- , initialDims :: WindowDims
-  -- , noteScrollSpeed :: Number
-  -- , silence :: BrowserAudioBuffer
-  -- , icid :: Ref.Ref (Maybe RequestIdleCallbackId)
-  -- , wdw :: Window
-  -- , unschedule :: Ref.Ref (Map.Map Number (Effect Unit))
-  -- , soundObj :: Ref.Ref (Object.Object BrowserAudioBuffer)
-  -- }
+-- { loaded :: Event Boolean
+-- , threeStuff :: ThreeStuff
+-- , isMobile :: Boolean
+-- , lpsCallback :: Milliseconds -> Effect Unit -> Effect Unit
+-- , myPlayer :: Player
+-- , player2XBehavior :: Behavior (Number -> Number)
+-- , xPosB :: Behavior (Number -> Number)
+-- , resizeE :: Event WindowDims
+-- , basicE :: { | MakeBasics () } -> AScenefulEnd
+-- , renderingInfo :: RenderingInfo
+-- , initialDims :: WindowDims
+-- , noteScrollSpeed :: Number
+-- , silence :: BrowserAudioBuffer
+-- , icid :: Ref.Ref (Maybe RequestIdleCallbackId)
+-- , wdw :: Window
+-- , unschedule :: Ref.Ref (Map.Map Number (Effect Unit))
+-- , soundObj :: Ref.Ref (Object.Object BrowserAudioBuffer)
+-- }

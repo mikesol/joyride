@@ -21,7 +21,6 @@ import Effect.Now (now)
 import Effect.Ref as Ref
 import Effect.Timer (clearInterval, setInterval)
 import FRP.Behavior (Behavior, step)
-import FRP.Behavior.Time (instant)
 import FRP.Event (Event, bang, fromEvent, hot, subscribe)
 import FRP.Event.AnimationFrame (animationFrame)
 import FRP.Event.VBus (V)
@@ -35,7 +34,7 @@ import Rito.Color (color)
 import Rito.Core (ASceneful)
 import Rito.THREE (ThreeStuff)
 import Type.Proxy (Proxy(..))
-import Types (MakeBasics, Player, RateInfo, RenderingInfo, Seconds(..), WindowDims)
+import Types (Beats(..), MakeBasics, Player, PlayerPositionsF, RateInfo, RenderingInfo, Seconds(..), WindowDims)
 import WAGS.Clock (withACTime)
 import WAGS.Interpret (close, constant0Hack, context)
 import WAGS.Math (calcSlope)
@@ -62,8 +61,7 @@ type ToplevelInfo =
   , isMobile :: Boolean
   , lpsCallback :: Milliseconds -> Effect Unit -> Effect Unit
   , myPlayer :: Player
-  , player2XBehavior :: Behavior (Number -> Number)
-  , xPosB :: Behavior (Number -> Number)
+  , playerPositions :: Behavior PlayerPositionsF
   , resizeE :: Event WindowDims
   , basicE :: forall lock payload. { | MakeBasics () } -> ASceneful lock payload
   , renderingInfo :: RenderingInfo
@@ -112,10 +110,32 @@ toplevel tli =
                                           , buffers: refToBehavior tli.soundObj
                                           , silence: tli.silence
                                           }
-                                      , player2XBehavior: tli.player2XBehavior <*> (map (unInstant >>> unwrap) instant)
+                                      , playerPositions:
+                                          ( \ppos { time: Seconds time } ->
+                                              { p1x: ppos.p1x time
+                                              , p1y: ppos.p1y time
+                                              , p1z: ppos.p1z time
+                                              , p2x: ppos.p2x time
+                                              , p2y: ppos.p2y time
+                                              , p2z: ppos.p2z time
+                                              , p3x: ppos.p3x time
+                                              , p3y: ppos.p3y time
+                                              , p3z: ppos.p3z time
+                                              , p4x: ppos.p4x time
+                                              , p4y: ppos.p4y time
+                                              , p4z: ppos.p4z time
+                                              }
+                                          ) <$> tli.playerPositions <*>
+                                            ( step
+                                                { time: Seconds 0.0
+                                                , beats: Beats 0.0
+                                                , prevTime: Nothing
+                                                , prevBeats: Nothing
+                                                }
+                                                event.rateInfo
+                                            )
                                       , resizeE: tli.resizeE
                                       , rateE: event.rateInfo
-                                      , xPosB: tli.xPosB <*> (map (unInstant >>> unwrap) instant)
                                       , initialDims: tli.initialDims
                                       , canvas: _
                                       }
@@ -199,7 +219,7 @@ toplevel tli =
                                         ( st *> hk *> clearInterval ci
                                             *> afE.unsubscribe
                                             *> iu0
-                                           --  *> iu1
+                                            --  *> iu1
                                             *> withRate.unsubscribe
                                             *> close ctx
                                         )

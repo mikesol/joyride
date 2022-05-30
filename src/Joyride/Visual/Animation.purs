@@ -2,13 +2,14 @@ module Joyride.Visual.Animation where
 
 import Prelude
 
+import Control.Alt ((<|>))
 import Control.Plus (empty)
-import Data.Foldable (oneOf)
+import Data.Foldable (oneOf, oneOfMap)
 import Data.Number (pi)
 import Data.Time.Duration (Milliseconds)
 import Effect (Effect)
 import FRP.Behavior (Behavior, sample_)
-import FRP.Event (Event, bang)
+import FRP.Event (Event, bang, keepLatest)
 import Joyride.Visual.Bar (makeBar)
 import Rito.Cameras.PerspectiveCamera (defaultOrbitControls, perspectiveCamera)
 import Rito.Color (RGB(..), color)
@@ -24,7 +25,7 @@ import Rito.Run as Rito.Run
 import Rito.Scene (scene)
 import Rito.THREE (ThreeStuff)
 import Rito.Vector3 (vector3)
-import Types (Player(..), RateInfo, RenderingInfo, WindowDims, allPlayers, playerZ)
+import Types (Axis(..), Player, PlayerPositions, RateInfo, RenderingInfo, WindowDims, allPlayers, allPositions, playerPosition)
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 
 twoPi = 2.0 * pi :: Number
@@ -37,11 +38,14 @@ runThree
      , lowPriorityCb :: Milliseconds -> Effect Unit -> Effect Unit
      , myPlayer :: Player
      , renderingInfo :: RenderingInfo
-     , player2XBehavior :: Behavior Number
+     -----------
+     ----------- make x pos
+     -----------
+     -- , player2XBehavior :: Behavior Number
+     , playerPositions :: Behavior PlayerPositions
      , rateE :: Event RateInfo
      , resizeE :: Event WindowDims
      , basicE :: forall lock payload. ASceneful lock payload
-     , xPosB :: Behavior Number
      , initialDims :: WindowDims
      , canvas :: HTMLCanvasElement
      }
@@ -52,68 +56,77 @@ runThree opts@{ threeStuff: { three } } = do
   _ <- Rito.Run.run opts.threeStuff
     ( webGLRenderer
         ( scene empty $
-            ( case opts.myPlayer of
-                -- in poc, we can see player2 if we are 1
-                Player1 ->
-                  [ toScene $ mesh (sphere {} empty)
-                      ( meshBasicMaterial
-                          { color: c3 $ RGB 1.0 1.0 1.0
-                          }
-                          empty
-                      )
-                      ( oneOf
-                          [ positionX <$> sample_ opts.player2XBehavior opts.rateE
-                          , bang (positionY (0.0))
-                          , bang (positionZ (playerZ opts.renderingInfo Player1))
-                          , bang (scaleX 0.1)
-                          , bang (scaleY 0.1)
-                          , bang (scaleZ 0.1)
-                          ]
-                      )
-                  ]
-                _ -> []
+            ( allPlayers <#> \player -> do
+                let ppos = playerPosition player
+                let posAx axis = sample_ (map (ppos axis) opts.playerPositions) opts.rateE
+                toScene $ mesh (sphere {} empty)
+                  ( meshBasicMaterial
+                      { color: c3 $ RGB 1.0 1.0 1.0
+                      }
+                      empty
+                  )
+                  ( oneOf
+                      [ positionX <$> posAx AxisX
+                      , positionY <$> posAx AxisY
+                      , positionZ <$> posAx AxisZ
+                      , bang (scaleX 0.1)
+                      , bang (scaleY 0.1)
+                      , bang (scaleZ 0.1)
+                      ]
+                  )
+
             )
               <>
                 ( ( makeBar <<<
                       { c3
                       , renderingInfo: opts.renderingInfo
-                      , player: _
+                      , position: _
                       }
-                  ) <$> allPlayers
+                  ) <$> allPositions
                 )
               <>
-                -- light
-                [ toScene $ pointLight
-                    { distance: 4.0
-                    , decay: 2.0
-                    , color: c3 $ RGB 1.0 1.0 1.0
-                    }
-                    ( oneOf
-                        [ bang (positionX 0.0)
-                        , bang (positionY 0.0)
-                        , bang (positionZ (playerZ opts.renderingInfo Player1))
-                        ]
-                    )
+                ( allPlayers <#> \player -> do
+                    let ppos = playerPosition player
+                    let posAx axis = sample_ (map (ppos axis) opts.playerPositions) opts.rateE
+                    toScene $ pointLight
+                      { distance: 4.0
+                      , decay: 2.0
+                      , color: c3 $ RGB 1.0 1.0 1.0
+                      }
+                      ( oneOf
+                          [ positionX <$> posAx AxisX
+                          , positionY <$> posAx AxisY
+                          , positionZ <$> posAx AxisZ
+                          ]
+                      )
+
+                )
+              <>
                 -- notes
-                , opts.basicE
+                [ opts.basicE
                 ]
         )
-        ( perspectiveCamera
+        (perspectiveCamera
             { fov: 75.0
             , aspect: opts.initialDims.iw / opts.initialDims.ih
             , near: 0.1
             , far: 100.0
             , orbitControls: OrbitControls (defaultOrbitControls opts.canvas)
             }
-            ( oneOf
-                [ positionX <$> sample_ opts.xPosB opts.rateE
-                , bang (positionY 0.0)
-                , bang (positionZ (playerZ opts.renderingInfo Player1 + opts.renderingInfo.cameraOffset))
-                , sample_ opts.xPosB  opts.rateE <#> \xp -> P.target $ v33
-                    { x: xp, y: 0.0, z: (playerZ opts.renderingInfo Player1) }
-                , opts.resizeE <#> \i -> P.aspect (i.iw / i.ih)
+            (keepLatest ((sample_ opts.playerPositions opts.rateE) <#> \positions ->
+             let
+               ppos = playerPosition opts.myPlayer
+               posAx axis = ppos axis positions
+               px = posAx AxisX
+               py = posAx AxisY
+               pz = posAx AxisZ
+             in oneOfMap bang
+                [ positionX $ px
+                , positionY $ (opts.renderingInfo.cameraOffsetY + py)
+                , positionZ $ (opts.renderingInfo.cameraOffsetZ + pz)
+                , P.target $ v33 { x: px, y: py, z: pz }
                 ]
-            )
+            ) <|> (opts.resizeE <#> \i -> P.aspect (i.iw / i.ih)))
         )
         { canvas: opts.canvas }
         ( oneOf

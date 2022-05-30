@@ -1,9 +1,10 @@
 module Types
   ( Player(..)
-  , playerZ
   , entryZ
   , RenderingInfo
   , Position(..)
+  , Axis(..)
+  , touchPointZ
   , Column(..)
   , normalizedColumn
   , Orientation
@@ -19,8 +20,14 @@ module Types
   , RateInfo
   , beatToTime
   , allPlayers
+  , allPositions
+  , allAxes
   , MakeBasic
   , MakeBasics
+  , PlayerPositions
+  , PlayerPositionsF
+  , initialPositions
+  , playerPosition
   ) where
 
 import Prelude
@@ -117,6 +124,32 @@ instance JSON.WriteForeign Position where
   writeImpl Position3 = JSON.writeImpl "Position3"
   writeImpl Position4 = JSON.writeImpl "Position4"
 
+allPositions :: Array Position
+allPositions = [ Position1, Position2, Position3, Position4 ]
+
+data Axis = AxisX | AxisY | AxisZ
+
+derive instance Eq Axis
+instance Show Axis where
+  show = JSON.writeJSON
+
+instance JSON.ReadForeign Axis where
+  readImpl i = do
+    ri <- JSON.readImpl i
+    case ri of
+      "AxisX" -> pure AxisX
+      "AxisY" -> pure AxisY
+      "AxisZ" -> pure AxisZ
+      _ -> fail $ ForeignError ("No idea how to parse: " <> writeJSON i)
+
+instance JSON.WriteForeign Axis where
+  writeImpl AxisX = JSON.writeImpl "AxisX"
+  writeImpl AxisY = JSON.writeImpl "AxisY"
+  writeImpl AxisZ = JSON.writeImpl "AxisZ"
+
+allAxes :: Array Axis
+allAxes = [ AxisX, AxisY, AxisZ ]
+
 newtype Points = Points Number
 
 derive instance Newtype Points _
@@ -189,15 +222,20 @@ beatToTime
   Just (Beats pb), Just (Seconds pt) -> Seconds (calcSlope pb pt beats time b)
   _, _ -> Seconds 0.0
 
-type RenderingInfo = { halfAmbitus :: Number, barZSpacing :: Number, cameraOffset :: Number }
+type RenderingInfo =
+  { halfAmbitus :: Number
+  , barZSpacing :: Number
+  , cameraOffsetY :: Number
+  , cameraOffsetZ :: Number
+  }
 
-playerZ :: RenderingInfo -> Player -> Number
-playerZ { barZSpacing } = go
+touchPointZ :: RenderingInfo -> Position -> Number
+touchPointZ { barZSpacing } = go
   where
-  go Player1 = -3.0 * barZSpacing
-  go Player2 = -2.0 * barZSpacing
-  go Player3 = -1.0 * barZSpacing
-  go Player4 = 0.0
+  go Position1 = -3.0 * barZSpacing
+  go Position2 = -2.0 * barZSpacing
+  go Position3 = -1.0 * barZSpacing
+  go Position4 = 0.0
 
 entryZ :: RenderingInfo -> Number
 entryZ { barZSpacing } = -4.0 * barZSpacing
@@ -222,3 +260,65 @@ type MakeBasics r =
   , silence :: BrowserAudioBuffer
   | r
   )
+
+type FoT = Number -> Number
+
+type PlayerPositions =
+  { p1x :: Number
+  , p1y :: Number
+  , p1z :: Number
+  , p2x :: Number
+  , p2y :: Number
+  , p2z :: Number
+  , p3x :: Number
+  , p3y :: Number
+  , p3z :: Number
+  , p4x :: Number
+  , p4y :: Number
+  , p4z :: Number
+  }
+
+type PlayerPositionsF =
+  { p1x :: Number -> Number
+  , p1y :: Number -> Number
+  , p1z :: Number -> Number
+  , p2x :: Number -> Number
+  , p2y :: Number -> Number
+  , p2z :: Number -> Number
+  , p3x :: Number -> Number
+  , p3y :: Number -> Number
+  , p3z :: Number -> Number
+  , p4x :: Number -> Number
+  , p4y :: Number -> Number
+  , p4z :: Number -> Number
+  }
+
+initialPositions :: RenderingInfo -> PlayerPositionsF
+initialPositions ri =
+  { p1x: const 0.0
+  , p1y: const 0.0
+  , p1z: const $ touchPointZ ri Position1
+  , p2x: const 0.0
+  , p2y: const 0.0
+  , p2z: const $ touchPointZ ri Position2
+  , p3x: const 0.0
+  , p3y: const 0.0
+  , p3z: const $ touchPointZ ri Position3
+  , p4x: const 0.0
+  , p4y: const 0.0
+  , p4z: const $ touchPointZ ri Position4
+  }
+
+playerPosition :: Player -> Axis -> PlayerPositions -> Number
+playerPosition Player1 AxisX = _.p1x
+playerPosition Player1 AxisY = _.p1y
+playerPosition Player1 AxisZ = _.p1z
+playerPosition Player2 AxisX = _.p2x
+playerPosition Player2 AxisY = _.p2y
+playerPosition Player2 AxisZ = _.p2z
+playerPosition Player3 AxisX = _.p3x
+playerPosition Player3 AxisY = _.p3y
+playerPosition Player3 AxisZ = _.p3z
+playerPosition Player4 AxisX = _.p4x
+playerPosition Player4 AxisY = _.p4y
+playerPosition Player4 AxisZ = _.p4z
