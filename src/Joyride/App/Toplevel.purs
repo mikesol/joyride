@@ -9,11 +9,11 @@ import Data.Foldable (oneOf, oneOfMap, traverse_)
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import Data.Number (pi)
-import Data.Time.Duration (Milliseconds)
+import Data.Time.Duration (Milliseconds(..))
 import Data.Tuple (fst, snd)
 import Deku.Attribute (attr, cb, (:=))
 import Deku.Control (switcher, text, text_)
-import Deku.Core (Nut, dyn, vbussed, insert)
+import Deku.Core (Nut, dyn, insert, remove, vbussed)
 import Deku.DOM as D
 import Effect (Effect, foreachE)
 import Effect.Now (now)
@@ -26,6 +26,7 @@ import FRP.Event.VBus (V)
 import Foreign.Object as Object
 import Joyride.Audio.Graph (graph)
 import Joyride.FRP.Behavior (refToBehavior)
+import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Rate (timeFromRate)
 import Joyride.Visual.Animation (runThree)
 import Joyride.Wags (AudibleChildEnd)
@@ -143,8 +144,14 @@ toplevel tli =
                 , D.div (bang $ D.Class := "absolute")
                     [ dyn
                         ( event.basicTap <#> \e ->
-                            bang $ insert $ D.span (oneOfMap bang [ D.Class := "absolute text-zinc-100", D.Style := "top: " <> show e.clientY <> "px; left: " <> show e.clientX <> "px;"]) [ text_ "hello" ]
+                            (bang $ insert $ D.span (oneOfMap bang [ D.Class := "absolute text-zinc-100 fade-out", D.Style := "top: " <> show e.clientY <> "px; left: " <> show e.clientX <> "px;" ]) [ text_ "hello" ]) <|>
+                              fromEvent
+                                ( lowPrioritySchedule tli.lpsCallback
+                                    (Milliseconds 3000.0 <> e.pushedAt)
+                                    (bang $ remove)
+                                )
                         )
+
                     ]
                 -- on/off
                 , D.div
