@@ -125,13 +125,13 @@ main silentRoom = launchAff_ do
     bufferNames :: List (BufferName /\ String)
     bufferNames = (BufferName "kick" /\ "drum1_001")
       : (BufferName "hihat" /\ "drum2_001")
-      : (BufferName "note" /\ "chord_111")
-      : (BufferName "tambourine" /\ "submelo_012")
+      : (BufferName "note" /\ "drum3_001")
+      : (BufferName "tambourine" /\ "drum4_001")
       : Nil
   let
-    lowPriorityCb (Milliseconds k) v = do
+    lowPriorityCb k v = do
       n <- Random.random
-      Ref.modify_ (Map.insert (k + (n * 0.25)) v) unschedule
+      Ref.modify_ (Map.insert (k <> Milliseconds (n * 0.25)) v) unschedule
   let n2oh = take 300 bufferNames
   let n2ot = drop 300 bufferNames
   _ <- forkAff do
