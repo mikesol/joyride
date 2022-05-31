@@ -8,7 +8,6 @@ import Data.DateTime.Instant (unInstant)
 import Data.Foldable (oneOf, oneOfMap, traverse_)
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
-import Data.Newtype (unwrap)
 import Data.Number (pi)
 import Data.Time.Duration (Milliseconds)
 import Data.Tuple (fst, snd)
@@ -66,7 +65,7 @@ type ToplevelInfo =
   , silence :: BrowserAudioBuffer
   , icid :: Ref.Ref (Maybe RequestIdleCallbackId)
   , wdw :: Window
-  , unschedule :: Ref.Ref (Map.Map Number (Effect Unit))
+  , unschedule :: Ref.Ref (Map.Map Milliseconds (Effect Unit))
   , soundObj :: Ref.Ref (Object.Object BrowserAudioBuffer)
   }
 
@@ -160,8 +159,7 @@ toplevel tli =
                                           (flip cancelIdleCallback tli.wdw)
                                         requestIdleCallback { timeout: 0 }
                                           ( do
-                                              n <- unwrap <<< unInstant <$>
-                                                now
+                                              n <- unInstant <$> now
                                               mp <- Map.toUnfoldable <$>
                                                 Ref.read tli.unschedule
                                               let

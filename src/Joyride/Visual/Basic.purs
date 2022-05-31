@@ -17,6 +17,7 @@ import FRP.Behavior (sampleBy, sample_)
 import FRP.Behavior.Time (instant)
 import FRP.Event (bus, keepLatest, sampleOn)
 import FRP.Event.Class (bang, biSampleOn)
+import FRP.Event.Time (withTime)
 import Joyride.Debug (debugX')
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Rider (rider, toRide)
@@ -63,15 +64,15 @@ basic
         ( toRide
             { event: oneOfMap bang
                 ( map
-                    ( \{ startsAt, audio } -> oneOf
+                    ( \{ audio } -> oneOf
                         [ bang $ AudibleChildEnd
                             ( sound
                                 ( (\(AudibleEnd e) -> e)
                                     (audio rateInfoOffAtTouch)
                                 )
                             )
-                        , ( lowPrioritySchedule lpsCallback
-                              (Milliseconds ((unwrap startsAt * 1000.0) + 10000.0))
+                        , ( keepLatest $ (withTime (bang unit)) <#> \{ time } -> lowPrioritySchedule lpsCallback
+                              (Milliseconds 10000.0 <> (unInstant time))
                               (bang $ AudibleChildEnd silence)
                           )
                         ]

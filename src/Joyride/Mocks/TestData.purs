@@ -3,21 +3,25 @@ module Joyride.Mocks.TestData where
 import Prelude
 
 import Bolson.Core (Child(..), dyn, envy)
+import Control.Alt ((<|>))
 import Control.Comonad.Cofree ((:<))
 import Control.Plus (empty)
+import Data.DateTime.Instant (unInstant)
 import Data.FastVect.FastVect (Vect, cons)
 import Data.FastVect.FastVect as V
 import Data.Foldable (oneOfMap)
 import Data.List (List(..), span, (:))
 import Data.Maybe (Maybe(..))
-import Data.Time.Duration (Seconds(..))
+import Data.Time.Duration (Milliseconds(..), Seconds(..))
 import Effect (Effect)
 import FRP.Behavior (Behavior, sample_)
 import FRP.Event (Event, keepLatest, memoize)
 import FRP.Event.Class (bang)
+import FRP.Event.Time (withTime)
 import Foreign.Object as Object
 import Joyride.Audio.Basic as BasicA
 import Joyride.FRP.Behavior (misbehavior)
+import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Schedule (oneOff, scheduleCf)
 import Joyride.Visual.Basic as BasicV
 import Joyride.Wags (AudibleEnd(..))
@@ -94,17 +98,23 @@ mockBasics makeBasics = toScene (dyn children)
   eventList = scheduleCf (go score) makeBasics.rateInfo
 
   transform :: _ -> Event (Child Void (Mesh lock payload) Effect lock)
-  transform input = bang $ Insert
-    ( BasicV.basic
-        ( makeBasics |+| input |+|
-            { beats: severalBeats
-                { startsAt: input.appearsAt + Beats 1.0
-                , silence: makeBasics.silence
-                , buffers: makeBasics.buffers
+  transform input =
+    ( bang $ Insert
+        ( BasicV.basic
+            ( makeBasics |+| input |+|
+                { beats: severalBeats
+                    { startsAt: input.appearsAt + Beats 1.0
+                    , silence: makeBasics.silence
+                    , buffers: makeBasics.buffers
+                    }
                 }
-            }
+            )
         )
-    )
+    ) <|>
+      ( keepLatest $ (withTime (bang unit)) <#> \{ time } -> lowPrioritySchedule makeBasics.lpsCallback
+          (Milliseconds 10000.0 <> (unInstant time))
+          (bang $ Remove)
+      )
   go Nil _ = Nil :< go Nil
   go l { beats } = do
     let
