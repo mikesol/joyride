@@ -5,10 +5,13 @@ import Prelude
 import Control.Monad.Except (runExcept, throwError)
 import Control.Promise (Promise, toAffE)
 import Data.Either (either)
-import Data.Newtype (class Newtype)
+import Data.Lens (_Just, over)
+import Data.Lens.Record (prop)
+import Data.Maybe (Maybe)
+import Data.Newtype (class Newtype, unwrap)
 import Data.Tuple.Nested (type (/\), (/\))
 import Effect (Effect)
-import Effect.Aff (Aff)
+import Effect.Aff (Aff, Milliseconds(..))
 import Effect.Class (liftEffect)
 import Effect.Exception (error)
 import FRP.Event (Event, create)
@@ -16,6 +19,7 @@ import Foreign (Foreign, ForeignError(..), fail)
 import Record (union)
 import Simple.JSON (readImpl, writeImpl)
 import Simple.JSON as JSON
+import Type.Proxy (Proxy(..))
 import Types (KTP, Player, GTP)
 
 data PubNub
@@ -28,18 +32,30 @@ data PlayerAction
   | XPositionMobile GTP
   | Hit { column :: Int, offset :: Number }
 
+convertToMs
+  :: forall r
+   . { time :: Maybe Number | r }
+  -> { time :: Maybe Milliseconds | r }
+convertToMs = over ((prop (Proxy :: Proxy "time")) <<< _Just) Milliseconds
+
+convertFromMs
+  :: forall r
+   . { time :: Maybe Milliseconds | r }
+  -> { time :: Maybe Number | r }
+convertFromMs = over ((prop (Proxy :: Proxy "time")) <<< _Just) unwrap
+
 instance toJSONPubNubPlayerAction :: JSON.ReadForeign PlayerAction where
   readImpl i = do
     { _type } :: { _type :: String } <- readImpl i
     case _type of
-      "XPositionKeyboard" -> XPositionKeyboard <$> readImpl i
-      "XPositionMobile" -> XPositionMobile <$> readImpl i
+      "XPositionKeyboard" -> XPositionKeyboard <<< convertToMs <$> readImpl i
+      "XPositionMobile" -> XPositionMobile <<< convertToMs <$> readImpl i
       "Hit" -> Hit <$> readImpl i
       _ -> fail (ForeignError $ "Could not parse: " <> JSON.writeJSON i)
 
 instance fromJSONPubNubPlayerAction :: JSON.WriteForeign PlayerAction where
-  writeImpl (XPositionKeyboard i) = JSON.writeImpl $ union { _type: "XPositionKeyboard" } i
-  writeImpl (XPositionMobile i) = JSON.writeImpl $ union { _type: "XPositionMobile" } i
+  writeImpl (XPositionKeyboard i) = JSON.writeImpl $ union { _type: "XPositionKeyboard" } (convertFromMs i)
+  writeImpl (XPositionMobile i) = JSON.writeImpl $ union { _type: "XPositionMobile" } (convertFromMs i)
   writeImpl (Hit i) = JSON.writeImpl $ union { _type: "Hit" } i
 
 type PubNubMessage = { player :: Player, action :: PlayerAction }

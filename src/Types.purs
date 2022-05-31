@@ -35,7 +35,7 @@ import Prelude
 import Data.FastVect.FastVect (Vect)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype)
-import Data.Time.Duration (Milliseconds)
+import Data.Time.Duration (Milliseconds(..))
 import Data.Tuple.Nested (type (/\))
 import Effect (Effect)
 import FRP.Behavior (Behavior)
@@ -54,8 +54,8 @@ type CanvasInfo = { x :: Number, y :: Number } /\ Number
 type WindowDims = { iw :: Number, ih :: Number }
 
 type Orientation = { absolute :: Number, alpha :: Number, beta :: Number, gamma :: Number }
-type GTP = { gamma :: Number, time :: Maybe Number, pos :: Number }
-type KTP = { curXDir :: XDirection, time :: Maybe Number, pos :: Number }
+type GTP = { gamma :: Number, time :: Maybe Milliseconds, pos :: Number }
+type KTP = { curXDir :: XDirection, time :: Maybe Milliseconds, pos :: Number }
 
 data XDirection = ToLeft | ToRight | Still
 
@@ -209,6 +209,7 @@ type RateInfo =
   , time :: Seconds
   , prevBeats :: Maybe Beats
   , beats :: Beats
+  , epochTime :: Milliseconds
   }
 
 beatToTime :: RateInfo -> Beats -> Seconds
@@ -225,6 +226,7 @@ beatToTime
 type RenderingInfo =
   { halfAmbitus :: Number
   , barZSpacing :: Number
+  , sphereOffsetY :: Number
   , cameraOffsetY :: Number
   , cameraOffsetZ :: Number
   }
@@ -261,8 +263,6 @@ type MakeBasics r =
   | r
   )
 
-type FoT = Number -> Number
-
 type PlayerPositions =
   { p1x :: Number
   , p1y :: Number
@@ -279,18 +279,18 @@ type PlayerPositions =
   }
 
 type PlayerPositionsF =
-  { p1x :: Number -> Number
-  , p1y :: Number -> Number
-  , p1z :: Number -> Number
-  , p2x :: Number -> Number
-  , p2y :: Number -> Number
-  , p2z :: Number -> Number
-  , p3x :: Number -> Number
-  , p3y :: Number -> Number
-  , p3z :: Number -> Number
-  , p4x :: Number -> Number
-  , p4y :: Number -> Number
-  , p4z :: Number -> Number
+  { p1x :: RateInfo -> Number
+  , p1y :: RateInfo -> Number
+  , p1z :: RateInfo -> Number
+  , p2x :: RateInfo -> Number
+  , p2y :: RateInfo -> Number
+  , p2z :: RateInfo -> Number
+  , p3x :: RateInfo -> Number
+  , p3y :: RateInfo -> Number
+  , p3z :: RateInfo -> Number
+  , p4x :: RateInfo -> Number
+  , p4y :: RateInfo -> Number
+  , p4z :: RateInfo -> Number
   }
 
 initialPositions :: RenderingInfo -> PlayerPositionsF

@@ -7,6 +7,7 @@ import Data.List (List(..), drop, take, (:))
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import Data.Number (pi)
+import Data.Profunctor (lcmap)
 import Data.Tuple.Nested (type (/\), (/\))
 import Data.Unfoldable (replicate)
 import Deku.Toplevel (runInBody)
@@ -46,7 +47,7 @@ type CanvasInfo = { x :: Number, y :: Number } /\ Number
 foreign import emitsTouchEvents :: Effect Boolean
 
 renderingInfo :: RenderingInfo
-renderingInfo = { halfAmbitus: 2.0, barZSpacing: 1.0, cameraOffsetZ: 1.0, cameraOffsetY: 1.0 }
+renderingInfo = { halfAmbitus: 2.0, barZSpacing: 1.0, cameraOffsetZ: 1.0, cameraOffsetY: 0.5, sphereOffsetY: 0.2 }
 
 main :: Object.Object String -> Effect Unit
 main silentRoom = launchAff_ do
@@ -85,6 +86,7 @@ main silentRoom = launchAff_ do
     Player3 -> writeToRecord (Proxy :: _ "p3x") xp playerPositions
     Player4 -> writeToRecord (Proxy :: _ "p4x") xp playerPositions
   _ <- liftEffect $ subscribe pnEvent \pevt -> do
+    -- Log.info "outside called"
     let
       pfun = case pevt.player of
         Player1 -> writeToRecord (Proxy :: _ "p1x")
@@ -92,8 +94,8 @@ main silentRoom = launchAff_ do
         Player3 -> writeToRecord (Proxy :: _ "p3x")
         Player4 -> writeToRecord (Proxy :: _ "p4x")
     case pevt.action of
-      XPositionKeyboard i -> pfun (posFromKeypress i) playerPositions
-      XPositionMobile i -> pfun (posFromOrientation i) playerPositions
+      XPositionKeyboard i -> pfun (lcmap _.epochTime $ posFromKeypress i) playerPositions
+      XPositionMobile i -> pfun (lcmap _.epochTime $ posFromOrientation i) playerPositions
       -- not implemented yet
       Hit _ -> pure unit
   initialDims <- liftEffect $ ({ iw: _, ih: _ } <$> (Int.toNumber <$> innerWidth w) <*> (Int.toNumber <$> innerHeight w))

@@ -7,6 +7,7 @@ import Control.Plus (empty)
 import Data.Foldable (oneOf, oneOfMap)
 import Data.Number (pi)
 import Data.Time.Duration (Milliseconds)
+import Debug (spy)
 import Effect (Effect)
 import FRP.Behavior (Behavior, sample_)
 import FRP.Event (Event, bang, keepLatest)
@@ -25,7 +26,7 @@ import Rito.Run as Rito.Run
 import Rito.Scene (scene)
 import Rito.THREE (ThreeStuff)
 import Rito.Vector3 (vector3)
-import Types (Axis(..), Player, PlayerPositions, RateInfo, RenderingInfo, WindowDims, allPlayers, allPositions, playerPosition)
+import Types (Axis(..), Player(..), PlayerPositions, RateInfo, RenderingInfo, WindowDims, allPlayers, allPositions, playerPosition)
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 
 twoPi = 2.0 * pi :: Number
@@ -38,11 +39,7 @@ runThree
      , lowPriorityCb :: Milliseconds -> Effect Unit -> Effect Unit
      , myPlayer :: Player
      , renderingInfo :: RenderingInfo
-     -----------
-     ----------- make x pos
-     -----------
-     -- , player2XBehavior :: Behavior Number
-     , playerPositions :: Behavior PlayerPositions
+     , playerPositions :: Event PlayerPositions
      , rateE :: Event RateInfo
      , resizeE :: Event WindowDims
      , basicE :: forall lock payload. ASceneful lock payload
@@ -58,7 +55,7 @@ runThree opts@{ threeStuff: { three } } = do
         ( scene empty $
             ( allPlayers <#> \player -> do
                 let ppos = playerPosition player
-                let posAx axis = sample_ (map (ppos axis) opts.playerPositions) opts.rateE
+                let posAx axis = map (ppos axis) opts.playerPositions
                 toScene $ mesh (sphere {} empty)
                   ( meshBasicMaterial
                       { color: c3 $ RGB 1.0 1.0 1.0
@@ -66,8 +63,8 @@ runThree opts@{ threeStuff: { three } } = do
                       empty
                   )
                   ( oneOf
-                      [ positionX <$> posAx AxisX
-                      , positionY <$> posAx AxisY
+                      [ (\v -> let spied = if Player4 == player then spy "foo" v else 0.0 in positionX v) <$> posAx AxisX
+                      , positionY <$> (map (add opts.renderingInfo.sphereOffsetY) (posAx AxisY))
                       , positionZ <$> posAx AxisZ
                       , bang (scaleX 0.1)
                       , bang (scaleY 0.1)
@@ -87,7 +84,7 @@ runThree opts@{ threeStuff: { three } } = do
               <>
                 ( allPlayers <#> \player -> do
                     let ppos = playerPosition player
-                    let posAx axis = sample_ (map (ppos axis) opts.playerPositions) opts.rateE
+                    let posAx axis = map (ppos axis) opts.playerPositions
                     toScene $ pointLight
                       { distance: 4.0
                       , decay: 2.0
@@ -95,7 +92,7 @@ runThree opts@{ threeStuff: { three } } = do
                       }
                       ( oneOf
                           [ positionX <$> posAx AxisX
-                          , positionY <$> posAx AxisY
+                          , positionY <$> (map (add (opts.renderingInfo.sphereOffsetY / 2.0)) $ posAx AxisY)
                           , positionZ <$> posAx AxisZ
                           ]
                       )
@@ -106,27 +103,30 @@ runThree opts@{ threeStuff: { three } } = do
                 [ opts.basicE
                 ]
         )
-        (perspectiveCamera
+        ( perspectiveCamera
             { fov: 75.0
             , aspect: opts.initialDims.iw / opts.initialDims.ih
             , near: 0.1
             , far: 100.0
             , orbitControls: OrbitControls (defaultOrbitControls opts.canvas)
             }
-            (keepLatest ((sample_ opts.playerPositions opts.rateE) <#> \positions ->
-             let
-               ppos = playerPosition opts.myPlayer
-               posAx axis = ppos axis positions
-               px = posAx AxisX
-               py = posAx AxisY
-               pz = posAx AxisZ
-             in oneOfMap bang
-                [ positionX $ px
-                , positionY $ (opts.renderingInfo.cameraOffsetY + py)
-                , positionZ $ (opts.renderingInfo.cameraOffsetZ + pz)
-                , P.target $ v33 { x: px, y: py, z: pz }
-                ]
-            ) <|> (opts.resizeE <#> \i -> P.aspect (i.iw / i.ih)))
+            ( keepLatest
+                (  opts.playerPositions <#> \positions ->
+                    let
+                      ppos = playerPosition opts.myPlayer
+                      posAx axis = ppos axis positions
+                      px = posAx AxisX
+                      py = posAx AxisY
+                      pz = posAx AxisZ
+                    in
+                      oneOfMap bang
+                        [ positionX $ px
+                        , positionY $ (opts.renderingInfo.cameraOffsetY + py)
+                        , positionZ $ (opts.renderingInfo.cameraOffsetZ + pz)
+                        , P.target $ v33 { x: px, y: py, z: pz }
+                        ]
+                ) <|> (opts.resizeE <#> \i -> P.aspect (i.iw / i.ih))
+            )
         )
         { canvas: opts.canvas }
         ( oneOf

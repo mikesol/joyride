@@ -20,7 +20,7 @@ import Effect (Effect, foreachE)
 import Effect.Now (now)
 import Effect.Ref as Ref
 import Effect.Timer (clearInterval, setInterval)
-import FRP.Behavior (Behavior, step)
+import FRP.Behavior (Behavior, sampleBy, step)
 import FRP.Event (Event, bang, fromEvent, hot, subscribe)
 import FRP.Event.AnimationFrame (animationFrame)
 import FRP.Event.VBus (V)
@@ -34,7 +34,7 @@ import Rito.Color (color)
 import Rito.Core (ASceneful)
 import Rito.THREE (ThreeStuff)
 import Type.Proxy (Proxy(..))
-import Types (Beats(..), MakeBasics, Player, PlayerPositionsF, RateInfo, RenderingInfo, Seconds(..), WindowDims)
+import Types (MakeBasics, Player, PlayerPositionsF, RateInfo, RenderingInfo, Seconds(..), WindowDims)
 import WAGS.Clock (withACTime)
 import WAGS.Interpret (close, constant0Hack, context)
 import WAGS.Math (calcSlope)
@@ -111,29 +111,25 @@ toplevel tli =
                                           , silence: tli.silence
                                           }
                                       , playerPositions:
-                                          ( \ppos { time: Seconds time } ->
-                                              { p1x: ppos.p1x time
-                                              , p1y: ppos.p1y time
-                                              , p1z: ppos.p1z time
-                                              , p2x: ppos.p2x time
-                                              , p2y: ppos.p2y time
-                                              , p2z: ppos.p2z time
-                                              , p3x: ppos.p3x time
-                                              , p3y: ppos.p3y time
-                                              , p3z: ppos.p3z time
-                                              , p4x: ppos.p4x time
-                                              , p4y: ppos.p4y time
-                                              , p4z: ppos.p4z time
-                                              }
-                                          ) <$> tli.playerPositions <*>
-                                            ( step
-                                                { time: Seconds 0.0
-                                                , beats: Beats 0.0
-                                                , prevTime: Nothing
-                                                , prevBeats: Nothing
+                                          sampleBy
+                                            ( \ppos rinfo ->
+                                                { p1x: ppos.p1x rinfo
+                                                , p1y: ppos.p1y rinfo
+                                                , p1z: ppos.p1z rinfo
+                                                , p2x: ppos.p2x rinfo
+                                                , p2y: ppos.p2y rinfo
+                                                , p2z: ppos.p2z rinfo
+                                                , p3x: ppos.p3x rinfo
+                                                , p3y: ppos.p3y rinfo
+                                                , p3z: ppos.p3z rinfo
+                                                , p4x: ppos.p4x rinfo
+                                                , p4y: ppos.p4y rinfo
+                                                , p4z: ppos.p4z rinfo
                                                 }
-                                                event.rateInfo
                                             )
+                                            tli.playerPositions
+                                            event.rateInfo
+
                                       , resizeE: tli.resizeE
                                       , rateE: event.rateInfo
                                       , initialDims: tli.initialDims

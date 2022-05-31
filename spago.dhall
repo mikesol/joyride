@@ -35,6 +35,7 @@
   , "parallel"
   , "partial"
   , "prelude"
+  , "profunctor"
   , "profunctor-lenses"
   , "random"
   , "record"
