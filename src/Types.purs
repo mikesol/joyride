@@ -35,7 +35,7 @@ import Prelude
 import Data.FastVect.FastVect (Vect)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype)
-import Data.Time.Duration (Milliseconds(..))
+import Data.Time.Duration (Milliseconds)
 import Data.Tuple.Nested (type (/\))
 import Effect (Effect)
 import FRP.Behavior (Behavior)
