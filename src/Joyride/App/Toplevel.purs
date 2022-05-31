@@ -20,7 +20,7 @@ import Effect (Effect, foreachE)
 import Effect.Now (now)
 import Effect.Ref as Ref
 import Effect.Timer (clearInterval, setInterval)
-import FRP.Behavior (Behavior, sampleBy, step)
+import FRP.Behavior (Behavior, sampleBy)
 import FRP.Event (Event, bang, fromEvent, hot, subscribe)
 import FRP.Event.AnimationFrame (animationFrame)
 import FRP.Event.VBus (V)
@@ -37,12 +37,9 @@ import Type.Proxy (Proxy(..))
 import Types (MakeBasics, Player, PlayerPositionsF, RateInfo, RenderingInfo, Seconds(..), WindowDims)
 import WAGS.Clock (withACTime)
 import WAGS.Interpret (close, constant0Hack, context)
-import WAGS.Math (calcSlope)
 import WAGS.Run (run2)
 import WAGS.WebAPI (BrowserAudioBuffer)
-import Web.Event.Event (target)
 import Web.HTML.HTMLCanvasElement as HTMLCanvasElement
-import Web.HTML.HTMLInputElement (fromEventTarget, valueAsNumber)
 import Web.HTML.Window (RequestIdleCallbackId, Window, cancelIdleCallback, requestIdleCallback)
 
 twoPi = 2.0 * pi :: Number
@@ -50,7 +47,6 @@ twoPi = 2.0 * pi :: Number
 type UIEvents = V
   ( start :: Unit
   , stop :: Effect Unit
-  , slider :: Number
   , rateInfo :: RateInfo
   , basicAudio :: Event AudibleChildEnd
   )
@@ -145,30 +141,12 @@ toplevel tli =
                     ]
                 , D.div
                     ( bang $ D.Style :=
-                        "position: absolute; width:100%; background-color: rgba(200,200,200,0.8);"
+                        "position: absolute; background-color: rgba(200,200,200,0.8);"
                     )
-                    [ D.input
-                        ( oneOfMap bang
-                            [ D.Xtype := "range"
-                            , D.Min := "0"
-                            , D.Max := "100"
-                            , D.Step := "1"
-                            , D.Value := "50"
-                            , D.Style :=
-                                "width: 100%; margin-top: 15px; margin-bottom: 15px;"
-                            , D.OnInput := cb
-                                ( traverse_
-                                    (valueAsNumber >=> push.slider)
-                                    <<< (=<<) fromEventTarget
-                                    <<< target
-                                )
-                            ]
-                        )
-                        []
-                    , D.button
+                    [ D.button
                         ( oneOf
                             [ bang $ D.Style :=
-                                "width:100%; padding:1.0rem;"
+                                "padding:1.0rem;"
                             , ( oneOfMap
                                   (map (attr D.OnClick <<< cb <<< const))
                                   [ stopE <#>
@@ -202,14 +180,7 @@ toplevel tli =
                                       withRate <-
                                         hot
                                           $ timeFromRate
-                                              ( { rate: _ } <$> step 1.0
-                                                  ( map
-                                                      ( calcSlope 0.0 0.75 100.0
-                                                          1.25
-                                                      )
-                                                      event.slider
-                                                  )
-                                              )
+                                              ( pure { rate: 1.0 }                                              )
                                               (Seconds >>> { real: _ } <$> afE.event)
 
                                       iu0 <- subscribe withRate.event push.rateInfo

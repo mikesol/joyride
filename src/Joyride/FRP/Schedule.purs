@@ -9,6 +9,9 @@ import Data.Maybe (Maybe(..))
 import Effect.Ref as Ref
 import FRP.Event (Event, makeEvent, subscribe)
 
+fireAndForget :: forall a. Event a -> Event a
+fireAndForget = oneOff Just
+
 oneOff :: forall a b. (a -> Maybe b) -> Event a -> Event b
 oneOff aToB e = makeEvent \k -> do
   r <- Ref.new true
