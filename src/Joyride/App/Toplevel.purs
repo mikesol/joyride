@@ -64,8 +64,9 @@ type ToplevelInfo =
   , playerPositions :: Behavior PlayerPositionsF
   , resizeE :: Event WindowDims
   , basicE :: forall lock payload. { | MakeBasics () } -> ASceneful lock payload
-  , renderingInfo :: RenderingInfo
+  , renderingInfo :: Behavior RenderingInfo
   , initialDims :: WindowDims
+  , debug :: Boolean
   , silence :: BrowserAudioBuffer
   , icid :: Ref.Ref (Maybe RequestIdleCallbackId)
   , wdw :: Window
@@ -98,9 +99,11 @@ toplevel tli =
                                       , renderingInfo: tli.renderingInfo
                                       , lowPriorityCb: tli.lpsCallback
                                       , myPlayer: tli.myPlayer
+                                      , debug: tli.debug
                                       , basicE: tli.basicE
                                           { initialDims: tli.initialDims
                                           , renderingInfo: tli.renderingInfo
+                                          , debug: tli.debug
                                           , resizeEvent: tli.resizeE
                                           , isMobile: tli.isMobile
                                           , lpsCallback: tli.lpsCallback

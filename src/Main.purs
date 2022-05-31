@@ -14,6 +14,7 @@ import Deku.Toplevel (runInBody)
 import Effect (Effect)
 import Effect.Aff (Milliseconds(..), forkAff, launchAff_)
 import Effect.Class (liftEffect)
+import Effect.Class.Console (logShow)
 import Effect.Random as Random
 import Effect.Ref (new)
 import Effect.Ref as Ref
@@ -26,12 +27,13 @@ import Joyride.Effect.Ref (writeToRecord)
 import Joyride.FRP.Behavior (refToBehavior)
 import Joyride.FRP.Keypress (posFromKeypress, xForKeyboard)
 import Joyride.FRP.Orientation (posFromOrientation, xForTouch)
+import Joyride.LilGui (Slider(..), gui)
 import Joyride.Mocks.TestData (mockBasics)
 import Joyride.Network.Download (dlInChunks)
 import Joyride.Transport.PubNub (PlayerAction(..), PubNubEvent(..), pubnubEvent)
 import Rito.Interpret (orbitControlsAff, threeAff)
 import Type.Proxy (Proxy(..))
-import Types (BufferName(..), Player(..), RenderingInfo, initialPositions)
+import Types (BufferName(..), Player(..), RenderingInfo', initialPositions)
 import WAGS.Interpret (AudioBuffer(..), context, makeAudioBuffer)
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
@@ -46,8 +48,14 @@ type CanvasInfo = { x :: Number, y :: Number } /\ Number
 
 foreign import emitsTouchEvents :: Effect Boolean
 
-renderingInfo :: RenderingInfo
-renderingInfo = { halfAmbitus: 2.0, barZSpacing: 1.0, cameraOffsetZ: 1.0, cameraOffsetY: 0.5, sphereOffsetY: 0.2 }
+renderingInfo' :: RenderingInfo' Slider
+renderingInfo' =
+  { halfAmbitus: Slider { default: 2.0, min: 0.1, max: 4.0, step: 0.2 }
+  , barZSpacing: Slider { default: 1.0, min: 0.1, max: 3.0, step: 0.2 }
+  , cameraOffsetZ: Slider { default: 1.0, min: 0.1, max: 3.0, step: 0.2 }
+  , cameraOffsetY: Slider { default: 0.5, min: 0.1, max: 3.0, step: 0.2 }
+  , sphereOffsetY: Slider { default: 0.2, min: 0.05, max: 0.5, step: 0.05 }
+  }
 
 main :: Object.Object String -> Effect Unit
 main silentRoom = launchAff_ do
@@ -59,7 +67,11 @@ main silentRoom = launchAff_ do
   pn <- liftEffect $ pathname loc
   isMobile <- liftEffect $ emitsTouchEvents
   resizeE <- liftEffect create
-  playerPositions <- liftEffect $ Ref.new (initialPositions renderingInfo)
+  ----- gui
+  { debug, renderingInfo } <- gui renderingInfo'
+  liftEffect (Ref.read renderingInfo >>= logShow)
+  -----
+  playerPositions <- liftEffect $ (Ref.read renderingInfo >>= \ri -> Ref.new (initialPositions ri))
   let
     myPlayer
       | pn == "/4" = Player4
@@ -132,10 +144,9 @@ main silentRoom = launchAff_ do
         , myPlayer
         , resizeE: resizeE.event
         , playerPositions: refToBehavior playerPositions
-        -- , player2XBehavior
-        , renderingInfo
+        , renderingInfo: refToBehavior renderingInfo
+        , debug
         , basicE: mockBasics
-        -- , xPosB
         , silence
         , initialDims
         , icid
