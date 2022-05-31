@@ -255,11 +255,12 @@ type MakeBasic r =
   | MakeBasics r
   )
 
-type BasicTap = { pushedAt :: Milliseconds
-      , clientX :: Int
-      , clientY :: Int
-      , deltaTime :: Milliseconds
-      }
+type BasicTap =
+  { pushedAt :: Milliseconds
+  , clientX :: Int
+  , clientY :: Int
+  , deltaTime :: Milliseconds
+  }
 
 type MakeBasics r =
   ( initialDims :: WindowDims
