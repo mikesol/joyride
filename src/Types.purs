@@ -2,6 +2,7 @@ module Types
   ( Player(..)
   , entryZ
   , RenderingInfo
+  , BasicTap
   , RenderingInfo'
   , Position(..)
   , Axis(..)
@@ -254,6 +255,12 @@ type MakeBasic r =
   | MakeBasics r
   )
 
+type BasicTap = { pushedAt :: Milliseconds
+      , clientX :: Int
+      , clientY :: Int
+      , deltaTime :: Milliseconds
+      }
+
 type MakeBasics r =
   ( initialDims :: WindowDims
   , renderingInfo :: Behavior RenderingInfo
@@ -266,6 +273,7 @@ type MakeBasics r =
   , buffers :: Behavior (Object.Object BrowserAudioBuffer)
   , silence :: BrowserAudioBuffer
   , debug :: Boolean
+  , pushBasicTap :: BasicTap -> Effect Unit
   | r
   )
 

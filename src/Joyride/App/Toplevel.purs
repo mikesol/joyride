@@ -13,7 +13,7 @@ import Data.Time.Duration (Milliseconds)
 import Data.Tuple (fst, snd)
 import Deku.Attribute (attr, cb, (:=))
 import Deku.Control (switcher, text, text_)
-import Deku.Core (Nut, vbussed)
+import Deku.Core (Nut, dyn, vbussed, insert)
 import Deku.DOM as D
 import Effect (Effect, foreachE)
 import Effect.Now (now)
@@ -33,7 +33,7 @@ import Rito.Color (color)
 import Rito.Core (ASceneful)
 import Rito.THREE (ThreeStuff)
 import Type.Proxy (Proxy(..))
-import Types (MakeBasics, Player, PlayerPositionsF, RateInfo, RenderingInfo, Seconds(..), WindowDims)
+import Types (MakeBasics, Player, PlayerPositionsF, RateInfo, RenderingInfo, Seconds(..), WindowDims, BasicTap)
 import WAGS.Clock (withACTime)
 import WAGS.Interpret (close, constant0Hack, context)
 import WAGS.Run (run2)
@@ -48,6 +48,7 @@ type UIEvents = V
   , stop :: Effect Unit
   , rateInfo :: RateInfo
   , basicAudio :: Event AudibleChildEnd
+  , basicTap :: BasicTap
   )
 
 type ToplevelInfo =
@@ -107,6 +108,7 @@ toplevel tli =
                                           , rateInfo: event.rateInfo
                                           , buffers: refToBehavior tli.soundObj
                                           , silence: tli.silence
+                                          , pushBasicTap: push.basicTap
                                           }
                                       , playerPositions:
                                           sampleBy
@@ -138,14 +140,18 @@ toplevel tli =
                         )
                         []
                     ]
+                , D.div (bang $ D.Class := "absolute")
+                    [ dyn
+                        ( event.basicTap <#> \e ->
+                            bang $ insert $ D.span (oneOfMap bang [ D.Class := "absolute text-zinc-100", D.Style := "top: " <> show e.clientY <> "px; left: " <> show e.clientX <> "px;"]) [ text_ "hello" ]
+                        )
+                    ]
+                -- on/off
                 , D.div
-                    ( bang $ D.Style :=
-                        "position: absolute; background-color: rgba(200,200,200,0.8);"
-                    )
+                    (bang $ D.Class := "absolute bg-slate-50")
                     [ D.button
                         ( oneOf
-                            [ bang $ D.Style :=
-                                "padding:1.0rem;"
+                            [ bang $ D.Class := "p-4"
                             , ( oneOfMap
                                   (map (attr D.OnClick <<< cb <<< const))
                                   [ stopE <#>
@@ -178,7 +184,7 @@ toplevel tli =
                                       withRate <-
                                         hot
                                           $ timeFromRate
-                                              ( pure { rate: 1.0 }                                              )
+                                              (pure { rate: 1.0 })
                                               (Seconds >>> { real: _ } <$> afE.event)
 
                                       iu0 <- subscribe withRate.event push.rateInfo

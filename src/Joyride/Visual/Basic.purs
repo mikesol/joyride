@@ -12,7 +12,7 @@ import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.Time.Duration (Milliseconds(..))
 import Data.Tuple (Tuple(..))
-import Effect.Class.Console as Log
+import Effect.Now (now)
 import FRP.Behavior (sampleBy, sample_)
 import FRP.Behavior.Time (instant)
 import FRP.Event (bus, keepLatest, sampleOn)
@@ -33,22 +33,10 @@ import Type.Proxy (Proxy(..))
 import Types (MakeBasic, Position(..), entryZ, normalizedColumn, touchPointZ)
 import WAGS.Core (envy, sound, silence)
 import WAGS.Math (calcSlope)
+import Web.UIEvent.MouseEvent (clientX, clientY)
 
 basic :: forall r lock payload. { | MakeBasic r } -> AMesh lock payload
-basic
-  { mkColor
-  , initialDims
-  , resizeEvent
-  , rateInfo
-  , appearsAt
-  , column
-  , debug
-  , renderingInfo
-  , isMobile
-  , lpsCallback
-  , pushAudio
-  , beats
-  } = envy
+basic makeBasic = envy
   $ keepLatest
   $ bus \setPlayed played -> do
       let
@@ -58,7 +46,7 @@ basic
         -- there'd be no more Nothings, so maybe faster?
         rateInfoOffAtTouch = compact
           ( sampleOn (bang true <|> played $> false)
-              (rateInfo <#> \ri tf -> if tf then Just ri else Nothing)
+              (makeBasic.rateInfo <#> \ri tf -> if tf then Just ri else Nothing)
           )
       rider
         ( toRide
@@ -71,62 +59,65 @@ basic
                                     (audio rateInfoOffAtTouch)
                                 )
                             )
-                        , ( keepLatest $ (withTime (bang unit)) <#> \{ time } -> lowPrioritySchedule lpsCallback
+                        , ( keepLatest $ (withTime (bang unit)) <#> \{ time } -> lowPrioritySchedule makeBasic.lpsCallback
                               (Milliseconds 10000.0 <> (unInstant time))
                               (bang $ AudibleChildEnd silence)
                           )
                         ]
                     )
-                    beats
+                    makeBasic.beats
                 )
-            , push: pushAudio
+            , push: makeBasic.pushAudio
             }
         )
         ( bang
             ( ( mesh
                   (box {} empty)
                   ( meshStandardMaterial
-                      { color: mkColor $ RGB 1.0 1.0 1.0 }
-                      (played <#> \_ -> P.color $ mkColor (RGB 0.1 0.8 0.6))
+                      { color: makeBasic.mkColor $ RGB 1.0 1.0 1.0 }
+                      (played <#> \_ -> P.color $ makeBasic.mkColor (RGB 0.1 0.8 0.6))
                   )
                   ( oneOf
-                      [ sampleBy Tuple renderingInfo (debugX' debug ratioEvent rateInfo) <#> \(Tuple ri ratio) -> P.positionX
-                          ((ri.halfAmbitus * (2.0 * (normalizedColumn column) - 1.0)) * ratio)
+                      [ sampleBy Tuple makeBasic.renderingInfo (debugX' makeBasic.debug ratioEvent makeBasic.rateInfo) <#> \(Tuple ri ratio) -> P.positionX
+                          ((ri.halfAmbitus * (2.0 * (normalizedColumn makeBasic.column) - 1.0)) * ratio)
                       , bang $ P.positionY 0.0
-                      , sampleBy Tuple renderingInfo rateInfo <#> \(Tuple ri { beats: currentBeats }) ->
+                      , sampleBy Tuple makeBasic.renderingInfo makeBasic.rateInfo <#> \(Tuple ri { beats: currentBeats }) ->
                           let
                             o
-                              | currentBeats < p1.startsAt = calcSlope (unwrap appearsAt) (appearancePoint ri) (unwrap p1.startsAt) (p1bar ri) (unwrap currentBeats)
+                              | currentBeats < p1.startsAt = calcSlope (unwrap makeBasic.appearsAt) (appearancePoint ri) (unwrap p1.startsAt) (p1bar ri) (unwrap currentBeats)
                               | currentBeats < p2.startsAt = calcSlope (unwrap p1.startsAt) (p1bar ri) (unwrap p2.startsAt) (p2bar ri) (unwrap currentBeats)
                               | currentBeats < p3.startsAt = calcSlope (unwrap p2.startsAt) (p2bar ri) (unwrap p3.startsAt) (p3bar ri) (unwrap currentBeats)
                               | otherwise = calcSlope (unwrap p3.startsAt) (p3bar ri) (unwrap p4.startsAt) (p4bar ri) (unwrap currentBeats)
                           in
                             P.positionZ o
-                      , (bang $ P.scaleX 0.0) <|> (ratioEvent <#> \ratio -> P.scaleX (oneEighth * ratio)) <|> keepLatest (biSampleOn ratioEvent (Tuple <$> fireAndForget (sample_ (unInstant <$> instant) played)) <#> \(Tuple (Milliseconds startTime) ratio) -> let oneEightRatio = oneEighth * ratio in rateInfo <#> \{ epochTime: Milliseconds currentTime } -> P.scaleX $ max 0.0 (oneEightRatio - (oneEightRatio * shrinkRate * (currentTime - startTime) / 1000.0)))
+                      , (bang $ P.scaleX 0.0) <|> (ratioEvent <#> \ratio -> P.scaleX (oneEighth * ratio)) <|> keepLatest (biSampleOn ratioEvent (Tuple <$> fireAndForget (sample_ (unInstant <$> instant) played)) <#> \(Tuple (Milliseconds startTime) ratio) -> let oneEightRatio = oneEighth * ratio in makeBasic.rateInfo <#> \{ epochTime: Milliseconds currentTime } -> P.scaleX $ max 0.0 (oneEightRatio - (oneEightRatio * shrinkRate * (currentTime - startTime) / 1000.0)))
                       -- we use `fireAndForget` because we don't need the full rate info, only the first one to grab the initial value
-                      , (bang $ P.scaleY 0.0) <|> fireAndForget (rateInfo $> P.scaleY basicYThickness) <|> shrinkMe played P.scaleY basicYThickness
-                      , (bang $ P.scaleZ 0.0) <|> fireAndForget (rateInfo $> P.scaleZ basicZThickness) <|> shrinkMe played P.scaleZ basicZThickness
+                      , (bang $ P.scaleY 0.0) <|> fireAndForget (makeBasic.rateInfo $> P.scaleY basicYThickness) <|> shrinkMe played P.scaleY basicYThickness
+                      , (bang $ P.scaleZ 0.0) <|> fireAndForget (makeBasic.rateInfo $> P.scaleZ basicZThickness) <|> shrinkMe played P.scaleZ basicZThickness
                       , bang $
-                          if isMobile then P.onTouchStart \_ -> Log.info "click" *> setPlayed unit
-                          else P.onMouseDown \_ -> Log.info "click" *> setPlayed unit
+                          if makeBasic.isMobile then P.onTouchStart \_ -> setPlayed unit
+                          else P.onMouseDown \e -> do
+                            n <- now
+                            makeBasic.pushBasicTap { clientX: clientX e, clientY: clientY e, pushedAt: unInstant n, deltaTime: Milliseconds 0.0 }
+                            setPlayed unit
                       ]
                   )
               )
             )
         )
   where
-  p1 = index (Proxy :: _ 0) beats
-  p2 = index (Proxy :: _ 1) beats
-  p3 = index (Proxy :: _ 2) beats
-  p4 = index (Proxy :: _ 3) beats
+  p1 = index (Proxy :: _ 0) makeBasic.beats
+  p2 = index (Proxy :: _ 1) makeBasic.beats
+  p3 = index (Proxy :: _ 2) makeBasic.beats
+  p4 = index (Proxy :: _ 3) makeBasic.beats
   p1bar ri = touchPointZ ri Position1
   p2bar ri = touchPointZ ri Position2
   p3bar ri = touchPointZ ri Position3
   p4bar ri = touchPointZ ri Position4
   appearancePoint ri = entryZ ri
   oneEighth = 1.0 / 8.0
-  ratioEvent = map (\i -> i.iw / i.ih) (bang initialDims <|> resizeEvent)
+  ratioEvent = map (\i -> i.iw / i.ih) (bang makeBasic.initialDims <|> makeBasic.resizeEvent)
   shrinkRate = 3.0
   basicYThickness = 0.04
   basicZThickness = 0.4
-  shrinkMe played f basicThickness = keepLatest (fireAndForget (sample_ (unInstant <$> instant) played) <#> \(Milliseconds startTime) -> rateInfo <#> \{ epochTime: Milliseconds currentTime } -> f $ max 0.0 (basicThickness - (basicThickness * shrinkRate * (currentTime - startTime) / 1000.0)))
+  shrinkMe played f basicThickness = keepLatest (fireAndForget (sample_ (unInstant <$> instant) played) <#> \(Milliseconds startTime) -> makeBasic.rateInfo <#> \{ epochTime: Milliseconds currentTime } -> f $ max 0.0 (basicThickness - (basicThickness * shrinkRate * (currentTime - startTime) / 1000.0)))
