@@ -24,6 +24,7 @@
   , "foreign"
   , "foreign-object"
   , "free"
+  , "heterogeneous"
   , "integers"
   , "js-timers"
   , "lists"

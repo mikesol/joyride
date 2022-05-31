@@ -2,6 +2,7 @@ module Types
   ( Player(..)
   , entryZ
   , RenderingInfo
+  , RenderingInfo'
   , Position(..)
   , Axis(..)
   , touchPointZ
@@ -223,13 +224,17 @@ beatToTime
   Just (Beats pb), Just (Seconds pt) -> Seconds (calcSlope pb pt beats time b)
   _, _ -> Seconds 0.0
 
-type RenderingInfo =
-  { halfAmbitus :: Number
-  , barZSpacing :: Number
-  , sphereOffsetY :: Number
-  , cameraOffsetY :: Number
-  , cameraOffsetZ :: Number
+type RenderingInfo' slider =
+  { halfAmbitus :: slider
+  , barZSpacing :: slider
+  , sphereOffsetY :: slider
+  , cameraLookAtOffsetY :: slider
+  , cameraOffsetY :: slider
+  , cameraLookAtOffsetZ :: slider
+  , cameraOffsetZ :: slider
   }
+
+type RenderingInfo = RenderingInfo' Number
 
 touchPointZ :: RenderingInfo -> Position -> Number
 touchPointZ { barZSpacing } = go
@@ -251,7 +256,7 @@ type MakeBasic r =
 
 type MakeBasics r =
   ( initialDims :: WindowDims
-  , renderingInfo :: RenderingInfo
+  , renderingInfo :: Behavior RenderingInfo
   , resizeEvent :: Event WindowDims
   , isMobile :: Boolean
   , lpsCallback :: Milliseconds -> Effect Unit -> Effect Unit
@@ -260,6 +265,7 @@ type MakeBasics r =
   , rateInfo :: Event RateInfo
   , buffers :: Behavior (Object.Object BrowserAudioBuffer)
   , silence :: BrowserAudioBuffer
+  , debug :: Boolean
   | r
   )
 

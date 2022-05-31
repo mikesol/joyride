@@ -10,8 +10,11 @@ import Data.Foldable (oneOf, oneOfMap)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.Time.Duration (Milliseconds(..))
+import Data.Tuple (Tuple(..))
+import FRP.Behavior (sampleBy)
 import FRP.Event (bus, keepLatest, sampleOn)
 import FRP.Event.Class (bang)
+import Joyride.Debug (debugX')
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Rider (rider, toRide)
 import Joyride.Wags (AudibleChildEnd(..), AudibleEnd(..))
@@ -34,6 +37,7 @@ basic
   , rateInfo
   , appearsAt
   , column
+  , debug
   , renderingInfo
   , isMobile
   , lpsCallback
@@ -81,16 +85,16 @@ basic
                       (played <#> \_ -> P.color $ mkColor (RGB 0.1 0.8 0.6))
                   )
                   ( oneOf
-                      [ ratioEvent <#> \ratio -> P.positionX
-                          ((renderingInfo.halfAmbitus * (2.0 * (normalizedColumn column) - 1.0)) * ratio)
+                      [ sampleBy Tuple renderingInfo (debugX' debug ratioEvent rateInfo) <#> \(Tuple ri ratio) -> P.positionX
+                          ((ri.halfAmbitus * (2.0 * (normalizedColumn column) - 1.0)) * ratio)
                       , bang $ P.positionY 0.0
-                      , rateInfo <#> \{ beats: currentBeats } ->
+                      , sampleBy Tuple renderingInfo rateInfo <#> \(Tuple ri { beats: currentBeats }) ->
                           let
                             o
-                              | currentBeats < p1.startsAt = calcSlope (unwrap appearsAt) appearancePoint (unwrap p1.startsAt) p1bar (unwrap currentBeats)
-                              | currentBeats < p2.startsAt = calcSlope (unwrap p1.startsAt) p1bar (unwrap p2.startsAt) p2bar (unwrap currentBeats)
-                              | currentBeats < p3.startsAt = calcSlope (unwrap p2.startsAt) p2bar (unwrap p3.startsAt) p3bar (unwrap currentBeats)
-                              | otherwise = calcSlope (unwrap p3.startsAt) p3bar (unwrap p4.startsAt) p4bar (unwrap currentBeats)
+                              | currentBeats < p1.startsAt = calcSlope (unwrap appearsAt) (appearancePoint ri) (unwrap p1.startsAt) (p1bar ri) (unwrap currentBeats)
+                              | currentBeats < p2.startsAt = calcSlope (unwrap p1.startsAt) (p1bar ri) (unwrap p2.startsAt) (p2bar ri) (unwrap currentBeats)
+                              | currentBeats < p3.startsAt = calcSlope (unwrap p2.startsAt) (p2bar ri) (unwrap p3.startsAt) (p3bar ri) (unwrap currentBeats)
+                              | otherwise = calcSlope (unwrap p3.startsAt) (p3bar ri) (unwrap p4.startsAt) (p4bar ri) (unwrap currentBeats)
                           in
                             P.positionZ o
                       , ratioEvent <#> \ratio -> P.scaleX (0.5 * ratio)
@@ -109,9 +113,9 @@ basic
   p2 = index (Proxy :: _ 1) beats
   p3 = index (Proxy :: _ 2) beats
   p4 = index (Proxy :: _ 3) beats
-  p1bar = touchPointZ renderingInfo Position1
-  p2bar = touchPointZ renderingInfo Position2
-  p3bar = touchPointZ renderingInfo Position3
-  p4bar = touchPointZ renderingInfo Position4
-  appearancePoint = entryZ renderingInfo
+  p1bar ri = touchPointZ ri Position1
+  p2bar ri = touchPointZ ri Position2
+  p3bar ri = touchPointZ ri Position3
+  p4bar ri = touchPointZ ri Position4
+  appearancePoint ri = entryZ ri
   ratioEvent = map (\i -> i.iw / i.ih) (bang initialDims <|> resizeEvent)
