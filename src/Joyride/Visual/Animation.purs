@@ -4,14 +4,14 @@ import Prelude
 
 import Control.Alt ((<|>))
 import Control.Plus (empty)
-import Data.Foldable (oneOf)
+import Data.Filterable (filter)
+import Data.Foldable (oneOf, oneOfMap)
 import Data.Number (pi)
 import Data.Time.Duration (Milliseconds)
-import Debug (spy)
+import Data.Tuple (Tuple(..))
 import Effect (Effect)
 import FRP.Behavior (Behavior, sampleBy)
 import FRP.Event (Event, bang, keepLatest)
-import Joyride.Debug (debugX)
 import Joyride.Visual.Bar (makeBar)
 import Rito.Cameras.PerspectiveCamera (defaultOrbitControls, perspectiveCamera)
 import Rito.Color (RGB(..), color)
@@ -55,7 +55,7 @@ runThree opts@{ threeStuff: { three } } = do
   _ <- Rito.Run.run opts.threeStuff
     ( webGLRenderer
         ( scene empty $
-            ( allPlayers <#> \player -> do
+            ( filter (_ /= opts.myPlayer) allPlayers <#> \player -> do
                 let ppos = playerPosition player
                 let posAx axis = map (ppos axis) opts.playerPositions
                 toScene $ mesh (sphere {} empty)
@@ -115,20 +115,19 @@ runThree opts@{ threeStuff: { three } } = do
             , orbitControls: OrbitControls (defaultOrbitControls opts.canvas)
             }
             ( keepLatest
-                ( opts.playerPositions <#> \positions ->
+                ( sampleBy Tuple opts.renderingInfo opts.playerPositions <#> \(Tuple ri positions) ->
                     let
                       ppos = playerPosition opts.myPlayer
                       posAx axis = ppos axis positions
                       px = posAx AxisX
                       py = posAx AxisY
                       pz = posAx AxisZ
-                      dbg = debugX opts.debug opts.rateE
                     in
-                      oneOf
-                        [ dbg $> (positionX $ px)
-                        , sampleBy (\ri _ -> {-let ____ = spy "foo" (ri.cameraOffsetY + py) in-} positionY $ (ri.cameraOffsetY + py)) opts.renderingInfo dbg
-                        , sampleBy (\ri _ -> positionZ $ (ri.cameraOffsetZ + pz)) opts.renderingInfo dbg
-                        , dbg $> (P.target $ v33 { x: px, y: py, z: pz })
+                      oneOfMap bang
+                        [ positionX px
+                        , positionY (ri.cameraOffsetY + py)
+                        , positionZ (ri.cameraOffsetZ + pz)
+                        , P.target $ v33 { x: px, y: ri.cameraLookAtOffsetY + py, z: ri.cameraLookAtOffsetZ + pz }
                         ]
                 ) <|> (opts.resizeE <#> \i -> P.aspect (i.iw / i.ih))
             )

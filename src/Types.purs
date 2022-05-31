@@ -228,7 +228,9 @@ type RenderingInfo' slider =
   { halfAmbitus :: slider
   , barZSpacing :: slider
   , sphereOffsetY :: slider
+  , cameraLookAtOffsetY :: slider
   , cameraOffsetY :: slider
+  , cameraLookAtOffsetZ :: slider
   , cameraOffsetZ :: slider
   }
 

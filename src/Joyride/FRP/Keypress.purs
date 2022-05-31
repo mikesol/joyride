@@ -55,7 +55,6 @@ xForKeyboard w myPlayer pubNub = do
                 | isUp = Still
                 | keyCode == "ArrowLeft" = ToLeft
                 | otherwise = ToRight
-            Log.info keyCode
             time <- unInstant <$> now
             nw <- Ref.modify (\ktp -> if ktp.curXDir == curXDir then ktp else { curXDir, time: Just time, pos: posFromKeypress ktp time }) xpe
             evt.push nw
