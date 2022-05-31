@@ -103,8 +103,8 @@ basic
                             P.positionZ o
                       , (bang $ P.scaleX 0.0) <|> (ratioEvent <#> \ratio -> P.scaleX (oneEighth * ratio)) <|> keepLatest (biSampleOn ratioEvent (Tuple <$> fireAndForget (sample_ (unInstant <$> instant) played)) <#> \(Tuple (Milliseconds startTime) ratio) -> let oneEightRatio = oneEighth * ratio in rateInfo <#> \{ epochTime: Milliseconds currentTime } -> P.scaleX $ max 0.0 (oneEightRatio - (oneEightRatio * shrinkRate * (currentTime - startTime) / 1000.0)))
                       -- we use `fireAndForget` because we don't need the full rate info, only the first one to grab the initial value
-                      , (bang $ P.scaleY 0.0) <|> fireAndForget (rateInfo $> P.scaleY basicYThickness) <|> shrinkMe played rateInfo P.scaleY basicYThickness
-                      , (bang $ P.scaleZ 0.0) <|> fireAndForget (rateInfo $> P.scaleZ basicZThickness) <|> shrinkMe played rateInfo P.scaleZ basicZThickness
+                      , (bang $ P.scaleY 0.0) <|> fireAndForget (rateInfo $> P.scaleY basicYThickness) <|> shrinkMe played P.scaleY basicYThickness
+                      , (bang $ P.scaleZ 0.0) <|> fireAndForget (rateInfo $> P.scaleZ basicZThickness) <|> shrinkMe played P.scaleZ basicZThickness
                       , bang $
                           if isMobile then P.onTouchStart \_ -> Log.info "click" *> setPlayed unit
                           else P.onMouseDown \_ -> Log.info "click" *> setPlayed unit
@@ -128,4 +128,4 @@ basic
   shrinkRate = 3.0
   basicYThickness = 0.04
   basicZThickness = 0.4
-  shrinkMe played rateInfo f basicThickness = keepLatest (fireAndForget (sample_ (unInstant <$> instant) played) <#> \(Milliseconds startTime) -> rateInfo <#> \{ epochTime: Milliseconds currentTime } -> f $ max 0.0 (basicThickness - (basicThickness * shrinkRate * (currentTime - startTime) / 1000.0)))
+  shrinkMe played f basicThickness = keepLatest (fireAndForget (sample_ (unInstant <$> instant) played) <#> \(Milliseconds startTime) -> rateInfo <#> \{ epochTime: Milliseconds currentTime } -> f $ max 0.0 (basicThickness - (basicThickness * shrinkRate * (currentTime - startTime) / 1000.0)))
