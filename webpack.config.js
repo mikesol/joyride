@@ -1,5 +1,6 @@
 const path = require("path");
-var HtmlWebpackPlugin = require("html-webpack-plugin");
+const HtmlWebpackPlugin = require("html-webpack-plugin");
+const webpack = require("webpack");
 module.exports = {
 	mode: "development",
 	entry: "./src/index.js",
@@ -10,6 +11,9 @@ module.exports = {
 	plugins: [
 		new HtmlWebpackPlugin({
 			template: "index.html",
+		}),
+		new webpack.EnvironmentPlugin({
+			LIL_GUI: "true",
 		}),
 	],
 	module: {

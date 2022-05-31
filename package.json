@@ -5,7 +5,8 @@
 	"main": "index.js",
 	"scripts": {
 		"start": "spago build && webpack serve --open",
-		"build": "npm run build-ps && rm -rf dist && mkdir dist && webpack --mode=production",
+		"start:no-gui": "spago build && LIL_GUI=false webpack serve --open",
+		"build": "npm run build-ps && rm -rf dist && mkdir dist && LIL_GUI=false webpack --mode=production",
 		"build-ps": "rm -rf .spago/rito && spago build",
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},

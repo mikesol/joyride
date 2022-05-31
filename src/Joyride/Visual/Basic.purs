@@ -11,6 +11,7 @@ import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.Time.Duration (Milliseconds(..))
 import Data.Tuple (Tuple(..))
+import Effect.Class.Console as Log
 import FRP.Behavior (sampleBy)
 import FRP.Event (bus, keepLatest, sampleOn)
 import FRP.Event.Class (bang)
@@ -99,11 +100,12 @@ basic
                           in
                             P.positionZ o
                       , (bang $ P.scaleX 0.0) <|> (ratioEvent <#> \ratio -> P.scaleX (oneEighth * ratio))
+                      -- the one off here is used in order to make sure that we don't accidentally set the scale before the position is set in the rendering loop
                       , (bang $ P.scaleY 0.0) <|> oneOff Just (rateInfo $> P.scaleY 0.04)
                       , (bang $ P.scaleZ 0.0) <|> oneOff Just (rateInfo $> P.scaleZ 0.4)
                       , bang $
-                          if isMobile then P.onTouchStart \_ -> setPlayed unit
-                          else P.onMouseDown \_ -> setPlayed unit
+                          if isMobile then P.onTouchStart \_ -> Log.info "click" *> setPlayed unit
+                          else P.onMouseDown \_ -> Log.info "click" *> setPlayed unit
                       ]
                   )
               )

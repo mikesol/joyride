@@ -27,7 +27,7 @@ import Joyride.Effect.Ref (writeToRecord)
 import Joyride.FRP.Behavior (refToBehavior)
 import Joyride.FRP.Keypress (posFromKeypress, xForKeyboard)
 import Joyride.FRP.Orientation (posFromOrientation, xForTouch)
-import Joyride.LilGui (Slider(..), gui)
+import Joyride.LilGui (Slider(..), gui, noGui)
 import Joyride.Mocks.TestData (mockBasics)
 import Joyride.Network.Download (dlInChunks)
 import Joyride.Transport.PubNub (PlayerAction(..), PubNubEvent(..), pubnubEvent)
@@ -47,6 +47,7 @@ type StartStop = V (start :: Unit, stop :: Effect Unit)
 type CanvasInfo = { x :: Number, y :: Number } /\ Number
 
 foreign import emitsTouchEvents :: Effect Boolean
+foreign import useLilGui :: Effect Boolean
 
 renderingInfo' :: RenderingInfo' Slider
 renderingInfo' =
@@ -70,7 +71,7 @@ main silentRoom = launchAff_ do
   isMobile <- liftEffect $ emitsTouchEvents
   resizeE <- liftEffect create
   ----- gui
-  { debug, renderingInfo } <- gui renderingInfo'
+  { debug, renderingInfo } <- liftEffect useLilGui >>= (if _ then  gui else noGui) >>> (_ $ renderingInfo')
   liftEffect (Ref.read renderingInfo >>= logShow)
   -----
   playerPositions <- liftEffect $ (Ref.read renderingInfo >>= \ri -> Ref.new (initialPositions ri))

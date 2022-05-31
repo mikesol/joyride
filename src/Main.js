@@ -6,3 +6,5 @@ export const emitsTouchEvents = () => {
 		return false;
 	}
 }
+
+export const useLilGui = () => process.env.LIL_GUI === "true";
