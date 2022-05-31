@@ -69,8 +69,8 @@ severalBeats
   -> Vect 4 { startsAt :: Beats, audio :: Event RateInfo -> AudibleEnd }
 severalBeats { startsAt, buffers, silence } = singleBeat (f "kick" $ Beats 0.0)
   :/ singleBeat (f "hihat" $ Beats 1.0)
-  :/ singleBeat (f "note" $ Beats 1.25)
-  :/ singleBeat (f "tambourine" $ Beats 1.5)
+  :/ singleBeat (f "note" $ Beats 2.0)
+  :/ singleBeat (f "tambourine" $ Beats 3.0)
   :/ V.empty
   where
   f
@@ -111,15 +111,23 @@ mockBasics makeBasics = toScene (dyn children)
       { init, rest } = span (\{ appearsAt } -> appearsAt <= beats + lookAhead) l
     (transform <$> init) :< go rest
   score = { column: C4, appearsAt: Beats 0.0 }
-    : { column: C5, appearsAt: Beats 2.0 }
-    : { column: C6, appearsAt: Beats 3.0 }
-    : { column: C4, appearsAt: Beats 5.0 }
-    : { column: C4, appearsAt: Beats 6.0 }
-    : { column: C5, appearsAt: Beats 8.0 }
-    : { column: C6, appearsAt: Beats 9.0 }
-    : { column: C4, appearsAt: Beats 11.0 }
+    : { column: C3, appearsAt: Beats 2.0 }
+    : { column: C2, appearsAt: Beats 3.0 }
+    : { column: C1, appearsAt: Beats 5.0 }
+    : { column: C0, appearsAt: Beats 6.0 }
+    : { column: C1, appearsAt: Beats 8.0 }
+    : { column: C2, appearsAt: Beats 9.0 }
+    : { column: C3, appearsAt: Beats 11.0 }
     : { column: C4, appearsAt: Beats 12.0 }
     : { column: C5, appearsAt: Beats 14.0 }
     : { column: C6, appearsAt: Beats 15.0 }
-    : { column: C4, appearsAt: Beats 17.0 }
+    : { column: C7, appearsAt: Beats 17.0 }
+    : { column: C8, appearsAt: Beats 18.0 }
+    : { column: C9, appearsAt: Beats 20.0 }
+    : { column: C10, appearsAt: Beats 21.0 }
+    : { column: C11, appearsAt: Beats 23.0 }
+    : { column: C12, appearsAt: Beats 24.0 }
+    : { column: C13, appearsAt: Beats 26.0 }
+    : { column: C14, appearsAt: Beats 27.0 }
+    : { column: C15, appearsAt: Beats 29.0 }
     : Nil

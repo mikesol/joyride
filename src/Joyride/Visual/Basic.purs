@@ -17,6 +17,7 @@ import FRP.Event.Class (bang)
 import Joyride.Debug (debugX')
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Rider (rider, toRide)
+import Joyride.FRP.Schedule (oneOff)
 import Joyride.Wags (AudibleChildEnd(..), AudibleEnd(..))
 import Rito.Color (RGB(..))
 import Rito.Core (AMesh)
@@ -97,9 +98,9 @@ basic
                               | otherwise = calcSlope (unwrap p3.startsAt) (p3bar ri) (unwrap p4.startsAt) (p4bar ri) (unwrap currentBeats)
                           in
                             P.positionZ o
-                      , ratioEvent <#> \ratio -> P.scaleX (0.5 * ratio)
-                      , bang $ P.scaleY 0.04
-                      , bang $ P.scaleZ 0.4
+                      , (bang $ P.scaleX 0.0) <|> (ratioEvent <#> \ratio -> P.scaleX (oneEighth * ratio))
+                      , (bang $ P.scaleY 0.0) <|> oneOff Just (rateInfo $> P.scaleY 0.04)
+                      , (bang $ P.scaleZ 0.0) <|> oneOff Just (rateInfo $> P.scaleZ 0.4)
                       , bang $
                           if isMobile then P.onTouchStart \_ -> setPlayed unit
                           else P.onMouseDown \_ -> setPlayed unit
@@ -118,4 +119,5 @@ basic
   p3bar ri = touchPointZ ri Position3
   p4bar ri = touchPointZ ri Position4
   appearancePoint ri = entryZ ri
+  oneEighth = 1.0 / 8.0
   ratioEvent = map (\i -> i.iw / i.ih) (bang initialDims <|> resizeEvent)
