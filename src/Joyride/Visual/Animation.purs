@@ -7,6 +7,7 @@ import Control.Plus (empty)
 import Data.Foldable (oneOf)
 import Data.Number (pi)
 import Data.Time.Duration (Milliseconds)
+import Debug (spy)
 import Effect (Effect)
 import FRP.Behavior (Behavior, sampleBy)
 import FRP.Event (Event, bang, keepLatest)
@@ -125,7 +126,7 @@ runThree opts@{ threeStuff: { three } } = do
                     in
                       oneOf
                         [ dbg $> (positionX $ px)
-                        , sampleBy (\ri _ -> positionY $ (ri.cameraOffsetY + py)) opts.renderingInfo dbg
+                        , sampleBy (\ri _ -> {-let ____ = spy "foo" (ri.cameraOffsetY + py) in-} positionY $ (ri.cameraOffsetY + py)) opts.renderingInfo dbg
                         , sampleBy (\ri _ -> positionZ $ (ri.cameraOffsetZ + pz)) opts.renderingInfo dbg
                         , dbg $> (P.target $ v33 { x: px, y: py, z: pz })
                         ]
