@@ -2,6 +2,8 @@ module Main where
 
 import Prelude
 
+import Control.Parallel (parTraverse)
+import Data.Homogeneous.Record (fromHomogeneous, homogeneous)
 import Data.Int as Int
 import Data.List (List(..), drop, take, (:))
 import Data.Map as Map
@@ -32,8 +34,9 @@ import Joyride.Mocks.TestData (mockBasics)
 import Joyride.Network.Download (dlInChunks)
 import Joyride.Transport.PubNub (PlayerAction(..), PubNubEvent(..), pubnubEvent)
 import Rito.Interpret (orbitControlsAff, threeAff)
+import Rito.Texture (loadAff, loader)
 import Type.Proxy (Proxy(..))
-import Types (BufferName(..), Player(..), RenderingInfo', initialPositions)
+import Types (BufferName(..), Player(..), RenderingInfo', Textures(..), initialPositions)
 import WAGS.Interpret (AudioBuffer(..), context, makeAudioBuffer)
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
@@ -60,9 +63,11 @@ renderingInfo' =
   , sphereOffsetY: Slider { default: 0.2, min: 0.05, max: 0.5, step: 0.05 }
   }
 
-main :: Object.Object String -> Effect Unit
-main silentRoom = launchAff_ do
+main :: Textures String -> Object.Object String -> Effect Unit
+main (Textures textures) silentRoom = launchAff_ do
   three <- threeAff
+  ldr <- liftEffect $ loader three
+  downloadedTextures <- fromHomogeneous <$> parTraverse (loadAff ldr) (homogeneous textures)
   orbitControls <- orbitControlsAff
   let threeStuff = { three, orbitControls }
   w <- liftEffect $ window
@@ -71,7 +76,7 @@ main silentRoom = launchAff_ do
   isMobile <- liftEffect $ emitsTouchEvents
   resizeE <- liftEffect create
   ----- gui
-  { debug, renderingInfo } <- liftEffect useLilGui >>= (if _ then  gui else noGui) >>> (_ $ renderingInfo')
+  { debug, renderingInfo } <- liftEffect useLilGui >>= (if _ then gui else noGui) >>> (_ $ renderingInfo')
   liftEffect (Ref.read renderingInfo >>= logShow)
   -----
   playerPositions <- liftEffect $ (Ref.read renderingInfo >>= \ri -> Ref.new (initialPositions ri))
@@ -156,24 +161,6 @@ main silentRoom = launchAff_ do
         , wdw: w
         , unschedule
         , soundObj
+        , textures: Textures downloadedTextures
         }
     )
-
--- { loaded :: Event Boolean
--- , threeStuff :: ThreeStuff
--- , isMobile :: Boolean
--- , lpsCallback :: Milliseconds -> Effect Unit -> Effect Unit
--- , myPlayer :: Player
--- , player2XBehavior :: Behavior (Number -> Number)
--- , xPosB :: Behavior (Number -> Number)
--- , resizeE :: Event WindowDims
--- , basicE :: { | MakeBasics () } -> AScenefulEnd
--- , renderingInfo :: RenderingInfo
--- , initialDims :: WindowDims
--- , noteScrollSpeed :: Number
--- , silence :: BrowserAudioBuffer
--- , icid :: Ref.Ref (Maybe RequestIdleCallbackId)
--- , wdw :: Window
--- , unschedule :: Ref.Ref (Map.Map Number (Effect Unit))
--- , soundObj :: Ref.Ref (Object.Object BrowserAudioBuffer)
--- }

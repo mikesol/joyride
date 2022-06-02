@@ -6,6 +6,7 @@ import Control.Alt ((<|>))
 import Control.Plus (empty)
 import Data.Filterable (filter)
 import Data.Foldable (oneOf, oneOfMap)
+import Data.Newtype (unwrap)
 import Data.Number (pi)
 import Data.Time.Duration (Milliseconds)
 import Data.Tuple (Tuple(..))
@@ -18,7 +19,7 @@ import Rito.Color (RGB(..), color)
 import Rito.Core (OrbitControls(..), ASceneful, toScene)
 import Rito.Geometries.Sphere (sphere)
 import Rito.Lights.PointLight (pointLight)
-import Rito.Materials.MeshBasicMaterial (meshBasicMaterial)
+import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.Mesh (mesh)
 import Rito.Properties (aspect, target) as P
 import Rito.Properties (positionX, positionY, positionZ, render, scaleX, scaleY, scaleZ, size)
@@ -26,8 +27,9 @@ import Rito.Renderers.WebGL (webGLRenderer)
 import Rito.Run as Rito.Run
 import Rito.Scene (scene)
 import Rito.THREE (ThreeStuff)
+import Rito.Texture (Texture)
 import Rito.Vector3 (vector3)
-import Types (Axis(..), Player, PlayerPositions, RateInfo, RenderingInfo, WindowDims, allPlayers, allPositions, playerPosition)
+import Types (Axis(..), Player(..), PlayerPositions, RateInfo, RenderingInfo, Textures, WindowDims, allPlayers, allPositions, playerPosition)
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 
 twoPi = 2.0 * pi :: Number
@@ -40,6 +42,7 @@ runThree
      , isMobile :: Boolean
      , lowPriorityCb :: Milliseconds -> Effect Unit -> Effect Unit
      , myPlayer :: Player
+     , textures :: Textures Texture
      , renderingInfo :: Behavior RenderingInfo
      , playerPositions :: Event PlayerPositions
      , rateE :: Event RateInfo
@@ -52,6 +55,7 @@ runThree
 runThree opts@{ threeStuff: { three } } = do
   let c3 = color three
   let v33 = vector3 three
+  let textures = unwrap opts.textures
   _ <- Rito.Run.run opts.threeStuff
     ( webGLRenderer
         ( scene empty $
@@ -59,10 +63,36 @@ runThree opts@{ threeStuff: { three } } = do
                 let ppos = playerPosition player
                 let posAx axis = map (ppos axis) opts.playerPositions
                 toScene $ mesh (sphere {} empty)
-                  ( meshBasicMaterial
-                      { color: c3 $ RGB 1.0 1.0 1.0
-                      }
-                      empty
+                  ( case player of
+                      Player1 ->
+                        meshStandardMaterial
+                          { map: textures.hockeyCOL
+                          , aoMap: textures.hockeyAO
+                          , displacementMap: textures.hockeyDISP
+                          , displacementScale: 0.1
+                          , normalMap: textures.hockeyNRM
+                          , roughnessMap: textures.hockeyGLOSS
+                          }
+                      Player2 ->
+                        meshStandardMaterial
+                          { map: textures.marble19COL
+                          , normalMap: textures.marble19NRM
+                          , roughnessMap: textures.marble19GLOSS
+                          }
+                      Player3 ->
+                        meshStandardMaterial
+                          { map: textures.marble21COL
+                          , normalMap: textures.marble21NRM
+                          , roughnessMap: textures.marble21GLOSS
+                          }
+                      -- todo: change to something unique
+                      Player4 ->
+                        meshStandardMaterial
+                          { map: textures.marble19COL
+                          , normalMap: textures.marble19NRM
+                          , roughnessMap: textures.marble19GLOSS
+                          }
+                    empty
                   )
                   ( oneOf
                       [ positionX <$> posAx AxisX

@@ -1,4 +1,4 @@
-module Joyride.LilGui (gui,noGui, class Guiable, guiable, Guiables, Tuple1, Tuple2, Slider(..), Numeric(..), Checkbox(..), Color(..)) where
+module Joyride.LilGui (gui, noGui, class Guiable, guiable, Guiables, Tuple1, Tuple2, Slider(..), Numeric(..), Checkbox(..), Color(..)) where
 
 import Prelude
 
@@ -27,13 +27,13 @@ class Guiable i o | i -> o where
 instance guiableSlider :: Guiable Slider Number where
   guiable (Slider v) = writeImpl { type: "slider", v } /\ v.default
 
-instance guiableNumeric ::Guiable Numeric Number where
+instance guiableNumeric :: Guiable Numeric Number where
   guiable (Numeric v) = writeImpl { type: "numeric", v } /\ v
 
-instance guiableCheckbox ::Guiable Checkbox Boolean where
+instance guiableCheckbox :: Guiable Checkbox Boolean where
   guiable (Checkbox v) = writeImpl { type: "checkbox", v } /\ v
 
-instance guiableColor ::Guiable Color { r :: Number, g :: Number, b :: Number } where
+instance guiableColor :: Guiable Color { r :: Number, g :: Number, b :: Number } where
   guiable (Color (RGB r g b)) = let v = { r, g, b } in writeImpl { type: "color", v } /\ v
 
 data Guiables = Guiables
@@ -65,7 +65,8 @@ gui'
    . HMap Guiables { | i } { | o }
   => HMap Tuple1 { | o } { | x }
   => HMap Tuple2 { | o } { | y }
-  => Aff GUI -> { | i }
+  => Aff GUI
+  -> { | i }
   -> Aff (Ref { | y })
 gui' g' i = do
   g <- g'

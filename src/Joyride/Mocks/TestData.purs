@@ -2,7 +2,7 @@ module Joyride.Mocks.TestData where
 
 import Prelude
 
-import Bolson.Core (Child(..), dyn, envy)
+import Bolson.Core (envy)
 import Control.Alt ((<|>))
 import Control.Comonad.Cofree ((:<))
 import Control.Plus (empty)
@@ -13,7 +13,6 @@ import Data.Foldable (oneOfMap)
 import Data.List (List(..), span, (:))
 import Data.Maybe (Maybe(..))
 import Data.Time.Duration (Milliseconds(..), Seconds(..))
-import Effect (Effect)
 import FRP.Behavior (Behavior, sample_)
 import FRP.Event (Event, keepLatest, memoize)
 import FRP.Event.Class (bang)
@@ -26,9 +25,12 @@ import Joyride.FRP.Schedule (oneOff, scheduleCf)
 import Joyride.Visual.Basic as BasicV
 import Joyride.Wags (AudibleEnd(..))
 import Record (union)
-import Rito.Core (ASceneful, Mesh, toScene)
+import Rito.Core (ASceneful, Instance, toScene)
+import Rito.Geometries.Box (box)
+import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
+import Rito.RoundRobin (InstanceId, Semaphore(..), roundRobinInstancedMesh)
 import Safe.Coerce (coerce)
-import Types (Beats(..), Column(..), MakeBasics, RateInfo, beatToTime)
+import Types (Beats(..), Column(..), MakeBasics, RateInfo, Textures(..), beatToTime)
 import WAGS.WebAPI (BrowserAudioBuffer)
 
 infixr 4 cons as :/
@@ -90,16 +92,36 @@ severalBeats { startsAt, buffers, silence } = singleBeat (f "kick" $ Beats 0.0)
     , silence
     }
 
+-- { map: textures.tilesZelligeHexCOL
+--           , aoMap: textures.tilesZelligeHexAO
+--           , bumpMap: textures.tilesZelligeHexBUMP
+--           , displacementMap: textures.tilesZelligeHexDISP
+--           , displacementScale: 0.1
+--           , roughnessMap: textures.tilesZelligeHexGLOSS
+--           }
 mockBasics :: forall lock payload. { | MakeBasics () } -> ASceneful lock payload
-mockBasics makeBasics = toScene (dyn children)
+mockBasics makeBasics@{ textures: Textures textures } = toScene
+  ( roundRobinInstancedMesh 100 (box {} empty)
+      ( meshStandardMaterial
+          { map: textures.hockeyCOL
+          , aoMap: textures.hockeyAO
+          , displacementMap: textures.hockeyDISP
+          , displacementScale: 0.1
+          , normalMap: textures.hockeyNRM
+          , roughnessMap: textures.hockeyGLOSS
+          }
+          empty
+      )
+      children
+  )
 
   where
   children = keepLatest $ map (oneOfMap bang) eventList
   eventList = scheduleCf (go score) makeBasics.rateInfo
 
-  transform :: _ -> Event (Child Void (Mesh lock payload) Effect lock)
+  transform :: _ -> Event (Semaphore (InstanceId -> Instance lock payload))
   transform input =
-    ( bang $ Insert
+    ( map Acquire
         ( BasicV.basic
             ( makeBasics |+| input |+|
                 { beats: severalBeats
@@ -113,7 +135,7 @@ mockBasics makeBasics = toScene (dyn children)
     ) <|>
       ( keepLatest $ (withTime (bang unit)) <#> \{ time } -> lowPrioritySchedule makeBasics.lpsCallback
           (Milliseconds 10000.0 <> (unInstant time))
-          (bang $ Remove)
+          (bang $ Release)
       )
   go Nil _ = Nil :< go Nil
   go l { beats } = do

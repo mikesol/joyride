@@ -7,6 +7,7 @@ import Data.Newtype (class Newtype, unwrap)
 import FRP.Event (Event, EventIO, makeEvent, subscribe)
 
 newtype RiderF a = RiderF (EventIO a)
+
 derive instance Newtype (RiderF a) _
 type Rider = Exists RiderF
 

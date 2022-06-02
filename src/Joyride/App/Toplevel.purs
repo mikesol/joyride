@@ -32,9 +32,11 @@ import Joyride.Visual.Animation (runThree)
 import Joyride.Wags (AudibleChildEnd)
 import Rito.Color (color)
 import Rito.Core (ASceneful)
+import Rito.Matrix4 as M4
 import Rito.THREE (ThreeStuff)
+import Rito.Texture (Texture)
 import Type.Proxy (Proxy(..))
-import Types (MakeBasics, Player, PlayerPositionsF, RateInfo, RenderingInfo, Seconds(..), WindowDims, BasicTap)
+import Types (BasicTap, MakeBasics, Player, PlayerPositionsF, RateInfo, RenderingInfo, Seconds(..), Textures, WindowDims)
 import WAGS.Clock (withACTime)
 import WAGS.Interpret (close, constant0Hack, context)
 import WAGS.Run (run2)
@@ -69,6 +71,7 @@ type ToplevelInfo =
   , wdw :: Window
   , unschedule :: Ref.Ref (Map.Map Milliseconds (Effect Unit))
   , soundObj :: Ref.Ref (Object.Object BrowserAudioBuffer)
+  , textures :: Textures Texture
   }
 
 toplevel :: ToplevelInfo -> Nut
@@ -97,15 +100,18 @@ toplevel tli =
                                       , lowPriorityCb: tli.lpsCallback
                                       , myPlayer: tli.myPlayer
                                       , debug: tli.debug
+                                      , textures: tli.textures
                                       , basicE: tli.basicE
                                           { initialDims: tli.initialDims
                                           , renderingInfo: tli.renderingInfo
+                                          , textures: tli.textures
                                           , debug: tli.debug
                                           , resizeEvent: tli.resizeE
                                           , isMobile: tli.isMobile
                                           , lpsCallback: tli.lpsCallback
                                           , pushAudio: push.basicAudio
                                           , mkColor: color tli.threeStuff.three
+                                          , mkMatrix4: M4.set tli.threeStuff.three
                                           , rateInfo: event.rateInfo
                                           , buffers: refToBehavior tli.soundObj
                                           , silence: tli.silence
