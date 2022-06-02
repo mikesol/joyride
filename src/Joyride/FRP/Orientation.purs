@@ -18,7 +18,6 @@ import Web.Event.EventTarget (addEventListener, eventListener)
 import Web.HTML (Window)
 import Web.HTML.Window (toEventTarget)
 
-
 posFromOrientation :: GTP -> Milliseconds -> Number
 posFromOrientation gtp (Milliseconds curMs) = case gtp.time of
   Nothing -> 0.0

@@ -22,7 +22,6 @@ import Web.HTML.Window (toEventTarget)
 import Web.UIEvent.KeyboardEvent (code)
 import Web.UIEvent.KeyboardEvent as KeyboardEvent
 
-
 -- primitive, but no need to worry about friction...
 posFromKeypress :: KTP -> Milliseconds -> Number
 posFromKeypress ktp (Milliseconds curMs) = case ktp.time of

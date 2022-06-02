@@ -1,6 +1,5 @@
 module Joyride.Purs.List where
 
-
 import Data.List (List(..), (:))
 import Data.Maybe (Maybe(..))
 

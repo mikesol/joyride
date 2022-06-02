@@ -1,6 +1,6 @@
 module Joyride.Model where
 
--- import Prelude
+import Prelude
 
 -- import Control.Comonad.Cofree (Cofree)
 -- import Data.FastVect.FastVect (Vect)

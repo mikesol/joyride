@@ -14,14 +14,14 @@ onAt
    . Newtype nt (Variant (onOff :: AudioOnOff | v))
   => Event Number
   -> Event nt
-onAt = map (\o -> P.onOff $ AudioOnOff $ { o , x: _on })
+onAt = map (\o -> P.onOff $ AudioOnOff $ { o, x: _on })
 
 offAt
   :: forall nt v
    . Newtype nt (Variant (onOff :: AudioOnOff | v))
   => Event Number
   -> Event nt
-offAt = map (\o -> P.onOff $ AudioOnOff $ { o , x: _off })
+offAt = map (\o -> P.onOff $ AudioOnOff $ { o, x: _off })
 
 newtype AudibleEnd = AudibleEnd (forall lock payload. Audible D2 lock payload)
 newtype AudibleChildEnd = AudibleChildEnd (forall lock payload. AudibleChild D2 lock payload)

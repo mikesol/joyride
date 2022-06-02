@@ -30,6 +30,7 @@ module Types
   , PlayerPositionsF
   , initialPositions
   , playerPosition
+  , Textures(..)
   ) where
 
 import Prelude
@@ -46,6 +47,8 @@ import Foreign (ForeignError(..), fail)
 import Foreign.Object as Object
 import Joyride.Wags (AudibleChildEnd, AudibleEnd)
 import Rito.Color (Color, RGB)
+import Rito.Matrix4 (Matrix4, Matrix4')
+import Rito.Texture (Texture)
 import Simple.JSON (writeJSON)
 import Simple.JSON as JSON
 import WAGS.Math (calcSlope)
@@ -275,6 +278,8 @@ type MakeBasics r =
   , silence :: BrowserAudioBuffer
   , debug :: Boolean
   , pushBasicTap :: BasicTap -> Effect Unit
+  , mkMatrix4 :: Matrix4' -> Matrix4
+  , textures :: Textures Texture
   | r
   )
 
@@ -337,3 +342,28 @@ playerPosition Player3 AxisZ = _.p3z
 playerPosition Player4 AxisX = _.p4x
 playerPosition Player4 AxisY = _.p4y
 playerPosition Player4 AxisZ = _.p4z
+
+newtype Textures a = Textures
+  { hockeyAO :: a
+  , hockeyCOL :: a
+  , hockeyDISP :: a
+  , hockeyGLOSS :: a
+  , hockeyNRM :: a
+  , hockeyREFL :: a
+  , marble19COL :: a
+  , marble19GLOSS :: a
+  , marble19NRM :: a
+  , marble19REFL :: a
+  , marble21COL :: a
+  , marble21GLOSS :: a
+  , marble21NRM :: a
+  , marble21REFL :: a
+  , tilesZelligeHexAO :: a
+  , tilesZelligeHexBUMP :: a
+  , tilesZelligeHexCOL :: a
+  , tilesZelligeHexDISP :: a
+  , tilesZelligeHexGLOSS :: a
+  , tilesZelligeHexREFL :: a
+  }
+
+derive instance Newtype (Textures a) _
