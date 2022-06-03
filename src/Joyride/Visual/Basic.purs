@@ -100,7 +100,7 @@ basic makeBasic = keepLatest $ bus \setPlayed played -> do
                                 | rateInfo.beats < p3.startsAt = calcSlope (unwrap p2.startsAt) (p2bar renderingInfo) (unwrap p3.startsAt) (p3bar renderingInfo) (unwrap rateInfo.beats)
                                 | otherwise = calcSlope (unwrap p3.startsAt) (p3bar renderingInfo) (unwrap p4.startsAt) (p4bar renderingInfo) (unwrap rateInfo.beats)
                             in
-                              o
+                              o - (basicZThickness / 2.0)
                         , n11:
                             let
                               oneEightRatio = oneEighth * ratio
@@ -186,7 +186,7 @@ basic makeBasic = keepLatest $ bus \setPlayed played -> do
   ratioEvent = map (\i -> i.iw / i.ih) (bang makeBasic.initialDims <|> makeBasic.resizeEvent)
   shrinkRate = 3.0
   basicYThickness = 0.04
-  basicZThickness = 0.4
+  basicZThickness = 0.2
   shrinkMe endTime basicThickness ri = case endTime of
     Nothing -> basicThickness
     Just (Milliseconds startTime) -> let (Milliseconds currentTime) = ri.epochTime in max 0.0 (basicThickness - (basicThickness * shrinkRate * (currentTime - startTime) / 1000.0))
