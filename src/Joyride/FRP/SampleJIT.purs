@@ -2,7 +2,7 @@ module Joyride.FRP.SampleJIT where
 
 import Prelude
 
-import Effect.Aff (Aff, joinFiber, launchAff, launchAff_)
+import Effect.Aff (joinFiber, launchAff, launchAff_)
 import Effect.Aff.AVar as AVar
 import Effect.Class (liftEffect)
 import FRP.Event (Event, subscribe, makeEvent)
