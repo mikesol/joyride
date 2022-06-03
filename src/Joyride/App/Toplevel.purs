@@ -9,6 +9,7 @@ import Data.Foldable (oneOf, oneOfMap, traverse_)
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import Data.Number (pi)
+import Data.Ord (abs)
 import Data.Time.Duration (Milliseconds(..))
 import Data.Tuple (fst, snd)
 import Deku.Attribute (attr, cb, (:=))
@@ -20,7 +21,7 @@ import Effect.Now (now)
 import Effect.Ref as Ref
 import Effect.Timer (clearInterval, setInterval)
 import FRP.Behavior (Behavior, sampleBy)
-import FRP.Event (Event, bang, fromEvent, hot, subscribe)
+import FRP.Event (Event, bang, fromEvent, hot, memoize, subscribe)
 import FRP.Event.AnimationFrame (animationFrame)
 import FRP.Event.VBus (V)
 import Foreign.Object as Object
@@ -36,7 +37,7 @@ import Rito.Matrix4 as M4
 import Rito.THREE (ThreeStuff)
 import Rito.Texture (Texture)
 import Type.Proxy (Proxy(..))
-import Types (BasicTap, MakeBasics, Player, PlayerPositionsF, RateInfo, RenderingInfo, Seconds(..), Textures, WindowDims)
+import Types (BasicTap, Beats(..), MakeBasics, Player, PlayerPositionsF, RateInfo, RenderingInfo, Seconds(..), Textures, WindowDims)
 import WAGS.Clock (withACTime)
 import WAGS.Interpret (close, constant0Hack, context)
 import WAGS.Run (run2)
@@ -90,59 +91,67 @@ toplevel tli =
                 [ D.div
                     (bang (D.Style := "position:absolute;"))
                     [ D.canvas
-                        ( oneOfMap bang
-                            [ D.Self := HTMLCanvasElement.fromElement >>>
-                                traverse_
-                                  ( runThree <<<
-                                      { threeStuff: tli.threeStuff
-                                      , isMobile: tli.isMobile
-                                      , renderingInfo: tli.renderingInfo
-                                      , lowPriorityCb: tli.lpsCallback
-                                      , myPlayer: tli.myPlayer
-                                      , debug: tli.debug
-                                      , textures: tli.textures
-                                      , basicE: tli.basicE
-                                          { initialDims: tli.initialDims
-                                          , renderingInfo: tli.renderingInfo
-                                          , textures: tli.textures
-                                          , debug: tli.debug
-                                          , resizeEvent: tli.resizeE
-                                          , isMobile: tli.isMobile
-                                          , lpsCallback: tli.lpsCallback
-                                          , pushAudio: push.basicAudio
-                                          , mkColor: color tli.threeStuff.three
-                                          , mkMatrix4: M4.set tli.threeStuff.three
-                                          , rateInfo: event.rateInfo
-                                          , buffers: refToBehavior tli.soundObj
-                                          , silence: tli.silence
-                                          , pushBasicTap: push.basicTap
-                                          }
-                                      , playerPositions:
-                                          sampleBy
-                                            ( \ppos rinfo ->
-                                                { p1x: ppos.p1x rinfo
-                                                , p1y: ppos.p1y rinfo
-                                                , p1z: ppos.p1z rinfo
-                                                , p2x: ppos.p2x rinfo
-                                                , p2y: ppos.p2y rinfo
-                                                , p2z: ppos.p2z rinfo
-                                                , p3x: ppos.p3x rinfo
-                                                , p3y: ppos.p3y rinfo
-                                                , p3z: ppos.p3z rinfo
-                                                , p4x: ppos.p4x rinfo
-                                                , p4y: ppos.p4y rinfo
-                                                , p4z: ppos.p4z rinfo
-                                                }
-                                            )
-                                            tli.playerPositions
-                                            event.rateInfo
-
-                                      , resizeE: tli.resizeE
-                                      , rateE: event.rateInfo
-                                      , initialDims: tli.initialDims
-                                      , canvas: _
-                                      }
-                                  )
+                        ( oneOf
+                            [ fromEvent $ memoize
+                                ( sampleBy
+                                    ( \ppos rinfo ->
+                                        { rateInfo: rinfo
+                                        , playerPositions:
+                                            { p1x: ppos.p1x rinfo
+                                            , p1y: ppos.p1y rinfo
+                                            , p1z: ppos.p1z rinfo
+                                            , p1p: ppos.p1p
+                                            , p2x: ppos.p2x rinfo
+                                            , p2y: ppos.p2y rinfo
+                                            , p2z: ppos.p2z rinfo
+                                            , p2p: ppos.p2p
+                                            , p3x: ppos.p3x rinfo
+                                            , p3y: ppos.p3y rinfo
+                                            , p3z: ppos.p3z rinfo
+                                            , p3p: ppos.p3p
+                                            , p4x: ppos.p4x rinfo
+                                            , p4y: ppos.p4y rinfo
+                                            , p4z: ppos.p4z rinfo
+                                            , p4p: ppos.p4p
+                                            }
+                                        }
+                                    )
+                                    tli.playerPositions
+                                    event.rateInfo
+                                )
+                                \animatedStuff -> D.Self := HTMLCanvasElement.fromElement >>>
+                                  traverse_
+                                    ( runThree <<<
+                                        { threeStuff: tli.threeStuff
+                                        , isMobile: tli.isMobile
+                                        , renderingInfo: tli.renderingInfo
+                                        , lowPriorityCb: tli.lpsCallback
+                                        , myPlayer: tli.myPlayer
+                                        , debug: tli.debug
+                                        , textures: tli.textures
+                                        , basicE: tli.basicE
+                                            { initialDims: tli.initialDims
+                                            , renderingInfo: tli.renderingInfo
+                                            , textures: tli.textures
+                                            , myPlayer: tli.myPlayer
+                                            , debug: tli.debug
+                                            , resizeEvent: tli.resizeE
+                                            , isMobile: tli.isMobile
+                                            , lpsCallback: tli.lpsCallback
+                                            , pushAudio: push.basicAudio
+                                            , mkColor: color tli.threeStuff.three
+                                            , mkMatrix4: M4.set tli.threeStuff.three
+                                            , buffers: refToBehavior tli.soundObj
+                                            , silence: tli.silence
+                                            , pushBasicTap: push.basicTap
+                                            , animatedStuff
+                                            }
+                                        , animatedStuff
+                                        , resizeE: tli.resizeE
+                                        , initialDims: tli.initialDims
+                                        , canvas: _
+                                        }
+                                    )
                             ]
                         )
                         []
@@ -150,7 +159,22 @@ toplevel tli =
                 , D.div (bang $ D.Class := "absolute")
                     [ dyn
                         ( event.basicTap <#> \e ->
-                            (bang $ insert $ D.span (oneOfMap bang [ D.Class := "absolute text-zinc-100 fade-out", D.Style := "top: " <> show e.clientY <> "px; left: " <> show e.clientX <> "px;" ]) [ text_ "hello" ]) <|>
+                            ( bang $ insert $ D.span
+                                ( oneOfMap bang
+                                    [ D.Class := "absolute text-zinc-100 fade-out"
+                                    , D.Style := "top: " <> show e.clientY <> "px; left: " <> show e.clientX <> "px;"
+                                    ]
+                                )
+                                [ text_
+                                    ( case e.deltaBeats of
+                                        a
+                                          | abs a < Beats 0.05 -> "Perfect!"
+                                          | abs a < Beats 0.1 -> "Nice!"
+                                          | a > Beats 0.0 -> "Late"
+                                          | otherwise -> "Early"
+                                    )
+                                ]
+                            ) <|>
                               fromEvent
                                 ( lowPrioritySchedule tli.lpsCallback
                                     (Milliseconds 3000.0 <> e.pushedAt)

@@ -44,8 +44,7 @@ runThree
      , myPlayer :: Player
      , textures :: Textures Texture
      , renderingInfo :: Behavior RenderingInfo
-     , playerPositions :: Event PlayerPositions
-     , rateE :: Event RateInfo
+     , animatedStuff :: Event { rateInfo :: RateInfo, playerPositions :: PlayerPositions }
      , resizeE :: Event WindowDims
      , basicE :: forall lock payload. ASceneful lock payload
      , initialDims :: WindowDims
@@ -56,12 +55,13 @@ runThree opts@{ threeStuff: { three } } = do
   let c3 = color three
   let v33 = vector3 three
   let textures = unwrap opts.textures
+  let mopts = { playerPositions: _.playerPositions <$> opts.animatedStuff, rateInfo: _.rateInfo <$> opts.animatedStuff }
   _ <- Rito.Run.run opts.threeStuff
     ( webGLRenderer
         ( scene empty $
             ( filter (_ /= opts.myPlayer) allPlayers <#> \player -> do
                 let ppos = playerPosition player
-                let posAx axis = map (ppos axis) opts.playerPositions
+                let posAx axis = map (ppos axis) mopts.playerPositions
                 toScene $ mesh (sphere {} empty)
                   ( case player of
                       Player1 ->
@@ -110,7 +110,7 @@ runThree opts@{ threeStuff: { three } } = do
                       { c3
                       , renderingInfo: opts.renderingInfo
                       , debug: opts.debug
-                      , rateE: opts.rateE
+                      , rateE: mopts.rateInfo
                       , position: _
                       }
                   ) <$> allPositions
@@ -118,7 +118,7 @@ runThree opts@{ threeStuff: { three } } = do
               <>
                 ( allPlayers <#> \player -> do
                     let ppos = playerPosition player
-                    let posAx axis = map (ppos axis) opts.playerPositions
+                    let posAx axis = map (ppos axis) mopts.playerPositions
                     toScene $ pointLight
                       { distance: 4.0
                       , decay: 2.0
@@ -145,7 +145,7 @@ runThree opts@{ threeStuff: { three } } = do
             , orbitControls: OrbitControls (defaultOrbitControls opts.canvas)
             }
             ( keepLatest
-                ( sampleBy Tuple opts.renderingInfo opts.playerPositions <#> \(Tuple ri positions) ->
+                ( sampleBy Tuple opts.renderingInfo mopts.playerPositions <#> \(Tuple ri positions) ->
                     let
                       ppos = playerPosition opts.myPlayer
                       posAx axis = ppos axis positions
@@ -166,7 +166,7 @@ runThree opts@{ threeStuff: { three } } = do
         ( oneOf
             [ bang (size { width: opts.initialDims.iw, height: opts.initialDims.ih })
             , bang render
-            , opts.rateE $> render
+            , mopts.rateInfo $> render
             , opts.resizeE <#> \i -> size { width: i.iw, height: i.ih }
             ]
         )

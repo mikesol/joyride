@@ -251,6 +251,13 @@ touchPointZ { barZSpacing } = go
 entryZ :: RenderingInfo -> Number
 entryZ { barZSpacing } = -4.0 * barZSpacing
 
+type BasicTap =
+  { pushedAt :: Milliseconds
+  , clientX :: Int
+  , clientY :: Int
+  , deltaBeats :: Beats
+  }
+
 type MakeBasic r =
   ( column :: Column
   , appearsAt :: Beats
@@ -258,22 +265,16 @@ type MakeBasic r =
   | MakeBasics r
   )
 
-type BasicTap =
-  { pushedAt :: Milliseconds
-  , clientX :: Int
-  , clientY :: Int
-  , deltaTime :: Milliseconds
-  }
-
 type MakeBasics r =
   ( initialDims :: WindowDims
   , renderingInfo :: Behavior RenderingInfo
   , resizeEvent :: Event WindowDims
   , isMobile :: Boolean
+  , myPlayer :: Player
   , lpsCallback :: Milliseconds -> Effect Unit -> Effect Unit
   , pushAudio :: Event AudibleChildEnd -> Effect Unit
   , mkColor :: RGB -> Color
-  , rateInfo :: Event RateInfo
+  , animatedStuff :: Event {rateInfo :: RateInfo, playerPositions :: PlayerPositions }
   , buffers :: Behavior (Object.Object BrowserAudioBuffer)
   , silence :: BrowserAudioBuffer
   , debug :: Boolean
@@ -287,30 +288,38 @@ type PlayerPositions =
   { p1x :: Number
   , p1y :: Number
   , p1z :: Number
+  , p1p :: Position
   , p2x :: Number
   , p2y :: Number
   , p2z :: Number
+  , p2p :: Position
   , p3x :: Number
   , p3y :: Number
   , p3z :: Number
+  , p3p :: Position
   , p4x :: Number
   , p4y :: Number
   , p4z :: Number
+  , p4p :: Position
   }
 
 type PlayerPositionsF =
   { p1x :: RateInfo -> Number
   , p1y :: RateInfo -> Number
   , p1z :: RateInfo -> Number
+  , p1p :: Position
   , p2x :: RateInfo -> Number
   , p2y :: RateInfo -> Number
   , p2z :: RateInfo -> Number
+  , p2p :: Position
   , p3x :: RateInfo -> Number
   , p3y :: RateInfo -> Number
   , p3z :: RateInfo -> Number
+  , p3p :: Position
   , p4x :: RateInfo -> Number
   , p4y :: RateInfo -> Number
   , p4z :: RateInfo -> Number
+  , p4p :: Position
   }
 
 initialPositions :: RenderingInfo -> PlayerPositionsF
@@ -318,15 +327,19 @@ initialPositions ri =
   { p1x: const 0.0
   , p1y: const 0.0
   , p1z: const $ touchPointZ ri Position1
+  , p1p: Position1
   , p2x: const 0.0
   , p2y: const 0.0
   , p2z: const $ touchPointZ ri Position2
+  , p2p: Position2
   , p3x: const 0.0
   , p3y: const 0.0
   , p3z: const $ touchPointZ ri Position3
+  , p3p: Position3
   , p4x: const 0.0
   , p4y: const 0.0
   , p4z: const $ touchPointZ ri Position4
+  , p4p: Position4
   }
 
 playerPosition :: Player -> Axis -> PlayerPositions -> Number

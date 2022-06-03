@@ -5,6 +5,7 @@
   , "affjax"
   , "affjax-web"
   , "arrays"
+  , "avar"
   , "barlow-lens"
   , "behaviors"
   , "bolson"
@@ -57,6 +58,7 @@
   , "web-dom"
   , "web-events"
   , "web-html"
+  , "web-touchevents"
   , "web-uievents"
   ]
 , packages = ./packages.dhall

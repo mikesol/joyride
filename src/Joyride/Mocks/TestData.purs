@@ -117,7 +117,7 @@ mockBasics makeBasics@{ textures: Textures textures } = toScene
 
   where
   children = keepLatest $ map (oneOfMap bang) eventList
-  eventList = scheduleCf (go score) makeBasics.rateInfo
+  eventList = scheduleCf (go score) (_.rateInfo <$> makeBasics.animatedStuff)
 
   transform :: _ -> Event (Semaphore (InstanceId -> Instance lock payload))
   transform input =

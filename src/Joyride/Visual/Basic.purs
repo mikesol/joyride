@@ -9,7 +9,11 @@ import Data.FastVect.FastVect (index)
 import Data.Foldable (oneOf, oneOfMap)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
+import Data.Profunctor (lcmap)
 import Data.Time.Duration (Milliseconds(..))
+import Effect.Aff (launchAff_)
+import Effect.Aff.AVar as AVar
+import Effect.Class (liftEffect)
 import Effect.Now (now)
 import FRP.Behavior (sampleBy, sample_)
 import FRP.Behavior.Time (instant)
@@ -18,16 +22,18 @@ import FRP.Event.Class (bang)
 import FRP.Event.Time (withTime)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Rider (rider, toRide)
+import Joyride.FRP.SampleJIT (sampleJIT)
 import Joyride.FRP.Schedule (fireAndForget)
 import Joyride.Wags (AudibleChildEnd(..), AudibleEnd(..))
 import Rito.Core (Instance)
 import Rito.Properties as P
 import Rito.RoundRobin (InstanceId, singleInstance)
 import Type.Proxy (Proxy(..))
-import Types (MakeBasic, Position(..), entryZ, normalizedColumn, touchPointZ)
+import Types (MakeBasic, Player(..), Position(..), entryZ, normalizedColumn, touchPointZ)
 import WAGS.Core (silence, sound)
 import WAGS.Math (calcSlope)
-import Web.UIEvent.MouseEvent (clientX, clientY)
+import Web.TouchEvent.Touch as Touch
+import Web.UIEvent.MouseEvent as MouseEvent
 
 basic :: forall r lock payload. { | MakeBasic r } -> Event (InstanceId -> Instance lock payload)
 basic makeBasic = keepLatest $ bus \setPlayed played -> do
@@ -38,7 +44,7 @@ basic makeBasic = keepLatest $ bus \setPlayed played -> do
     -- there'd be no more Nothings, so maybe faster?
     rateInfoOffAtTouch = compact
       ( sampleOn (bang true <|> played $> false)
-          (makeBasic.rateInfo <#> \ri tf -> if tf then Just ri else Nothing)
+          (animatedStuff.rateInfo <#> \ri tf -> if tf then Just ri else Nothing)
       )
   rider
     ( toRide
@@ -75,7 +81,7 @@ basic makeBasic = keepLatest $ bus \setPlayed played -> do
                                   , endTime: _
                                   , renderingInfo: _
                                   }
-                                  makeBasic.rateInfo
+                                  animatedStuff.rateInfo
                               )
                           )
                       ) <#>
@@ -116,18 +122,57 @@ basic makeBasic = keepLatest $ bus \setPlayed played -> do
                         , n43: 0.0
                         , n44: 1.0
                         }
-                  , bang $
-                      if makeBasic.isMobile then P.onTouchStart \_ -> setPlayed unit
-                      else P.onMouseDown \e -> do
-                        n <- now
-                        makeBasic.pushBasicTap { clientX: clientX e, clientY: clientY e, pushedAt: unInstant n, deltaTime: Milliseconds 0.0 }
-                        setPlayed unit
+                  , let
+                      f = sampleJIT makeBasic.animatedStuff $ bang \av cxcy -> launchAff_ do
+                        n <- liftEffect $ now
+                        { rateInfo, playerPositions } <- AVar.read av
+                        let
+                          pos = playerPositions # case makeBasic.myPlayer of
+                            Player1 -> _.p1p
+                            Player2 -> _.p2p
+                            Player3 -> _.p3p
+                            Player4 -> _.p4p
+                          rightBeat = case pos of
+                            Position1 -> p1
+                            Position2 -> p2
+                            Position3 -> p3
+                            Position4 -> p4
+                        liftEffect $ makeBasic.pushBasicTap
+                          { clientX: cxcy.cx
+                          , clientY: cxcy.cy
+                          , pushedAt: unInstant n
+                          , deltaBeats: rateInfo.beats - rightBeat.startsAt
+                          }
+                        liftEffect $ setPlayed unit
+                    in
+                      if makeBasic.isMobile then P.onTouchStart <$> map
+                        ( lcmap
+                            ( \e ->
+                                { cx: Touch.clientX e
+                                , cy: Touch.clientY e
+                                }
+                            )
+                        )
+                        f
+                      else P.onMouseDown <$> map
+                        ( lcmap
+                            ( \e ->
+                                { cx: MouseEvent.clientX e
+                                , cy: MouseEvent.clientY e
+                                }
+                            )
+                        )
+                        f
                   ]
               )
           )
         )
     )
   where
+  animatedStuff =
+    { rateInfo: _.rateInfo <$> makeBasic.animatedStuff
+    , playerPositions: _.playerPositions <$> makeBasic.animatedStuff
+    }
   p1 = index (Proxy :: _ 0) makeBasic.beats
   p2 = index (Proxy :: _ 1) makeBasic.beats
   p3 = index (Proxy :: _ 2) makeBasic.beats
