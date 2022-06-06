@@ -15,6 +15,7 @@ import Deku.Attribute (attr, cb, (:=))
 import Deku.Control (switcher, text, text_)
 import Deku.Core (Nut, vbussed)
 import Deku.DOM as D
+import Deku.Pursx ((~~))
 import Effect (Effect, foreachE)
 import Effect.Now (now)
 import Effect.Ref as Ref
@@ -24,6 +25,8 @@ import FRP.Event (Event, EventIO, bang, fromEvent, hot, memoize, subscribe)
 import FRP.Event.AnimationFrame (animationFrame)
 import FRP.Event.VBus (V)
 import Foreign.Object as Object
+import Joyride.App.Countdown (Countdown)
+import Joyride.App.Loading (Loading)
 import Joyride.Audio.Graph (graph)
 import Joyride.FRP.Behavior (refToBehavior)
 import Joyride.FRP.Rate (timeFromRate)
@@ -79,8 +82,7 @@ type ToplevelInfo =
 toplevel :: ToplevelInfo -> Nut
 toplevel tli =
   ( (fromEvent tli.loaded <|> bang false) # switcher case _ of
-      false -> D.div_
-        [ D.h1_ [ text_ "Loading (should take less than 10s)" ] ]
+      false  -> (Proxy :: _ Loading) ~~ {}
       true ->
         ( vbussed (Proxy :: _ UIEvents) \push event ->
             do

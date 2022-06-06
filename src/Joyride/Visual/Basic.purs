@@ -47,7 +47,7 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
     -- we stop _eitehr_ when we get an internal played _or_ when one is reported
     -- over the wire
     played = map (unwrap >>> _.logicalBeat) iWasPlayed
-      <|> map (unwrap >>> _.logicalBeat) makeBasic.notifications.hitBasic
+      <|> map (unwrap >>> _.logicalBeat) (filter (\(HitBasicOtherPlayer { uniqueId }) -> makeBasic.uniqueId == uniqueId) otherPlayedMe)
     rateInfoOffAtTouch = compact
       ( sampleOn (bang Nothing <|> (map Just played))
           ( animatedStuff.rateInfo <#> \ri p -> case p of
@@ -111,7 +111,7 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
         , n44: 1.0
         }
   keepLatest $ memoize drawingMatrix' \drawingMatrix ->
-    keepLatest $ memoize (filter (\(HitBasicOtherPlayer { player }) -> player /= makeBasic.myPlayer) makeBasic.notifications.hitBasic) \hitBasicOtherPlayer -> rider
+    keepLatest $ memoize (filter (\(HitBasicOtherPlayer { player }) -> player /= makeBasic.myPlayer) otherPlayedMe) \hitBasicOtherPlayer -> rider
       ( toRide
           { event: oneOfMap bang
               ( makeBasic.beats <#>
@@ -247,6 +247,7 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
   shrinkMe endTime basicThickness ri = case endTime of
     Nothing -> basicThickness
     Just (Milliseconds startTime) -> let (Milliseconds currentTime) = ri.epochTime in max 0.0 (basicThickness - (basicThickness * shrinkRate * (currentTime - startTime) / 1000.0))
+  otherPlayedMe = filter (\(HitBasicOtherPlayer { uniqueId }) -> makeBasic.uniqueId == uniqueId) makeBasic.notifications.hitBasic
 
 emptyMatrix :: Matrix4'
 emptyMatrix =
