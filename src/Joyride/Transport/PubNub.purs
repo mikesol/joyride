@@ -20,7 +20,7 @@ import Record (union)
 import Simple.JSON (readImpl, writeImpl)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
-import Types (KTP, Player, GTP)
+import Types (GTP, HitBasicOverTheWire(..), KTP, Player)
 
 data PubNub
 data PubNubJS
@@ -30,7 +30,7 @@ foreign import _PubNub :: Effect (Promise PubNubJS)
 data PlayerAction
   = XPositionKeyboard KTP
   | XPositionMobile GTP
-  | Hit { column :: Int, offset :: Number }
+  | HitBasic HitBasicOverTheWire
 
 convertToMs
   :: forall r
@@ -50,13 +50,13 @@ instance toJSONPubNubPlayerAction :: JSON.ReadForeign PlayerAction where
     case _type of
       "XPositionKeyboard" -> XPositionKeyboard <<< convertToMs <$> readImpl i
       "XPositionMobile" -> XPositionMobile <<< convertToMs <$> readImpl i
-      "Hit" -> Hit <$> readImpl i
+      "HitBasic" -> HitBasic <$> readImpl i
       _ -> fail (ForeignError $ "Could not parse: " <> JSON.writeJSON i)
 
 instance fromJSONPubNubPlayerAction :: JSON.WriteForeign PlayerAction where
   writeImpl (XPositionKeyboard i) = JSON.writeImpl $ union { _type: "XPositionKeyboard" } (convertFromMs i)
   writeImpl (XPositionMobile i) = JSON.writeImpl $ union { _type: "XPositionMobile" } (convertFromMs i)
-  writeImpl (Hit i) = JSON.writeImpl $ union { _type: "Hit" } i
+  writeImpl (HitBasic (HitBasicOverTheWire j)) = JSON.writeImpl $ union { _type: "HitBasic" } j
 
 type PubNubMessage = { player :: Player, action :: PlayerAction }
 

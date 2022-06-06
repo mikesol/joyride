@@ -40,7 +40,7 @@ let additions =
       , bolson =
         { dependencies = [ "heterogeneous", "fast-vect" ]
         , repo = "https://github.com/mikesol/purescript-bolson.git"
-        , version = "v0.0.5"
+        , version = "v0.0.6"
         }
       , variant =
         { dependencies =
@@ -153,7 +153,7 @@ let additions =
           , "web-events"
           ]
         , repo = "https://github.com/mikesol/purescript-deku.git"
-        , version = "v0.4.6"
+        , version = "v0.4.8"
         }
       , wags =
         { dependencies =
@@ -193,7 +193,7 @@ let additions =
           , "web-events"
           ]
         , repo = "https://github.com/mikesol/purescript-wags.git"
-        , version = "v1.1.9"
+        , version = "v1.1.10"
         }
       , rito =
         { dependencies =

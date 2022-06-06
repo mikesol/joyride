@@ -8,6 +8,10 @@ import Effect.Class (liftEffect)
 import FRP.Event (Event, subscribe, makeEvent)
 
 -- | Samples the first event JIT when the second event is actually used.
+-- | This is like sampleOn, but it defers the sampling until the avar is consumed.
+-- | Useful when the second event is an effectful callbaack
+-- | in which case we do not want to recreate the callback
+-- | every time the first event fires.
 sampleJIT :: forall a b. Event a -> Event (AVar.AVar a -> b) -> Event b
 sampleJIT e ae = makeEvent \k -> do
   o <- launchAff do

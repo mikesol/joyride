@@ -10,6 +10,7 @@ import Data.DateTime.Instant (unInstant)
 import Data.FastVect.FastVect (Vect, cons)
 import Data.FastVect.FastVect as V
 import Data.Foldable (oneOfMap)
+import Data.FunctorWithIndex (mapWithIndex)
 import Data.List (List(..), span, (:))
 import Data.Maybe (Maybe(..))
 import Data.Time.Duration (Milliseconds(..), Seconds(..))
@@ -129,6 +130,7 @@ mockBasics makeBasics@{ textures: Textures textures } = toScene
                     , silence: makeBasics.silence
                     , buffers: makeBasics.buffers
                     }
+                , uniqueId: input.uniqueId
                 }
             )
         )
@@ -142,7 +144,7 @@ mockBasics makeBasics@{ textures: Textures textures } = toScene
     let
       { init, rest } = span (\{ appearsAt } -> appearsAt <= beats + lookAhead) l
     (transform <$> init) :< go rest
-  score = { column: C4, appearsAt: Beats 0.0 }
+  score = mapWithIndex (\uniqueId x -> union { uniqueId } x) $ { column: C4, appearsAt: Beats 0.0 }
     : { column: C3, appearsAt: Beats 2.0 }
     : { column: C2, appearsAt: Beats 3.0 }
     : { column: C1, appearsAt: Beats 5.0 }

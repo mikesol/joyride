@@ -3,6 +3,7 @@ module Main where
 import Prelude
 
 import Control.Parallel (parTraverse)
+import Data.DateTime.Instant (unInstant)
 import Data.Homogeneous.Record (fromHomogeneous, homogeneous)
 import Data.Int as Int
 import Data.List (List(..), drop, take, (:))
@@ -22,6 +23,7 @@ import Effect.Ref (new)
 import Effect.Ref as Ref
 import FRP.Event (create, filterMap, subscribe)
 import FRP.Event as Event
+import FRP.Event.Time (withTime)
 import FRP.Event.VBus (V)
 import Foreign.Object as Object
 import Joyride.App.Toplevel (toplevel)
@@ -32,11 +34,12 @@ import Joyride.FRP.Orientation (posFromOrientation, xForTouch)
 import Joyride.LilGui (Slider(..), gui, noGui)
 import Joyride.Mocks.TestData (mockBasics)
 import Joyride.Network.Download (dlInChunks)
-import Joyride.Transport.PubNub (PlayerAction(..), PubNubEvent(..), pubnubEvent)
-import Rito.Interpret (orbitControlsAff, threeAff)
+import Joyride.Transport.PubNub (PlayerAction(..), PubNubEvent(..), publish, pubnubEvent)
+import Record (union)
+import Rito.Interpret (css2DRendererAff, orbitControlsAff, threeAff)
 import Rito.Texture (loadAff, loader)
 import Type.Proxy (Proxy(..))
-import Types (BufferName(..), Player(..), RenderingInfo', Textures(..), initialPositions)
+import Types (BufferName(..), HitBasicMe(..), HitBasicOtherPlayer(..), HitBasicOverTheWire(..), Player(..), RenderingInfo', Textures(..), initialPositions)
 import WAGS.Interpret (AudioBuffer(..), context, makeAudioBuffer)
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
@@ -69,7 +72,8 @@ main (Textures textures) silentRoom = launchAff_ do
   ldr <- liftEffect $ loader three
   downloadedTextures <- fromHomogeneous <$> parTraverse (loadAff ldr) (homogeneous textures)
   orbitControls <- orbitControlsAff
-  let threeStuff = { three, orbitControls }
+  cssThings <- css2DRendererAff
+  let threeStuff = union { three, orbitControls } cssThings
   w <- liftEffect $ window
   loc <- liftEffect $ location w
   pn <- liftEffect $ pathname loc
@@ -117,11 +121,24 @@ main (Textures textures) silentRoom = launchAff_ do
       XPositionKeyboard i -> pfun (lcmap _.epochTime $ posFromKeypress i) playerPositions
       XPositionMobile i -> pfun (lcmap _.epochTime $ posFromOrientation i) playerPositions
       -- not implemented yet
-      Hit _ -> pure unit
+      HitBasic _ -> pure unit
   initialDims <- liftEffect $ ({ iw: _, ih: _ } <$> (Int.toNumber <$> innerWidth w) <*> (Int.toNumber <$> innerHeight w))
   soundObj <- liftEffect $ Ref.new Object.empty
   icid <- liftEffect $ new Nothing
   loaded <- liftEffect $ Event.create
+  pushBasic :: Event.EventIO HitBasicMe <- liftEffect $ Event.create
+  _ <- liftEffect $ subscribe pushBasic.event \(HitBasicMe bt) -> do
+    publish pubNub
+      { action: HitBasic
+          ( HitBasicOverTheWire
+              { uniqueId: bt.uniqueId
+              , logicalBeat: bt.logicalBeat
+              , deltaBeats: bt.deltaBeats
+              , hitAt: bt.hitAt
+              }
+          )
+      , player: myPlayer
+      }
   unschedule <- liftEffect $ new Map.empty
   ctx' <- liftEffect $ context
   silence <- liftEffect $ makeAudioBuffer ctx' (AudioBuffer 44100 [ replicate 1000 0.0 ])
@@ -150,6 +167,21 @@ main (Textures textures) silentRoom = launchAff_ do
         , isMobile
         , lpsCallback: lowPriorityCb
         , myPlayer
+        , pushBasic: pushBasic
+        , notifications:
+            { hitBasic: withTime pnEvent # filterMap
+                ( \{ value: { player, action }, time } -> case action of
+                    HitBasic (HitBasicOverTheWire e) -> Just $ HitBasicOtherPlayer
+                      { uniqueId: e.uniqueId
+                      , logicalBeat: e.logicalBeat
+                      , deltaBeats: e.deltaBeats
+                      , hitAt: e.hitAt
+                      , player
+                      , issuedAt: unInstant time
+                      }
+                    _ -> Nothing
+                )
+            }
         , resizeE: resizeE.event
         , playerPositions: refToBehavior playerPositions
         , renderingInfo: refToBehavior renderingInfo

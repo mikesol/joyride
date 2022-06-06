@@ -2,7 +2,6 @@ module Types
   ( Player(..)
   , entryZ
   , RenderingInfo
-  , BasicTap
   , RenderingInfo'
   , Position(..)
   , Axis(..)
@@ -31,6 +30,11 @@ module Types
   , initialPositions
   , playerPosition
   , Textures(..)
+  , HitBasicOverTheWire(..)
+  , HitBasicMe(..)
+  , HitBasicOtherPlayer(..)
+  , HitBasicVisual(..)
+  , HitBasicVisualForLabel(..)
   ) where
 
 import Prelude
@@ -42,13 +46,14 @@ import Data.Time.Duration (Milliseconds)
 import Data.Tuple.Nested (type (/\))
 import Effect (Effect)
 import FRP.Behavior (Behavior)
-import FRP.Event (Event)
+import FRP.Event (Event, EventIO)
 import Foreign (ForeignError(..), fail)
 import Foreign.Object as Object
 import Joyride.Wags (AudibleChildEnd, AudibleEnd)
 import Rito.Color (Color, RGB)
 import Rito.Matrix4 (Matrix4, Matrix4')
 import Rito.Texture (Texture)
+import Rito.Vector3 (Vector3')
 import Simple.JSON (writeJSON)
 import Simple.JSON as JSON
 import WAGS.Math (calcSlope)
@@ -194,6 +199,8 @@ derive newtype instance Semiring Beats
 derive newtype instance Ring Beats
 derive newtype instance CommutativeRing Beats
 derive newtype instance EuclideanRing Beats
+derive newtype instance JSON.ReadForeign Beats
+derive newtype instance JSON.WriteForeign Beats
 instance showBeats :: Show Beats where
   show (Beats n) = "(Beats " <> show n <> ")"
 
@@ -251,16 +258,10 @@ touchPointZ { barZSpacing } = go
 entryZ :: RenderingInfo -> Number
 entryZ { barZSpacing } = -4.0 * barZSpacing
 
-type BasicTap =
-  { pushedAt :: Milliseconds
-  , clientX :: Int
-  , clientY :: Int
-  , deltaBeats :: Beats
-  }
-
 type MakeBasic r =
   ( column :: Column
   , appearsAt :: Beats
+  , uniqueId :: Int
   , beats :: Vect 4 { startsAt :: Beats, audio :: Event RateInfo -> AudibleEnd }
   | MakeBasics r
   )
@@ -271,14 +272,16 @@ type MakeBasics r =
   , resizeEvent :: Event WindowDims
   , isMobile :: Boolean
   , myPlayer :: Player
+  , notifications :: { hitBasic :: Event HitBasicOtherPlayer }
   , lpsCallback :: Milliseconds -> Effect Unit -> Effect Unit
   , pushAudio :: Event AudibleChildEnd -> Effect Unit
   , mkColor :: RGB -> Color
-  , animatedStuff :: Event {rateInfo :: RateInfo, playerPositions :: PlayerPositions }
+  , animatedStuff :: Event { rateInfo :: RateInfo, playerPositions :: PlayerPositions }
   , buffers :: Behavior (Object.Object BrowserAudioBuffer)
   , silence :: BrowserAudioBuffer
   , debug :: Boolean
-  , pushBasicTap :: BasicTap -> Effect Unit
+  , pushBasic :: EventIO HitBasicMe
+  , pushBasicVisualForLabel :: HitBasicVisualForLabel -> Effect Unit
   , mkMatrix4 :: Matrix4' -> Matrix4
   , textures :: Textures Texture
   | r
@@ -380,3 +383,52 @@ newtype Textures a = Textures
   }
 
 derive instance Newtype (Textures a) _
+
+newtype HitBasicOverTheWire = HitBasicOverTheWire
+  { uniqueId :: Int
+  , logicalBeat :: Beats
+  , deltaBeats :: Beats
+  , hitAt :: Beats
+  }
+derive instance Newtype HitBasicOverTheWire _
+derive newtype instance JSON.ReadForeign HitBasicOverTheWire
+derive newtype instance JSON.WriteForeign HitBasicOverTheWire
+
+newtype HitBasicMe = HitBasicMe
+  { uniqueId :: Int
+  , logicalBeat :: Beats
+  , deltaBeats :: Beats
+  , hitAt :: Beats
+  , issuedAt :: Milliseconds
+  }
+derive instance Newtype HitBasicMe _
+
+newtype HitBasicOtherPlayer = HitBasicOtherPlayer
+  { uniqueId :: Int
+  , logicalBeat :: Beats
+  , deltaBeats :: Beats
+  , hitAt :: Beats
+  , player :: Player
+  , issuedAt :: Milliseconds
+  }
+derive instance Newtype HitBasicOtherPlayer _
+
+newtype HitBasicVisual = HitBasicVisual
+  { uniqueId :: Int
+  , logicalBeat :: Beats
+  , deltaBeats :: Beats
+  , hitAt :: Beats
+  , issuedAt :: Milliseconds
+  }
+derive instance Newtype HitBasicVisual _
+
+newtype HitBasicVisualForLabel = HitBasicVisualForLabel
+  { uniqueId :: Int
+  , logicalBeat :: Beats
+  , deltaBeats :: Beats
+  , hitAt :: Beats
+  , issuedAt :: Milliseconds
+  , translation :: Event Vector3'
+  , player :: Player
+  }
+derive instance Newtype HitBasicVisualForLabel _

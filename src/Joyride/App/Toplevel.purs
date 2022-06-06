@@ -9,25 +9,23 @@ import Data.Foldable (oneOf, oneOfMap, traverse_)
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import Data.Number (pi)
-import Data.Ord (abs)
-import Data.Time.Duration (Milliseconds(..))
+import Data.Time.Duration (Milliseconds)
 import Data.Tuple (fst, snd)
 import Deku.Attribute (attr, cb, (:=))
 import Deku.Control (switcher, text, text_)
-import Deku.Core (Nut, dyn, insert, remove, vbussed)
+import Deku.Core (Nut, vbussed)
 import Deku.DOM as D
 import Effect (Effect, foreachE)
 import Effect.Now (now)
 import Effect.Ref as Ref
 import Effect.Timer (clearInterval, setInterval)
 import FRP.Behavior (Behavior, sampleBy)
-import FRP.Event (Event, bang, fromEvent, hot, memoize, subscribe)
+import FRP.Event (Event, EventIO, bang, fromEvent, hot, memoize, subscribe)
 import FRP.Event.AnimationFrame (animationFrame)
 import FRP.Event.VBus (V)
 import Foreign.Object as Object
 import Joyride.Audio.Graph (graph)
 import Joyride.FRP.Behavior (refToBehavior)
-import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Rate (timeFromRate)
 import Joyride.Visual.Animation (runThree)
 import Joyride.Wags (AudibleChildEnd)
@@ -37,11 +35,12 @@ import Rito.Matrix4 as M4
 import Rito.THREE (ThreeStuff)
 import Rito.Texture (Texture)
 import Type.Proxy (Proxy(..))
-import Types (BasicTap, Beats(..), MakeBasics, Player, PlayerPositionsF, RateInfo, RenderingInfo, Seconds(..), Textures, WindowDims)
+import Types (HitBasicMe, HitBasicOtherPlayer, MakeBasics, Player, PlayerPositionsF, RateInfo, RenderingInfo, Seconds(..), Textures, WindowDims)
 import WAGS.Clock (withACTime)
 import WAGS.Interpret (close, constant0Hack, context)
 import WAGS.Run (run2)
 import WAGS.WebAPI (BrowserAudioBuffer)
+import Web.DOM as Web.DOM
 import Web.HTML.HTMLCanvasElement as HTMLCanvasElement
 import Web.HTML.Window (RequestIdleCallbackId, Window, cancelIdleCallback, requestIdleCallback)
 
@@ -52,13 +51,14 @@ type UIEvents = V
   , stop :: Effect Unit
   , rateInfo :: RateInfo
   , basicAudio :: Event AudibleChildEnd
-  , basicTap :: BasicTap
+  , renderElement :: Web.DOM.Element
   )
 
 type ToplevelInfo =
   { loaded :: Event Boolean
   , threeStuff :: ThreeStuff
   , isMobile :: Boolean
+  , notifications :: { hitBasic :: Event HitBasicOtherPlayer }
   , lpsCallback :: Milliseconds -> Effect Unit -> Effect Unit
   , myPlayer :: Player
   , playerPositions :: Behavior PlayerPositionsF
@@ -66,6 +66,7 @@ type ToplevelInfo =
   , basicE :: forall lock payload. { | MakeBasics () } -> ASceneful lock payload
   , renderingInfo :: Behavior RenderingInfo
   , initialDims :: WindowDims
+  , pushBasic :: EventIO HitBasicMe
   , debug :: Boolean
   , silence :: BrowserAudioBuffer
   , icid :: Ref.Ref (Maybe RequestIdleCallbackId)
@@ -89,10 +90,11 @@ toplevel tli =
 
               D.div_
                 [ D.div
-                    (bang (D.Style := "position:absolute;"))
+                    (bang (D.Class := "absolute"))
                     [ D.canvas
                         ( oneOf
-                            [ fromEvent $ memoize
+                            [ bang (D.Class := "absolute")
+                            , fromEvent $ memoize
                                 ( sampleBy
                                     ( \ppos rinfo ->
                                         { rateInfo: rinfo
@@ -123,18 +125,21 @@ toplevel tli =
                                   traverse_
                                     ( runThree <<<
                                         { threeStuff: tli.threeStuff
+                                        , cssRendererElt: event.renderElement
                                         , isMobile: tli.isMobile
                                         , renderingInfo: tli.renderingInfo
                                         , lowPriorityCb: tli.lpsCallback
                                         , myPlayer: tli.myPlayer
                                         , debug: tli.debug
                                         , textures: tli.textures
-                                        , basicE: tli.basicE
+                                        , pushBasic: tli.pushBasic
+                                        , basicE: \pushBasicVisualForLabel -> tli.basicE
                                             { initialDims: tli.initialDims
                                             , renderingInfo: tli.renderingInfo
                                             , textures: tli.textures
                                             , myPlayer: tli.myPlayer
                                             , debug: tli.debug
+                                            , notifications: tli.notifications
                                             , resizeEvent: tli.resizeE
                                             , isMobile: tli.isMobile
                                             , lpsCallback: tli.lpsCallback
@@ -143,8 +148,9 @@ toplevel tli =
                                             , mkMatrix4: M4.set tli.threeStuff.three
                                             , buffers: refToBehavior tli.soundObj
                                             , silence: tli.silence
-                                            , pushBasicTap: push.basicTap
                                             , animatedStuff
+                                            , pushBasic: tli.pushBasic
+                                            , pushBasicVisualForLabel
                                             }
                                         , animatedStuff
                                         , resizeE: tli.resizeE
@@ -155,33 +161,7 @@ toplevel tli =
                             ]
                         )
                         []
-                    ]
-                , D.div (bang $ D.Class := "absolute")
-                    [ dyn
-                        ( event.basicTap <#> \e ->
-                            ( bang $ insert $ D.span
-                                ( oneOfMap bang
-                                    [ D.Class := "absolute text-zinc-100 fade-out"
-                                    , D.Style := "top: " <> show e.clientY <> "px; left: " <> show e.clientX <> "px;"
-                                    ]
-                                )
-                                [ text_
-                                    ( case e.deltaBeats of
-                                        a
-                                          | abs a < Beats 0.05 -> "Perfect!"
-                                          | abs a < Beats 0.1 -> "Nice!"
-                                          | a > Beats 0.0 -> "Late"
-                                          | otherwise -> "Early"
-                                    )
-                                ]
-                            ) <|>
-                              fromEvent
-                                ( lowPrioritySchedule tli.lpsCallback
-                                    (Milliseconds 3000.0 <> e.pushedAt)
-                                    (bang $ remove)
-                                )
-                        )
-
+                    , D.div (oneOfMap bang [ D.Class := "absolute pointer-events-none", D.Self := push.renderElement ]) []
                     ]
                 -- on/off
                 , D.div
