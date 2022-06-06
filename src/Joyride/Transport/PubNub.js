@@ -28,12 +28,14 @@ export const pubnub_ = (PubNub) => (listener) => {
 };
 
 export const publish_ = (pubnub) => {
-	return function (message) {
-		return function () {
-			pubnub.publish({
-				channel: "feedback_diffs",
-				message: message,
-			});
+	return function (channel) {
+		return function (message) {
+			return function () {
+				pubnub.publish({
+					channel: channel,
+					message: message,
+				});
+			};
 		};
 	};
 };

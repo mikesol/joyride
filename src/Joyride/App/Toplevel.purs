@@ -12,33 +12,35 @@ import Data.Number (pi)
 import Data.Time.Duration (Milliseconds)
 import Data.Tuple (fst, snd)
 import Deku.Attribute (attr, cb, (:=))
-import Deku.Control (switcher, text, text_)
+import Deku.Control (switcher, text)
 import Deku.Core (Nut, vbussed)
 import Deku.DOM as D
-import Deku.Pursx ((~~))
 import Effect (Effect, foreachE)
 import Effect.Now (now)
 import Effect.Ref as Ref
 import Effect.Timer (clearInterval, setInterval)
 import FRP.Behavior (Behavior, sampleBy)
-import FRP.Event (Event, EventIO, bang, fromEvent, hot, memoize, subscribe)
+import FRP.Event (Event, EventIO, bang, filterMap, fromEvent, hot, memoize, subscribe)
 import FRP.Event.AnimationFrame (animationFrame)
+import FRP.Event.Class (biSampleOn)
+import FRP.Event.Time (withTime)
 import FRP.Event.VBus (V)
 import Foreign.Object as Object
-import Joyride.App.Countdown (Countdown)
-import Joyride.App.Loading (Loading)
+import Joyride.App.Explainer (explainerPage)
+import Joyride.App.Loading (loadingPage)
+import Joyride.App.RoomIsFull (roomIsFull)
 import Joyride.Audio.Graph (graph)
 import Joyride.FRP.Behavior (refToBehavior)
+import Joyride.FRP.Dedup (dedup)
 import Joyride.FRP.Rate (timeFromRate)
+import Joyride.FRP.StartingWith (startingWith)
 import Joyride.Visual.Animation (runThree)
 import Joyride.Wags (AudibleChildEnd)
 import Rito.Color (color)
 import Rito.Core (ASceneful)
 import Rito.Matrix4 as M4
-import Rito.THREE (ThreeStuff)
-import Rito.Texture (Texture)
 import Type.Proxy (Proxy(..))
-import Types (HitBasicMe, HitBasicOtherPlayer, MakeBasics, Player, PlayerPositionsF, RateInfo, RenderingInfo, Seconds(..), Textures, WindowDims)
+import Types (HitBasicMe, HitBasicOtherPlayer(..), HitBasicOverTheWire(..), MakeBasics, Negotiation(..), PlayerAction(..), PlayerPositionsF, RateInfo, RenderingInfo, Seconds(..), Success', WindowDims)
 import WAGS.Clock (withACTime)
 import WAGS.Interpret (close, constant0Hack, context)
 import WAGS.Run (run2)
@@ -59,11 +61,9 @@ type UIEvents = V
 
 type ToplevelInfo =
   { loaded :: Event Boolean
-  , threeStuff :: ThreeStuff
+  , negotiation :: Event Negotiation
   , isMobile :: Boolean
-  , notifications :: { hitBasic :: Event HitBasicOtherPlayer }
   , lpsCallback :: Milliseconds -> Effect Unit -> Effect Unit
-  , myPlayer :: Player
   , playerPositions :: Behavior PlayerPositionsF
   , resizeE :: Event WindowDims
   , basicE :: forall lock payload. { | MakeBasics () } -> ASceneful lock payload
@@ -76,14 +76,39 @@ type ToplevelInfo =
   , wdw :: Window
   , unschedule :: Ref.Ref (Map.Map Milliseconds (Effect Unit))
   , soundObj :: Ref.Ref (Object.Object BrowserAudioBuffer)
-  , textures :: Textures Texture
   }
+
+data TopLevelMapping = TLExplainer | TLLoading | TLRoomIsFull | TLSuccess Success'
+instance Eq TopLevelMapping where
+  eq TLExplainer TLExplainer = true
+  eq TLLoading TLLoading = true
+  eq TLRoomIsFull TLRoomIsFull = true
+  eq (TLSuccess _) (TLSuccess _) = true
+  eq _ _ = false
 
 toplevel :: ToplevelInfo -> Nut
 toplevel tli =
-  ( (fromEvent tli.loaded <|> bang false) # switcher case _ of
-      false  -> (Proxy :: _ Loading) ~~ {}
-      true ->
+  ( (dedup (map (\{ loaded, negotiation } -> case loaded, negotiation of
+      _, GetRulesOfGame -> TLExplainer
+      false, _ -> TLLoading
+      -- should never reach
+      _, PageLoad -> TLLoading
+      _, StartingNegotiation -> TLLoading
+      _, RoomIsFull -> TLRoomIsFull
+      _, RequestingPlayer -> TLLoading
+      _, ReceivedPossibilities -> TLLoading
+      _, ClaimFail -> TLRoomIsFull
+      true, Success s -> TLSuccess s) ( biSampleOn
+        (startingWith PageLoad $ fromEvent tli.negotiation)
+        ( map { loaded: _, negotiation: _ }
+            (startingWith false $ fromEvent tli.loaded)
+        )
+    ))) # switcher case _ of
+      TLExplainer -> explainerPage
+      TLLoading -> loadingPage
+      TLRoomIsFull -> roomIsFull
+      TLSuccess { player: myPlayer
+      ,textures, threeStuff, pubNubEvent } ->
         ( vbussed (Proxy :: _ UIEvents) \push event ->
             do
               let
@@ -126,28 +151,41 @@ toplevel tli =
                                 \animatedStuff -> D.Self := HTMLCanvasElement.fromElement >>>
                                   traverse_
                                     ( runThree <<<
-                                        { threeStuff: tli.threeStuff
+                                        { threeStuff: threeStuff
                                         , cssRendererElt: event.renderElement
                                         , isMobile: tli.isMobile
                                         , renderingInfo: tli.renderingInfo
                                         , lowPriorityCb: tli.lpsCallback
-                                        , myPlayer: tli.myPlayer
+                                        , myPlayer
                                         , debug: tli.debug
-                                        , textures: tli.textures
+                                        , textures
                                         , pushBasic: tli.pushBasic
                                         , basicE: \pushBasicVisualForLabel -> tli.basicE
                                             { initialDims: tli.initialDims
                                             , renderingInfo: tli.renderingInfo
-                                            , textures: tli.textures
-                                            , myPlayer: tli.myPlayer
+                                            , textures
+                                            , myPlayer
                                             , debug: tli.debug
-                                            , notifications: tli.notifications
+                                            , notifications:
+                                                { hitBasic: withTime pubNubEvent # filterMap
+                                                    ( \{ value, time } -> case value of
+                                                        HitBasic (HitBasicOverTheWire e) -> Just $ HitBasicOtherPlayer
+                                                          { uniqueId: e.uniqueId
+                                                          , logicalBeat: e.logicalBeat
+                                                          , deltaBeats: e.deltaBeats
+                                                          , hitAt: e.hitAt
+                                                          , player: e.player
+                                                          , issuedAt: unInstant time
+                                                          }
+                                                        _ -> Nothing
+                                                    )
+                                                }
                                             , resizeEvent: tli.resizeE
                                             , isMobile: tli.isMobile
                                             , lpsCallback: tli.lpsCallback
                                             , pushAudio: push.basicAudio
-                                            , mkColor: color tli.threeStuff.three
-                                            , mkMatrix4: M4.set tli.threeStuff.three
+                                            , mkColor: color threeStuff.three
+                                            , mkMatrix4: M4.set threeStuff.three
                                             , buffers: refToBehavior tli.soundObj
                                             , silence: tli.silence
                                             , animatedStuff

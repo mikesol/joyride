@@ -2,44 +2,51 @@ module Main where
 
 import Prelude
 
+import Control.Alt (alt)
 import Control.Parallel (parTraverse)
-import Data.DateTime.Instant (unInstant)
+import Data.Array (difference, fold, nub)
+import Data.Either (Either(..), hush)
 import Data.Homogeneous.Record (fromHomogeneous, homogeneous)
 import Data.Int as Int
-import Data.List (List(..), drop, take, (:))
+import Data.List (List(..), drop, foldl, take, (:))
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import Data.Number (pi)
 import Data.Profunctor (lcmap)
+import Data.Set as Set
+import Data.Traversable (sequence)
 import Data.Tuple.Nested (type (/\), (/\))
 import Data.Unfoldable (replicate)
 import Deku.Toplevel (runInBody)
 import Effect (Effect)
-import Effect.Aff (Milliseconds(..), forkAff, launchAff_)
+import Effect.Aff (Milliseconds(..), forkAff, joinFiber, launchAff_, never)
 import Effect.Class (liftEffect)
-import Effect.Class.Console (logShow)
+import Effect.Random (randomInt)
 import Effect.Random as Random
 import Effect.Ref (new)
 import Effect.Ref as Ref
 import FRP.Event (create, filterMap, subscribe)
 import FRP.Event as Event
-import FRP.Event.Time (withTime)
 import FRP.Event.VBus (V)
 import Foreign.Object as Object
 import Joyride.App.Toplevel (toplevel)
+import Joyride.Effect.Random (randElt)
 import Joyride.Effect.Ref (writeToRecord)
+import Joyride.FRP.Aff (collectEventToAff)
 import Joyride.FRP.Behavior (refToBehavior)
 import Joyride.FRP.Keypress (posFromKeypress, xForKeyboard)
 import Joyride.FRP.Orientation (posFromOrientation, xForTouch)
 import Joyride.LilGui (Slider(..), gui, noGui)
 import Joyride.Mocks.TestData (mockBasics)
 import Joyride.Network.Download (dlInChunks)
-import Joyride.Transport.PubNub (PlayerAction(..), PubNubEvent(..), publish, pubnubEvent)
+import Joyride.Transport.PubNub as PN
 import Record (union)
 import Rito.Interpret (css2DRendererAff, orbitControlsAff, threeAff)
 import Rito.Texture (loadAff, loader)
+import Route (Route(..), route)
+import Routing.Duplex (parse)
 import Type.Proxy (Proxy(..))
-import Types (BufferName(..), HitBasicMe(..), HitBasicOtherPlayer(..), HitBasicOverTheWire(..), Player(..), RenderingInfo', Textures(..), initialPositions)
+import Types (BufferName(..), Channel(..), Claim(..), HitBasicMe(..), HitBasicOverTheWire(..), IAm(..), Negotiation(..), Player(..), PlayerAction(..), RenderingInfo', Textures(..), allPlayers, initialPositions)
 import WAGS.Interpret (AudioBuffer(..), context, makeAudioBuffer)
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
@@ -66,133 +73,211 @@ renderingInfo' =
   , sphereOffsetY: Slider { default: 0.2, min: 0.05, max: 0.5, step: 0.05 }
   }
 
+channelFromRoute :: Route -> Maybe String
+channelFromRoute Home = Nothing
+channelFromRoute (Session session) = Just session
+channelFromRoute (SessionAndPlayer session _) = Just session
+
+playerFromRoute :: Route -> Maybe Player
+playerFromRoute Home = Nothing
+playerFromRoute (Session _) = Nothing
+playerFromRoute (SessionAndPlayer _ player) = Just player
+
+randId :: Effect String
+randId = map fold $ sequence (replicate 32 (map show $ randomInt 0 9))
+
 main :: Textures String -> Object.Object String -> Effect Unit
 main (Textures textures) silentRoom = launchAff_ do
-  three <- threeAff
-  ldr <- liftEffect $ loader three
-  downloadedTextures <- fromHomogeneous <$> parTraverse (loadAff ldr) (homogeneous textures)
-  orbitControls <- orbitControlsAff
-  cssThings <- css2DRendererAff
-  let threeStuff = union { three, orbitControls } cssThings
-  w <- liftEffect $ window
-  loc <- liftEffect $ location w
-  pn <- liftEffect $ pathname loc
-  isMobile <- liftEffect $ emitsTouchEvents
-  resizeE <- liftEffect create
   ----- gui
   { debug, renderingInfo } <- liftEffect useLilGui >>= (if _ then gui else noGui) >>> (_ $ renderingInfo')
-  liftEffect (Ref.read renderingInfo >>= logShow)
-  -----
-  playerPositions <- liftEffect $ (Ref.read renderingInfo >>= \ri -> Ref.new (initialPositions ri))
-  let
-    myPlayer
-      | pn == "/4" = Player4
-      | pn == "/3" = Player3
-      | pn == "/2" = Player2
-      | pn == "/1" = Player1
-      | otherwise = Player1
-  pubNub /\ pnEvent <-
-    ( (map <<< map)
-        ( filterMap
-            ( \(PubNubEvent pne) -> if pne.message.player /= myPlayer then Just pne.message else Nothing
-            )
-        )
-        pubnubEvent
-    )
-  resizeListener <- liftEffect $ eventListener \_ -> do
-    ({ iw: _, ih: _ } <$> (Int.toNumber <$> innerWidth w) <*> (Int.toNumber <$> innerHeight w)) >>= resizeE.push
-  liftEffect $ addEventListener (EventType "resize") resizeListener true (toEventTarget w)
-  xPosE <- liftEffect $ (if isMobile then xForTouch else xForKeyboard) w myPlayer pubNub
-  -- ignore subscription
-  _ <- liftEffect $ subscribe xPosE \xp -> case myPlayer of
-    Player1 -> writeToRecord (Proxy :: _ "p1x") xp playerPositions
-    Player2 -> writeToRecord (Proxy :: _ "p2x") xp playerPositions
-    Player3 -> writeToRecord (Proxy :: _ "p3x") xp playerPositions
-    Player4 -> writeToRecord (Proxy :: _ "p4x") xp playerPositions
-  _ <- liftEffect $ subscribe pnEvent \pevt -> do
-    -- Log.info "outside called"
+  liftEffect do
+    -- events
+    resizeE <- create
+    loaded <- Event.create
+    negotiation <- Event.create
+    pushBasic :: Event.EventIO HitBasicMe <- Event.create
+    -- is this mobile
+    isMobile <- emitsTouchEvents
+    -- low priority event
+    unschedule <- new Map.empty
     let
-      pfun = case pevt.player of
-        Player1 -> writeToRecord (Proxy :: _ "p1x")
-        Player2 -> writeToRecord (Proxy :: _ "p2x")
-        Player3 -> writeToRecord (Proxy :: _ "p3x")
-        Player4 -> writeToRecord (Proxy :: _ "p4x")
-    case pevt.action of
-      XPositionKeyboard i -> pfun (lcmap _.epochTime $ posFromKeypress i) playerPositions
-      XPositionMobile i -> pfun (lcmap _.epochTime $ posFromOrientation i) playerPositions
-      -- not implemented yet
-      HitBasic _ -> pure unit
-  initialDims <- liftEffect $ ({ iw: _, ih: _ } <$> (Int.toNumber <$> innerWidth w) <*> (Int.toNumber <$> innerHeight w))
-  soundObj <- liftEffect $ Ref.new Object.empty
-  icid <- liftEffect $ new Nothing
-  loaded <- liftEffect $ Event.create
-  pushBasic :: Event.EventIO HitBasicMe <- liftEffect $ Event.create
-  _ <- liftEffect $ subscribe pushBasic.event \(HitBasicMe bt) -> do
-    publish pubNub
-      { action: HitBasic
-          ( HitBasicOverTheWire
-              { uniqueId: bt.uniqueId
-              , logicalBeat: bt.logicalBeat
-              , deltaBeats: bt.deltaBeats
-              , hitAt: bt.hitAt
-              }
-          )
-      , player: myPlayer
-      }
-  unschedule <- liftEffect $ new Map.empty
-  ctx' <- liftEffect $ context
-  silence <- liftEffect $ makeAudioBuffer ctx' (AudioBuffer 44100 [ replicate 1000 0.0 ])
-  let
+      lowPriorityCb k v = do
+        n <- Random.random
+        Ref.modify_ (Map.insert (k <> Milliseconds (n * 0.25)) v) unschedule
+    idleCallbackId <- liftEffect $ new Nothing
+    ----- player positions
+    playerPositions <- Ref.read renderingInfo >>= \ri -> Ref.new (initialPositions ri)
+    ctx' <- context
+    silence <- makeAudioBuffer ctx' (AudioBuffer 44100 [ replicate 1000 0.0 ])
+    -- windoze
+    w <- window
+    loc <- location w
+    pn <- pathname loc
+    let parsed = parse route pn
+    -- resize
+    initialDims <- { iw: _, ih: _ }
+      <$> (Int.toNumber <$> innerWidth w)
+      <*> (Int.toNumber <$> innerHeight w)
+    resizeListener <- eventListener \_ -> do
+      ({ iw: _, ih: _ } <$> (Int.toNumber <$> innerWidth w) <*> (Int.toNumber <$> innerHeight w)) >>= resizeE.push
+    addEventListener (EventType "resize") resizeListener true (toEventTarget w)
+    -- sound stash
+    soundObj <- liftEffect $ Ref.new Object.empty
+    -- get the html. could be even sooner if we passed more stuff in on success instead of creating it at the top level
+    runInBody
+      ( toplevel
+          { loaded: loaded.event
+          , negotiation: negotiation.event
+          , isMobile
+          , lpsCallback: lowPriorityCb
+          , pushBasic: pushBasic
+          , resizeE: resizeE.event
+          , playerPositions: refToBehavior playerPositions
+          , renderingInfo: refToBehavior renderingInfo
+          , debug
+          , basicE: mockBasics
+          , silence
+          , initialDims
+          , icid: idleCallbackId
+          , wdw: w
+          , unschedule
+          , soundObj
+          }
+      )
 
-    bufferNames :: List (BufferName /\ String)
-    bufferNames = (BufferName "kick" /\ "drum1_001")
-      : (BufferName "hihat" /\ "drum2_001")
-      : (BufferName "note" /\ "drum3_001")
-      : (BufferName "tambourine" /\ "drum4_001")
-      : Nil
-  let
-    lowPriorityCb k v = do
-      n <- Random.random
-      Ref.modify_ (Map.insert (k <> Milliseconds (n * 0.25)) v) unschedule
-  let n2oh = take 300 bufferNames
-  let n2ot = drop 300 bufferNames
-  _ <- forkAff do
-    dlInChunks silentRoom 100 n2oh ctx' soundObj
-    liftEffect $ loaded.push true
-    dlInChunks silentRoom 100 n2ot ctx' soundObj
-  liftEffect $ runInBody
-    ( toplevel
-        { loaded: loaded.event
-        , threeStuff
-        , isMobile
-        , lpsCallback: lowPriorityCb
-        , myPlayer
-        , pushBasic: pushBasic
-        , notifications:
-            { hitBasic: withTime pnEvent # filterMap
-                ( \{ value: { player, action }, time } -> case action of
-                    HitBasic (HitBasicOverTheWire e) -> Just $ HitBasicOtherPlayer
-                      { uniqueId: e.uniqueId
-                      , logicalBeat: e.logicalBeat
-                      , deltaBeats: e.deltaBeats
-                      , hitAt: e.hitAt
-                      , player
-                      , issuedAt: unInstant time
+    -- i am me
+    iAm <- randId
+    -- threeeeeee
+    launchAff_ do
+      three <- threeAff
+      ldr <- liftEffect $ loader three
+      --       , textures: Textures downloadedTextures
+      downloadedTextures <- forkAff (fromHomogeneous <$> parTraverse (loadAff ldr) (homogeneous textures))
+      orbitControls <- orbitControlsAff
+      cssThings <- css2DRendererAff
+      let threeStuff = union { three, orbitControls } cssThings
+      -- "server" via pubnub
+      let myChannel' = hush parsed >>= channelFromRoute
+      case myChannel' of
+        Nothing -> liftEffect $ negotiation.push GetRulesOfGame
+        Just myChannel -> do
+          knownPlayers <- liftEffect $ Ref.new Set.empty
+          pubNub <- do
+            { event, publish } <- PN.pubnub (IAm iAm) (Channel myChannel)
+            pure
+              { publish
+              , event: filterMap
+                  ( \(PN.PubNubEvent pne) -> if pne.message.iAm /= iAm then Just pne.message.action else Nothing
+                  )
+                  event
+              }
+          -- we immediately issue a subscription for all the stuff we can always listen to
+          _ <- liftEffect $ subscribe pubNub.event \pevt -> do
+            -- todo: make lazy?
+            let
+              pfun = case _ of
+                Player1 -> writeToRecord (Proxy :: _ "p1x")
+                Player2 -> writeToRecord (Proxy :: _ "p2x")
+                Player3 -> writeToRecord (Proxy :: _ "p3x")
+                Player4 -> writeToRecord (Proxy :: _ "p4x")
+              notRelevant = pure unit
+            case pevt of
+              HitBasic _ -> notRelevant
+              EchoKnownPlayers _ -> notRelevant
+              RefuteClaim _ -> notRelevant
+              AcceptClaim _ -> notRelevant
+              XPositionKeyboard i -> pfun i.player (lcmap _.epochTime $ posFromKeypress i.ktp) playerPositions
+              XPositionMobile i -> pfun i.player (lcmap _.epochTime $ posFromOrientation i.gtp) playerPositions
+              -- this is handled via a separate event using a custom filter, theoretically below in this file if it hasn't been refactored!
+              RequestPlayer -> do
+                known <- Ref.read knownPlayers
+                pubNub.publish $ EchoKnownPlayers { players: Set.toUnfoldable known }
+              ClaimPlayer { claim, player } -> do
+                known <- Ref.read knownPlayers
+                case Set.member player known of
+                  true -> pubNub.publish $ RefuteClaim { claim, player }
+                  false -> do
+                    Ref.modify_ (_ <> Set.singleton player) knownPlayers
+                    pubNub.publish $ AcceptClaim { claim, player }
+          liftEffect $ negotiation.push StartingNegotiation
+          let
+            actOnProposedPlayer perhapsPlayer = do
+              claim <- liftEffect (Claim <$> randId)
+              request <- forkAff
+                -- accepts own claim in case no one else responds
+                $ map (foldl alt (Right { claim, player: perhapsPlayer }))
+                $ collectEventToAff (Milliseconds 750.0)
+                    ( filterMap
+                        ( case _ of
+                            AcceptClaim c -> Just (Right c)
+                            RefuteClaim c -> Just (Left c)
+                            _ -> Nothing
+                        )
+                        pubNub.event
+                    )
+              liftEffect $ pubNub.publish $ ClaimPlayer { claim, player: perhapsPlayer }
+              joinFiber request >>= case _ of
+                Right { player } -> pure player
+                Left _ -> do
+                  liftEffect $ negotiation.push ClaimFail
+                  never
+          myPlayer :: Player <- case hush parsed >>= playerFromRoute of
+            Just playerAsk -> actOnProposedPlayer playerAsk
+            Nothing -> do
+              collecting <- forkAff
+                $ map (nub <<< join)
+                $ collectEventToAff (Milliseconds 750.0)
+                    ( filterMap
+                        ( case _ of
+                            EchoKnownPlayers { players } -> Just players
+                            _ -> Nothing
+                        )
+                        pubNub.event
+                    )
+              liftEffect $ negotiation.push RequestingPlayer
+              liftEffect $ pubNub.publish RequestPlayer
+              collected <- joinFiber collecting
+              liftEffect $ negotiation.push ReceivedPossibilities
+              candidate <- liftEffect $ randElt $ difference allPlayers collected
+              case candidate of
+                Nothing -> do
+                  liftEffect $ negotiation.push RoomIsFull
+                  never
+                Just perhapsPlayer -> actOnProposedPlayer perhapsPlayer
+          xPosE <- liftEffect $ (if isMobile then xForTouch else xForKeyboard) w myPlayer pubNub.publish
+          -- ignore subscription
+          _ <- liftEffect $ subscribe xPosE \xp -> case myPlayer of
+            Player1 -> writeToRecord (Proxy :: _ "p1x") xp playerPositions
+            Player2 -> writeToRecord (Proxy :: _ "p2x") xp playerPositions
+            Player3 -> writeToRecord (Proxy :: _ "p3x") xp playerPositions
+            Player4 -> writeToRecord (Proxy :: _ "p4x") xp playerPositions
+          _ <- liftEffect $ subscribe pushBasic.event \(HitBasicMe bt) -> do
+            pubNub.publish
+              $ HitBasic
+                  ( HitBasicOverTheWire
+                      { uniqueId: bt.uniqueId
+                      , logicalBeat: bt.logicalBeat
+                      , deltaBeats: bt.deltaBeats
+                      , hitAt: bt.hitAt
+                      , player: myPlayer
                       }
-                    _ -> Nothing
-                )
+                  )
+          let
+            bufferNames :: List (BufferName /\ String)
+            bufferNames = (BufferName "kick" /\ "drum1_001")
+              : (BufferName "hihat" /\ "drum2_001")
+              : (BufferName "note" /\ "drum3_001")
+              : (BufferName "tambourine" /\ "drum4_001")
+              : Nil
+          let n2oh = take 300 bufferNames
+          let n2ot = drop 300 bufferNames
+          dlInChunks silentRoom 100 n2oh ctx' soundObj
+          liftEffect $ loaded.push true
+          dlInChunks silentRoom 100 n2ot ctx' soundObj
+          myTextures <- joinFiber downloadedTextures
+          liftEffect $ negotiation.push $ Success
+            { player: myPlayer
+            , threeStuff
+            , pubNubEvent: pubNub.event
+            , textures: Textures myTextures
             }
-        , resizeE: resizeE.event
-        , playerPositions: refToBehavior playerPositions
-        , renderingInfo: refToBehavior renderingInfo
-        , debug
-        , basicE: mockBasics
-        , silence
-        , initialDims
-        , icid
-        , wdw: w
-        , unschedule
-        , soundObj
-        , textures: Textures downloadedTextures
-        }
-    )

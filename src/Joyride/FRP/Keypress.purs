@@ -9,12 +9,10 @@ import Data.Number (pow)
 import Data.Profunctor (lcmap)
 import Data.Time.Duration (Milliseconds(..))
 import Effect (Effect)
-import Effect.Class.Console as Log
 import Effect.Now (now)
 import Effect.Ref as Ref
 import FRP.Event (Event, create)
-import Joyride.Transport.PubNub (PlayerAction(..), PubNub, publish)
-import Types (KTP, Player, RateInfo, XDirection(..))
+import Types (KTP, Player, PlayerAction(..), RateInfo, XDirection(..))
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
 import Web.HTML (Window)
@@ -40,8 +38,8 @@ posFromKeypress ktp (Milliseconds curMs) = case ktp.time of
   msToSeconds = 1.0 / 1000.0
   dampeningFactor = 0.77
 
-xForKeyboard :: Window -> Player -> PubNub -> Effect (Event (RateInfo -> Number))
-xForKeyboard w myPlayer pubNub = do
+xForKeyboard :: Window -> Player -> (PlayerAction -> Effect Unit) -> Effect (Event (RateInfo -> Number))
+xForKeyboard w myPlayer pub = do
   evt <- create
   xpe <- Ref.new { curXDir: Still, time: Nothing, pos: 0.0 }
   let
@@ -57,7 +55,7 @@ xForKeyboard w myPlayer pubNub = do
             time <- unInstant <$> now
             nw <- Ref.modify (\ktp -> if ktp.curXDir == curXDir then ktp else { curXDir, time: Just time, pos: posFromKeypress ktp time }) xpe
             evt.push nw
-            publish pubNub { action: XPositionKeyboard nw, player: myPlayer }
+            pub $ XPositionKeyboard { ktp:  nw, player: myPlayer }
   keydownListener <- makeListener false
   keyupListener <- makeListener true
   addEventListener (EventType "keydown") keydownListener true (toEventTarget w)

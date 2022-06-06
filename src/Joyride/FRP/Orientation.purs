@@ -10,8 +10,7 @@ import Effect (Effect)
 import Effect.Now (now)
 import Effect.Ref as Ref
 import FRP.Event (Event, create)
-import Joyride.Transport.PubNub (PlayerAction(..), PubNub, publish)
-import Types (GTP, Orientation, Player, RateInfo)
+import Types (GTP, Orientation, PlayerAction(..), Player, RateInfo)
 import Unsafe.Coerce (unsafeCoerce)
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
@@ -25,15 +24,15 @@ posFromOrientation gtp (Milliseconds curMs) = case gtp.time of
   where
   orientationDampening = 0.01 :: Number
 
-xForTouch :: Window -> Player -> PubNub -> Effect (Event (RateInfo -> Number))
-xForTouch w myPlayer pubNub = do
+xForTouch :: Window -> Player -> (PlayerAction -> Effect Unit) -> Effect (Event (RateInfo -> Number))
+xForTouch w myPlayer pub = do
   evt <- create
   xpe <- Ref.new { gamma: 0.0, time: Nothing, pos: 0.0 }
   orientationListener <- eventListener \e' -> do
     let e = (unsafeCoerce :: _ -> Orientation) e'
     time <- unInstant <$> now
     nw <- Ref.modify (\gtp -> { gamma: e.gamma, time: Just time, pos: posFromOrientation gtp time }) xpe
-    publish pubNub { action: XPositionMobile nw, player: myPlayer }
+    pub $ XPositionMobile { gtp: nw, player: myPlayer }
     evt.push nw
   addEventListener (EventType "deviceorientation") orientationListener true (toEventTarget w)
   pure ((posFromOrientation >>> lcmap _.epochTime) <$> evt.event)

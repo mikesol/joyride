@@ -5,10 +5,15 @@ module Types
   , RenderingInfo'
   , Position(..)
   , Axis(..)
+  , Channel(..)
+  , IAm(..)
   , touchPointZ
   , Column(..)
+  , Success'
   , normalizedColumn
   , Orientation
+  , Claim(..)
+  , PlayerAction(..)
   , WindowDims
   , XDirection(..)
   , KTP
@@ -35,27 +40,33 @@ module Types
   , HitBasicOtherPlayer(..)
   , HitBasicVisual(..)
   , HitBasicVisualForLabel(..)
+  , Negotiation(..)
   ) where
 
 import Prelude
 
 import Data.FastVect.FastVect (Vect)
+import Data.Lens (_Just, over)
+import Data.Lens.Record (prop)
 import Data.Maybe (Maybe(..))
-import Data.Newtype (class Newtype)
-import Data.Time.Duration (Milliseconds)
+import Data.Newtype (class Newtype, unwrap)
+import Data.Time.Duration (Milliseconds(..))
 import Data.Tuple.Nested (type (/\))
 import Effect (Effect)
 import FRP.Behavior (Behavior)
-import FRP.Event (Event, EventIO)
+import FRP.Event (EventIO, Event)
 import Foreign (ForeignError(..), fail)
 import Foreign.Object as Object
 import Joyride.Wags (AudibleChildEnd, AudibleEnd)
+import Record (union)
 import Rito.Color (Color, RGB)
 import Rito.Matrix4 (Matrix4, Matrix4')
+import Rito.THREE (ThreeStuff)
 import Rito.Texture (Texture)
 import Rito.Vector3 (Vector3')
 import Simple.JSON (writeJSON)
 import Simple.JSON as JSON
+import Type.Proxy (Proxy(..))
 import WAGS.Math (calcSlope)
 import WAGS.WebAPI (BrowserAudioBuffer)
 
@@ -90,6 +101,7 @@ instance JSON.WriteForeign XDirection where
 data Player = Player1 | Player2 | Player3 | Player4
 
 derive instance Eq Player
+derive instance Ord Player
 instance Show Player where
   show = JSON.writeJSON
 
@@ -389,7 +401,9 @@ newtype HitBasicOverTheWire = HitBasicOverTheWire
   , logicalBeat :: Beats
   , deltaBeats :: Beats
   , hitAt :: Beats
+  , player :: Player
   }
+
 derive instance Newtype HitBasicOverTheWire _
 derive newtype instance JSON.ReadForeign HitBasicOverTheWire
 derive newtype instance JSON.WriteForeign HitBasicOverTheWire
@@ -401,6 +415,7 @@ newtype HitBasicMe = HitBasicMe
   , hitAt :: Beats
   , issuedAt :: Milliseconds
   }
+
 derive instance Newtype HitBasicMe _
 
 newtype HitBasicOtherPlayer = HitBasicOtherPlayer
@@ -411,6 +426,7 @@ newtype HitBasicOtherPlayer = HitBasicOtherPlayer
   , player :: Player
   , issuedAt :: Milliseconds
   }
+
 derive instance Newtype HitBasicOtherPlayer _
 
 newtype HitBasicVisual = HitBasicVisual
@@ -420,6 +436,7 @@ newtype HitBasicVisual = HitBasicVisual
   , hitAt :: Beats
   , issuedAt :: Milliseconds
   }
+
 derive instance Newtype HitBasicVisual _
 
 newtype HitBasicVisualForLabel = HitBasicVisualForLabel
@@ -431,4 +448,88 @@ newtype HitBasicVisualForLabel = HitBasicVisualForLabel
   , translation :: Event Vector3'
   , player :: Player
   }
+
 derive instance Newtype HitBasicVisualForLabel _
+
+data Negotiation
+  = PageLoad
+  | GetRulesOfGame
+  | StartingNegotiation
+  | RoomIsFull
+  | RequestingPlayer
+  | ReceivedPossibilities
+  | ClaimFail
+  | Success Success'
+
+type Success' =
+      { player :: Player
+      , threeStuff :: ThreeStuff
+      , pubNubEvent :: Event PlayerAction
+      , textures :: Textures Texture
+      }
+
+newtype IAm = IAm String
+newtype Channel = Channel String
+
+newtype Claim = Claim String
+
+derive newtype instance JSON.WriteForeign Claim
+derive newtype instance JSON.ReadForeign Claim
+data PlayerAction
+  = --movement
+    XPositionKeyboard { player :: Player, ktp :: KTP }
+  | XPositionMobile { player :: Player, gtp :: GTP }
+  -- tap basic
+  | HitBasic HitBasicOverTheWire
+  -- ask to join
+  | RequestPlayer
+  -- say whose available
+  | EchoKnownPlayers { players :: Array Player }
+  -- claim a player
+  | ClaimPlayer { claim :: Claim, player :: Player }
+  -- accept claim
+  | AcceptClaim { claim :: Claim, player :: Player }
+  -- refute claim
+  | RefuteClaim { claim :: Claim, player :: Player }
+
+instance toJSONPubNubPlayerAction :: JSON.ReadForeign PlayerAction where
+  readImpl i = do
+    { _type } :: { _type :: String } <- JSON.readImpl i
+    case _type of
+      "XPositionKeyboard" -> XPositionKeyboard <<< (overKtp convertToMs) <$> JSON.readImpl i
+      "XPositionMobile" -> XPositionMobile <<< (overGtp convertToMs) <$> JSON.readImpl i
+      "HitBasic" -> HitBasic <$> JSON.readImpl i
+      "RequestPlayer" -> pure RequestPlayer
+      "EchoKnownPlayers" -> EchoKnownPlayers <$> JSON.readImpl i
+      "ClaimPlayer" -> ClaimPlayer <$> JSON.readImpl i
+      "AcceptClaim" -> AcceptClaim <$> JSON.readImpl i
+      "RefuteClaim" -> RefuteClaim <$> JSON.readImpl i
+      _ -> fail (ForeignError $ "Could not parse: " <> JSON.writeJSON i)
+
+convertToMs
+  :: forall r
+   . { time :: Maybe Number | r }
+  -> { time :: Maybe Milliseconds | r }
+convertToMs = over ((prop (Proxy :: Proxy "time")) <<< _Just) Milliseconds
+
+convertFromMs
+  :: forall r
+   . { time :: Maybe Milliseconds | r }
+  -> { time :: Maybe Number | r }
+convertFromMs = over ((prop (Proxy :: Proxy "time")) <<< _Just) unwrap
+
+overKtp :: forall r a b. (a -> b) -> { ktp :: a | r } -> { ktp :: b | r }
+overKtp = over (prop (Proxy :: Proxy "ktp"))
+
+overGtp :: forall r a b. (a -> b) -> { gtp :: a | r } -> { gtp :: b | r }
+overGtp = over (prop (Proxy :: Proxy "gtp"))
+
+instance fromJSONPubNubPlayerAction :: JSON.WriteForeign PlayerAction where
+  writeImpl (XPositionKeyboard i) = JSON.writeImpl $ union { _type: "XPositionKeyboard" } (overKtp convertFromMs i)
+  writeImpl (XPositionMobile i) = JSON.writeImpl $ union { _type: "XPositionMobile" } (overGtp convertFromMs i)
+  writeImpl (HitBasic (HitBasicOverTheWire j)) = JSON.writeImpl $ union { _type: "HitBasic" } j
+  writeImpl RequestPlayer = JSON.writeImpl { _type: "RequestPlayer" }
+  writeImpl (EchoKnownPlayers j) = JSON.writeImpl $ union { _type: "EchoKnownPlayers" } j
+  writeImpl (ClaimPlayer j) = JSON.writeImpl $ union { _type: "ClaimPlayer" } j
+  writeImpl (AcceptClaim j) = JSON.writeImpl $ union { _type: "AcceptClaim" } j
+  writeImpl (RefuteClaim j) = JSON.writeImpl $ union { _type: "RefuteClaim" } j
