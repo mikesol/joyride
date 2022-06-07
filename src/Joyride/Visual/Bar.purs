@@ -2,11 +2,13 @@ module Joyride.Visual.Bar where
 
 import Prelude
 
+import Control.Alt ((<|>))
 import Control.Plus (empty)
 import Data.Foldable (oneOf)
 import FRP.Behavior (Behavior, sampleBy)
 import FRP.Event (Event, bang)
 import Joyride.Debug (debugX)
+import Joyride.FRP.Schedule (fireAndForget)
 import Rito.Color (Color, RGB(..))
 import Rito.Core (ASceneful, toScene)
 import Rito.Geometries.Box (box)
@@ -34,8 +36,10 @@ makeBar { c3, renderingInfo, position, debug, rateE } = toScene $ mesh (box {} e
       [ bang (positionX 0.0)
       , bang (positionY 0.0)
       , sampleBy (\ri _ -> positionZ (touchPointZ ri position)) renderingInfo (debugX debug rateE)
-      , bang (scaleX 10.0)
-      , bang (scaleY 0.02)
-      , bang (scaleZ 0.03)
+      , initializeWith scaleX 10.0
+      , initializeWith scaleY 0.02
+      , initializeWith scaleZ 0.03
       ]
   )
+  where
+  initializeWith f x = bang (f 0.0) <|> fireAndForget (rateE $> f x)
