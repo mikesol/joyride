@@ -9,11 +9,10 @@ import Data.Newtype (class Newtype)
 import Effect (Effect)
 import Effect.Aff (Aff)
 import Effect.Class (liftEffect)
-import Effect.Class.Console as Log
 import Effect.Exception (error)
 import FRP.Event (Event, create)
 import Foreign (Foreign)
-import Simple.JSON (readImpl, writeImpl, writeJSON)
+import Simple.JSON (readImpl, writeImpl)
 import Simple.JSON as JSON
 import Types (Channel(..), IAm(..), PlayerAction)
 

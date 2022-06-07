@@ -315,27 +315,29 @@ toplevel tli =
                                 | otherwise -> envy empty
                       ]
                   , let
-                      frame mid = D.div (bang $ D.Class := "grow-0 flex flex-row")
+                      frame mid = D.div (bang $ D.Class := "flex flex-row")
                         [ D.div (bang $ D.Class := "grow") []
-                        , D.div (bang $ D.Class := "z-0") [ mid ]
+                        , D.div (bang $ D.Class := "z-0 grow-0") [ mid ]
                         , D.div (bang $ D.Class := "grow") []
                         ]
                     in
-                      ( fromEvent
-                          ( dedup
-                              ( optIn <#>
-                                  \m -> case allAreReady m of
-                                    Just x -> Started x
-                                    Nothing
-                                      | iAmReady m -> WaitingForOthers
-                                      | otherwise -> WaitingForMe
+                      D.div_
+                        [ ( fromEvent
+                              ( dedup
+                                  ( optIn <#>
+                                      \m -> case allAreReady m of
+                                        Just x -> Started x
+                                        Nothing
+                                          | iAmReady m -> WaitingForOthers
+                                          | otherwise -> WaitingForMe
+                                  )
                               )
                           )
-                      )
-                        # switcher case _ of
-                            WaitingForMe -> frame startButton
-                            WaitingForOthers -> frame (D.span (bang $ D.Class := "text-lg text-white") [ text_ "Waiting for others to join" ])
-                            Started _ -> envy empty
+                            # switcher case _ of
+                                WaitingForMe -> frame startButton
+                                WaitingForOthers -> frame (D.span (bang $ D.Class := "text-lg text-white") [ text_ "Waiting for others to join" ])
+                                Started _ -> envy empty
+                        ]
                   , D.div (bang $ D.Class := "grow") []
                   ]
               ]
