@@ -22,7 +22,7 @@ let additions =
           , "now"
           ]
         , repo = "https://github.com/mikesol/purescript-event.git"
-        , version = "v1.6.6"
+        , version = "v1.6.7"
         }
       , fast-vect =
         { dependencies =

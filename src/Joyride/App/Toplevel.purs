@@ -5,6 +5,7 @@ import Prelude
 import Control.Monad.Except (runExcept, throwError)
 import Control.Plus (empty)
 import Data.Array (span)
+import Data.Compactable (compact)
 import Data.DateTime.Instant (unInstant)
 import Data.Either (hush)
 import Data.Foldable (foldl, oneOf, oneOfMap, traverse_)
@@ -13,7 +14,7 @@ import Data.Maybe (Maybe(..), isJust, maybe)
 import Data.Newtype (over)
 import Data.Number (pi)
 import Data.Time.Duration (Milliseconds(..))
-import Data.Traversable (traverse)
+import Data.Traversable (sequence, traverse)
 import Data.Tuple (Tuple(..), fst, snd)
 import Deku.Attribute ((:=))
 import Deku.Control (switcher, text_)
@@ -46,8 +47,9 @@ import Joyride.Wags (AudibleChildEnd)
 import Rito.Color (color)
 import Rito.Core (ASceneful)
 import Rito.Matrix4 as M4
+import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
-import Types (Beats(..), HitBasicMe, HitBasicOtherPlayer(..), HitBasicOverTheWire(..), MakeBasics, Negotiation(..), PlayerAction(..), PlayerPositionsF, RateInfo, RenderingInfo, Seconds(..), Success', WindowDims)
+import Types (Beats(..), HitBasicMe, HitBasicOtherPlayer(..), HitBasicOverTheWire(..), InFlightGameInfo, MakeBasics, Negotiation(..), Player(..), PlayerAction(..), PlayerPositionsF, Points(..), RateInfo, RenderingInfo, Seconds(..), Success', WindowDims)
 import WAGS.Clock (withACTime)
 import WAGS.Interpret (close, constant0Hack, context)
 import WAGS.Run (run2)
@@ -150,20 +152,24 @@ toplevel tli =
       ( vbussed (Proxy :: _ UIEvents) \push event ->
           do
             let
-              optIn = biSampleOn (initializeWithEmpty event.ownTime) (optIn' <#> \oi ot -> maybe oi (\t -> Map.insert myPlayer (Just t) oi) ot)
+              optIn = biSampleOn (initializeWithEmpty event.ownTime) (optIn' <#> \oi ot -> maybe oi (\t -> Map.insert myPlayer (Just { startedAt: t, points: Points 0.0 }) oi) ot)
               iAmReady m = isJust (join (Map.lookup myPlayer m))
+
+              asReady :: Map.Map Player (Maybe InFlightGameInfo) -> Maybe (Map.Map Player InFlightGameInfo)
+              asReady m = sequence m
               allAreReady m
                 | Map.isEmpty m = Nothing
                 | otherwise = map (foldl max (Milliseconds 0.0)) $ hush $ runExcept
                     ( m # traverse \v -> case v of
                         Nothing -> throwError unit
-                        Just t -> pure t
+                        Just t -> pure t.startedAt
                     )
+              -- stopButton :: Effect Unit -> Nut
               stopButton off = D.div
                 (bang $ D.Class := "bg-slate-50")
                 [ D.button
                     ( oneOf
-                        [ bang $ D.Class := "p-4"
+                        [ bang $ D.Class := "pointer-events-auto p-4"
                         , bang $ D.OnClick := do
                             off
                         ]
@@ -174,7 +180,7 @@ toplevel tli =
                 (bang $ D.Class := "bg-slate-50")
                 [ D.button
                     ( oneOf
-                        [ bang $ D.Class := "p-4"
+                        [ bang $ D.Class := "pointer-events-auto p-4"
                         , bang $ D.OnClick := do
                             ctx <- context
                             hk <- constant0Hack ctx
@@ -225,7 +231,70 @@ toplevel tli =
                     [ text_ "Play Joyride" ]
                 ]
             D.div_
-              [ D.div
+              [
+                -- on/off
+                D.div (bang $ D.Class := "z-10 pointer-events-none absolute w-screen h-screen flex flex-col")
+                  [ D.div (bang $ D.Class := "grow flex flex-row")
+                      -- fromEvent because optIn is effectful
+                      [ D.div (bang $ D.Class := "grow-0")
+                          [
+                            envy $ map stopButton
+                              ( fromEvent
+                                  ( fireAndForget
+                                      ( compact
+                                          ( map
+                                              ( \(Tuple oi usu) -> case usu of
+                                                  Nothing -> Nothing
+                                                  Just (Unsubscribe u)
+                                                    | iAmReady oi -> Just u
+                                                    | otherwise -> Nothing
+                                              )
+                                              (biSampleOn (initializeWithEmpty event.iAmReady) (map Tuple optIn))
+                                          )
+                                      )
+                                  )
+                              )
+                          ]
+                      , D.div (bang $ D.Class := "grow") []
+                      , D.div (bang $ D.Class := "grow-0")
+                          [ fromEvent (biSampleOn (initializeWithEmpty event.iAmReady) (map Tuple optIn))
+                              -- we theoretically don't need to dedup because
+                              -- the button should never redraw once we've started
+                              -- if there's flicker, dedup
+                              # switcher \(Tuple oi usu) -> case usu of
+                                  Nothing -> envy empty
+                                  Just (Unsubscribe _)
+                                    | Just m <- asReady oi -> makePoints m
+                                    | otherwise -> envy empty
+                          ]
+                      ]
+                  , let
+                      frame mid = D.div (bang $ D.Class := "flex flex-row")
+                        [ D.div (bang $ D.Class := "grow") []
+                        , D.div (bang $ D.Class := "grow-0") [ mid ]
+                        , D.div (bang $ D.Class := "grow") []
+                        ]
+                    in
+                      D.div_
+                        [ ( fromEvent
+                              ( dedup
+                                  ( optIn <#>
+                                      \m -> case allAreReady m of
+                                        Just x -> Started x
+                                        Nothing
+                                          | iAmReady m -> WaitingForOthers
+                                          | otherwise -> WaitingForMe
+                                  )
+                              )
+                          )
+                            # switcher case _ of
+                                WaitingForMe -> frame startButton
+                                WaitingForOthers -> frame (D.span (bang $ D.Class := "text-lg text-white") [ text_ "Waiting for others to join" ])
+                                Started _ -> envy empty
+                        ]
+                  , D.div (bang $ D.Class := "grow") []
+                  ]
+              , D.div
                   (bang (D.Class := "absolute"))
                   [ D.canvas
                       ( oneOf
@@ -238,7 +307,7 @@ toplevel tli =
                                   ( biSampleOn
                                       ( fireAndForget
                                           ( optIn # filterMap
-                                              \m -> { startTime: _, myTime: _ } <$> allAreReady m <*> join (Map.lookup myPlayer m)
+                                              \m -> { startTime: _, myTime: _ } <$> allAreReady m <*> join ((map <<< map) _.startedAt $ Map.lookup myPlayer m)
                                           )
                                       )
                                       (event.rateInfo <#> \ri { startTime, myTime } -> adjustRateInfoBasedOnActualStart myTime startTime ri)
@@ -299,46 +368,6 @@ toplevel tli =
                       []
                   , D.div (oneOfMap bang [ D.Class := "absolute pointer-events-none", D.Self := push.renderElement ]) []
                   ]
-              -- on/off
-              , D.div (bang $ D.Class := "w-screen h-screen flex flex-col bg-black")
-                  [ D.div (bang $ D.Class := "grow")
-                      -- fromEvent because optIn is effectful
-                      [ fromEvent (biSampleOn (initializeWithEmpty event.iAmReady) (map Tuple optIn))
-                          -- we theoretically don't need to dedup because
-                          -- the button should never redraw once we've started
-                          -- if there's flicker, dedup
-                          # switcher \(Tuple oi usu) -> case usu of
-                              Nothing -> envy empty
-                              Just (Unsubscribe u)
-                                | iAmReady oi -> stopButton u
-                                | otherwise -> envy empty
-                      ]
-                  , let
-                      frame mid = D.div (bang $ D.Class := "flex flex-row")
-                        [ D.div (bang $ D.Class := "grow") []
-                        , D.div (bang $ D.Class := "z-0 grow-0") [ mid ]
-                        , D.div (bang $ D.Class := "grow") []
-                        ]
-                    in
-                      D.div_
-                        [ ( fromEvent
-                              ( dedup
-                                  ( optIn <#>
-                                      \m -> case allAreReady m of
-                                        Just x -> Started x
-                                        Nothing
-                                          | iAmReady m -> WaitingForOthers
-                                          | otherwise -> WaitingForMe
-                                  )
-                              )
-                          )
-                            # switcher case _ of
-                                WaitingForMe -> frame startButton
-                                WaitingForOthers -> frame (D.span (bang $ D.Class := "text-lg text-white") [ text_ "Waiting for others to join" ])
-                                Started _ -> envy empty
-                        ]
-                  , D.div (bang $ D.Class := "grow") []
-                  ]
               ]
       )
   where
@@ -383,3 +412,12 @@ toplevel tli =
           Nothing -> Nothing
           Just x -> Just $ over Beats (_ - offsetInSeconds) x
       }
+
+  makePoints :: Map.Map Player InFlightGameInfo -> Nut
+  makePoints m = D.ul_ (map (\(Tuple p x) -> D.li_ [ D.span (bang $ D.Class := "text-white") [ text_ $ p2s p <> ": " <> JSON.writeJSON x.points <> " Points" ] ]) $ Map.toUnfoldable m)
+
+p2s :: Player -> String
+p2s Player1 = "Player 1"
+p2s Player2 = "Player 2"
+p2s Player3 = "Player 3"
+p2s Player4 = "Player 4"

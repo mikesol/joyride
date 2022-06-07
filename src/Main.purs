@@ -13,6 +13,7 @@ import Data.List (List(..), drop, foldl, take, (:))
 import Data.Map (SemigroupMap(..))
 import Data.Map as Map
 import Data.Maybe (Maybe(..), isJust, isNothing)
+import Data.Maybe.First (First(..))
 import Data.Newtype (unwrap)
 import Data.Number (pi)
 import Data.Profunctor (lcmap)
@@ -51,7 +52,7 @@ import Route (Route(..), route)
 import Routing.Duplex (parse)
 import Safe.Coerce (coerce)
 import Type.Proxy (Proxy(..))
-import Types (BufferName(..), Channel(..), Claim(..), HitBasicMe(..), HitBasicOverTheWire(..), IAm(..), Negotiation(..), Player(..), PlayerAction(..), RenderingInfo', Textures(..), allPlayers, initialPositions)
+import Types (BufferName(..), Channel(..), Claim(..), HitBasicMe(..), HitBasicOverTheWire(..), IAm(..), Negotiation(..), Player(..), PlayerAction(..), Points(..), RenderingInfo', Textures(..), InFlightGameInfo, allPlayers, initialPositions)
 import WAGS.Interpret (AudioBuffer(..), context, makeAudioBuffer)
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
@@ -166,7 +167,10 @@ main (Textures textures) silentRoom = launchAff_ do
       case myChannel' of
         Nothing -> liftEffect $ negotiation.push GetRulesOfGame
         Just myChannel -> do
-          knownPlayers <- liftEffect $ Ref.new $ SemigroupMap Map.empty
+          -- maybe is not ideal here
+          -- what it means semantically is "player exists but has not started"
+          -- a new type for this?
+          knownPlayers :: Ref.Ref (Map.SemigroupMap Player (First InFlightGameInfo)) <- liftEffect $ Ref.new $ SemigroupMap Map.empty
           pubNub <- do
             { event, publish } <- PN.pubnub (IAm iAm) (Channel myChannel)
             pure
@@ -241,7 +245,8 @@ main (Textures textures) silentRoom = launchAff_ do
               liftEffect $ pubNub.publish RequestPlayer
               collected <- joinFiber collecting
               liftEffect $ negotiation.push ReceivedPossibilities
-              let mergedMap = Map.toUnfoldable (unwrap (fold collected))
+              -- we don't need `First` after the semigroup has done its thing
+              let mergedMap = let unwrapFirst = (map <<< map) unwrap in unwrapFirst (Map.toUnfoldable (unwrap (fold collected)))
               let awaitingStart = Array.null mergedMap || isJust (Array.find isNothing (map snd mergedMap))
               case awaitingStart of
                 false -> do
@@ -254,7 +259,7 @@ main (Textures textures) silentRoom = launchAff_ do
                       liftEffect $ negotiation.push RoomIsFull
                       never
                     Just perhapsPlayer -> actOnProposedPlayer perhapsPlayer
-          liftEffect $ Ref.modify_ (SemigroupMap (Map.singleton myPlayer Nothing) <> _) knownPlayers
+          liftEffect $ Ref.modify_ (SemigroupMap (Map.singleton myPlayer (First Nothing)) <> _) knownPlayers
           -- we echo known players to acknowledge that we claim this
           -- there is a race condition here if all players grant the same claim to
           -- two devices for the same player
@@ -298,7 +303,6 @@ main (Textures textures) silentRoom = launchAff_ do
             , textures: Textures myTextures
             , optIn: coerce (sampleOnSubscribe (refToBehavior knownPlayers) <|> knownPlayersE)
             , optMeIn: \ms -> do
-                players <- Ref.modify (SemigroupMap (Map.singleton myPlayer (Just ms)) <> _) knownPlayers
+                players <- Ref.modify (SemigroupMap (Map.singleton myPlayer (First $ Just {startedAt: ms, points: Points 0.0})) <> _) knownPlayers
                 pubNub.publish $ EchoKnownPlayers { players }
-
             }
