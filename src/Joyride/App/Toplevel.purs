@@ -20,7 +20,6 @@ import Deku.Control (switcher, text_)
 import Deku.Core (Nut, envy, vbussed)
 import Deku.DOM as D
 import Effect (Effect, foreachE)
-import Effect.Class.Console as Log
 import Effect.Now (now)
 import Effect.Ref as Ref
 import Effect.Timer (clearInterval, setInterval)
