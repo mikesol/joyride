@@ -177,7 +177,6 @@ toplevel tli =
                     ( oneOf
                         [ bang $ D.Class := "p-4"
                         , bang $ D.OnClick := do
-                            Log.info "listener started"
                             ctx <- context
                             hk <- constant0Hack ctx
                             ci <- setInterval 5000 do
@@ -222,12 +221,8 @@ toplevel tli =
                                   )
                               )
                             t <- unInstant <$> now
-                            Log.info "before opt me in"
                             optMeIn t
-                            Log.info "before push own time"
                             push.ownTime t
-                            Log.info "listener ended"
-                            Log.info "listener ended 2"
                         ]
                     )
                     [ text_ "Play Joyride" ]
