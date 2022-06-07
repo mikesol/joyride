@@ -46,15 +46,19 @@ module Types
 import Prelude
 
 import Data.FastVect.FastVect (Vect)
+import Data.FoldableWithIndex (foldlWithIndex)
 import Data.Lens (_Just, over)
 import Data.Lens.Record (prop)
+import Data.Map (SemigroupMap(..))
+import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype, unwrap)
 import Data.Time.Duration (Milliseconds(..))
+import Data.Tuple (Tuple(..))
 import Data.Tuple.Nested (type (/\))
 import Effect (Effect)
 import FRP.Behavior (Behavior)
-import FRP.Event (EventIO, Event)
+import FRP.Event (Event, EventIO)
 import Foreign (ForeignError(..), fail)
 import Foreign.Object as Object
 import Joyride.Wags (AudibleChildEnd, AudibleEnd)
@@ -456,17 +460,20 @@ data Negotiation
   | GetRulesOfGame
   | StartingNegotiation
   | RoomIsFull
+  | GameHasStarted
   | RequestingPlayer
   | ReceivedPossibilities
   | ClaimFail
   | Success Success'
 
 type Success' =
-      { player :: Player
-      , threeStuff :: ThreeStuff
-      , pubNubEvent :: Event PlayerAction
-      , textures :: Textures Texture
-      }
+  { player :: Player
+  , threeStuff :: ThreeStuff
+  , pubNubEvent :: Event PlayerAction
+  , textures :: Textures Texture
+  , optMeIn :: Milliseconds -> Effect Unit
+  , optIn :: Event (Map.Map Player (Maybe Milliseconds))
+  }
 
 newtype IAm = IAm String
 newtype Channel = Channel String
@@ -484,7 +491,7 @@ data PlayerAction
   -- ask to join
   | RequestPlayer
   -- say whose available
-  | EchoKnownPlayers { players :: Array Player }
+  | EchoKnownPlayers { players :: SemigroupMap Player (Maybe Milliseconds) }
   -- claim a player
   | ClaimPlayer { claim :: Claim, player :: Player }
   -- accept claim
@@ -500,7 +507,10 @@ instance toJSONPubNubPlayerAction :: JSON.ReadForeign PlayerAction where
       "XPositionMobile" -> XPositionMobile <<< (overGtp convertToMs) <$> JSON.readImpl i
       "HitBasic" -> HitBasic <$> JSON.readImpl i
       "RequestPlayer" -> pure RequestPlayer
-      "EchoKnownPlayers" -> EchoKnownPlayers <$> JSON.readImpl i
+      "EchoKnownPlayers" -> do
+        knownPlayers' :: { players :: Array { player :: Player, time :: Maybe Number } } <- JSON.readImpl i
+        let knownPlayers = map (\{ player, time } -> Tuple player (map Milliseconds time)) knownPlayers'.players
+        pure $ EchoKnownPlayers { players: SemigroupMap $ Map.fromFoldable knownPlayers }
       "ClaimPlayer" -> ClaimPlayer <$> JSON.readImpl i
       "AcceptClaim" -> AcceptClaim <$> JSON.readImpl i
       "RefuteClaim" -> RefuteClaim <$> JSON.readImpl i
@@ -529,7 +539,18 @@ instance fromJSONPubNubPlayerAction :: JSON.WriteForeign PlayerAction where
   writeImpl (XPositionMobile i) = JSON.writeImpl $ union { _type: "XPositionMobile" } (overGtp convertFromMs i)
   writeImpl (HitBasic (HitBasicOverTheWire j)) = JSON.writeImpl $ union { _type: "HitBasic" } j
   writeImpl RequestPlayer = JSON.writeImpl { _type: "RequestPlayer" }
-  writeImpl (EchoKnownPlayers j) = JSON.writeImpl $ union { _type: "EchoKnownPlayers" } j
+  writeImpl (EchoKnownPlayers j) = JSON.writeImpl $ union { _type: "EchoKnownPlayers" }
+    ( { players: JSON.writeImpl $ foldlWithIndex
+          ( \player arr time' -> arr <>
+              [ case time' of
+                  Just (Milliseconds time) -> JSON.writeImpl { player, time }
+                  Nothing -> JSON.writeImpl { player }
+              ]
+          )
+          []
+          (unwrap j.players)
+      }
+    )
   writeImpl (ClaimPlayer j) = JSON.writeImpl $ union { _type: "ClaimPlayer" } j
   writeImpl (AcceptClaim j) = JSON.writeImpl $ union { _type: "AcceptClaim" } j
   writeImpl (RefuteClaim j) = JSON.writeImpl $ union { _type: "RefuteClaim" } j

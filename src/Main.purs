@@ -2,19 +2,22 @@ module Main where
 
 import Prelude
 
-import Control.Alt (alt)
+import Control.Alt (alt, (<|>))
 import Control.Parallel (parTraverse)
-import Data.Array (difference, fold, nub)
+import Data.Array (difference, fold)
+import Data.Array as Array
 import Data.Either (Either(..), hush)
 import Data.Homogeneous.Record (fromHomogeneous, homogeneous)
 import Data.Int as Int
 import Data.List (List(..), drop, foldl, take, (:))
+import Data.Map (SemigroupMap(..))
 import Data.Map as Map
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), isJust, isNothing)
+import Data.Newtype (unwrap)
 import Data.Number (pi)
 import Data.Profunctor (lcmap)
-import Data.Set as Set
 import Data.Traversable (sequence)
+import Data.Tuple (fst, snd)
 import Data.Tuple.Nested (type (/\), (/\))
 import Data.Unfoldable (replicate)
 import Deku.Toplevel (runInBody)
@@ -36,6 +39,7 @@ import Joyride.FRP.Aff (collectEventToAff)
 import Joyride.FRP.Behavior (refToBehavior)
 import Joyride.FRP.Keypress (posFromKeypress, xForKeyboard)
 import Joyride.FRP.Orientation (posFromOrientation, xForTouch)
+import Joyride.FRP.SampleOnSubscribe (sampleOnSubscribe)
 import Joyride.LilGui (Slider(..), gui, noGui)
 import Joyride.Mocks.TestData (mockBasics)
 import Joyride.Network.Download (dlInChunks)
@@ -45,6 +49,7 @@ import Rito.Interpret (css2DRendererAff, orbitControlsAff, threeAff)
 import Rito.Texture (loadAff, loader)
 import Route (Route(..), route)
 import Routing.Duplex (parse)
+import Safe.Coerce (coerce)
 import Type.Proxy (Proxy(..))
 import Types (BufferName(..), Channel(..), Claim(..), HitBasicMe(..), HitBasicOverTheWire(..), IAm(..), Negotiation(..), Player(..), PlayerAction(..), RenderingInfo', Textures(..), allPlayers, initialPositions)
 import WAGS.Interpret (AudioBuffer(..), context, makeAudioBuffer)
@@ -161,7 +166,7 @@ main (Textures textures) silentRoom = launchAff_ do
       case myChannel' of
         Nothing -> liftEffect $ negotiation.push GetRulesOfGame
         Just myChannel -> do
-          knownPlayers <- liftEffect $ Ref.new Set.empty
+          knownPlayers <- liftEffect $ Ref.new $ SemigroupMap Map.empty
           pubNub <- do
             { event, publish } <- PN.pubnub (IAm iAm) (Channel myChannel)
             pure
@@ -183,21 +188,20 @@ main (Textures textures) silentRoom = launchAff_ do
               notRelevant = pure unit
             case pevt of
               HitBasic _ -> notRelevant
-              EchoKnownPlayers _ -> notRelevant
               RefuteClaim _ -> notRelevant
               AcceptClaim _ -> notRelevant
               XPositionKeyboard i -> pfun i.player (lcmap _.epochTime $ posFromKeypress i.ktp) playerPositions
               XPositionMobile i -> pfun i.player (lcmap _.epochTime $ posFromOrientation i.gtp) playerPositions
-              -- this is handled via a separate event using a custom filter, theoretically below in this file if it hasn't been refactored!
+              EchoKnownPlayers { players } -> do
+                Ref.modify_ (_ <> players) knownPlayers
               RequestPlayer -> do
                 known <- Ref.read knownPlayers
-                pubNub.publish $ EchoKnownPlayers { players: Set.toUnfoldable known }
+                pubNub.publish $ EchoKnownPlayers { players: known }
               ClaimPlayer { claim, player } -> do
-                known <- Ref.read knownPlayers
-                case Set.member player known of
-                  true -> pubNub.publish $ RefuteClaim { claim, player }
-                  false -> do
-                    Ref.modify_ (_ <> Set.singleton player) knownPlayers
+                SemigroupMap known <- Ref.read knownPlayers
+                case Map.lookup player known of
+                  Just _ -> pubNub.publish $ RefuteClaim { claim, player }
+                  Nothing ->
                     pubNub.publish $ AcceptClaim { claim, player }
           liftEffect $ negotiation.push StartingNegotiation
           let
@@ -221,29 +225,41 @@ main (Textures textures) silentRoom = launchAff_ do
                 Left _ -> do
                   liftEffect $ negotiation.push ClaimFail
                   never
-          myPlayer :: Player <- case hush parsed >>= playerFromRoute of
+          let
+            knownPlayersE = filterMap
+              ( case _ of
+                  EchoKnownPlayers { players } -> Just players
+                  _ -> Nothing
+              )
+              pubNub.event
+          myPlayer <- case hush parsed >>= playerFromRoute of
             Just playerAsk -> actOnProposedPlayer playerAsk
             Nothing -> do
               collecting <- forkAff
-                $ map (nub <<< join)
-                $ collectEventToAff (Milliseconds 750.0)
-                    ( filterMap
-                        ( case _ of
-                            EchoKnownPlayers { players } -> Just players
-                            _ -> Nothing
-                        )
-                        pubNub.event
-                    )
+                $ collectEventToAff (Milliseconds 750.0) knownPlayersE
               liftEffect $ negotiation.push RequestingPlayer
               liftEffect $ pubNub.publish RequestPlayer
               collected <- joinFiber collecting
               liftEffect $ negotiation.push ReceivedPossibilities
-              candidate <- liftEffect $ randElt $ difference allPlayers collected
-              case candidate of
-                Nothing -> do
-                  liftEffect $ negotiation.push RoomIsFull
+              let mergedMap = Map.toUnfoldable (unwrap (fold collected))
+              let awaitingStart = Array.null mergedMap || isJust (Array.find isNothing (map snd mergedMap))
+              case awaitingStart of
+                false -> do
+                  liftEffect $ negotiation.push GameHasStarted
                   never
-                Just perhapsPlayer -> actOnProposedPlayer perhapsPlayer
+                true -> do
+                  candidate <- liftEffect $ randElt $ difference allPlayers (map fst mergedMap)
+                  case candidate of
+                    Nothing -> do
+                      liftEffect $ negotiation.push RoomIsFull
+                      never
+                    Just perhapsPlayer -> actOnProposedPlayer perhapsPlayer
+          liftEffect $ Ref.modify_ (SemigroupMap (Map.singleton myPlayer Nothing) <> _) knownPlayers
+          -- we echo known players to acknowledge that we claim this
+          -- there is a race condition here if all players grant the same claim to
+          -- two devices for the same player
+          -- blockchain would help here...
+          liftEffect $ (Ref.read knownPlayers >>= \players -> pubNub.publish $ EchoKnownPlayers { players })
           xPosE <- liftEffect $ (if isMobile then xForTouch else xForKeyboard) w myPlayer pubNub.publish
           -- ignore subscription
           _ <- liftEffect $ subscribe xPosE \xp -> case myPlayer of
@@ -280,4 +296,9 @@ main (Textures textures) silentRoom = launchAff_ do
             , threeStuff
             , pubNubEvent: pubNub.event
             , textures: Textures myTextures
+            , optIn: coerce (sampleOnSubscribe (refToBehavior knownPlayers) <|> knownPlayersE)
+            , optMeIn: \ms -> do
+                players <- Ref.modify (SemigroupMap (Map.singleton myPlayer (Just ms)) <> _) knownPlayers
+                pubNub.publish $ EchoKnownPlayers { players }
+
             }

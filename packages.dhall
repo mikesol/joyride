@@ -99,7 +99,7 @@ let additions =
           , "web-uievents"
           ]
         , repo = "https://github.com/mikesol/purescript-behaviors.git"
-        , version = "v8.2.1"
+        , version = "v8.2.2"
         }
       , row-options =
         { dependencies = [ "homogeneous", "heterogeneous" ]
