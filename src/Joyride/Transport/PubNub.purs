@@ -9,10 +9,11 @@ import Data.Newtype (class Newtype)
 import Effect (Effect)
 import Effect.Aff (Aff)
 import Effect.Class (liftEffect)
+import Effect.Class.Console as Log
 import Effect.Exception (error)
 import FRP.Event (Event, create)
 import Foreign (Foreign)
-import Simple.JSON (readImpl, writeImpl)
+import Simple.JSON (readImpl, writeImpl, writeJSON)
 import Simple.JSON as JSON
 import Types (Channel(..), IAm(..), PlayerAction)
 
@@ -33,10 +34,10 @@ derive instance newtypePubNubEvent :: Newtype PubNubEvent _
 derive newtype instance toJSONPubNubEvent :: JSON.ReadForeign PubNubEvent
 derive newtype instance fromJSONPubNubEvent :: JSON.WriteForeign PubNubEvent
 
-foreign import pubnub_ :: PubNubJS -> (Foreign -> Effect Unit) -> Effect PubNub
+foreign import pubnub_ :: PubNubJS -> String -> (Foreign -> Effect Unit) -> Effect PubNub
 
-pubnubE :: PubNubJS -> (PubNubEvent -> Effect Unit) -> Effect PubNub
-pubnubE pjs f = pubnub_ pjs ((=<<) f <<< either (throwError <<< error <<< show) pure <<< runExcept <<< readImpl)
+pubnubE :: PubNubJS -> String -> (PubNubEvent -> Effect Unit) -> Effect PubNub
+pubnubE pjs ch f = pubnub_ pjs ch ((=<<) f <<< either (throwError <<< error <<< show) pure <<< runExcept <<< readImpl)
 
 pubnub
   :: IAm
@@ -48,7 +49,8 @@ pubnub
 pubnub (IAm iAm) (Channel channel) = do
   pjs <- toAffE _PubNub
   eventIO <- liftEffect create
-  pn <- liftEffect $ pubnubE pjs eventIO.push
+  pn <- liftEffect $ pubnubE pjs channel \v -> do
+    eventIO.push v
   pure
     { event: eventIO.event
     , publish: \action -> do

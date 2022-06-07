@@ -2,7 +2,7 @@ import { v4 as uuidv4 } from "uuid";
 
 export const _PubNub = () => import("pubnub");
 
-export const pubnub_ = (PubNub) => (listener) => {
+export const pubnub_ = (PubNub) => (channel) => (listener) => {
 	return function () {
 		var publisher = uuidv4();
 		var pn = new PubNub.default({
@@ -11,7 +11,7 @@ export const pubnub_ = (PubNub) => (listener) => {
 			uuid: publisher,
 		});
 		pn.subscribe({
-			channels: ["feedback_diffs"],
+			channels: [channel],
 		});
 		pn.addListener({
 			message: function (msg_) {

@@ -196,7 +196,6 @@ toplevel tli =
                                     pure unit
                                 )
                                 tli.wdw <#> Just >>= flip Ref.write tli.icid
-                            Log.info "starting hot anim"
                             afE <- hot
                               ( withACTime ctx animationFrame <#>
                                   _.acTime
@@ -208,7 +207,6 @@ toplevel tli =
                                     (Seconds >>> { real: _ } <$> afE.event)
 
                             iu0 <- subscribe withRate.event push.rateInfo
-                            Log.info "running ag anim"
                             st <- run2 ctx (graph { basics: event.basicAudio })
                             push.iAmReady
                               ( Unsubscribe
