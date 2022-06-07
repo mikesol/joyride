@@ -51,7 +51,8 @@ pubnub (IAm iAm) (Channel channel) = do
   pn <- liftEffect $ pubnubE pjs eventIO.push
   pure
     { event: eventIO.event
-    , publish: \action -> publish_ pn channel (writeImpl { iAm, action })
+    , publish: \action -> do
+      publish_ pn channel (writeImpl { iAm, action })
     }
 
 foreign import publish_ :: PubNub -> String -> Foreign -> Effect Unit

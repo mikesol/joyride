@@ -8,12 +8,10 @@ import Data.Array (span)
 import Data.DateTime.Instant (unInstant)
 import Data.Either (hush)
 import Data.Foldable (foldl, oneOf, oneOfMap, traverse_)
-import Data.Functor (mapFlipped)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), isJust, maybe)
 import Data.Newtype (over)
 import Data.Number (pi)
-import Data.Profunctor (lcmap)
 import Data.Time.Duration (Milliseconds(..))
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..), fst, snd)
@@ -22,11 +20,12 @@ import Deku.Control (switcher, text_)
 import Deku.Core (Nut, envy, vbussed)
 import Deku.DOM as D
 import Effect (Effect, foreachE)
+import Effect.Class.Console as Log
 import Effect.Now (now)
 import Effect.Ref as Ref
 import Effect.Timer (clearInterval, setInterval)
 import FRP.Behavior (Behavior, sampleBy)
-import FRP.Event (Event, EventIO, bang, filterMap, fromEvent, hot, keepLatest, memoize, subscribe)
+import FRP.Event (Event, EventIO, bang, filterMap, fromEvent, hot, memoize, subscribe)
 import FRP.Event.AnimationFrame (animationFrame)
 import FRP.Event.Class (biSampleOn)
 import FRP.Event.Time (withTime)
@@ -178,6 +177,7 @@ toplevel tli =
                     ( oneOf
                         [ bang $ D.Class := "p-4"
                         , bang $ D.OnClick := do
+                            Log.info "listener started"
                             ctx <- context
                             hk <- constant0Hack ctx
                             ci <- setInterval 5000 do
@@ -197,6 +197,7 @@ toplevel tli =
                                     pure unit
                                 )
                                 tli.wdw <#> Just >>= flip Ref.write tli.icid
+                            Log.info "starting hot anim"
                             afE <- hot
                               ( withACTime ctx animationFrame <#>
                                   _.acTime
@@ -208,6 +209,7 @@ toplevel tli =
                                     (Seconds >>> { real: _ } <$> afE.event)
 
                             iu0 <- subscribe withRate.event push.rateInfo
+                            Log.info "running ag anim"
                             st <- run2 ctx (graph { basics: event.basicAudio })
                             push.iAmReady
                               ( Unsubscribe
@@ -219,7 +221,13 @@ toplevel tli =
                                       *> close ctx
                                   )
                               )
-                            now >>= lcmap unInstant \t -> optMeIn t *> push.ownTime t
+                            t <- unInstant <$> now
+                            Log.info "before opt me in"
+                            optMeIn t
+                            Log.info "before push own time"
+                            push.ownTime t
+                            Log.info "listener ended"
+                            Log.info "listener ended 2"
                         ]
                     )
                     [ text_ "Play Joyride" ]
@@ -233,64 +241,67 @@ toplevel tli =
                           -- one gratuitous lookup as if all are ready then myPlayer
                           -- must be ready, but should be computationally fine
                           -- fireAndForget so that it only ever fires once
-                          , fromEvent $ keepLatest $ mapFlipped
-                              ( fireAndForget
-                                  ( optIn # filterMap
-                                      \m -> { startTime: _, myTime: _ } <$> allAreReady m <*> join (Map.lookup myPlayer m)
+                          , fromEvent $ memoize
+                              ( makeAnimatedStuff
+                                  ( biSampleOn
+                                      ( fireAndForget
+                                          ( optIn # filterMap
+                                              \m -> { startTime: _, myTime: _ } <$> allAreReady m <*> join (Map.lookup myPlayer m)
+                                          )
+                                      )
+                                      (event.rateInfo <#> \ri { startTime, myTime } -> adjustRateInfoBasedOnActualStart myTime startTime ri)
                                   )
                               )
-                              \{ myTime, startTime } -> memoize
-                                (makeAnimatedStuff (adjustRateInfoBasedOnActualStart myTime startTime event.rateInfo))
-                                \animatedStuff -> D.Self := HTMLCanvasElement.fromElement >>>
-                                  traverse_
-                                    ( runThree <<<
-                                        { threeStuff: threeStuff
-                                        , cssRendererElt: event.renderElement
-                                        , isMobile: tli.isMobile
-                                        , renderingInfo: tli.renderingInfo
-                                        , lowPriorityCb: tli.lpsCallback
-                                        , myPlayer
-                                        , debug: tli.debug
-                                        , textures
-                                        , pushBasic: tli.pushBasic
-                                        , basicE: \pushBasicVisualForLabel -> tli.basicE
-                                            { initialDims: tli.initialDims
-                                            , renderingInfo: tli.renderingInfo
-                                            , textures
-                                            , myPlayer
-                                            , debug: tli.debug
-                                            , notifications:
-                                                { hitBasic: withTime pubNubEvent # filterMap
-                                                    ( \{ value, time } -> case value of
-                                                        HitBasic (HitBasicOverTheWire e) -> Just $ HitBasicOtherPlayer
-                                                          { uniqueId: e.uniqueId
-                                                          , logicalBeat: e.logicalBeat
-                                                          , deltaBeats: e.deltaBeats
-                                                          , hitAt: e.hitAt
-                                                          , player: e.player
-                                                          , issuedAt: unInstant time
-                                                          }
-                                                        _ -> Nothing
-                                                    )
-                                                }
-                                            , resizeEvent: tli.resizeE
-                                            , isMobile: tli.isMobile
-                                            , lpsCallback: tli.lpsCallback
-                                            , pushAudio: push.basicAudio
-                                            , mkColor: color threeStuff.three
-                                            , mkMatrix4: M4.set threeStuff.three
-                                            , buffers: refToBehavior tli.soundObj
-                                            , silence: tli.silence
-                                            , animatedStuff
-                                            , pushBasic: tli.pushBasic
-                                            , pushBasicVisualForLabel
-                                            }
-                                        , animatedStuff
-                                        , resizeE: tli.resizeE
-                                        , initialDims: tli.initialDims
-                                        , canvas: _
-                                        }
-                                    )
+                              \animatedStuff ->
+                                D.Self := HTMLCanvasElement.fromElement >>> traverse_
+                                  ( runThree <<<
+                                      { threeStuff: threeStuff
+                                      , cssRendererElt: event.renderElement
+                                      , isMobile: tli.isMobile
+                                      , renderingInfo: tli.renderingInfo
+                                      , lowPriorityCb: tli.lpsCallback
+                                      , myPlayer
+                                      , debug: tli.debug
+                                      , textures
+                                      , pushBasic: tli.pushBasic
+                                      , basicE: \pushBasicVisualForLabel -> tli.basicE
+                                          { initialDims: tli.initialDims
+                                          , renderingInfo: tli.renderingInfo
+                                          , textures
+                                          , myPlayer
+                                          , debug: tli.debug
+                                          , notifications:
+                                              { hitBasic: withTime pubNubEvent # filterMap
+                                                  ( \{ value, time } -> case value of
+                                                      HitBasic (HitBasicOverTheWire e) -> Just $ HitBasicOtherPlayer
+                                                        { uniqueId: e.uniqueId
+                                                        , logicalBeat: e.logicalBeat
+                                                        , deltaBeats: e.deltaBeats
+                                                        , hitAt: e.hitAt
+                                                        , player: e.player
+                                                        , issuedAt: unInstant time
+                                                        }
+                                                      _ -> Nothing
+                                                  )
+                                              }
+                                          , resizeEvent: tli.resizeE
+                                          , isMobile: tli.isMobile
+                                          , lpsCallback: tli.lpsCallback
+                                          , pushAudio: push.basicAudio
+                                          , mkColor: color threeStuff.three
+                                          , mkMatrix4: M4.set threeStuff.three
+                                          , buffers: refToBehavior tli.soundObj
+                                          , silence: tli.silence
+                                          , animatedStuff
+                                          , pushBasic: tli.pushBasic
+                                          , pushBasicVisualForLabel
+                                          }
+                                      , animatedStuff
+                                      , resizeE: tli.resizeE
+                                      , initialDims: tli.initialDims
+                                      , canvas: _
+                                      }
+                                  )
                           ]
                       )
                       []
@@ -366,10 +377,10 @@ toplevel tli =
   -- before we start, the rate will be 60 bps
   -- so we can treate time like beats
   adjustRateInfoBasedOnActualStart
-    :: Milliseconds -> Milliseconds -> Event RateInfo -> Event RateInfo
+    :: Milliseconds -> Milliseconds -> RateInfo -> RateInfo
   adjustRateInfoBasedOnActualStart (Milliseconds myTime) (Milliseconds startTime) rateInfo = do
     let offsetInSeconds = (startTime - myTime) / 1000.0
-    rateInfo <#> \{ beats, epochTime, prevBeats, time, prevTime } ->
+    rateInfo # \{ beats, epochTime, prevBeats, time, prevTime } ->
       { epochTime
       , time
       , prevTime
