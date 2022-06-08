@@ -5,6 +5,7 @@ module Types
   , RenderingInfo'
   , Position(..)
   , Axis(..)
+  , playerPosition'
   , Channel(..)
   , StartStatus(..)
   , KnownPlayers(..)
@@ -409,6 +410,12 @@ playerPosition Player3 AxisZ = _.p3z
 playerPosition Player4 AxisX = _.p4x
 playerPosition Player4 AxisY = _.p4y
 playerPosition Player4 AxisZ = _.p4z
+
+playerPosition' :: Player -> PlayerPositions -> Position
+playerPosition' Player1  = _.p1p
+playerPosition' Player2  = _.p2p
+playerPosition' Player3  = _.p3p
+playerPosition' Player4  = _.p4p
 
 newtype Textures a = Textures
   { hockeyAO :: a

@@ -69,7 +69,7 @@ foreign import useLilGui :: Effect Boolean
 
 renderingInfo' :: RenderingInfo' Slider
 renderingInfo' =
-  { halfAmbitus: Slider { default: 2.0, min: 0.1, max: 4.0, step: 0.1 }
+  { halfAmbitus: Slider { default: 2.3, min: 0.1, max: 4.2, step: 0.1 }
   , barZSpacing: Slider { default: 1.0, min: 0.1, max: 3.0, step: 0.1 }
   , cameraOffsetY: Slider { default: 0.6, min: 0.1, max: 3.0, step: 0.05 }
   , cameraLookAtOffsetY: Slider { default: 0.0, min: -2.0, max: 2.0, step: 0.05 }
