@@ -6,6 +6,8 @@ module Types
   , Position(..)
   , Axis(..)
   , Channel(..)
+  , StartStatus(..)
+  , KnownPlayers(..)
   , IAm(..)
   , touchPointZ
   , Column(..)
@@ -22,6 +24,7 @@ module Types
   , Penalty(..)
   , BufferName(..)
   , Beats(..)
+  , JMilliseconds(..)
   , Seconds(..)
   , RateInfo
   , beatToTime
@@ -32,6 +35,7 @@ module Types
   , MakeBasics
   , PlayerPositions
   , PlayerPositionsF
+  , PointOutcome(..)
   , initialPositions
   , playerPosition
   , Textures(..)
@@ -41,22 +45,21 @@ module Types
   , HitBasicVisual(..)
   , HitBasicVisualForLabel(..)
   , Negotiation(..)
-  , InFlightGameInfo'
-  , InFlightGameInfo
+  , InFlightGameInfo(..)
   ) where
 
 import Prelude
 
+import Control.Alt ((<|>))
+import Data.Array.NonEmpty (NonEmptyArray, fromNonEmpty)
+import Data.Either (Either(..))
 import Data.FastVect.FastVect (Vect)
-import Data.FoldableWithIndex (foldlWithIndex)
-import Data.Lens (_Just, over)
-import Data.Lens.Record (prop)
-import Data.Map (SemigroupMap(..))
+import Data.Generic.Rep (class Generic)
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
-import Data.Maybe.First (First(..))
-import Data.Newtype (class Newtype, unwrap)
-import Data.Time.Duration (Milliseconds(..))
+import Data.Newtype (class Newtype)
+import Data.NonEmpty ((:|))
+import Data.Show.Generic (genericShow)
 import Data.Tuple (Tuple(..))
 import Data.Tuple.Nested (type (/\))
 import Effect (Effect)
@@ -71,9 +74,8 @@ import Rito.Matrix4 (Matrix4, Matrix4')
 import Rito.THREE (ThreeStuff)
 import Rito.Texture (Texture)
 import Rito.Vector3 (Vector3')
-import Simple.JSON (writeJSON)
+import Simple.JSON (undefined, writeJSON)
 import Simple.JSON as JSON
-import Type.Proxy (Proxy(..))
 import WAGS.Math (calcSlope)
 import WAGS.WebAPI (BrowserAudioBuffer)
 
@@ -82,8 +84,8 @@ type CanvasInfo = { x :: Number, y :: Number } /\ Number
 type WindowDims = { iw :: Number, ih :: Number }
 
 type Orientation = { absolute :: Number, alpha :: Number, beta :: Number, gamma :: Number }
-type GTP = { gamma :: Number, time :: Maybe Milliseconds, pos :: Number }
-type KTP = { curXDir :: XDirection, time :: Maybe Milliseconds, pos :: Number }
+type GTP = { gamma :: Number, time :: Maybe JMilliseconds, pos :: Number }
+type KTP = { curXDir :: XDirection, time :: Maybe JMilliseconds, pos :: Number }
 
 data XDirection = ToLeft | ToRight | Still
 
@@ -109,8 +111,9 @@ data Player = Player1 | Player2 | Player3 | Player4
 
 derive instance Eq Player
 derive instance Ord Player
+derive instance Generic Player _
 instance Show Player where
-  show = JSON.writeJSON
+  show = genericShow
 
 instance JSON.ReadForeign Player where
   readImpl i = do
@@ -128,8 +131,8 @@ instance JSON.WriteForeign Player where
   writeImpl Player3 = JSON.writeImpl "Player3"
   writeImpl Player4 = JSON.writeImpl "Player4"
 
-allPlayers :: Array Player
-allPlayers = [ Player1, Player2, Player3, Player4 ]
+allPlayers :: NonEmptyArray Player
+allPlayers = fromNonEmpty $ Player1 :| [ Player2, Player3, Player4 ]
 
 data Position = Position1 | Position2 | Position3 | Position4
 
@@ -181,13 +184,25 @@ allAxes = [ AxisX, AxisY, AxisZ ]
 
 newtype Points = Points Number
 
+derive newtype instance Show Points
+derive newtype instance Eq Points
+derive newtype instance Ord Points
 derive newtype instance JSON.ReadForeign Points
 derive newtype instance JSON.WriteForeign Points
 
 derive instance Newtype Points _
+derive newtype instance Semiring Points
+
 newtype Penalty = Penalty Number
 
 derive instance Newtype Penalty _
+derive newtype instance Show Penalty
+derive newtype instance Eq Penalty
+derive newtype instance Ord Penalty
+derive newtype instance JSON.ReadForeign Penalty
+derive newtype instance JSON.WriteForeign Penalty
+derive newtype instance Semiring Penalty
+
 newtype BufferName = BufferName String
 
 derive instance Newtype BufferName _
@@ -238,12 +253,26 @@ derive newtype instance EuclideanRing Seconds
 instance showSeconds :: Show Seconds where
   show (Seconds n) = "(Seconds " <> show n <> ")"
 
+newtype JMilliseconds = JMilliseconds Number
+
+derive instance Newtype JMilliseconds _
+derive newtype instance Eq JMilliseconds
+derive newtype instance Ord JMilliseconds
+derive newtype instance Semiring JMilliseconds
+derive newtype instance Ring JMilliseconds
+derive newtype instance CommutativeRing JMilliseconds
+derive newtype instance EuclideanRing JMilliseconds
+derive newtype instance JSON.ReadForeign JMilliseconds
+derive newtype instance JSON.WriteForeign JMilliseconds
+instance showJMilliseconds :: Show JMilliseconds where
+  show (JMilliseconds n) = "(JMilliseconds " <> show n <> ")"
+
 type RateInfo =
   { prevTime :: Maybe Seconds
   , time :: Seconds
   , prevBeats :: Maybe Beats
   , beats :: Beats
-  , epochTime :: Milliseconds
+  , epochTime :: JMilliseconds
   }
 
 beatToTime :: RateInfo -> Beats -> Seconds
@@ -295,7 +324,7 @@ type MakeBasics r =
   , isMobile :: Boolean
   , myPlayer :: Player
   , notifications :: { hitBasic :: Event HitBasicOtherPlayer }
-  , lpsCallback :: Milliseconds -> Effect Unit -> Effect Unit
+  , lpsCallback :: JMilliseconds -> Effect Unit -> Effect Unit
   , pushAudio :: Event AudibleChildEnd -> Effect Unit
   , mkColor :: RGB -> Color
   , animatedStuff :: Event { rateInfo :: RateInfo, playerPositions :: PlayerPositions }
@@ -406,14 +435,34 @@ newtype Textures a = Textures
 
 derive instance Newtype (Textures a) _
 
+newtype PointOutcome = PointOutcome (Either Penalty Points)
+
+derive instance Newtype PointOutcome _
+derive newtype instance Eq PointOutcome
+derive newtype instance Show PointOutcome
+instance JSON.ReadForeign PointOutcome where
+  readImpl i = do
+    { _type, val } :: { _type :: String, val :: Number } <- JSON.readImpl i
+    case _type of
+      "Points" -> pure $ PointOutcome (Right (Points val))
+      "Penalty" -> pure $ PointOutcome (Left (Penalty val))
+      _ -> fail (ForeignError $ "Could not parse: " <> JSON.writeJSON i)
+
+instance JSON.WriteForeign PointOutcome where
+  writeImpl (PointOutcome (Left val)) = JSON.writeImpl { _type: "Penalty", val }
+  writeImpl (PointOutcome (Right val)) = JSON.writeImpl { _type: "Points", val }
+
 newtype HitBasicOverTheWire = HitBasicOverTheWire
   { uniqueId :: Int
   , logicalBeat :: Beats
   , deltaBeats :: Beats
   , hitAt :: Beats
   , player :: Player
+  , outcome :: PointOutcome
   }
 
+derive instance Eq HitBasicOverTheWire
+derive newtype instance Show HitBasicOverTheWire
 derive instance Newtype HitBasicOverTheWire _
 derive newtype instance JSON.ReadForeign HitBasicOverTheWire
 derive newtype instance JSON.WriteForeign HitBasicOverTheWire
@@ -423,7 +472,7 @@ newtype HitBasicMe = HitBasicMe
   , logicalBeat :: Beats
   , deltaBeats :: Beats
   , hitAt :: Beats
-  , issuedAt :: Milliseconds
+  , issuedAt :: JMilliseconds
   }
 
 derive instance Newtype HitBasicMe _
@@ -434,7 +483,7 @@ newtype HitBasicOtherPlayer = HitBasicOtherPlayer
   , deltaBeats :: Beats
   , hitAt :: Beats
   , player :: Player
-  , issuedAt :: Milliseconds
+  , issuedAt :: JMilliseconds
   }
 
 derive instance Newtype HitBasicOtherPlayer _
@@ -444,7 +493,7 @@ newtype HitBasicVisual = HitBasicVisual
   , logicalBeat :: Beats
   , deltaBeats :: Beats
   , hitAt :: Beats
-  , issuedAt :: Milliseconds
+  , issuedAt :: JMilliseconds
   }
 
 derive instance Newtype HitBasicVisual _
@@ -454,7 +503,7 @@ newtype HitBasicVisualForLabel = HitBasicVisualForLabel
   , logicalBeat :: Beats
   , deltaBeats :: Beats
   , hitAt :: Beats
-  , issuedAt :: Milliseconds
+  , issuedAt :: JMilliseconds
   , translation :: Event Vector3'
   , player :: Player
   }
@@ -472,25 +521,90 @@ data Negotiation
   | ClaimFail
   | Success Success'
 
+data StartStatus = HasNotStartedYet | HasStarted InFlightGameInfo
+
+derive instance Eq StartStatus
+derive instance Generic StartStatus _
+instance Show StartStatus where
+  show = genericShow
+
+instance JSON.ReadForeign StartStatus where
+  readImpl i = (HasStarted <$> JSON.readImpl i) <|> pure HasNotStartedYet
+
+instance JSON.WriteForeign StartStatus where
+  writeImpl HasNotStartedYet = undefined
+  writeImpl (HasStarted x) = JSON.writeImpl x
+
 type Success' =
   { player :: Player
   , threeStuff :: ThreeStuff
   , pubNubEvent :: Event PlayerAction
   , textures :: Textures Texture
-  , optMeIn :: Milliseconds -> Effect Unit
-  , optIn :: Event (Map.Map Player (Maybe InFlightGameInfo))
+  , optMeIn :: JMilliseconds -> Effect Unit
+  , playerStatus :: Event KnownPlayers
   }
 
-type InFlightGameInfo' ms = { startedAt :: ms, points :: Points }
-type InFlightGameInfo = InFlightGameInfo' Milliseconds
+newtype InFlightGameInfo = InFlightGameInfo
+  { startedAt :: JMilliseconds
+  , points :: Points
+  , penalties :: Penalty
+  }
+
+derive instance Eq InFlightGameInfo
+derive newtype instance Show InFlightGameInfo
+derive newtype instance JSON.ReadForeign InFlightGameInfo
+derive newtype instance JSON.WriteForeign InFlightGameInfo
 
 newtype IAm = IAm String
 newtype Channel = Channel String
 
 newtype Claim = Claim String
 
+derive instance Eq Claim
+derive newtype instance Show Claim
+
+jsonFriendlyTupleToTuple :: forall a b. { l :: a, r :: b } -> Tuple a b
+jsonFriendlyTupleToTuple { l, r } = Tuple l r
+
+tupleToJsonFriendlyTuple :: forall a b. Tuple a b -> { l :: a, r :: b }
+tupleToJsonFriendlyTuple (Tuple l r) = { l, r }
+
+newtype KnownPlayers = KnownPlayers (Map.Map Player StartStatus)
+
+derive instance Newtype KnownPlayers _
+derive instance Eq KnownPlayers
+derive newtype instance Show KnownPlayers
+
+instance JSON.ReadForeign KnownPlayers where
+  readImpl i = do
+    m <- JSON.readImpl i
+    pure $ KnownPlayers $ (Map.fromFoldable :: Array _ -> _) $ map jsonFriendlyTupleToTuple m
+
+instance JSON.WriteForeign KnownPlayers where
+  writeImpl (KnownPlayers m) = JSON.writeImpl $ map tupleToJsonFriendlyTuple ((Map.toUnfoldable :: _ -> Array _) m)
+
+instance Monoid KnownPlayers where
+  mempty = KnownPlayers Map.empty
+
+instance Semigroup KnownPlayers where
+  append (KnownPlayers a) (KnownPlayers b) = KnownPlayers $ Map.unionWith f a b
+    where
+    f :: StartStatus -> StartStatus -> StartStatus
+    f HasNotStartedYet HasNotStartedYet = HasNotStartedYet
+    f HasNotStartedYet x = x
+    f x HasNotStartedYet = x
+    f (HasStarted (InFlightGameInfo x)) (HasStarted (InFlightGameInfo y)) = HasStarted $ InFlightGameInfo
+      { startedAt: min x.startedAt y.startedAt
+      , points: max x.points y.points
+      , penalties: max x.penalties y.penalties
+      }
+
 derive newtype instance JSON.WriteForeign Claim
 derive newtype instance JSON.ReadForeign Claim
+derive instance Generic PlayerAction _
+instance Show PlayerAction where
+  show = genericShow
+
 data PlayerAction
   = --movement
     XPositionKeyboard { player :: Player, ktp :: KTP }
@@ -500,7 +614,7 @@ data PlayerAction
   -- ask to join
   | RequestPlayer
   -- say whose available
-  | EchoKnownPlayers { players :: SemigroupMap Player (First InFlightGameInfo) }
+  | EchoKnownPlayers { players :: KnownPlayers }
   -- claim a player
   | ClaimPlayer { claim :: Claim, player :: Player }
   -- accept claim
@@ -508,58 +622,28 @@ data PlayerAction
   -- refute claim
   | RefuteClaim { claim :: Claim, player :: Player }
 
+derive instance Eq PlayerAction
+
 instance toJSONPubNubPlayerAction :: JSON.ReadForeign PlayerAction where
   readImpl i = do
     { _type } :: { _type :: String } <- JSON.readImpl i
     case _type of
-      "XPositionKeyboard" -> XPositionKeyboard <<< (overKtp convertToMs) <$> JSON.readImpl i
-      "XPositionMobile" -> XPositionMobile <<< (overGtp convertToMs) <$> JSON.readImpl i
+      "XPositionKeyboard" -> XPositionKeyboard <$> JSON.readImpl i
+      "XPositionMobile" -> XPositionMobile <$> JSON.readImpl i
       "HitBasic" -> HitBasic <$> JSON.readImpl i
       "RequestPlayer" -> pure RequestPlayer
-      "EchoKnownPlayers" -> do
-        knownPlayers' :: { players :: Array { player :: Player, info :: Maybe (InFlightGameInfo' Number) } } <- JSON.readImpl i
-        let knownPlayers = map (\{ player, info } -> Tuple player $ First (map (\{ startedAt, points } -> { startedAt: Milliseconds startedAt, points }) info)) knownPlayers'.players
-        pure $ EchoKnownPlayers { players: SemigroupMap $ Map.fromFoldable knownPlayers }
+      "EchoKnownPlayers" -> EchoKnownPlayers <$> JSON.readImpl i
       "ClaimPlayer" -> ClaimPlayer <$> JSON.readImpl i
       "AcceptClaim" -> AcceptClaim <$> JSON.readImpl i
       "RefuteClaim" -> RefuteClaim <$> JSON.readImpl i
       _ -> fail (ForeignError $ "Could not parse: " <> JSON.writeJSON i)
 
-convertToMs
-  :: forall r
-   . { time :: Maybe Number | r }
-  -> { time :: Maybe Milliseconds | r }
-convertToMs = over ((prop (Proxy :: Proxy "time")) <<< _Just) Milliseconds
-
-convertFromMs
-  :: forall r
-   . { time :: Maybe Milliseconds | r }
-  -> { time :: Maybe Number | r }
-convertFromMs = over ((prop (Proxy :: Proxy "time")) <<< _Just) unwrap
-
-overKtp :: forall r a b. (a -> b) -> { ktp :: a | r } -> { ktp :: b | r }
-overKtp = over (prop (Proxy :: Proxy "ktp"))
-
-overGtp :: forall r a b. (a -> b) -> { gtp :: a | r } -> { gtp :: b | r }
-overGtp = over (prop (Proxy :: Proxy "gtp"))
-
 instance fromJSONPubNubPlayerAction :: JSON.WriteForeign PlayerAction where
-  writeImpl (XPositionKeyboard i) = JSON.writeImpl $ union { _type: "XPositionKeyboard" } (overKtp convertFromMs i)
-  writeImpl (XPositionMobile i) = JSON.writeImpl $ union { _type: "XPositionMobile" } (overGtp convertFromMs i)
+  writeImpl (XPositionKeyboard j) = JSON.writeImpl $ union { _type: "XPositionKeyboard" } j
+  writeImpl (XPositionMobile j) = JSON.writeImpl $ union { _type: "XPositionMobile" } j
   writeImpl (HitBasic (HitBasicOverTheWire j)) = JSON.writeImpl $ union { _type: "HitBasic" } j
   writeImpl RequestPlayer = JSON.writeImpl { _type: "RequestPlayer" }
-  writeImpl (EchoKnownPlayers j) = JSON.writeImpl $ union { _type: "EchoKnownPlayers" }
-    ( { players: JSON.writeImpl $ foldlWithIndex
-          ( \player arr (First info') -> arr <>
-              [ case info' of
-                  Just info -> JSON.writeImpl { player, info: { startedAt: unwrap info.startedAt, points: info.points } }
-                  Nothing -> JSON.writeImpl { player }
-              ]
-          )
-          []
-          (unwrap j.players)
-      }
-    )
+  writeImpl (EchoKnownPlayers j) = JSON.writeImpl $ union { _type: "EchoKnownPlayers" } j
   writeImpl (ClaimPlayer j) = JSON.writeImpl $ union { _type: "ClaimPlayer" } j
   writeImpl (AcceptClaim j) = JSON.writeImpl $ union { _type: "AcceptClaim" } j
   writeImpl (RefuteClaim j) = JSON.writeImpl $ union { _type: "RefuteClaim" } j

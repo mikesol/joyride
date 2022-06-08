@@ -5,11 +5,11 @@ import Prelude
 import Bolson.Core (Element(..), envy, fixed)
 import Control.Alt ((<|>))
 import Control.Plus (empty)
+import Data.Array.NonEmpty (toArray)
 import Data.Filterable (filter)
 import Data.Foldable (oneOf, oneOfMap)
 import Data.Newtype (unwrap)
 import Data.Number (pi)
-import Data.Time.Duration (Milliseconds)
 import Data.Tuple (Tuple(..))
 import Effect (Effect)
 import FRP.Behavior (Behavior, sampleBy)
@@ -35,7 +35,7 @@ import Rito.THREE (ThreeStuff)
 import Rito.Texture (Texture)
 import Rito.Vector3 (vector3)
 import Type.Proxy (Proxy(..))
-import Types (Axis(..), HitBasicMe, HitBasicVisualForLabel, Player(..), PlayerPositions, RateInfo, RenderingInfo, Textures, WindowDims, allPlayers, allPositions, playerPosition)
+import Types (Axis(..), HitBasicMe, HitBasicVisualForLabel, JMilliseconds, Player(..), PlayerPositions, RateInfo, RenderingInfo, Textures, WindowDims, allPlayers, allPositions, playerPosition)
 import Web.DOM as Web.DOM
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 
@@ -48,7 +48,7 @@ runThree
      , debug :: Boolean
      , cssRendererElt :: Event Web.DOM.Element
      , isMobile :: Boolean
-     , lowPriorityCb :: Milliseconds -> Effect Unit -> Effect Unit
+     , lowPriorityCb :: JMilliseconds -> Effect Unit -> Effect Unit
      , myPlayer :: Player
      , textures :: Textures Texture
      , renderingInfo :: Behavior RenderingInfo
@@ -72,7 +72,7 @@ runThree opts@{ threeStuff: { three } } = do
   _ <- Rito.Run.run opts.threeStuff
     ( envy $ vbus (Proxy :: _ (V (hitBasicVisualForLabel :: HitBasicVisualForLabel))) \scenePush sceneEvent -> globalScenePortal1
         ( scene empty $
-            ( filter (_ /= opts.myPlayer) allPlayers <#> \player -> do
+            ( filter (_ /= opts.myPlayer) (toArray allPlayers) <#> \player -> do
                 let ppos = playerPosition player
                 let posAx axis = map (ppos axis) mopts.playerPositions
                 toScene $ mesh (sphere {} empty)
@@ -129,7 +129,7 @@ runThree opts@{ threeStuff: { three } } = do
                   ) <$> allPositions
                 )
               <>
-                ( allPlayers <#> \player -> do
+                ( (toArray allPlayers) <#> \player -> do
                     let ppos = playerPosition player
                     let posAx axis = map (ppos axis) mopts.playerPositions
                     toScene $ pointLight

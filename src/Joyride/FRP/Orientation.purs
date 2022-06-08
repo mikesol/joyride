@@ -10,17 +10,18 @@ import Effect (Effect)
 import Effect.Now (now)
 import Effect.Ref as Ref
 import FRP.Event (Event, create)
-import Types (GTP, Orientation, PlayerAction(..), Player, RateInfo)
+import Safe.Coerce (coerce)
+import Types (GTP, JMilliseconds(..), Orientation, Player, PlayerAction(..), RateInfo)
 import Unsafe.Coerce (unsafeCoerce)
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
 import Web.HTML (Window)
 import Web.HTML.Window (toEventTarget)
 
-posFromOrientation :: GTP -> Milliseconds -> Number
-posFromOrientation gtp (Milliseconds curMs) = case gtp.time of
+posFromOrientation :: GTP -> JMilliseconds -> Number
+posFromOrientation gtp (JMilliseconds curMs) = case gtp.time of
   Nothing -> 0.0
-  Just (Milliseconds prevMs) -> min 1.0 $ max (-1.0) $ ((curMs - prevMs) / 1000.0) * gtp.gamma * orientationDampening + gtp.pos
+  Just (JMilliseconds prevMs) -> min 1.0 $ max (-1.0) $ ((curMs - prevMs) / 1000.0) * gtp.gamma * orientationDampening + gtp.pos
   where
   orientationDampening = 0.03 :: Number
 
@@ -30,7 +31,7 @@ xForTouch w myPlayer pub = do
   xpe <- Ref.new { gamma: 0.0, time: Nothing, pos: 0.0 }
   orientationListener <- eventListener \e' -> do
     let e = (unsafeCoerce :: _ -> Orientation) e'
-    time <- unInstant <$> now
+    time <- unInstant >>> coerce <$> now
     nw <- Ref.modify (\gtp -> { gamma: e.gamma, time: Just time, pos: posFromOrientation gtp time }) xpe
     pub $ XPositionMobile { gtp: nw, player: myPlayer }
     evt.push nw

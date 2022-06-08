@@ -11,7 +11,6 @@ import Data.Foldable (oneOf, oneOfMap)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.Profunctor (lcmap)
-import Data.Time.Duration (Milliseconds(..))
 import Effect.Aff (launchAff_)
 import Effect.Aff.AVar as AVar
 import Effect.Class (liftEffect)
@@ -23,6 +22,7 @@ import FRP.Event.Class (bang)
 import FRP.Event.Time (withTime)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Rider (rider, toRide)
+import Data.Time.Duration (Milliseconds(..))
 import Joyride.FRP.SampleJIT (sampleJIT)
 import Joyride.FRP.Schedule (fireAndForget)
 import Joyride.Wags (AudibleChildEnd(..), AudibleEnd(..))
@@ -30,8 +30,9 @@ import Rito.Core (Instance)
 import Rito.Matrix4 (Matrix4')
 import Rito.Properties as P
 import Rito.RoundRobin (InstanceId, singleInstance)
+import Safe.Coerce (coerce)
 import Type.Proxy (Proxy(..))
-import Types (HitBasicMe(..), HitBasicOtherPlayer(..), HitBasicVisualForLabel(..), MakeBasic, Player(..), Position(..), entryZ, normalizedColumn, touchPointZ)
+import Types (HitBasicMe(..), HitBasicOtherPlayer(..), HitBasicVisualForLabel(..), JMilliseconds(..), MakeBasic, Player(..), Position(..), entryZ, normalizedColumn, touchPointZ)
 import WAGS.Core (silence, sound)
 import WAGS.Math (calcSlope)
 import Web.TouchEvent.Touch as Touch
@@ -60,7 +61,7 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
           )
       )
     forRendering = sampleBy (#) makeBasic.renderingInfo
-      ( sampleOn (bang Nothing <|> fireAndForget (sample_ (unInstant >>> Just <$> instant) played))
+      ( sampleOn (bang Nothing <|> fireAndForget (sample_ (unInstant >>> coerce >>> Just <$> instant) played))
           ( sampleOn ratioEvent
               ( map
                   { rateInfo: _
@@ -95,7 +96,7 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
             in
               case endTime of
                 Nothing -> oneEightRatio
-                Just (Milliseconds startTime) -> let (Milliseconds currentTime) = rateInfo.epochTime in max 0.0 (oneEightRatio - (oneEightRatio * shrinkRate * (currentTime - startTime) / 1000.0))
+                Just (JMilliseconds startTime) -> let (JMilliseconds currentTime) = rateInfo.epochTime in max 0.0 (oneEightRatio - (oneEightRatio * shrinkRate * (currentTime - startTime) / 1000.0))
         -- we use `fireAndForget` because we don't need the full rate info, only the first one to grab the initial value
         , n22: shrinkMe endTime basicYThickness rateInfo
         , n33: shrinkMe endTime basicZThickness rateInfo
@@ -121,7 +122,7 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
                             ((\(AudibleEnd e) -> e) (audio rateInfoOffAtTouch))
                         )
                     , keepLatest $ (withTime (bang unit)) <#> \{ time } -> lowPrioritySchedule makeBasic.lpsCallback
-                        (Milliseconds 10000.0 <> (unInstant time))
+                        (JMilliseconds 10000.0 + (coerce $ unInstant time))
                         (bang $ AudibleChildEnd silence)
 
                     ]
@@ -151,7 +152,7 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
                                             , translation: drawingMatrix <#> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
                                             , player: hbop.player
                                             }
-                                        sampleBy (#) (map unInstant instant) (bang hitBasicVisualForLabel)
+                                        sampleBy (#) (map (unInstant >>> coerce) instant) (bang hitBasicVisualForLabel)
                                     , push: makeBasic.pushBasicVisualForLabel
                                     }
                                 )
@@ -176,7 +177,7 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
                                   { uniqueId: makeBasic.uniqueId
                                   , position: pos
                                   , hitAt: rateInfo.beats
-                                  , issuedAt: unInstant n
+                                  , issuedAt: coerce $ unInstant n
                                   , logicalBeat: rightBeat.startsAt
                                   , deltaBeats: rateInfo.beats - rightBeat.startsAt
                                   }
@@ -246,7 +247,7 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
   basicZThickness = 0.2
   shrinkMe endTime basicThickness ri = case endTime of
     Nothing -> basicThickness
-    Just (Milliseconds startTime) -> let (Milliseconds currentTime) = ri.epochTime in max 0.0 (basicThickness - (basicThickness * shrinkRate * (currentTime - startTime) / 1000.0))
+    Just (JMilliseconds startTime) -> let (JMilliseconds currentTime) = ri.epochTime in max 0.0 (basicThickness - (basicThickness * shrinkRate * (currentTime - startTime) / 1000.0))
   otherPlayedMe = filter (\(HitBasicOtherPlayer { uniqueId }) -> makeBasic.uniqueId == uniqueId) makeBasic.notifications.hitBasic
 
 emptyMatrix :: Matrix4'

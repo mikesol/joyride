@@ -6,19 +6,18 @@ import Control.Alt (alt, (<|>))
 import Control.Parallel (parTraverse)
 import Data.Array (difference, fold)
 import Data.Array as Array
+import Data.Array.NonEmpty (toArray)
 import Data.Either (Either(..), hush)
 import Data.Homogeneous.Record (fromHomogeneous, homogeneous)
 import Data.Int as Int
 import Data.List (List(..), drop, foldl, take, (:))
-import Data.Map (SemigroupMap(..))
 import Data.Map as Map
-import Data.Maybe (Maybe(..), isJust, isNothing)
-import Data.Maybe.First (First(..))
+import Data.Maybe (Maybe(..), isJust)
 import Data.Newtype (unwrap)
 import Data.Number (pi)
 import Data.Profunctor (lcmap)
 import Data.Traversable (sequence)
-import Data.Tuple (fst, snd)
+import Data.Tuple (Tuple, fst, snd)
 import Data.Tuple.Nested (type (/\), (/\))
 import Data.Unfoldable (replicate)
 import Deku.Toplevel (runInBody)
@@ -29,7 +28,7 @@ import Effect.Random (randomInt)
 import Effect.Random as Random
 import Effect.Ref (new)
 import Effect.Ref as Ref
-import FRP.Event (create, filterMap, subscribe)
+import FRP.Event (Event, filterMap, folded, subscribe)
 import FRP.Event as Event
 import FRP.Event.VBus (V)
 import Foreign.Object as Object
@@ -41,6 +40,7 @@ import Joyride.FRP.Behavior (refToBehavior)
 import Joyride.FRP.Keypress (posFromKeypress, xForKeyboard)
 import Joyride.FRP.Orientation (posFromOrientation, xForTouch)
 import Joyride.FRP.SampleOnSubscribe (sampleOnSubscribe)
+import Joyride.Ledger.Basic (basicOutcomeToPointOutcome, beatsToBasicOutcome)
 import Joyride.LilGui (Slider(..), gui, noGui)
 import Joyride.Mocks.TestData (mockBasics)
 import Joyride.Network.Download (dlInChunks)
@@ -50,9 +50,8 @@ import Rito.Interpret (css2DRendererAff, orbitControlsAff, threeAff)
 import Rito.Texture (loadAff, loader)
 import Route (Route(..), route)
 import Routing.Duplex (parse)
-import Safe.Coerce (coerce)
 import Type.Proxy (Proxy(..))
-import Types (BufferName(..), Channel(..), Claim(..), HitBasicMe(..), HitBasicOverTheWire(..), IAm(..), Negotiation(..), Player(..), PlayerAction(..), Points(..), RenderingInfo', Textures(..), InFlightGameInfo, allPlayers, initialPositions)
+import Types (BufferName(..), Channel(..), Claim(..), HitBasicMe(..), HitBasicOverTheWire(..), IAm(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), Negotiation(..), Penalty(..), Player(..), PlayerAction(..), PointOutcome, Points(..), RenderingInfo', StartStatus(..), Textures(..), allPlayers, initialPositions)
 import WAGS.Interpret (AudioBuffer(..), context, makeAudioBuffer)
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
@@ -98,7 +97,7 @@ main (Textures textures) silentRoom = launchAff_ do
   { debug, renderingInfo } <- liftEffect useLilGui >>= (if _ then gui else noGui) >>> (_ $ renderingInfo')
   liftEffect do
     -- events
-    resizeE <- create
+    resizeE <- Event.create
     loaded <- Event.create
     negotiation <- Event.create
     pushBasic :: Event.EventIO HitBasicMe <- Event.create
@@ -109,7 +108,7 @@ main (Textures textures) silentRoom = launchAff_ do
     let
       lowPriorityCb k v = do
         n <- Random.random
-        Ref.modify_ (Map.insert (k <> Milliseconds (n * 0.25)) v) unschedule
+        Ref.modify_ (Map.insert (k + JMilliseconds (n * 0.25)) v) unschedule
     idleCallbackId <- liftEffect $ new Nothing
     ----- player positions
     playerPositions <- Ref.read renderingInfo >>= \ri -> Ref.new (initialPositions ri)
@@ -170,7 +169,7 @@ main (Textures textures) silentRoom = launchAff_ do
           -- maybe is not ideal here
           -- what it means semantically is "player exists but has not started"
           -- a new type for this?
-          knownPlayers :: Ref.Ref (Map.SemigroupMap Player (First InFlightGameInfo)) <- liftEffect $ Ref.new $ SemigroupMap Map.empty
+          knownPlayers :: Ref.Ref KnownPlayers <- liftEffect $ Ref.new $ KnownPlayers Map.empty
           pubNub <- do
             { event, publish } <- PN.pubnub (IAm iAm) (Channel myChannel)
             pure
@@ -180,6 +179,10 @@ main (Textures textures) silentRoom = launchAff_ do
                   )
                   event
               }
+          -- for when we need to ping _both_ pubnub and ourselves internally with the same data
+          -- this is the case, for example, with points
+          -- we want to update our own _and_ others' points
+          knownPlayersBus <- liftEffect $ Event.create
           -- we immediately issue a subscription for all the stuff we can always listen to
           _ <- liftEffect $ subscribe pubNub.event \pevt -> do
             -- todo: make lazy?
@@ -191,18 +194,30 @@ main (Textures textures) silentRoom = launchAff_ do
                 Player4 -> writeToRecord (Proxy :: _ "p4x")
               notRelevant = pure unit
             case pevt of
-              HitBasic _ -> notRelevant
               RefuteClaim _ -> notRelevant
               AcceptClaim _ -> notRelevant
+              -- if we hear a hit basic, we update the known players
+              HitBasic (HitBasicOverTheWire { player, outcome }) -> do
+                kp <- updateKnownPlayers player outcome knownPlayers
+                knownPlayersBus.push kp
+              -- we update the xposition for when the behavior needs it
               XPositionKeyboard i -> pfun i.player (lcmap _.epochTime $ posFromKeypress i.ktp) playerPositions
+              -- we update the xposition for when the behavior needs it
               XPositionMobile i -> pfun i.player (lcmap _.epochTime $ posFromOrientation i.gtp) playerPositions
+              -- we stash known players and forward this to our internal bus
+              -- the double mechanism is because, upon subscription, we bang
+              -- from the stash and then switch to the internal bus
               EchoKnownPlayers { players } -> do
-                Ref.modify_ (_ <> players) knownPlayers
+                kp <- Ref.modify (_ <> players) knownPlayers
+                knownPlayersBus.push kp
+              -- if someone asks for known players, we send what we know
               RequestPlayer -> do
                 known <- Ref.read knownPlayers
                 pubNub.publish $ EchoKnownPlayers { players: known }
+              -- if someone claims a player, we accept the claim iff the player
+              -- is not already claimed
               ClaimPlayer { claim, player } -> do
-                SemigroupMap known <- Ref.read knownPlayers
+                KnownPlayers known <- Ref.read knownPlayers
                 case Map.lookup player known of
                   Just _ -> pubNub.publish $ RefuteClaim { claim, player }
                   Nothing ->
@@ -229,37 +244,30 @@ main (Textures textures) silentRoom = launchAff_ do
                 Left _ -> do
                   liftEffect $ negotiation.push ClaimFail
                   never
-          let
-            knownPlayersE = filterMap
-              ( case _ of
-                  EchoKnownPlayers { players } -> Just players
-                  _ -> Nothing
-              )
-              pubNub.event
           myPlayer <- case hush parsed >>= playerFromRoute of
             Just playerAsk -> actOnProposedPlayer playerAsk
             Nothing -> do
               collecting <- forkAff
-                $ collectEventToAff (Milliseconds 750.0) knownPlayersE
+                $ collectEventToAff (Milliseconds 750.0) knownPlayersBus.event
               liftEffect $ negotiation.push RequestingPlayer
               liftEffect $ pubNub.publish RequestPlayer
               collected <- joinFiber collecting
               liftEffect $ negotiation.push ReceivedPossibilities
               -- we don't need `First` after the semigroup has done its thing
-              let mergedMap = let unwrapFirst = (map <<< map) unwrap in unwrapFirst (Map.toUnfoldable (unwrap (fold collected)))
-              let awaitingStart = Array.null mergedMap || isJust (Array.find isNothing (map snd mergedMap))
+              let (mergedMap :: Array (Tuple Player StartStatus)) = Map.toUnfoldable (unwrap (fold collected))
+              let awaitingStart = Array.null mergedMap || isJust (Array.find (_ == HasNotStartedYet) (map snd mergedMap))
               case awaitingStart of
                 false -> do
                   liftEffect $ negotiation.push GameHasStarted
                   never
                 true -> do
-                  candidate <- liftEffect $ randElt $ difference allPlayers (map fst mergedMap)
+                  candidate <- liftEffect $ randElt $ difference (toArray allPlayers) (map fst mergedMap)
                   case candidate of
                     Nothing -> do
                       liftEffect $ negotiation.push RoomIsFull
                       never
                     Just perhapsPlayer -> actOnProposedPlayer perhapsPlayer
-          liftEffect $ Ref.modify_ (SemigroupMap (Map.singleton myPlayer (First Nothing)) <> _) knownPlayers
+          liftEffect $ Ref.modify_ (KnownPlayers (Map.singleton myPlayer HasNotStartedYet) <> _) knownPlayers
           -- we echo known players to acknowledge that we claim this
           -- there is a race condition here if all players grant the same claim to
           -- two devices for the same player
@@ -273,6 +281,8 @@ main (Textures textures) silentRoom = launchAff_ do
             Player3 -> writeToRecord (Proxy :: _ "p3x") xp playerPositions
             Player4 -> writeToRecord (Proxy :: _ "p4x") xp playerPositions
           _ <- liftEffect $ subscribe pushBasic.event \(HitBasicMe bt) -> do
+            kp <- updateKnownPlayers myPlayer (basicOutcomeToPointOutcome $ beatsToBasicOutcome bt.deltaBeats) knownPlayers
+            knownPlayersBus.push kp
             pubNub.publish
               $ HitBasic
                   ( HitBasicOverTheWire
@@ -281,6 +291,7 @@ main (Textures textures) silentRoom = launchAff_ do
                       , deltaBeats: bt.deltaBeats
                       , hitAt: bt.hitAt
                       , player: myPlayer
+                      , outcome: basicOutcomeToPointOutcome $ beatsToBasicOutcome bt.deltaBeats
                       }
                   )
           let
@@ -301,8 +312,73 @@ main (Textures textures) silentRoom = launchAff_ do
             , threeStuff
             , pubNubEvent: pubNub.event
             , textures: Textures myTextures
-            , optIn: coerce (sampleOnSubscribe (refToBehavior knownPlayers) <|> knownPlayersE)
+            , playerStatus:
+                let
+                  e :: Event KnownPlayers
+                  e = sampleOnSubscribe (refToBehavior knownPlayers) <|> knownPlayersBus.event
+                in
+                  -- folded because, by design, we always know which value "wins"
+                  -- in player status
+                  -- so we can always fold with the previous one in case there's a
+                  -- regression in the incoming value (ie packets out of order)
+                  folded e
             , optMeIn: \ms -> do
-                players <- Ref.modify (SemigroupMap (Map.singleton myPlayer (First $ Just {startedAt: ms, points: Points 0.0})) <> _) knownPlayers
+                players <- Ref.modify (KnownPlayers (Map.singleton myPlayer (HasStarted $ InFlightGameInfo { startedAt: ms, points: Points 0.0, penalties: Penalty 0.0 })) <> _) knownPlayers
+                -- let others know I've opted in
                 pubNub.publish $ EchoKnownPlayers { players }
+                -- let me know I've opted in
+                knownPlayersBus.push players
             }
+  where
+  addPointsToPlayer
+    :: Player
+    -> Points
+    -> KnownPlayers
+    -> KnownPlayers
+  addPointsToPlayer player points (KnownPlayers m) = KnownPlayers $ Map.update
+    ( \v -> case v of
+        HasNotStartedYet -> Just $ HasNotStartedYet
+        HasStarted (InFlightGameInfo x) -> Just $ HasStarted $ InFlightGameInfo (x { points = x.points + points })
+    )
+    player
+    m
+
+defaultInFlightGameInfo
+  :: { penalties :: Penalty
+     , points :: Points
+     , startedAt :: JMilliseconds
+     }
+defaultInFlightGameInfo =
+  { points: Points bottom
+  , penalties: Penalty bottom
+  , startedAt: JMilliseconds top
+  }
+
+updateKnownPlayers
+  :: Player
+  -> PointOutcome
+  -> Ref.Ref KnownPlayers
+  -> Effect KnownPlayers
+updateKnownPlayers player outcome knownPlayers = do
+  Ref.modify
+    ( \(KnownPlayers kp) ->
+        ( KnownPlayers $ Map.update
+            ( case _ of
+                HasNotStartedYet -> Just $ HasStarted
+                  ( InFlightGameInfo $ case unwrap outcome of
+                      Left penalty -> defaultInFlightGameInfo { penalties = penalty }
+                      Right points -> defaultInFlightGameInfo { points = points }
+                  )
+                HasStarted (InFlightGameInfo i) -> Just $ HasStarted
+                  ( InFlightGameInfo
+                      ( case (unwrap outcome) of
+                          Left penalty -> i { penalties = i.penalties + penalty }
+                          Right points -> i { points = i.points + points }
+                      )
+                  )
+            )
+            player
+            kp
+        )
+    )
+    knownPlayers

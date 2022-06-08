@@ -12,7 +12,8 @@ import Effect (Effect)
 import Effect.Now (now)
 import Effect.Ref as Ref
 import FRP.Event (Event, create)
-import Types (KTP, Player, PlayerAction(..), RateInfo, XDirection(..))
+import Safe.Coerce (coerce)
+import Types (JMilliseconds(..), KTP, Player, PlayerAction(..), RateInfo, XDirection(..))
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
 import Web.HTML (Window)
@@ -21,10 +22,10 @@ import Web.UIEvent.KeyboardEvent (code)
 import Web.UIEvent.KeyboardEvent as KeyboardEvent
 
 -- primitive, but no need to worry about friction...
-posFromKeypress :: KTP -> Milliseconds -> Number
-posFromKeypress ktp (Milliseconds curMs) = case ktp.time of
+posFromKeypress :: KTP -> JMilliseconds -> Number
+posFromKeypress ktp (JMilliseconds curMs) = case ktp.time of
   Nothing -> 0.0
-  Just (Milliseconds prevMs) ->
+  Just (JMilliseconds prevMs) ->
     let
       tdiff = (curMs - prevMs) * msToSeconds
       -- acceleration
@@ -52,7 +53,7 @@ xForKeyboard w myPlayer pub = do
                 | isUp = Still
                 | keyCode == "ArrowLeft" = ToLeft
                 | otherwise = ToRight
-            time <- unInstant <$> now
+            time <- unInstant >>> coerce <$> now
             nw <- Ref.modify (\ktp -> if ktp.curXDir == curXDir then ktp else { curXDir, time: Just time, pos: posFromKeypress ktp time }) xpe
             evt.push nw
             pub $ XPositionKeyboard { ktp:  nw, player: myPlayer }

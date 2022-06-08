@@ -5,11 +5,13 @@ import Prelude
 import Data.DateTime.Instant (unInstant)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap)
+import Data.Time.Duration (Milliseconds(..))
 import Data.Tuple.Nested ((/\))
 import FRP.Behavior (Behavior, sampleBy)
 import FRP.Behavior.Time (instant)
 import FRP.Event (Event, mapAccum)
-import Types (Beats(..), Seconds(..), RateInfo)
+import Safe.Coerce (coerce)
+import Types (Beats(..), JMilliseconds(..), RateInfo, Seconds(..))
 
 timeFromRate
   :: Behavior { rate :: Number }
@@ -28,7 +30,7 @@ timeFromRate clengthB afE = mapAccum
   ( sampleBy { behaviors: _, acTime: _ }
       ( { clength: _, epochTime: _ }
           <$> (_.rate <$> (clengthB))
-          <*> (unInstant <$> instant)
+          <*> (unInstant >>> coerce <$> instant)
       )
       (_.real <$> afE)
   )

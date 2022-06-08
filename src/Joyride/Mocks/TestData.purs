@@ -31,7 +31,7 @@ import Rito.Geometries.Box (box)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.RoundRobin (InstanceId, Semaphore(..), roundRobinInstancedMesh)
 import Safe.Coerce (coerce)
-import Types (Beats(..), Column(..), MakeBasics, RateInfo, Textures(..), beatToTime)
+import Types (Beats(..), Column(..), JMilliseconds(..), MakeBasics, RateInfo, Textures(..), beatToTime)
 import WAGS.WebAPI (BrowserAudioBuffer)
 
 infixr 4 cons as :/
@@ -136,7 +136,7 @@ mockBasics makeBasics@{ textures: Textures textures } = toScene
         )
     ) <|>
       ( keepLatest $ (withTime (bang unit)) <#> \{ time } -> lowPrioritySchedule makeBasics.lpsCallback
-          (Milliseconds 10000.0 <> (unInstant time))
+          (JMilliseconds 10000.0 + (coerce $ unInstant time))
           (bang $ Release)
       )
   go Nil _ = Nil :< go Nil

@@ -32,6 +32,7 @@
   , "lists"
   , "maybe"
   , "newtype"
+  , "nonempty"
   , "now"
   , "numbers"
   , "ordered-collections"
