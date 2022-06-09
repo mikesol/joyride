@@ -1,4 +1,4 @@
-module Joyride.Mocks.TestData where
+module Joyride.Mocks.Basic where
 
 import Prelude
 
@@ -93,13 +93,6 @@ severalBeats { startsAt, buffers, silence } = singleBeat (f "kick" $ Beats 0.0)
     , silence
     }
 
--- { map: textures.tilesZelligeHexCOL
---           , aoMap: textures.tilesZelligeHexAO
---           , bumpMap: textures.tilesZelligeHexBUMP
---           , displacementMap: textures.tilesZelligeHexDISP
---           , displacementScale: 0.1
---           , roughnessMap: textures.tilesZelligeHexGLOSS
---           }
 mockBasics :: forall lock payload. { | MakeBasics () } -> ASceneful lock payload
 mockBasics makeBasics@{ textures: Textures textures } = toScene
   ( roundRobinInstancedMesh 100 (box {} empty)

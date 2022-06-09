@@ -7,3 +7,11 @@ export const writeToRecordImpl = function (key) {
 		};
 	};
 };
+
+export const readFromRecordImpl = function (key) {
+	return function (ref) {
+		return function () {
+			return ref.value[key];
+		};
+	};
+};

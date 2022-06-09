@@ -2,9 +2,12 @@ module Types
   ( Player(..)
   , entryZ
   , RenderingInfo
+  , InFlightGameInfo'
   , RenderingInfo'
   , Position(..)
   , Axis(..)
+  , MakeLeap
+  , MakeLeaps
   , playerPosition'
   , Channel(..)
   , StartStatus(..)
@@ -45,6 +48,11 @@ module Types
   , HitBasicOtherPlayer(..)
   , HitBasicVisual(..)
   , HitBasicVisualForLabel(..)
+  , HitLeapOverTheWire(..)
+  , HitLeapMe(..)
+  , HitLeapOtherPlayer(..)
+  , HitLeapVisual(..)
+  , HitLeapVisualForLabel(..)
   , Negotiation(..)
   , InFlightGameInfo(..)
   ) where
@@ -157,8 +165,8 @@ instance JSON.WriteForeign Position where
   writeImpl Position3 = JSON.writeImpl "Position3"
   writeImpl Position4 = JSON.writeImpl "Position4"
 
-allPositions :: Array Position
-allPositions = [ Position1, Position2, Position3, Position4 ]
+allPositions :: NonEmptyArray Position
+allPositions = fromNonEmpty $ Position1 :| [ Position2, Position3, Position4 ]
 
 data Axis = AxisX | AxisY | AxisZ
 
@@ -310,35 +318,6 @@ touchPointZ { barZSpacing } = go
 entryZ :: RenderingInfo -> Number
 entryZ { barZSpacing } = -4.0 * barZSpacing
 
-type MakeBasic r =
-  ( column :: Column
-  , appearsAt :: Beats
-  , uniqueId :: Int
-  , beats :: Vect 4 { startsAt :: Beats, audio :: Event RateInfo -> AudibleEnd }
-  | MakeBasics r
-  )
-
-type MakeBasics r =
-  ( initialDims :: WindowDims
-  , renderingInfo :: Behavior RenderingInfo
-  , resizeEvent :: Event WindowDims
-  , isMobile :: Boolean
-  , myPlayer :: Player
-  , notifications :: { hitBasic :: Event HitBasicOtherPlayer }
-  , lpsCallback :: JMilliseconds -> Effect Unit -> Effect Unit
-  , pushAudio :: Event AudibleChildEnd -> Effect Unit
-  , mkColor :: RGB -> Color
-  , animatedStuff :: Event { rateInfo :: RateInfo, playerPositions :: PlayerPositions }
-  , buffers :: Behavior (Object.Object BrowserAudioBuffer)
-  , silence :: BrowserAudioBuffer
-  , debug :: Boolean
-  , pushBasic :: EventIO HitBasicMe
-  , pushBasicVisualForLabel :: HitBasicVisualForLabel -> Effect Unit
-  , mkMatrix4 :: Matrix4' -> Matrix4
-  , textures :: Textures Texture
-  | r
-  )
-
 type PlayerPositions =
   { p1x :: Number
   , p1y :: Number
@@ -360,40 +339,40 @@ type PlayerPositions =
 
 type PlayerPositionsF =
   { p1x :: RateInfo -> Number
-  , p1y :: RateInfo -> Number
-  , p1z :: RateInfo -> Number
+  , p1y :: Number
+  , p1z :: Number
   , p1p :: Position
   , p2x :: RateInfo -> Number
-  , p2y :: RateInfo -> Number
-  , p2z :: RateInfo -> Number
+  , p2y :: Number
+  , p2z :: Number
   , p2p :: Position
   , p3x :: RateInfo -> Number
-  , p3y :: RateInfo -> Number
-  , p3z :: RateInfo -> Number
+  , p3y :: Number
+  , p3z :: Number
   , p3p :: Position
   , p4x :: RateInfo -> Number
-  , p4y :: RateInfo -> Number
-  , p4z :: RateInfo -> Number
+  , p4y :: Number
+  , p4z :: Number
   , p4p :: Position
   }
 
 initialPositions :: RenderingInfo -> PlayerPositionsF
 initialPositions ri =
   { p1x: const 0.0
-  , p1y: const 0.0
-  , p1z: const $ touchPointZ ri Position1
+  , p1y: 0.0
+  , p1z: touchPointZ ri Position1
   , p1p: Position1
   , p2x: const 0.0
-  , p2y: const 0.0
-  , p2z: const $ touchPointZ ri Position2
+  , p2y: 0.0
+  , p2z: touchPointZ ri Position2
   , p2p: Position2
   , p3x: const 0.0
-  , p3y: const 0.0
-  , p3z: const $ touchPointZ ri Position3
+  , p3y: 0.0
+  , p3z: touchPointZ ri Position3
   , p3p: Position3
   , p4x: const 0.0
-  , p4y: const 0.0
-  , p4z: const $ touchPointZ ri Position4
+  , p4y: 0.0
+  , p4z: touchPointZ ri Position4
   , p4p: Position4
   }
 
@@ -412,10 +391,10 @@ playerPosition Player4 AxisY = _.p4y
 playerPosition Player4 AxisZ = _.p4z
 
 playerPosition' :: Player -> PlayerPositions -> Position
-playerPosition' Player1  = _.p1p
-playerPosition' Player2  = _.p2p
-playerPosition' Player3  = _.p3p
-playerPosition' Player4  = _.p4p
+playerPosition' Player1 = _.p1p
+playerPosition' Player2 = _.p2p
+playerPosition' Player3 = _.p3p
+playerPosition' Player4 = _.p4p
 
 newtype Textures a = Textures
   { hockeyAO :: a
@@ -458,6 +437,36 @@ instance JSON.ReadForeign PointOutcome where
 instance JSON.WriteForeign PointOutcome where
   writeImpl (PointOutcome (Left val)) = JSON.writeImpl { _type: "Penalty", val }
   writeImpl (PointOutcome (Right val)) = JSON.writeImpl { _type: "Points", val }
+
+-- hits
+type MakeBasic r =
+  ( column :: Column
+  , appearsAt :: Beats
+  , uniqueId :: Int
+  , beats :: Vect 4 { startsAt :: Beats, audio :: Event RateInfo -> AudibleEnd }
+  | MakeBasics r
+  )
+
+type MakeBasics r =
+  ( initialDims :: WindowDims
+  , renderingInfo :: Behavior RenderingInfo
+  , resizeEvent :: Event WindowDims
+  , isMobile :: Boolean
+  , myPlayer :: Player
+  , notifications :: { hitBasic :: Event HitBasicOtherPlayer }
+  , lpsCallback :: JMilliseconds -> Effect Unit -> Effect Unit
+  , pushAudio :: Event AudibleChildEnd -> Effect Unit
+  , mkColor :: RGB -> Color
+  , animatedStuff :: Event { rateInfo :: RateInfo, playerPositions :: PlayerPositions }
+  , buffers :: Behavior (Object.Object BrowserAudioBuffer)
+  , silence :: BrowserAudioBuffer
+  , debug :: Boolean
+  , pushBasic :: EventIO HitBasicMe
+  , pushBasicVisualForLabel :: HitBasicVisualForLabel -> Effect Unit
+  , mkMatrix4 :: Matrix4' -> Matrix4
+  , textures :: Textures Texture
+  | r
+  )
 
 newtype HitBasicOverTheWire = HitBasicOverTheWire
   { uniqueId :: Int
@@ -516,7 +525,95 @@ newtype HitBasicVisualForLabel = HitBasicVisualForLabel
   }
 
 derive instance Newtype HitBasicVisualForLabel _
+--------- leap
+type MakeLeap r =
+  ( column :: Column
+  , appearsAt :: Beats
+  , uniqueId :: Int
+  , sound :: Event RateInfo -> AudibleEnd
+  , newPosition :: Position
+  | MakeLeaps r
+  )
 
+type MakeLeaps r =
+  ( initialDims :: WindowDims
+  , renderingInfo :: Behavior RenderingInfo
+  , resizeEvent :: Event WindowDims
+  , isMobile :: Boolean
+  , myPlayer :: Player
+  , notifications :: { hitLeap :: Event HitLeapOtherPlayer }
+  , lpsCallback :: JMilliseconds -> Effect Unit -> Effect Unit
+  , pushAudio :: Event AudibleChildEnd -> Effect Unit
+  , mkColor :: RGB -> Color
+  , animatedStuff :: Event { rateInfo :: RateInfo, playerPositions :: PlayerPositions }
+  , buffers :: Behavior (Object.Object BrowserAudioBuffer)
+  , silence :: BrowserAudioBuffer
+  , debug :: Boolean
+  , pushLeap :: EventIO HitLeapMe
+  , pushLeapVisualForLabel :: HitLeapVisualForLabel -> Effect Unit
+  , mkMatrix4 :: Matrix4' -> Matrix4
+  , textures :: Textures Texture
+  | r
+  )
+
+newtype HitLeapOverTheWire = HitLeapOverTheWire
+  { uniqueId :: Int
+  , hitAt :: Beats
+  , player :: Player
+  , oldPosition :: Position
+  , newPosition :: Position
+  }
+
+derive instance Eq HitLeapOverTheWire
+derive newtype instance Show HitLeapOverTheWire
+derive instance Newtype HitLeapOverTheWire _
+derive newtype instance JSON.ReadForeign HitLeapOverTheWire
+derive newtype instance JSON.WriteForeign HitLeapOverTheWire
+
+newtype HitLeapMe = HitLeapMe
+  { uniqueId :: Int
+  , oldPosition :: Position
+  , newPosition :: Position
+  , hitAt :: Beats
+  , issuedAt :: JMilliseconds
+  }
+
+derive instance Newtype HitLeapMe _
+
+newtype HitLeapOtherPlayer = HitLeapOtherPlayer
+  { uniqueId :: Int
+  , oldPosition :: Position
+  , newPosition :: Position
+  , hitAt :: Beats
+  , player :: Player
+  , issuedAt :: JMilliseconds
+  }
+
+derive instance Newtype HitLeapOtherPlayer _
+
+newtype HitLeapVisual = HitLeapVisual
+  { uniqueId :: Int
+  , oldPosition :: Position
+  , newPosition :: Position
+  , hitAt :: Beats
+  , issuedAt :: JMilliseconds
+  }
+
+derive instance Newtype HitLeapVisual _
+
+newtype HitLeapVisualForLabel = HitLeapVisualForLabel
+  { uniqueId :: Int
+  , oldPosition :: Position
+  , newPosition :: Position
+  , hitAt :: Beats
+  , issuedAt :: JMilliseconds
+  , translation :: Event Vector3'
+  , player :: Player
+  }
+
+derive instance Newtype HitLeapVisualForLabel _
+
+--
 data Negotiation
   = PageLoad
   | GetRulesOfGame
@@ -551,11 +648,13 @@ type Success' =
   , playerStatus :: Event KnownPlayers
   }
 
-newtype InFlightGameInfo = InFlightGameInfo
+type InFlightGameInfo' =
   { startedAt :: JMilliseconds
   , points :: Points
   , penalties :: Penalty
   }
+
+newtype InFlightGameInfo = InFlightGameInfo InFlightGameInfo'
 
 derive instance Eq InFlightGameInfo
 derive newtype instance Show InFlightGameInfo
@@ -618,6 +717,8 @@ data PlayerAction
   | XPositionMobile { player :: Player, gtp :: GTP }
   -- tap basic
   | HitBasic HitBasicOverTheWire
+  -- tap basic
+  | HitLeap HitLeapOverTheWire
   -- ask to join
   | RequestPlayer
   -- say whose available
@@ -638,6 +739,7 @@ instance toJSONPubNubPlayerAction :: JSON.ReadForeign PlayerAction where
       "XPositionKeyboard" -> XPositionKeyboard <$> JSON.readImpl i
       "XPositionMobile" -> XPositionMobile <$> JSON.readImpl i
       "HitBasic" -> HitBasic <$> JSON.readImpl i
+      "HitLeap" -> HitLeap <$> JSON.readImpl i
       "RequestPlayer" -> pure RequestPlayer
       "EchoKnownPlayers" -> EchoKnownPlayers <$> JSON.readImpl i
       "ClaimPlayer" -> ClaimPlayer <$> JSON.readImpl i
@@ -649,6 +751,7 @@ instance fromJSONPubNubPlayerAction :: JSON.WriteForeign PlayerAction where
   writeImpl (XPositionKeyboard j) = JSON.writeImpl $ union { _type: "XPositionKeyboard" } j
   writeImpl (XPositionMobile j) = JSON.writeImpl $ union { _type: "XPositionMobile" } j
   writeImpl (HitBasic (HitBasicOverTheWire j)) = JSON.writeImpl $ union { _type: "HitBasic" } j
+  writeImpl (HitLeap (HitLeapOverTheWire j)) = JSON.writeImpl $ union { _type: "HitLeap" } j
   writeImpl RequestPlayer = JSON.writeImpl { _type: "RequestPlayer" }
   writeImpl (EchoKnownPlayers j) = JSON.writeImpl $ union { _type: "EchoKnownPlayers" } j
   writeImpl (ClaimPlayer j) = JSON.writeImpl $ union { _type: "ClaimPlayer" } j

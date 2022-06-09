@@ -18,10 +18,14 @@ midi2cps i = 440.0 * (2.0 `pow` (((Int.toNumber i) - 69.0) / 12.0))
 graph
   :: forall lock payload
    . { basics :: Event (Event AudibleChildEnd)
+     , leaps :: Event (Event AudibleChildEnd)
      }
   -> Array (Audible D2 lock payload)
-graph { basics } =
+graph { basics, leaps } =
   [ gain_ 1.0
       [ dyn ((map <<< map) (\(AudibleChildEnd e) -> e) basics)
+      ]
+  , gain_ 1.0
+      [ dyn ((map <<< map) (\(AudibleChildEnd e) -> e) leaps)
       ]
   ]

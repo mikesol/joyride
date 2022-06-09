@@ -1,13 +1,11 @@
-module Joyride.Visual.Basic where
+module Joyride.Visual.Leap where
 
 import Prelude
 
 import Control.Alt ((<|>))
-import Data.Compactable (compact)
 import Data.DateTime.Instant (unInstant)
-import Data.FastVect.FastVect (index)
 import Data.Filterable (filter)
-import Data.Foldable (oneOf, oneOfMap)
+import Data.Foldable (oneOf)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.Profunctor (lcmap)
@@ -31,36 +29,25 @@ import Rito.Matrix4 (Matrix4')
 import Rito.Properties as P
 import Rito.RoundRobin (InstanceId, singleInstance)
 import Safe.Coerce (coerce)
-import Type.Proxy (Proxy(..))
-import Types (HitBasicMe(..), HitBasicOtherPlayer(..), HitBasicVisualForLabel(..), JMilliseconds(..), MakeBasic, Position(..), entryZ, normalizedColumn, playerPosition', touchPointZ)
+import Types (HitLeapMe(..), HitLeapOtherPlayer(..), HitLeapVisualForLabel(..), JMilliseconds(..), MakeLeap, Position(..), entryZ, normalizedColumn, playerPosition', touchPointZ)
 import WAGS.Core (silence, sound)
 import WAGS.Math (calcSlope)
 import Web.TouchEvent.Touch as Touch
 import Web.UIEvent.MouseEvent as MouseEvent
 
-basic
+leap
   :: forall r lock payload
-   . { | MakeBasic r }
+   . { | MakeLeap r }
   -> Event (InstanceId -> Instance lock payload)
-basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
+leap makeLeap = keepLatest $ bus \setPlayed iWasPlayed -> do
   let
     -- this is the event that we listen to to know when to stop playing audio
     -- we stop _eitehr_ when we get an internal played _or_ when one is reported
     -- over the wire
-    played = map (unwrap >>> _.logicalBeat) iWasPlayed
-      <|> map (unwrap >>> _.logicalBeat) (filter (\(HitBasicOtherPlayer { uniqueId }) -> makeBasic.uniqueId == uniqueId) otherPlayedMe)
-    rateInfoOffAtTouch = compact
-      ( sampleOn (bang Nothing <|> (map Just played))
-          ( animatedStuff.rateInfo <#> \ri p -> case p of
-              -- only emit the rate info if the beat has not been touched
-              -- or it has been touched a bit early
-              Nothing -> Just ri
-              Just logicalBeat
-                | logicalBeat >= ri.beats -> Just ri
-                | otherwise -> Nothing
-          )
-      )
-    forRendering = sampleBy (#) makeBasic.renderingInfo
+    played = (iWasPlayed $> unit)
+      <|> ((filter (\(HitLeapOtherPlayer { uniqueId }) -> makeLeap.uniqueId == uniqueId) otherPlayedMe) $> unit)
+    rateInfoOnAtTouch = keepLatest (fireAndForget played $> animatedStuff.rateInfo)
+    forRendering = sampleBy (#) makeLeap.renderingInfo
       ( sampleOn (bang Nothing <|> fireAndForget (sample_ (unInstant >>> coerce >>> Just <$> instant) played))
           ( sampleOn ratioEvent
               ( map
@@ -79,17 +66,15 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
        , endTime
        , renderingInfo
        } ->
-        { n14: ((renderingInfo.halfAmbitus * (2.0 * (normalizedColumn makeBasic.column) - 1.0)) * ratio.r)
+        { n14: ((renderingInfo.halfAmbitus * (2.0 * (normalizedColumn makeLeap.column) - 1.0)) * ratio.r)
         , n24: 0.0
         , n34:
             let
-              o
-                | rateInfo.beats < p1.startsAt = calcSlope (unwrap makeBasic.appearsAt) (appearancePoint renderingInfo) (unwrap p1.startsAt) (p1bar renderingInfo) (unwrap rateInfo.beats)
-                | rateInfo.beats < p2.startsAt = calcSlope (unwrap p1.startsAt) (p1bar renderingInfo) (unwrap p2.startsAt) (p2bar renderingInfo) (unwrap rateInfo.beats)
-                | rateInfo.beats < p3.startsAt = calcSlope (unwrap p2.startsAt) (p2bar renderingInfo) (unwrap p3.startsAt) (p3bar renderingInfo) (unwrap rateInfo.beats)
-                | otherwise = calcSlope (unwrap p3.startsAt) (p3bar renderingInfo) (unwrap p4.startsAt) (p4bar renderingInfo) (unwrap rateInfo.beats)
+              -- for now, hardcode 1 beat after the appearance point
+              -- if too fast, slow down?
+              o = calcSlope (unwrap makeLeap.appearsAt) (appearancePoint renderingInfo) (unwrap makeLeap.appearsAt + 1.0) (p1bar renderingInfo) (unwrap rateInfo.beats)
             in
-              o - (basicZThickness / 2.0)
+              o - (leapZThickness / 2.0)
         , n11:
             let
               oneEightRatio = oneEighth * ratio.r
@@ -98,8 +83,8 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
                 Nothing -> oneEightRatio
                 Just (JMilliseconds startTime) -> let (JMilliseconds currentTime) = rateInfo.epochTime in max 0.0 (oneEightRatio - (oneEightRatio * shrinkRate * (currentTime - startTime) / 1000.0))
         -- we use `fireAndForget` because we don't need the full rate info, only the first one to grab the initial value
-        , n22: shrinkMe endTime basicYThickness rateInfo
-        , n33: shrinkMe endTime basicZThickness rateInfo
+        , n22: shrinkMe endTime leapYThickness rateInfo
+        , n33: shrinkMe endTime leapZThickness rateInfo
         , n12: 0.0
         , n13: 0.0
         , n21: 0.0
@@ -112,94 +97,87 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
         , n44: 1.0
         }
   keepLatest $ memoize drawingMatrix' \drawingMatrix ->
-    keepLatest $ memoize (filter (\(HitBasicOtherPlayer { player }) -> player /= makeBasic.myPlayer) otherPlayedMe) \hitBasicOtherPlayer -> rider
+    keepLatest $ memoize (filter (\(HitLeapOtherPlayer { player }) -> player /= makeLeap.myPlayer) otherPlayedMe) \hitLeapOtherPlayer -> rider
       ( toRide
-          { event: oneOfMap bang
-              ( makeBasic.beats <#>
-                  \{ audio } -> oneOf
-                    [ bang $ AudibleChildEnd
-                        ( sound
-                            ((\(AudibleEnd e) -> e) (audio rateInfoOffAtTouch))
-                        )
-                    , keepLatest $ (withTime (bang unit)) <#> \{ time } -> lowPrioritySchedule makeBasic.lpsCallback
-                        (JMilliseconds 10000.0 + (coerce $ unInstant time))
-                        (bang $ AudibleChildEnd silence)
+          -- we bang this as soon as the rider initializes, which is
+          -- when the element is first painted on screen
+          -- this is because the leap could be triggered at any moment after paint
+          { event: bang (oneOf
+                [ bang $ AudibleChildEnd
+                    ( sound
+                        ((\(AudibleEnd e) -> e) (makeLeap.sound rateInfoOnAtTouch))
+                    )
+                , keepLatest $ (withTime (bang unit)) <#> \{ time } -> lowPrioritySchedule makeLeap.lpsCallback
+                    (JMilliseconds 10000.0 + (coerce $ unInstant time))
+                    (bang $ AudibleChildEnd silence)
 
-                    ]
-              )
-          , push: makeBasic.pushAudio
+                ])
+          , push: makeLeap.pushAudio
           }
       )
       ( bang
           ( ( singleInstance
                 ( oneOf
-                    [ bang $ P.matrix4 $ makeBasic.mkMatrix4 emptyMatrix
-                    , P.matrix4 <<< makeBasic.mkMatrix4 <$> drawingMatrix
+                    [ bang $ P.matrix4 $ makeLeap.mkMatrix4 emptyMatrix
+                    , P.matrix4 <<< makeLeap.mkMatrix4 <$> drawingMatrix
                     , let
                         f = oneOf
                           [ -- if someone else has touched this, turn off the listener
-                            fireAndForget $ keepLatest $ hitBasicOtherPlayer <#> \(HitBasicOtherPlayer hbop) ->
+                            fireAndForget $ keepLatest $ hitLeapOtherPlayer <#> \(HitLeapOtherPlayer hbop) ->
                               rider
                                 ( toRide
                                     { event: do
                                         let
-                                          hitBasicVisualForLabel issuedAt = HitBasicVisualForLabel
+                                          hitLeapVisualForLabel issuedAt = HitLeapVisualForLabel
                                             { uniqueId: hbop.uniqueId
-                                            , logicalBeat: hbop.logicalBeat
-                                            , deltaBeats: hbop.deltaBeats
+                                            , oldPosition: hbop.oldPosition
+                                            , newPosition: hbop.newPosition
                                             , hitAt: hbop.hitAt
                                             , issuedAt
                                             , translation: drawingMatrix <#> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
                                             , player: hbop.player
                                             }
-                                        sampleBy (#) (map (unInstant >>> coerce) instant) (bang hitBasicVisualForLabel)
-                                    , push: makeBasic.pushBasicVisualForLabel
+                                        sampleBy (#) (map (unInstant >>> coerce) instant) (bang hitLeapVisualForLabel)
+                                    , push: makeLeap.pushLeapVisualForLabel
                                     }
                                 )
                                 (bang (\_ -> pure unit))
                           -- otherwise keep alive
-                          , sampleJIT makeBasic.animatedStuff $ bang \av _ -> launchAff_ do
+                          , sampleJIT makeLeap.animatedStuff $ bang \av _ -> launchAff_ do
                               n <- liftEffect $ now
                               { rateInfo, playerPositions } <- AVar.read av
                               let
-                                pos = playerPosition' makeBasic.myPlayer playerPositions
-                                rightBeat = case pos of
-                                  Position1 -> p1
-                                  Position2 -> p2
-                                  Position3 -> p3
-                                  Position4 -> p4
+                                pos = playerPosition' makeLeap.myPlayer playerPositions
                               let
                                 broadcastInfo =
-                                  { uniqueId: makeBasic.uniqueId
+                                  { uniqueId: makeLeap.uniqueId
                                   , position: pos
                                   , hitAt: rateInfo.beats
                                   , issuedAt: coerce $ unInstant n
-                                  , logicalBeat: rightBeat.startsAt
-                                  , deltaBeats: rateInfo.beats - rightBeat.startsAt
                                   }
                               let
-                                hitBasicMe = HitBasicMe
+                                hitLeapMe = HitLeapMe
                                   { uniqueId: broadcastInfo.uniqueId
-                                  , logicalBeat: broadcastInfo.logicalBeat
-                                  , deltaBeats: broadcastInfo.deltaBeats
                                   , hitAt: broadcastInfo.hitAt
                                   , issuedAt: broadcastInfo.issuedAt
+                                  , oldPosition: broadcastInfo.position
+                                  , newPosition: makeLeap.newPosition
                                   }
-                                hitBasicVisualForLabel = HitBasicVisualForLabel
+                                hitLeapVisualForLabel = HitLeapVisualForLabel
                                   { uniqueId: broadcastInfo.uniqueId
-                                  , logicalBeat: broadcastInfo.logicalBeat
-                                  , deltaBeats: broadcastInfo.deltaBeats
+                                  , oldPosition: broadcastInfo.position
+                                  , newPosition: makeLeap.newPosition
                                   , hitAt: broadcastInfo.hitAt
                                   , issuedAt: broadcastInfo.issuedAt
                                   , translation: drawingMatrix <#> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
-                                  , player: makeBasic.myPlayer
+                                  , player: makeLeap.myPlayer
                                   }
-                              liftEffect $ makeBasic.pushBasicVisualForLabel hitBasicVisualForLabel
-                              liftEffect $ makeBasic.pushBasic.push hitBasicMe
-                              liftEffect $ setPlayed hitBasicMe
+                              liftEffect $ makeLeap.pushLeapVisualForLabel hitLeapVisualForLabel
+                              liftEffect $ makeLeap.pushLeap.push hitLeapMe
+                              liftEffect $ setPlayed hitLeapMe
                           ]
                       in
-                        if makeBasic.isMobile then P.onTouchStart <$> map
+                        if makeLeap.isMobile then P.onTouchStart <$> map
                           ( lcmap
                               ( \e ->
                                   { cx: Touch.clientX e
@@ -224,27 +202,20 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
       )
   where
   animatedStuff =
-    { rateInfo: _.rateInfo <$> makeBasic.animatedStuff
-    , playerPositions: _.playerPositions <$> makeBasic.animatedStuff
+    { rateInfo: _.rateInfo <$> makeLeap.animatedStuff
+    , playerPositions: _.playerPositions <$> makeLeap.animatedStuff
     }
-  p1 = index (Proxy :: _ 0) makeBasic.beats
-  p2 = index (Proxy :: _ 1) makeBasic.beats
-  p3 = index (Proxy :: _ 2) makeBasic.beats
-  p4 = index (Proxy :: _ 3) makeBasic.beats
   p1bar ri = touchPointZ ri Position1
-  p2bar ri = touchPointZ ri Position2
-  p3bar ri = touchPointZ ri Position3
-  p4bar ri = touchPointZ ri Position4
   appearancePoint ri = entryZ ri
   oneEighth = 1.0 / 8.0
-  ratioEvent = map (\{ iw, ih } -> { iw, ih, r: iw / ih }) (bang makeBasic.initialDims <|> makeBasic.resizeEvent)
+  ratioEvent = map (\{ iw, ih } -> { iw, ih, r: iw / ih }) (bang makeLeap.initialDims <|> makeLeap.resizeEvent)
   shrinkRate = 3.0
-  basicYThickness = 0.04
-  basicZThickness = 0.2
-  shrinkMe endTime basicThickness ri = case endTime of
-    Nothing -> basicThickness
-    Just (JMilliseconds startTime) -> let (JMilliseconds currentTime) = ri.epochTime in max 0.0 (basicThickness - (basicThickness * shrinkRate * (currentTime - startTime) / 1000.0))
-  otherPlayedMe = filter (\(HitBasicOtherPlayer { uniqueId }) -> makeBasic.uniqueId == uniqueId) makeBasic.notifications.hitBasic
+  leapYThickness = 0.04
+  leapZThickness = 0.2
+  shrinkMe endTime leapThickness ri = case endTime of
+    Nothing -> leapThickness
+    Just (JMilliseconds startTime) -> let (JMilliseconds currentTime) = ri.epochTime in max 0.0 (leapThickness - (leapThickness * shrinkRate * (currentTime - startTime) / 1000.0))
+  otherPlayedMe = filter (\(HitLeapOtherPlayer { uniqueId }) -> makeLeap.uniqueId == uniqueId) makeLeap.notifications.hitLeap
 
 emptyMatrix :: Matrix4'
 emptyMatrix =

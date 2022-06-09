@@ -50,7 +50,7 @@ import Rito.Matrix4 as M4
 import Safe.Coerce (coerce)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
-import Types (Beats(..), HitBasicMe, HitBasicOtherPlayer(..), HitBasicOverTheWire(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, Negotiation(..), Player(..), PlayerAction(..), PlayerPositionsF, RateInfo, RenderingInfo, Seconds(..), StartStatus(..), Success', WindowDims)
+import Types (Beats(..), HitBasicMe, HitBasicOtherPlayer(..), HitBasicOverTheWire(..), HitLeapMe, HitLeapOtherPlayer(..), HitLeapOverTheWire(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, Negotiation(..), Player(..), PlayerAction(..), PlayerPositionsF, RateInfo, RenderingInfo, Seconds(..), StartStatus(..), Success', WindowDims)
 import WAGS.Clock (withACTime)
 import WAGS.Interpret (close, constant0Hack, context)
 import WAGS.Run (run2)
@@ -64,10 +64,10 @@ twoPi = 2.0 * pi :: Number
 newtype Unsubscribe = Unsubscribe (Effect Unit)
 
 type UIEvents = V
-  ( ownTime :: JMilliseconds
-  , iAmReady :: Unsubscribe
+  ( iAmReady :: Unsubscribe
   , rateInfo :: RateInfo
   , basicAudio :: Event AudibleChildEnd
+  , leapAudio :: Event AudibleChildEnd
   , renderElement :: Web.DOM.Element
   )
 
@@ -79,9 +79,11 @@ type ToplevelInfo =
   , playerPositions :: Behavior PlayerPositionsF
   , resizeE :: Event WindowDims
   , basicE :: forall lock payload. { | MakeBasics () } -> ASceneful lock payload
+  , leapE :: forall lock payload. { | MakeLeaps () } -> ASceneful lock payload
   , renderingInfo :: Behavior RenderingInfo
   , initialDims :: WindowDims
   , pushBasic :: EventIO HitBasicMe
+  , pushLeap :: EventIO HitLeapMe
   , debug :: Boolean
   , silence :: BrowserAudioBuffer
   , icid :: Ref.Ref (Maybe RequestIdleCallbackId)
@@ -150,242 +152,264 @@ toplevel tli =
       , playerStatus
       , optMeIn
       } ->
-      ( vbussed (Proxy :: _ UIEvents)
-          \push
-           ( event
-               :: { ownTime :: Event JMilliseconds
-                  , iAmReady :: Event Unsubscribe
-                  , rateInfo :: Event RateInfo
-                  , basicAudio :: Event (Event AudibleChildEnd)
-                  , renderElement :: Event Web.DOM.Element
-                  }
-           ) ->
-            do
-              let
-                -- todo: need to initialize at higher level
-                iAmReady :: KnownPlayers -> Boolean
-                iAmReady (KnownPlayers m) = let lookup = Map.lookup myPlayer m in Just HasNotStartedYet /= lookup && Nothing /= lookup
+      ( vbussed (Proxy :: _ UIEvents) \push event ->
+          do
+            let
+              -- todo: need to initialize at higher level
+              iAmReady :: KnownPlayers -> Boolean
+              iAmReady (KnownPlayers m) = let lookup = Map.lookup myPlayer m in Just HasNotStartedYet /= lookup && Nothing /= lookup
 
-                allAreReady :: KnownPlayers -> Maybe JMilliseconds
-                allAreReady (KnownPlayers m)
-                  | Map.isEmpty m = Nothing
-                  | otherwise = map (foldl max (JMilliseconds 0.0)) $ hush $ runExcept
-                      ( m # traverse \v -> case v of
-                          HasNotStartedYet -> throwError unit
-                          HasStarted (InFlightGameInfo t) -> pure t.startedAt
-                      )
-                -- stopButton :: Effect Unit -> Nut
-                stopButton off = D.div
-                  (bang $ D.Class := "bg-slate-50")
-                  [ D.button
-                      ( oneOf
-                          [ bang $ D.Class := "pointer-events-auto p-1"
-                          , bang $ D.OnClick := do
-                              off
-                          ]
-                      )
-                      [ text_ "Stop" ]
-                  ]
-                startButton = D.div
-                  (bang $ D.Class := "bg-slate-50")
-                  [ D.button
-                      ( oneOf
-                          [ bang $ D.Class := "pointer-events-auto p-4"
-                          , bang $ D.OnClick := do
-                              ctx <- context
-                              hk <- constant0Hack ctx
-                              ci <- setInterval 5000 do
-                                Ref.read tli.icid >>= traverse_
-                                  (flip cancelIdleCallback tli.wdw)
-                                requestIdleCallback { timeout: 0 }
-                                  ( do
-                                      n <- (unInstant >>> coerce) <$> now
-                                      mp <- Map.toUnfoldable <$>
-                                        Ref.read tli.unschedule
-                                      let
-                                        lr = span (fst >>> (_ < n)) mp
-                                      foreachE lr.init snd
-                                      Ref.write
-                                        (Map.fromFoldable lr.rest)
-                                        tli.unschedule
-                                      pure unit
+              allAreReady :: KnownPlayers -> Maybe JMilliseconds
+              allAreReady (KnownPlayers m)
+                | Map.isEmpty m = Nothing
+                | otherwise = map (foldl max (JMilliseconds 0.0)) $ hush $ runExcept
+                    ( m # traverse \v -> case v of
+                        HasNotStartedYet -> throwError unit
+                        HasStarted (InFlightGameInfo t) -> pure t.startedAt
+                    )
+              -- stopButton :: Effect Unit -> Nut
+              stopButton off = D.div
+                (bang $ D.Class := "bg-slate-50")
+                [ D.button
+                    ( oneOf
+                        [ bang $ D.Class := "pointer-events-auto p-1"
+                        , bang $ D.OnClick := do
+                            off
+                        ]
+                    )
+                    [ text_ "Stop" ]
+                ]
+              startButton = D.div
+                (bang $ D.Class := "bg-slate-50")
+                [ D.button
+                    ( oneOf
+                        [ bang $ D.Class := "pointer-events-auto p-4"
+                        , bang $ D.OnClick := do
+                            ctx <- context
+                            hk <- constant0Hack ctx
+                            ci <- setInterval 5000 do
+                              Ref.read tli.icid >>= traverse_
+                                (flip cancelIdleCallback tli.wdw)
+                              requestIdleCallback { timeout: 0 }
+                                ( do
+                                    n <- (unInstant >>> coerce) <$> now
+                                    mp <- Map.toUnfoldable <$>
+                                      Ref.read tli.unschedule
+                                    let
+                                      lr = span (fst >>> (_ < n)) mp
+                                    foreachE lr.init snd
+                                    Ref.write
+                                      (Map.fromFoldable lr.rest)
+                                      tli.unschedule
+                                    pure unit
+                                )
+                                tli.wdw <#> Just >>= flip Ref.write tli.icid
+                            afE <- hot
+                              ( withACTime ctx animationFrame <#>
+                                  _.acTime
+                              )
+                            withRate <-
+                              hot
+                                $ timeFromRate
+                                    (pure { rate: 1.0 })
+                                    (Seconds >>> { real: _ } <$> afE.event)
+
+                            iu0 <- subscribe withRate.event push.rateInfo
+                            st <- run2 ctx (graph { basics: event.basicAudio, leaps: event.leapAudio })
+                            push.iAmReady
+                              ( Unsubscribe
+                                  ( st *> hk *> clearInterval ci
+                                      *> afE.unsubscribe
+                                      *> iu0
+                                      --  *> iu1
+                                      *> withRate.unsubscribe
+                                      *> close ctx
                                   )
-                                  tli.wdw <#> Just >>= flip Ref.write tli.icid
-                              afE <- hot
-                                ( withACTime ctx animationFrame <#>
-                                    _.acTime
-                                )
-                              withRate <-
-                                hot
-                                  $ timeFromRate
-                                      (pure { rate: 1.0 })
-                                      (Seconds >>> { real: _ } <$> afE.event)
-
-                              iu0 <- subscribe withRate.event push.rateInfo
-                              st <- run2 ctx (graph { basics: event.basicAudio })
-                              push.iAmReady
-                                ( Unsubscribe
-                                    ( st *> hk *> clearInterval ci
-                                        *> afE.unsubscribe
-                                        *> iu0
-                                        --  *> iu1
-                                        *> withRate.unsubscribe
-                                        *> close ctx
-                                    )
-                                )
-                              t :: JMilliseconds <- (unInstant >>> coerce) <$> now
-                              optMeIn t
-                              push.ownTime t
+                              )
+                            t :: JMilliseconds <- (unInstant >>> coerce) <$> now
+                            optMeIn t
+                        ]
+                    )
+                    [ text_ "Play Joyride" ]
+                ]
+            D.div_
+              [
+                -- on/off
+                D.div (bang $ D.Class := "z-10 pointer-events-none absolute w-screen h-screen flex flex-col")
+                  [ D.div (bang $ D.Class := "grow flex flex-row")
+                      -- fromEvent because playerStatus is effectful
+                      [ D.div (bang $ D.Class := "grow-0")
+                          [ D.div_
+                              [ fromEvent (biSampleOn (initializeWithEmpty event.iAmReady) (map Tuple playerStatus))
+                                  -- we theoretically don't need to dedup because
+                                  -- the button should never redraw once we've started
+                                  -- if there's flicker, dedup
+                                  # switcher \(Tuple oi usu) -> case usu of
+                                      Nothing -> envy empty
+                                      Just (Unsubscribe _) -> makePoints oi
+                              ]
+                          , D.div_
+                              [ envy $ map stopButton
+                                  ( fromEvent
+                                      ( fireAndForget
+                                          ( compact
+                                              ( map
+                                                  ( \(Tuple oi usu) -> case usu of
+                                                      Nothing -> Nothing
+                                                      Just (Unsubscribe u)
+                                                        | iAmReady oi -> Just u
+                                                        | otherwise -> Nothing
+                                                  )
+                                                  (biSampleOn (initializeWithEmpty event.iAmReady) (map Tuple playerStatus))
+                                              )
+                                          )
+                                      )
+                                  )
+                              ]
                           ]
-                      )
-                      [ text_ "Play Joyride" ]
-                  ]
-              D.div_
-                [
-                  -- on/off
-                  D.div (bang $ D.Class := "z-10 pointer-events-none absolute w-screen h-screen flex flex-col")
-                    [ D.div (bang $ D.Class := "grow flex flex-row")
-                        -- fromEvent because playerStatus is effectful
-                        [ D.div (bang $ D.Class := "grow-0")
-                            [ D.div_
-                                [ fromEvent (biSampleOn (initializeWithEmpty event.iAmReady) (map Tuple playerStatus))
-                                    -- we theoretically don't need to dedup because
-                                    -- the button should never redraw once we've started
-                                    -- if there's flicker, dedup
-                                    # switcher \(Tuple oi usu) -> case usu of
-                                        Nothing -> envy empty
-                                        Just (Unsubscribe _) -> makePoints oi
-                                ]
-                            , D.div_
-                                [ envy $ map stopButton
-                                    ( fromEvent
-                                        ( fireAndForget
-                                            ( compact
-                                                ( map
-                                                    ( \(Tuple oi usu) -> case usu of
-                                                        Nothing -> Nothing
-                                                        Just (Unsubscribe u)
-                                                          | iAmReady oi -> Just u
-                                                          | otherwise -> Nothing
-                                                    )
-                                                    (biSampleOn (initializeWithEmpty event.iAmReady) (map Tuple playerStatus))
-                                                )
-                                            )
-                                        )
-                                    )
-                                ]
-                            ]
+                      , D.div (bang $ D.Class := "grow") []
+                      ]
+                  , let
+                      frame mid = D.div (bang $ D.Class := "flex flex-row")
+                        [ D.div (bang $ D.Class := "grow") []
+                        , D.div (bang $ D.Class := "grow-0") [ mid ]
                         , D.div (bang $ D.Class := "grow") []
                         ]
-                    , let
-                        frame mid = D.div (bang $ D.Class := "flex flex-row")
-                          [ D.div (bang $ D.Class := "grow") []
-                          , D.div (bang $ D.Class := "grow-0") [ mid ]
-                          , D.div (bang $ D.Class := "grow") []
+                    in
+                      D.div_
+                        [ ( fromEvent
+                              ( dedup
+                                  ( playerStatus <#>
+                                      \m -> case allAreReady m of
+                                        Just x -> Started x
+                                        Nothing
+                                          | iAmReady m -> WaitingForOthers
+                                          | otherwise -> WaitingForMe
+                                  )
+                              )
+                          )
+                            # switcher case _ of
+                                WaitingForMe -> frame startButton
+                                WaitingForOthers -> frame (D.span (bang $ D.Class := "text-lg text-white") [ text_ "Waiting for others to join" ])
+                                Started _ -> envy empty
+                        ]
+                  , D.div (bang $ D.Class := "grow") []
+                  ]
+              , D.div
+                  (bang (D.Class := "absolute"))
+                  [ D.canvas
+                      ( oneOf
+                          [ bang (D.Class := "absolute")
+                          -- one gratuitous lookup as if all are ready then myPlayer
+                          -- must be ready, but should be computationally fine
+                          -- fireAndForget so that it only ever fires once
+                          , fromEvent $ memoize
+                              ( makeAnimatedStuff
+                                  ( biSampleOn
+                                      ( fireAndForget
+                                          ( playerStatus # filterMap
+                                              \m -> { startTime: _, myTime: _ } <$> allAreReady m <*>
+                                                join
+                                                  ( map
+                                                      ( case _ of
+                                                          HasNotStartedYet -> Nothing
+                                                          HasStarted (InFlightGameInfo { startedAt }) -> Just startedAt
+                                                      )
+                                                      (Map.lookup myPlayer (unwrap m))
+                                                  )
+                                          )
+                                      )
+                                      (event.rateInfo <#> \ri { startTime, myTime } -> adjustRateInfoBasedOnActualStart myTime startTime ri)
+                                  )
+                              )
+                              \animatedStuff ->
+                                D.Self := HTMLCanvasElement.fromElement >>> traverse_
+                                  ( runThree <<<
+                                      { threeStuff: threeStuff
+                                      , cssRendererElt: event.renderElement
+                                      , isMobile: tli.isMobile
+                                      , renderingInfo: tli.renderingInfo
+                                      , lowPriorityCb: tli.lpsCallback
+                                      , myPlayer
+                                      , debug: tli.debug
+                                      , textures
+                                      , pushBasic: tli.pushBasic
+                                      , basicE: \pushBasicVisualForLabel -> tli.basicE
+                                          { initialDims: tli.initialDims
+                                          , renderingInfo: tli.renderingInfo
+                                          , textures
+                                          , myPlayer
+                                          , debug: tli.debug
+                                          , notifications:
+                                              { hitBasic: withTime pubNubEvent # filterMap
+                                                  ( \{ value, time } -> case value of
+                                                      HitBasic (HitBasicOverTheWire e) -> Just $ HitBasicOtherPlayer
+                                                        { uniqueId: e.uniqueId
+                                                        , logicalBeat: e.logicalBeat
+                                                        , deltaBeats: e.deltaBeats
+                                                        , hitAt: e.hitAt
+                                                        , player: e.player
+                                                        , issuedAt: coerce $ unInstant time
+                                                        }
+                                                      _ -> Nothing
+                                                  )
+                                              }
+                                          , resizeEvent: tli.resizeE
+                                          , isMobile: tli.isMobile
+                                          , lpsCallback: tli.lpsCallback
+                                          , pushAudio: push.basicAudio
+                                          , mkColor: color threeStuff.three
+                                          , mkMatrix4: M4.set threeStuff.three
+                                          , buffers: refToBehavior tli.soundObj
+                                          , silence: tli.silence
+                                          , animatedStuff
+                                          , pushBasic: tli.pushBasic
+                                          , pushBasicVisualForLabel
+                                          }
+                                      , leapE: \pushLeapVisualForLabel -> tli.leapE
+                                          { initialDims: tli.initialDims
+                                          , renderingInfo: tli.renderingInfo
+                                          , textures
+                                          , myPlayer
+                                          , debug: tli.debug
+                                          , notifications:
+                                              { hitLeap: withTime pubNubEvent # filterMap
+                                                  ( \{ value, time } -> case value of
+                                                      HitLeap (HitLeapOverTheWire e) -> Just $ HitLeapOtherPlayer
+                                                        { uniqueId: e.uniqueId
+                                                        , hitAt: e.hitAt
+                                                        , player: e.player
+                                                        , oldPosition: e.oldPosition
+                                                        , newPosition: e.newPosition
+                                                        , issuedAt: coerce $ unInstant time
+                                                        }
+                                                      _ -> Nothing
+                                                  )
+                                              }
+                                          , resizeEvent: tli.resizeE
+                                          , isMobile: tli.isMobile
+                                          , lpsCallback: tli.lpsCallback
+                                          , pushAudio: push.leapAudio
+                                          , mkColor: color threeStuff.three
+                                          , mkMatrix4: M4.set threeStuff.three
+                                          , buffers: refToBehavior tli.soundObj
+                                          , silence: tli.silence
+                                          , animatedStuff
+                                          , pushLeap: tli.pushLeap
+                                          , pushLeapVisualForLabel
+                                          }
+                                      , animatedStuff
+                                      , resizeE: tli.resizeE
+                                      , initialDims: tli.initialDims
+                                      , canvas: _
+                                      }
+                                  )
                           ]
-                      in
-                        D.div_
-                          [ ( fromEvent
-                                ( dedup
-                                    ( playerStatus <#>
-                                        \m -> case allAreReady m of
-                                          Just x -> Started x
-                                          Nothing
-                                            | iAmReady m -> WaitingForOthers
-                                            | otherwise -> WaitingForMe
-                                    )
-                                )
-                            )
-                              # switcher case _ of
-                                  WaitingForMe -> frame startButton
-                                  WaitingForOthers -> frame (D.span (bang $ D.Class := "text-lg text-white") [ text_ "Waiting for others to join" ])
-                                  Started _ -> envy empty
-                          ]
-                    , D.div (bang $ D.Class := "grow") []
-                    ]
-                , D.div
-                    (bang (D.Class := "absolute"))
-                    [ D.canvas
-                        ( oneOf
-                            [ bang (D.Class := "absolute")
-                            -- one gratuitous lookup as if all are ready then myPlayer
-                            -- must be ready, but should be computationally fine
-                            -- fireAndForget so that it only ever fires once
-                            , fromEvent $ memoize
-                                ( makeAnimatedStuff
-                                    ( biSampleOn
-                                        ( fireAndForget
-                                            ( playerStatus # filterMap
-                                                \m -> { startTime: _, myTime: _ } <$> allAreReady m <*>
-                                                  join
-                                                    ( map
-                                                        ( case _ of
-                                                            HasNotStartedYet -> Nothing
-                                                            HasStarted (InFlightGameInfo { startedAt }) -> Just startedAt
-                                                        )
-                                                        (Map.lookup myPlayer (unwrap m))
-                                                    )
-                                            )
-                                        )
-                                        (event.rateInfo <#> \ri { startTime, myTime } -> adjustRateInfoBasedOnActualStart myTime startTime ri)
-                                    )
-                                )
-                                \animatedStuff ->
-                                  D.Self := HTMLCanvasElement.fromElement >>> traverse_
-                                    ( runThree <<<
-                                        { threeStuff: threeStuff
-                                        , cssRendererElt: event.renderElement
-                                        , isMobile: tli.isMobile
-                                        , renderingInfo: tli.renderingInfo
-                                        , lowPriorityCb: tli.lpsCallback
-                                        , myPlayer
-                                        , debug: tli.debug
-                                        , textures
-                                        , pushBasic: tli.pushBasic
-                                        , basicE: \pushBasicVisualForLabel -> tli.basicE
-                                            { initialDims: tli.initialDims
-                                            , renderingInfo: tli.renderingInfo
-                                            , textures
-                                            , myPlayer
-                                            , debug: tli.debug
-                                            , notifications:
-                                                { hitBasic: withTime pubNubEvent # filterMap
-                                                    ( \{ value, time } -> case value of
-                                                        HitBasic (HitBasicOverTheWire e) -> Just $ HitBasicOtherPlayer
-                                                          { uniqueId: e.uniqueId
-                                                          , logicalBeat: e.logicalBeat
-                                                          , deltaBeats: e.deltaBeats
-                                                          , hitAt: e.hitAt
-                                                          , player: e.player
-                                                          , issuedAt: coerce $ unInstant time
-                                                          }
-                                                        _ -> Nothing
-                                                    )
-                                                }
-                                            , resizeEvent: tli.resizeE
-                                            , isMobile: tli.isMobile
-                                            , lpsCallback: tli.lpsCallback
-                                            , pushAudio: push.basicAudio
-                                            , mkColor: color threeStuff.three
-                                            , mkMatrix4: M4.set threeStuff.three
-                                            , buffers: refToBehavior tli.soundObj
-                                            , silence: tli.silence
-                                            , animatedStuff
-                                            , pushBasic: tli.pushBasic
-                                            , pushBasicVisualForLabel
-                                            }
-                                        , animatedStuff
-                                        , resizeE: tli.resizeE
-                                        , initialDims: tli.initialDims
-                                        , canvas: _
-                                        }
-                                    )
-                            ]
-                        )
-                        []
-                    , D.div (oneOfMap bang [ D.Class := "absolute pointer-events-none", D.Self := push.renderElement ]) []
-                    ]
-                ]
+                      )
+                      []
+                  , D.div (oneOfMap bang [ D.Class := "absolute pointer-events-none", D.Self := push.renderElement ]) []
+                  ]
+              ]
       )
   where
   makeAnimatedStuff rateInfo = sampleBy
@@ -393,20 +417,20 @@ toplevel tli =
         { rateInfo: rinfo
         , playerPositions:
             { p1x: ppos.p1x rinfo
-            , p1y: ppos.p1y rinfo
-            , p1z: ppos.p1z rinfo
+            , p1y: ppos.p1y
+            , p1z: ppos.p1z
             , p1p: ppos.p1p
             , p2x: ppos.p2x rinfo
-            , p2y: ppos.p2y rinfo
-            , p2z: ppos.p2z rinfo
+            , p2y: ppos.p2y
+            , p2z: ppos.p2z
             , p2p: ppos.p2p
             , p3x: ppos.p3x rinfo
-            , p3y: ppos.p3y rinfo
-            , p3z: ppos.p3z rinfo
+            , p3y: ppos.p3y
+            , p3z: ppos.p3z
             , p3p: ppos.p3p
             , p4x: ppos.p4x rinfo
-            , p4y: ppos.p4y rinfo
-            , p4z: ppos.p4z rinfo
+            , p4y: ppos.p4y
+            , p4z: ppos.p4z
             , p4p: ppos.p4p
             }
         }

@@ -10,6 +10,8 @@ import Type.Proxy (Proxy)
 
 foreign import writeToRecordImpl :: forall x y. String -> x -> Ref y -> Effect Unit
 
+foreign import readFromRecordImpl :: forall x y. String -> Ref y -> Effect x
+
 writeToRecord
   :: forall key val r' r
    . IsSymbol key
@@ -20,3 +22,13 @@ writeToRecord
   -> Ref { | r }
   -> Effect Unit
 writeToRecord px = writeToRecordImpl (reflectSymbol px)
+
+readFromRecord
+  :: forall key val r' r
+   . IsSymbol key
+  => Cons key val r' r
+  => Lacks key r'
+  => Proxy key
+  -> Ref { | r }
+  -> Effect val
+readFromRecord px = readFromRecordImpl (reflectSymbol px)

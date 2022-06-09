@@ -10,7 +10,7 @@ import Data.Tuple (Tuple(..))
 import Simple.JSON as JSON
 import Test.QuickCheck (class Arbitrary, arbitrary)
 import Test.QuickCheck.Gen (Gen, arrayOf, elements, oneOf)
-import Types (Beats(..), Claim(..), HitBasicOverTheWire(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), Penalty(..), Player, PlayerAction(..), PointOutcome(..), Points(..), StartStatus(..), XDirection(..), allPlayers)
+import Types (Beats(..), Claim(..), HitBasicOverTheWire(..), HitLeapOverTheWire(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), Penalty(..), Player, PlayerAction(..), PointOutcome(..), Points(..), Position, StartStatus(..), XDirection(..), allPlayers, allPositions)
 
 newtype TestPlayerAction = TestPlayerAction PlayerAction
 derive newtype instance Eq TestPlayerAction
@@ -23,6 +23,9 @@ anyXDirection = elements (fromNonEmpty (Still :| [ ToLeft, ToRight ]))
 
 anyPlayer :: Gen Player
 anyPlayer = elements allPlayers
+
+anyPosition :: Gen Position
+anyPosition = elements allPositions
 
 anyBeat :: Gen Beats
 anyBeat = Beats <$> arbitrary
@@ -98,6 +101,23 @@ instance Arbitrary TestPlayerAction where
                           <*> anyBeat
                           <*> anyPlayer
                           <*> anyPointOutcome
+                      )
+                )
+            -- tap leap
+            , HitLeap <$>
+                ( HitLeapOverTheWire
+                    <$>
+                      ( { uniqueId: _
+                      , oldPosition: _
+                      , newPosition: _
+                        , hitAt: _
+                        , player: _
+                        }
+                          <$> arbitrary
+                          <*> anyPosition
+                          <*> anyPosition
+                          <*> anyBeat
+                          <*> anyPlayer
                       )
                 )
             -- ask to join
