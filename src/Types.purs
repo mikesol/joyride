@@ -6,6 +6,8 @@ module Types
   , RenderingInfo'
   , Position(..)
   , Axis(..)
+  , CubeTextures(..)
+  , CubeTexture(..)
   , MakeLeap
   , MakeLeaps
   , playerPosition'
@@ -83,6 +85,7 @@ import Rito.Matrix4 (Matrix4, Matrix4')
 import Rito.THREE (ThreeStuff)
 import Rito.Texture (Texture)
 import Rito.Vector3 (Vector3')
+import Rito.CubeTexture as CTL
 import Simple.JSON (undefined, writeJSON)
 import Simple.JSON as JSON
 import WAGS.Math (calcSlope)
@@ -419,6 +422,22 @@ newtype Textures a = Textures
   , tilesZelligeHexREFL :: a
   }
 
+newtype CubeTexture a = CubeTexture
+  { back :: a
+  , front :: a
+  , left :: a
+  , right :: a
+  , top :: a
+  , bottom :: a
+  }
+
+derive instance Newtype (CubeTexture a) _
+
+newtype CubeTextures a = CubeTextures
+  { skybox :: a
+  }
+
+derive instance Newtype (CubeTextures a) _
 derive instance Newtype (Textures a) _
 
 newtype PointOutcome = PointOutcome (Either Penalty Points)
@@ -644,6 +663,7 @@ type Success' =
   , threeStuff :: ThreeStuff
   , pubNubEvent :: Event PlayerAction
   , textures :: Textures Texture
+  , cubeTextures :: CubeTextures CTL.CubeTexture
   , optMeIn :: JMilliseconds -> Effect Unit
   , playerStatus :: Event KnownPlayers
   }

@@ -51,12 +51,13 @@ import Joyride.Mocks.Leap (mockLeaps)
 import Joyride.Network.Download (dlInChunks)
 import Joyride.Transport.PubNub as PN
 import Record (union)
+import Rito.CubeTexture as CubeTextureLoader
 import Rito.Interpret (css2DRendererAff, orbitControlsAff, threeAff)
 import Rito.Texture (loadAff, loader)
 import Route (Route(..), route)
 import Routing.Duplex (parse)
 import Type.Proxy (Proxy(..))
-import Types (BufferName(..), Channel(..), Claim(..), HitBasicMe(..), HitBasicOverTheWire(..), HitLeapMe(..), HitLeapOverTheWire(..), IAm(..), InFlightGameInfo(..), InFlightGameInfo', JMilliseconds(..), KnownPlayers(..), Negotiation(..), Penalty(..), Player(..), PlayerAction(..), PointOutcome, Points(..), Position, RenderingInfo', StartStatus(..), Textures(..), allPlayers, initialPositions, touchPointZ)
+import Types (BufferName(..), Channel(..), Claim(..), CubeTexture, CubeTextures(..), HitBasicMe(..), HitBasicOverTheWire(..), HitLeapMe(..), HitLeapOverTheWire(..), IAm(..), InFlightGameInfo(..), InFlightGameInfo', JMilliseconds(..), KnownPlayers(..), Negotiation(..), Penalty(..), Player(..), PlayerAction(..), PointOutcome, Points(..), Position, RenderingInfo', StartStatus(..), Textures(..), allPlayers, initialPositions, touchPointZ)
 import WAGS.Interpret (AudioBuffer(..), context, makeAudioBuffer)
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
@@ -103,8 +104,8 @@ type LeapUnsubscribes =
   , p4 :: Effect Unit
   }
 
-main :: Textures String -> Object.Object String -> Effect Unit
-main (Textures textures) silentRoom = launchAff_ do
+main :: CubeTextures (CubeTexture String) -> Textures String -> Object.Object String -> Effect Unit
+main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
   ----- gui
   { debug, renderingInfo } <- liftEffect useLilGui >>= (if _ then gui else noGui) >>> (_ $ renderingInfo')
   liftEffect do
@@ -172,8 +173,10 @@ main (Textures textures) silentRoom = launchAff_ do
     launchAff_ do
       three <- threeAff
       ldr <- liftEffect $ loader three
+      cldr <- liftEffect $ CubeTextureLoader.loader three
       --       , textures: Textures downloadedTextures
       downloadedTextures <- forkAff (fromHomogeneous <$> parTraverse (loadAff ldr) (homogeneous textures))
+      downloadedCubeTextures <- forkAff (fromHomogeneous <$> parTraverse ( (CubeTextureLoader.loadAffRecord cldr)) (map unwrap $ homogeneous cubeTextures))
       orbitControls <- orbitControlsAff
       cssThings <- css2DRendererAff
       let threeStuff = union { three, orbitControls } cssThings
@@ -427,11 +430,13 @@ main (Textures textures) silentRoom = launchAff_ do
           liftEffect $ loaded.push true
           dlInChunks silentRoom 100 n2ot ctx' soundObj
           myTextures <- joinFiber downloadedTextures
+          myCubeTextures <- joinFiber downloadedCubeTextures
           liftEffect $ negotiation.push $ Success
             { player: myPlayer
             , threeStuff
             , pubNubEvent: pubNub.event
             , textures: Textures myTextures
+            , cubeTextures: CubeTextures myCubeTextures
             , playerStatus:
                 let
                   e :: Event KnownPlayers

@@ -1,8 +1,8 @@
 import "./style.css";
 import { main } from "../output/Main";
 import { silentRoom } from "./silentroom";
-import { textures } from "./textures";
-main(textures)(silentRoom)();
+import { textures, cubeTextures } from "./textures";
+main(cubeTextures)(textures)(silentRoom)();
 
 if (module.hot) {
 	module.hot.accept("../output/Main", function () {

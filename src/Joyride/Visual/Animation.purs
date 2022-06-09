@@ -22,22 +22,23 @@ import Joyride.Visual.LeapLabels (leapLabels)
 import Rito.Cameras.PerspectiveCamera (defaultOrbitControls, perspectiveCamera)
 import Rito.Color (RGB(..), color)
 import Rito.Core (ASceneful, OrbitControls(..), Renderer(..), toScene)
+import Rito.CubeTexture (CubeTexture)
 import Rito.Geometries.Sphere (sphere)
 import Rito.Lights.PointLight (pointLight)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.Mesh (mesh)
 import Rito.Portal (globalCameraPortal1, globalScenePortal1)
-import Rito.Properties (aspect, decay, distance, intensity, target) as P
+import Rito.Properties (aspect, background, decay, distance, intensity, target) as P
 import Rito.Properties (positionX, positionY, positionZ, render, scaleX, scaleY, scaleZ, size)
 import Rito.Renderers.CSS2D (css2DRenderer)
 import Rito.Renderers.WebGL (webGLRenderer)
 import Rito.Run as Rito.Run
-import Rito.Scene (scene)
+import Rito.Scene (Background(..), scene)
 import Rito.THREE (ThreeStuff)
 import Rito.Texture (Texture)
 import Rito.Vector3 (vector3)
 import Type.Proxy (Proxy(..))
-import Types (Axis(..), HitBasicMe, HitBasicVisualForLabel, HitLeapVisualForLabel, JMilliseconds, Player(..), PlayerPositions, Position(..), RateInfo, RenderingInfo, Textures, WindowDims, allPlayers, allPositions, playerPosition, playerPosition')
+import Types (Axis(..), CubeTextures, HitBasicMe, HitBasicVisualForLabel, HitLeapVisualForLabel, JMilliseconds, Player(..), PlayerPositions, Position(..), RateInfo, RenderingInfo, Textures, WindowDims, allPlayers, allPositions, playerPosition, playerPosition')
 import Web.DOM as Web.DOM
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 
@@ -53,6 +54,7 @@ runThree
      , lowPriorityCb :: JMilliseconds -> Effect Unit -> Effect Unit
      , myPlayer :: Player
      , textures :: Textures Texture
+     , cubeTextures :: CubeTextures CubeTexture
      , renderingInfo :: Behavior RenderingInfo
      , animatedStuff ::
          Event
@@ -89,7 +91,7 @@ runThree opts@{ threeStuff: { three } } = do
                  )
         )
         \scenePush sceneEvent -> globalScenePortal1
-          ( scene empty $
+          ( scene (bang $ P.background (CubeTexture (unwrap opts.cubeTextures).skybox)) $
               ( filter (_ /= opts.myPlayer) (toArray allPlayers) <#> \player -> do
                   let ppos = playerPosition player
                   let posAx axis = map (ppos axis) mopts.playerPositions
