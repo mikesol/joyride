@@ -147,6 +147,7 @@ toplevel tli =
     TLSuccess
       { player: myPlayer
       , textures
+      , cubeTextures
       , threeStuff
       , pubNubEvent
       , playerStatus
@@ -333,6 +334,7 @@ toplevel tli =
                                       , myPlayer
                                       , debug: tli.debug
                                       , textures
+                                      , cubeTextures
                                       , pushBasic: tli.pushBasic
                                       , basicE: \pushBasicVisualForLabel -> tli.basicE
                                           { initialDims: tli.initialDims
