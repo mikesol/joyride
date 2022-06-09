@@ -69,12 +69,11 @@ mockLeaps :: forall lock payload. { | MakeLeaps () } -> ASceneful lock payload
 mockLeaps makeLeaps@{ textures: Textures textures } = toScene
   ( roundRobinInstancedMesh 100 (box {} empty)
       ( meshStandardMaterial
-          { map: textures.hockeyCOL
-          , aoMap: textures.hockeyAO
-          , displacementMap: textures.hockeyDISP
+          { map: textures.tilesZelligeHexCOL
+          , aoMap: textures.tilesZelligeHexAO
+          , displacementMap: textures.tilesZelligeHexDISP
           , displacementScale: 0.1
-          , normalMap: textures.hockeyNRM
-          , roughnessMap: textures.hockeyGLOSS
+          , roughnessMap: textures.tilesZelligeHexGLOSS
           }
           empty
       )
