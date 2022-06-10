@@ -8,20 +8,22 @@ import Control.Plus (empty)
 import Data.Array.NonEmpty (toArray)
 import Data.Filterable (filter)
 import Data.Foldable (oneOf, oneOfMap)
+import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
-import Data.Number (pi)
+import Data.Number (cos, pi)
 import Data.Tuple (Tuple(..))
+import Data.Tuple.Nested ((/\))
 import Effect (Effect)
 import FRP.Behavior (Behavior, sampleBy)
-import FRP.Event (Event, EventIO, bang, keepLatest)
+import FRP.Event (Event, EventIO, bang, keepLatest, mapAccum)
 import FRP.Event.VBus (V, vbus)
 import Joyride.FRP.Dedup (dedup)
 import Joyride.Visual.Bar (makeBar)
 import Joyride.Visual.BasicLabels (basicLabels)
 import Joyride.Visual.LeapLabels (leapLabels)
-import Rito.Cameras.PerspectiveCamera (defaultOrbitControls, perspectiveCamera)
+import Rito.Cameras.PerspectiveCamera (perspectiveCamera)
 import Rito.Color (RGB(..), color)
-import Rito.Core (ASceneful, OrbitControls(..), Renderer(..), cameraToGroup, toGroup, toScene)
+import Rito.Core (ASceneful, Renderer(..), cameraToGroup, toGroup, toScene)
 import Rito.CubeTexture (CubeTexture)
 import Rito.Geometries.Sphere (sphere)
 import Rito.Group (group)
@@ -29,7 +31,7 @@ import Rito.Lights.PointLight (pointLight)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.Mesh (mesh)
 import Rito.Portal (globalCameraPortal1, globalScenePortal1)
-import Rito.Properties (aspect, background, decay, distance, intensity, rotateX, target) as P
+import Rito.Properties (aspect, background, decay, distance, intensity, rotateX, rotateY, rotateZ) as P
 import Rito.Properties (positionX, positionY, positionZ, render, scaleX, scaleY, scaleZ, size)
 import Rito.Renderers.CSS2D (css2DRenderer)
 import Rito.Renderers.WebGL (webGLRenderer)
@@ -97,7 +99,6 @@ runThree opts@{ threeStuff: { three } } = do
               , aspect: opts.initialDims.iw / opts.initialDims.ih
               , near: 0.1
               , far: 100.0
-              , orbitControls: OrbitControls (defaultOrbitControls opts.canvas)
               }
               ( keepLatest
                   ( sampleBy Tuple opts.renderingInfo mopts.playerPositions <#> \(Tuple ri positions) ->
@@ -112,14 +113,33 @@ runThree opts@{ threeStuff: { three } } = do
                           [ positionX px
                           , positionY (ri.cameraOffsetY + py)
                           , positionZ (ri.cameraOffsetZ + pz)
-                          , P.target $ v33 { x: px, y: ri.cameraLookAtOffsetY + py, z: ri.cameraLookAtOffsetZ + pz }
                           ]
                   ) <|> (opts.resizeE <#> \i -> P.aspect (i.iw / i.ih))
               )
           )
           \myCamera -> globalScenePortal1
             ( scene (bang $ P.background (CubeTexture (unwrap opts.cubeTextures).skybox))
-                [ toScene $ group (opts.animatedStuff <#> \{ rateInfo } -> P.rotateX $ 0.01)
+                [ toScene $ group
+                    ( keepLatest $
+                        ( mapAccum
+                            ( \a b -> case b of
+                                Nothing -> Just a /\ 0.0
+                                Just x -> Just a /\ (a - x)
+                            )
+                            ( map (_.rateInfo.epochTime >>> unwrap >>> (_ / 1000.0))
+                                opts.animatedStuff
+                            )
+                            Nothing
+                        ) <#> \t ->
+                          let
+                            fac = t / 1000.0
+                          in
+                            oneOfMap bang
+                              [ P.rotateX $ 0.001 * cos (fac * pi * 0.01)
+                              , P.rotateY $ 0.001 * cos (fac * pi * 0.01)
+                              , P.rotateZ $ 0.001 * cos (fac * pi * 0.01)
+                              ]
+                    )
                     ( ( filter (_ /= opts.myPlayer) (toArray allPlayers) <#> \player -> do
                           let ppos = playerPosition player
                           let posAx axis = map (ppos axis) mopts.playerPositions
@@ -167,14 +187,16 @@ runThree opts@{ threeStuff: { three } } = do
 
                       )
                         <>
-                          (map toGroup (( makeBar <<<
-                                { c3
-                                , renderingInfo: opts.renderingInfo
-                                , debug: opts.debug
-                                , rateE: mopts.rateInfo
-                                , position: _
-                                }
-                            ) <$> (toArray allPositions))
+                          ( map toGroup
+                              ( ( makeBar <<<
+                                    { c3
+                                    , renderingInfo: opts.renderingInfo
+                                    , debug: opts.debug
+                                    , rateE: mopts.rateInfo
+                                    , position: _
+                                    }
+                                ) <$> (toArray allPositions)
+                              )
                           )
                         <>
                           ( (toArray allPlayers) <#> \player -> do
@@ -232,10 +254,10 @@ runThree opts@{ threeStuff: { three } } = do
                               }
                           ]
                         <>
-                         -- camera
-                         -- needs to be part of the group to rotate correctly
-                         [ cameraToGroup myCamera
-                         ]
+                          -- camera
+                          -- needs to be part of the group to rotate correctly
+                          [ cameraToGroup myCamera
+                          ]
                     )
                 ]
             )
