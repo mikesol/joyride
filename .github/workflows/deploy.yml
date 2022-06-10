@@ -26,8 +26,6 @@ jobs:
             ${{ hashFiles('packages.dhall') }}
       - name: Install dependencies
         run: npm ci --loglevel verbose
-      - name: Build ps
-        run: npx spago build
       - name: Build
         run: npm run build
       - name: Test
