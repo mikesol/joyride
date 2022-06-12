@@ -21,6 +21,7 @@ import Joyride.FRP.Dedup (dedup)
 import Joyride.Visual.Bar (makeBar)
 import Joyride.Visual.BasicLabels (basicLabels)
 import Joyride.Visual.LeapLabels (leapLabels)
+import Joyride.Visual.LongLabels (longLabels)
 import Rito.Cameras.PerspectiveCamera (perspectiveCamera)
 import Rito.Color (RGB(..), color)
 import Rito.Core (ASceneful, Renderer(..), cameraToGroup, toGroup, toScene)
@@ -39,9 +40,8 @@ import Rito.Run as Rito.Run
 import Rito.Scene (Background(..), scene)
 import Rito.THREE (ThreeStuff)
 import Rito.Texture (Texture)
-import Rito.Vector3 (vector3)
 import Type.Proxy (Proxy(..))
-import Types (Axis(..), CubeTextures, HitBasicMe, HitBasicVisualForLabel, HitLeapVisualForLabel, JMilliseconds, Player(..), PlayerPositions, Position(..), RateInfo, RenderingInfo, Textures, WindowDims, allPlayers, allPositions, playerPosition, playerPosition')
+import Types (Axis(..), CubeTextures, HitBasicMe, HitBasicVisualForLabel, HitLeapVisualForLabel, HitLongVisualForLabel, JMilliseconds, Player(..), PlayerPositions, Position(..), RateInfo, ReleaseLongVisualForLabel, RenderingInfo, Textures, WindowDims, allPlayers, allPositions, playerPosition, playerPosition')
 import Web.DOM as Web.DOM
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 
@@ -73,6 +73,10 @@ runThree
          (HitLeapVisualForLabel -> Effect Unit)
          -> forall lock payload
           . ASceneful lock payload
+     , longE ::
+         (HitLongVisualForLabel -> Effect Unit) -> (ReleaseLongVisualForLabel -> Effect Unit)
+         -> forall lock payload
+          . ASceneful lock payload
      , pushBasic :: EventIO HitBasicMe
      , initialDims :: WindowDims
      , canvas :: HTMLCanvasElement
@@ -80,7 +84,6 @@ runThree
   -> Effect Unit
 runThree opts@{ threeStuff: { three } } = do
   let c3 = color three
-  let v33 = vector3 three
   let textures = unwrap opts.textures
   let mopts = { playerPositions: _.playerPositions <$> opts.animatedStuff, rateInfo: _.rateInfo <$> opts.animatedStuff }
   _ <- Rito.Run.run opts.threeStuff
@@ -90,6 +93,8 @@ runThree opts@{ threeStuff: { three } } = do
                  ( V
                      ( hitBasicVisualForLabel :: HitBasicVisualForLabel
                      , hitLeapVisualForLabel :: HitLeapVisualForLabel
+                     , hitLongVisualForLabel :: HitLongVisualForLabel
+                     , releaseLongVisualForLabel :: ReleaseLongVisualForLabel
                      )
                  )
         )
@@ -240,6 +245,10 @@ runThree opts@{ threeStuff: { three } } = do
                           [ toGroup $ opts.leapE scenePush.hitLeapVisualForLabel
                           ]
                         <>
+                          -- long notes
+                          [ toGroup $ opts.longE scenePush.hitLongVisualForLabel scenePush.releaseLongVisualForLabel
+                          ]
+                        <>
                           -- basic labels
                           [ toGroup $ basicLabels
                               { basicTap: sceneEvent.hitBasicVisualForLabel
@@ -250,6 +259,15 @@ runThree opts@{ threeStuff: { three } } = do
                           -- leap labels
                           [ toGroup $ leapLabels
                               { leapTap: sceneEvent.hitLeapVisualForLabel
+                              , lpsCallback: opts.lowPriorityCb
+                              }
+                          ]
+
+                        <>
+                          -- leap labels
+                          [ toGroup $ longLabels
+                              { longTap: sceneEvent.hitLongVisualForLabel
+                              , longRelease: sceneEvent.releaseLongVisualForLabel
                               , lpsCallback: opts.lowPriorityCb
                               }
                           ]

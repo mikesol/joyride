@@ -26,7 +26,7 @@ main = do
         describe "Simple.JSON" do
           it "encodes and decodes PlayerAction correctly" do
             i <- liftEffect $ randomInt 0 10000
-            quickCheckPure (mkSeed i) 1000 \(n :: TestPlayerAction) ->
+            quickCheckPure (mkSeed i) 10000 \(n :: TestPlayerAction) ->
               runExcept (JSON.readImpl (JSON.writeImpl n)) === pure n
         describe "KnownPlayers" do
           it "adds new players correctly" do

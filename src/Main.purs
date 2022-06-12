@@ -48,6 +48,7 @@ import Joyride.Ledger.Basic (basicOutcomeToPointOutcome, beatsToBasicOutcome)
 import Joyride.LilGui (Slider(..), gui, noGui)
 import Joyride.Mocks.Basic (mockBasics)
 import Joyride.Mocks.Leap (mockLeaps)
+import Joyride.Mocks.Long (mockLongs)
 import Joyride.Network.Download (dlInChunks)
 import Joyride.Transport.PubNub as PN
 import Record (union)
@@ -57,7 +58,7 @@ import Rito.Texture (loadAff, loader)
 import Route (Route(..), route)
 import Routing.Duplex (parse)
 import Type.Proxy (Proxy(..))
-import Types (BufferName(..), Channel(..), Claim(..), CubeTexture, CubeTextures(..), HitBasicMe(..), HitBasicOverTheWire(..), HitLeapMe(..), HitLeapOverTheWire(..), IAm(..), InFlightGameInfo(..), InFlightGameInfo', JMilliseconds(..), KnownPlayers(..), Negotiation(..), Penalty(..), Player(..), PlayerAction(..), PointOutcome, Points(..), Position, RenderingInfo', StartStatus(..), Textures(..), allPlayers, initialPositions, touchPointZ)
+import Types (BufferName(..), Channel(..), Claim(..), CubeTexture, CubeTextures(..), HitBasicMe(..), HitBasicOverTheWire(..), HitLeapMe(..), HitLeapOverTheWire(..), HitLongMe, IAm(..), InFlightGameInfo(..), InFlightGameInfo', JMilliseconds(..), KnownPlayers(..), Negotiation(..), Penalty(..), Player(..), PlayerAction(..), PointOutcome, Points(..), Position, ReleaseLongMe, ReleaseLongOverTheWire(..), RenderingInfo', StartStatus(..), Textures(..), allPlayers, initialPositions, touchPointZ)
 import WAGS.Interpret (AudioBuffer(..), context, makeAudioBuffer)
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
@@ -115,6 +116,8 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
     negotiation <- Event.create
     pushBasic :: Event.EventIO HitBasicMe <- Event.create
     pushLeap :: Event.EventIO HitLeapMe <- Event.create
+    pushHitLong :: Event.EventIO HitLongMe <- Event.create
+    pushReleaseLong :: Event.EventIO ReleaseLongMe <- Event.create
     let renderingInfoBehavior = refToBehavior renderingInfo
     -- is this mobile
     isMobile <- emitsTouchEvents
@@ -152,12 +155,15 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
           , lpsCallback: lowPriorityCb
           , pushBasic: pushBasic
           , pushLeap: pushLeap
+          , pushHitLong: pushHitLong
+          , pushReleaseLong: pushReleaseLong
           , resizeE: resizeE.event
           , playerPositions: refToBehavior playerPositions
           , renderingInfo: renderingInfoBehavior
           , debug
           , basicE: mockBasics
           , leapE: mockLeaps
+          , longE: mockLongs
           , silence
           , initialDims
           , icid: idleCallbackId
@@ -307,6 +313,12 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
               HitLeap (HitLeapOverTheWire hl) -> magicLeaps hl
               -- if we hear a hit basic, we update the known players
               HitBasic (HitBasicOverTheWire { player, outcome }) -> do
+                kp <- updateKnownPlayers player outcome knownPlayers
+                knownPlayersBus.push kp
+              -- if we hear a hit basic, we do nothing, as points are only attributed on release
+              HitLong _ -> notRelevant
+              -- if we hear a hit basic, we can update the points
+              ReleaseLong (ReleaseLongOverTheWire { player, outcome }) -> do
                 kp <- updateKnownPlayers player outcome knownPlayers
                 knownPlayersBus.push kp
               -- we update the xposition for when the behavior needs it

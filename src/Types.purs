@@ -8,8 +8,6 @@ module Types
   , Axis(..)
   , CubeTextures(..)
   , CubeTexture(..)
-  , MakeLeap
-  , MakeLeaps
   , playerPosition'
   , Channel(..)
   , StartStatus(..)
@@ -39,6 +37,10 @@ module Types
   , allAxes
   , MakeBasic
   , MakeBasics
+  , MakeLong
+  , MakeLongs
+  , MakeLeap
+  , MakeLeaps
   , PlayerPositions
   , PlayerPositionsF
   , PointOutcome(..)
@@ -50,6 +52,16 @@ module Types
   , HitBasicOtherPlayer(..)
   , HitBasicVisual(..)
   , HitBasicVisualForLabel(..)
+  , HitLongOverTheWire(..)
+  , HitLongMe(..)
+  , HitLongOtherPlayer(..)
+  , HitLongVisual(..)
+  , HitLongVisualForLabel(..)
+  , ReleaseLongOverTheWire(..)
+  , ReleaseLongMe(..)
+  , ReleaseLongOtherPlayer(..)
+  , ReleaseLongVisual(..)
+  , ReleaseLongVisualForLabel(..)
   , HitLeapOverTheWire(..)
   , HitLeapMe(..)
   , HitLeapOtherPlayer(..)
@@ -544,6 +556,132 @@ newtype HitBasicVisualForLabel = HitBasicVisualForLabel
   }
 
 derive instance Newtype HitBasicVisualForLabel _
+--------- long
+type MakeLong r =
+  ( column :: Column
+  , appearsAt :: Beats
+  , uniqueId :: Int
+  , sound :: { on :: Event RateInfo, off :: Event RateInfo } -> AudibleEnd
+  | MakeLongs r
+  )
+
+type MakeLongs r =
+  ( initialDims :: WindowDims
+  , renderingInfo :: Behavior RenderingInfo
+  , resizeEvent :: Event WindowDims
+  , isMobile :: Boolean
+  , myPlayer :: Player
+  , notifications :: { hitLong :: Event HitLongOtherPlayer, releaseLong :: Event ReleaseLongOtherPlayer }
+  , lpsCallback :: JMilliseconds -> Effect Unit -> Effect Unit
+  , pushAudio :: Event AudibleChildEnd -> Effect Unit
+  , mkColor :: RGB -> Color
+  , animatedStuff :: Event { rateInfo :: RateInfo, playerPositions :: PlayerPositions }
+  , buffers :: Behavior (Object.Object BrowserAudioBuffer)
+  , silence :: BrowserAudioBuffer
+  , debug :: Boolean
+  , pushHitLong :: EventIO HitLongMe
+  , pushHitLongVisualForLabel :: HitLongVisualForLabel -> Effect Unit
+  , pushReleaseLong :: EventIO ReleaseLongMe
+  , pushReleaseLongVisualForLabel :: ReleaseLongVisualForLabel -> Effect Unit
+  , mkMatrix4 :: Matrix4' -> Matrix4
+  , textures :: Textures Texture
+  | r
+  )
+
+newtype HitLongOverTheWire = HitLongOverTheWire
+  { uniqueId :: Int
+  , hitAt :: Beats
+  , player :: Player
+  }
+
+derive instance Eq HitLongOverTheWire
+derive newtype instance Show HitLongOverTheWire
+derive instance Newtype HitLongOverTheWire _
+derive newtype instance JSON.ReadForeign HitLongOverTheWire
+derive newtype instance JSON.WriteForeign HitLongOverTheWire
+
+newtype HitLongMe = HitLongMe
+  { uniqueId :: Int
+  , hitAt :: Beats
+  , issuedAt :: JMilliseconds
+  }
+
+derive instance Newtype HitLongMe _
+
+newtype HitLongOtherPlayer = HitLongOtherPlayer
+  { uniqueId :: Int
+  , hitAt :: Beats
+  , player :: Player
+  , issuedAt :: JMilliseconds
+  }
+
+derive instance Newtype HitLongOtherPlayer _
+
+newtype HitLongVisual = HitLongVisual
+  { uniqueId :: Int
+  , hitAt :: Beats
+  , issuedAt :: JMilliseconds
+  }
+
+derive instance Newtype HitLongVisual _
+
+newtype HitLongVisualForLabel = HitLongVisualForLabel
+  { uniqueId :: Int
+  , hitAt :: Beats
+  , issuedAt :: JMilliseconds
+  , translation :: Event Vector3'
+  , player :: Player
+  }
+
+derive instance Newtype HitLongVisualForLabel _
+----------------- release long
+newtype ReleaseLongOverTheWire = ReleaseLongOverTheWire
+  { uniqueId :: Int
+  , releasedAt :: Beats
+  , player :: Player
+  , outcome :: PointOutcome
+  }
+
+derive instance Eq ReleaseLongOverTheWire
+derive newtype instance Show ReleaseLongOverTheWire
+derive instance Newtype ReleaseLongOverTheWire _
+derive newtype instance JSON.ReadForeign ReleaseLongOverTheWire
+derive newtype instance JSON.WriteForeign ReleaseLongOverTheWire
+
+newtype ReleaseLongMe = ReleaseLongMe
+  { uniqueId :: Int
+  , releasedAt :: Beats
+  , issuedAt :: JMilliseconds
+  }
+
+derive instance Newtype ReleaseLongMe _
+
+newtype ReleaseLongOtherPlayer = ReleaseLongOtherPlayer
+  { uniqueId :: Int
+  , releasedAt :: Beats
+  , player :: Player
+  , issuedAt :: JMilliseconds
+  }
+
+derive instance Newtype ReleaseLongOtherPlayer _
+
+newtype ReleaseLongVisual = ReleaseLongVisual
+  { uniqueId :: Int
+  , releasedAt :: Beats
+  , issuedAt :: JMilliseconds
+  }
+
+derive instance Newtype ReleaseLongVisual _
+
+newtype ReleaseLongVisualForLabel = ReleaseLongVisualForLabel
+  { uniqueId :: Int
+  , releasedAt :: Beats
+  , issuedAt :: JMilliseconds
+  , translation :: Event Vector3'
+  , player :: Player
+  }
+
+derive instance Newtype ReleaseLongVisualForLabel _
 --------- leap
 type MakeLeap r =
   ( column :: Column
@@ -737,8 +875,12 @@ data PlayerAction
   | XPositionMobile { player :: Player, gtp :: GTP }
   -- tap basic
   | HitBasic HitBasicOverTheWire
-  -- tap basic
+  -- tap leap
   | HitLeap HitLeapOverTheWire
+  -- tap long
+  | HitLong HitLongOverTheWire
+  -- release long
+  | ReleaseLong ReleaseLongOverTheWire
   -- ask to join
   | RequestPlayer
   -- say whose available
@@ -760,6 +902,8 @@ instance toJSONPubNubPlayerAction :: JSON.ReadForeign PlayerAction where
       "XPositionMobile" -> XPositionMobile <$> JSON.readImpl i
       "HitBasic" -> HitBasic <$> JSON.readImpl i
       "HitLeap" -> HitLeap <$> JSON.readImpl i
+      "HitLong" -> HitLong <$> JSON.readImpl i
+      "ReleaseLong" -> ReleaseLong <$> JSON.readImpl i
       "RequestPlayer" -> pure RequestPlayer
       "EchoKnownPlayers" -> EchoKnownPlayers <$> JSON.readImpl i
       "ClaimPlayer" -> ClaimPlayer <$> JSON.readImpl i
@@ -772,6 +916,8 @@ instance fromJSONPubNubPlayerAction :: JSON.WriteForeign PlayerAction where
   writeImpl (XPositionMobile j) = JSON.writeImpl $ union { _type: "XPositionMobile" } j
   writeImpl (HitBasic (HitBasicOverTheWire j)) = JSON.writeImpl $ union { _type: "HitBasic" } j
   writeImpl (HitLeap (HitLeapOverTheWire j)) = JSON.writeImpl $ union { _type: "HitLeap" } j
+  writeImpl (HitLong (HitLongOverTheWire j)) = JSON.writeImpl $ union { _type: "HitLong" } j
+  writeImpl (ReleaseLong (ReleaseLongOverTheWire j)) = JSON.writeImpl $ union { _type: "ReleaseLong" } j
   writeImpl RequestPlayer = JSON.writeImpl { _type: "RequestPlayer" }
   writeImpl (EchoKnownPlayers j) = JSON.writeImpl $ union { _type: "EchoKnownPlayers" } j
   writeImpl (ClaimPlayer j) = JSON.writeImpl $ union { _type: "ClaimPlayer" } j

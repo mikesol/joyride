@@ -5,11 +5,13 @@ import Prelude
 import Control.Alt ((<|>))
 import Data.DateTime.Instant (unInstant)
 import Data.Filterable (filter)
+import Joyride.Visual.EmptyMatrix (emptyMatrix)
 import Data.Foldable (oneOf)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
-import Data.Profunctor (lcmap)
+import Data.Profunctor (dimap, lcmap)
 import Data.Time.Duration (Milliseconds(..))
+import Effect (Effect)
 import Effect.Aff (launchAff_)
 import Effect.Aff.AVar as AVar
 import Effect.Class (liftEffect)
@@ -25,7 +27,6 @@ import Joyride.FRP.SampleJIT (sampleJIT)
 import Joyride.FRP.Schedule (fireAndForget)
 import Joyride.Wags (AudibleChildEnd(..), AudibleEnd(..))
 import Rito.Core (Instance)
-import Rito.Matrix4 (Matrix4')
 import Rito.Properties as P
 import Rito.RoundRobin (InstanceId, singleInstance)
 import Safe.Coerce (coerce)
@@ -121,6 +122,7 @@ leap makeLeap = keepLatest $ bus \setPlayed iWasPlayed -> do
                     [ bang $ P.matrix4 $ makeLeap.mkMatrix4 emptyMatrix
                     , P.matrix4 <<< makeLeap.mkMatrix4 <$> drawingMatrix
                     , let
+                        f :: Event (_ -> Effect (Effect Unit))
                         f = oneOf
                           [ -- if someone else has touched this, turn off the listener
                             fireAndForget $ keepLatest $ hitLeapOtherPlayer <#> \(HitLeapOtherPlayer hbop) ->
@@ -141,49 +143,53 @@ leap makeLeap = keepLatest $ bus \setPlayed iWasPlayed -> do
                                     , push: makeLeap.pushLeapVisualForLabel
                                     }
                                 )
-                                (bang (\_ -> pure unit))
+                                (bang (\_ -> pure (pure unit)))
                           -- otherwise keep alive
-                          , sampleJIT makeLeap.animatedStuff $ bang \av _ -> launchAff_ do
-                              n <- liftEffect $ now
-                              { rateInfo, playerPositions } <- AVar.read av
-                              let
-                                pos = playerPosition' makeLeap.myPlayer playerPositions
-                              let
-                                broadcastInfo =
-                                  { uniqueId: makeLeap.uniqueId
-                                  , position: pos
-                                  , hitAt: rateInfo.beats
-                                  , issuedAt: coerce $ unInstant n
-                                  }
-                              let
-                                hitLeapMe = HitLeapMe
-                                  { uniqueId: broadcastInfo.uniqueId
-                                  , hitAt: broadcastInfo.hitAt
-                                  , issuedAt: broadcastInfo.issuedAt
-                                  , oldPosition: broadcastInfo.position
-                                  , newPosition: makeLeap.newPosition
-                                  }
-                                hitLeapVisualForLabel = HitLeapVisualForLabel
-                                  { uniqueId: broadcastInfo.uniqueId
-                                  , oldPosition: broadcastInfo.position
-                                  , newPosition: makeLeap.newPosition
-                                  , hitAt: broadcastInfo.hitAt
-                                  , issuedAt: broadcastInfo.issuedAt
-                                  , translation: drawingMatrix <#> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
-                                  , player: makeLeap.myPlayer
-                                  }
-                              liftEffect $ makeLeap.pushLeapVisualForLabel hitLeapVisualForLabel
-                              liftEffect $ makeLeap.pushLeap.push hitLeapMe
-                              liftEffect $ setPlayed hitLeapMe
+                          , sampleJIT makeLeap.animatedStuff $ bang \av _ -> do
+                                      launchAff_ do
+                                          n <- liftEffect $ now
+                                          { rateInfo, playerPositions } <- AVar.read av
+                                          let
+                                            pos = playerPosition' makeLeap.myPlayer playerPositions
+                                          let
+                                            broadcastInfo =
+                                              { uniqueId: makeLeap.uniqueId
+                                              , position: pos
+                                              , hitAt: rateInfo.beats
+                                              , issuedAt: coerce $ unInstant n
+                                              }
+                                          let
+                                            hitLeapMe = HitLeapMe
+                                              { uniqueId: broadcastInfo.uniqueId
+                                              , hitAt: broadcastInfo.hitAt
+                                              , issuedAt: broadcastInfo.issuedAt
+                                              , oldPosition: broadcastInfo.position
+                                              , newPosition: makeLeap.newPosition
+                                              }
+                                            hitLeapVisualForLabel = HitLeapVisualForLabel
+                                              { uniqueId: broadcastInfo.uniqueId
+                                              , oldPosition: broadcastInfo.position
+                                              , newPosition: makeLeap.newPosition
+                                              , hitAt: broadcastInfo.hitAt
+                                              , issuedAt: broadcastInfo.issuedAt
+                                              , translation: drawingMatrix <#> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
+                                              , player: makeLeap.myPlayer
+                                              }
+                                          liftEffect $ makeLeap.pushLeapVisualForLabel hitLeapVisualForLabel
+                                          liftEffect $ makeLeap.pushLeap.push hitLeapMe
+                                          liftEffect $ setPlayed hitLeapMe
+                                      -- no need for unsubscribe, we're done
+                                      pure (pure unit)
                           ]
                       in
                         if makeLeap.isMobile then P.onTouchStart <$> map
-                          ( lcmap
+                          ( dimap
                               ( \e ->
                                   { cx: Touch.clientX e
                                   , cy: Touch.clientY e
                                   }
                               )
+                              (map \i -> { end: i, cancel: i })
                           )
                           f
                         else P.onMouseDown <$> map
@@ -216,23 +222,3 @@ leap makeLeap = keepLatest $ bus \setPlayed iWasPlayed -> do
     Nothing -> leapThickness
     Just (JMilliseconds startTime) -> let (JMilliseconds currentTime) = ri.epochTime in max 0.0 (leapThickness - (leapThickness * shrinkRate * (currentTime - startTime) / 1000.0))
   otherPlayedMe = filter (\(HitLeapOtherPlayer { uniqueId }) -> makeLeap.uniqueId == uniqueId) makeLeap.notifications.hitLeap
-
-emptyMatrix :: Matrix4'
-emptyMatrix =
-  { n11: 0.0
-  , n12: 0.0
-  , n13: 0.0
-  , n14: 0.0
-  , n21: 0.0
-  , n22: 0.0
-  , n23: 0.0
-  , n24: 0.0
-  , n31: 0.0
-  , n32: 0.0
-  , n33: 0.0
-  , n34: 0.0
-  , n41: 0.0
-  , n42: 0.0
-  , n43: 0.0
-  , n44: 1.0
-  }
