@@ -561,6 +561,7 @@ type MakeLong r =
   ( column :: Column
   , appearsAt :: Beats
   , uniqueId :: Int
+  , length :: Number
   , sound :: { on :: Event RateInfo, off :: Event RateInfo } -> AudibleEnd
   | MakeLongs r
   )
@@ -591,6 +592,7 @@ type MakeLongs r =
 newtype HitLongOverTheWire = HitLongOverTheWire
   { uniqueId :: Int
   , hitAt :: Beats
+  , distance :: Number
   , player :: Player
   }
 
@@ -603,6 +605,7 @@ derive newtype instance JSON.WriteForeign HitLongOverTheWire
 newtype HitLongMe = HitLongMe
   { uniqueId :: Int
   , hitAt :: Beats
+  , distance :: Number
   , issuedAt :: JMilliseconds
   }
 
@@ -611,6 +614,7 @@ derive instance Newtype HitLongMe _
 newtype HitLongOtherPlayer = HitLongOtherPlayer
   { uniqueId :: Int
   , hitAt :: Beats
+  , distance :: Number
   , player :: Player
   , issuedAt :: JMilliseconds
   }
@@ -620,6 +624,7 @@ derive instance Newtype HitLongOtherPlayer _
 newtype HitLongVisual = HitLongVisual
   { uniqueId :: Int
   , hitAt :: Beats
+  , distance :: Number
   , issuedAt :: JMilliseconds
   }
 
@@ -629,6 +634,7 @@ newtype HitLongVisualForLabel = HitLongVisualForLabel
   { uniqueId :: Int
   , hitAt :: Beats
   , issuedAt :: JMilliseconds
+  , distance :: Number
   , translation :: Event Vector3'
   , player :: Player
   }
@@ -637,7 +643,10 @@ derive instance Newtype HitLongVisualForLabel _
 ----------------- release long
 newtype ReleaseLongOverTheWire = ReleaseLongOverTheWire
   { uniqueId :: Int
+  , hitAt :: Beats
   , releasedAt :: Beats
+  , pctConsumed :: Number
+  , distance :: Number
   , player :: Player
   , outcome :: PointOutcome
   }
@@ -650,7 +659,10 @@ derive newtype instance JSON.WriteForeign ReleaseLongOverTheWire
 
 newtype ReleaseLongMe = ReleaseLongMe
   { uniqueId :: Int
+  , hitAt :: Beats
   , releasedAt :: Beats
+  , pctConsumed :: Number
+  , distance :: Number
   , issuedAt :: JMilliseconds
   }
 
@@ -658,7 +670,10 @@ derive instance Newtype ReleaseLongMe _
 
 newtype ReleaseLongOtherPlayer = ReleaseLongOtherPlayer
   { uniqueId :: Int
+  , hitAt :: Beats
   , releasedAt :: Beats
+  , pctConsumed :: Number
+  , distance :: Number
   , player :: Player
   , issuedAt :: JMilliseconds
   }
@@ -667,7 +682,10 @@ derive instance Newtype ReleaseLongOtherPlayer _
 
 newtype ReleaseLongVisual = ReleaseLongVisual
   { uniqueId :: Int
+  , hitAt :: Beats
   , releasedAt :: Beats
+  , pctConsumed :: Number
+  , distance :: Number
   , issuedAt :: JMilliseconds
   }
 
@@ -675,7 +693,10 @@ derive instance Newtype ReleaseLongVisual _
 
 newtype ReleaseLongVisualForLabel = ReleaseLongVisualForLabel
   { uniqueId :: Int
+  , hitAt :: Beats
   , releasedAt :: Beats
+  , distance :: Number
+  , pctConsumed :: Number
   , issuedAt :: JMilliseconds
   , translation :: Event Vector3'
   , player :: Player

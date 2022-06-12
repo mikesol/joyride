@@ -416,6 +416,7 @@ toplevel tli =
                                                         { uniqueId: e.uniqueId
                                                         , hitAt: e.hitAt
                                                         , player: e.player
+                                                        , distance: e.distance
                                                         , issuedAt: coerce $ unInstant time
                                                         }
                                                       _ -> Nothing
@@ -425,7 +426,10 @@ toplevel tli =
                                                       ReleaseLong (ReleaseLongOverTheWire e) -> Just $ ReleaseLongOtherPlayer
                                                         { uniqueId: e.uniqueId
                                                         , releasedAt: e.releasedAt
+                                                        , pctConsumed: e.pctConsumed
                                                         , player: e.player
+                                                        , hitAt: e.hitAt
+                                                        , distance: e.distance
                                                         , issuedAt: coerce $ unInstant time
                                                         }
                                                       _ -> Nothing

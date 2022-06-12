@@ -45,6 +45,7 @@ import Joyride.FRP.Keypress (posFromKeypress, xForKeyboard)
 import Joyride.FRP.Orientation (posFromOrientation, xForTouch)
 import Joyride.FRP.SampleOnSubscribe (sampleOnSubscribe)
 import Joyride.Ledger.Basic (basicOutcomeToPointOutcome, beatsToBasicOutcome)
+import Joyride.Ledger.Long (longToPointOutcome)
 import Joyride.LilGui (Slider(..), gui, noGui)
 import Joyride.Mocks.Basic (mockBasics)
 import Joyride.Mocks.Leap (mockLeaps)
@@ -58,7 +59,7 @@ import Rito.Texture (loadAff, loader)
 import Route (Route(..), route)
 import Routing.Duplex (parse)
 import Type.Proxy (Proxy(..))
-import Types (BufferName(..), Channel(..), Claim(..), CubeTexture, CubeTextures(..), HitBasicMe(..), HitBasicOverTheWire(..), HitLeapMe(..), HitLeapOverTheWire(..), HitLongMe, IAm(..), InFlightGameInfo(..), InFlightGameInfo', JMilliseconds(..), KnownPlayers(..), Negotiation(..), Penalty(..), Player(..), PlayerAction(..), PointOutcome, Points(..), Position, ReleaseLongMe, ReleaseLongOverTheWire(..), RenderingInfo', StartStatus(..), Textures(..), allPlayers, initialPositions, touchPointZ)
+import Types (BufferName(..), Channel(..), Claim(..), CubeTexture, CubeTextures(..), HitBasicMe(..), HitBasicOverTheWire(..), HitLeapMe(..), HitLeapOverTheWire(..), HitLongMe(..), HitLongOverTheWire(..), IAm(..), InFlightGameInfo(..), InFlightGameInfo', JMilliseconds(..), KnownPlayers(..), Negotiation(..), Penalty(..), Player(..), PlayerAction(..), PointOutcome, Points(..), Position, ReleaseLongMe(..), ReleaseLongOverTheWire(..), RenderingInfo', StartStatus(..), Textures(..), allPlayers, initialPositions, touchPointZ)
 import WAGS.Interpret (AudioBuffer(..), context, makeAudioBuffer)
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
@@ -403,7 +404,8 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
             Player4 -> writeToRecord (Proxy :: _ "p4x") xp playerPositions
           -- deal with incoming basics
           _ <- liftEffect $ subscribe pushBasic.event \(HitBasicMe bt) -> do
-            kp <- updateKnownPlayers myPlayer (basicOutcomeToPointOutcome $ beatsToBasicOutcome bt.deltaBeats) knownPlayers
+            let outcome = basicOutcomeToPointOutcome $ beatsToBasicOutcome bt.deltaBeats
+            kp <- updateKnownPlayers myPlayer outcome knownPlayers
             knownPlayersBus.push kp
             pubNub.publish
               $ HitBasic
@@ -413,7 +415,33 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
                       , deltaBeats: bt.deltaBeats
                       , hitAt: bt.hitAt
                       , player: myPlayer
-                      , outcome: basicOutcomeToPointOutcome $ beatsToBasicOutcome bt.deltaBeats
+                      , outcome
+                      }
+                  )
+          _ <- liftEffect $ subscribe pushHitLong.event \(HitLongMe bt) -> do
+            pubNub.publish
+              $ HitLong
+                  ( HitLongOverTheWire
+                      { uniqueId: bt.uniqueId
+                      , hitAt: bt.hitAt
+                      , distance: bt.distance
+                      , player: myPlayer
+                      }
+                  )
+          _ <- liftEffect $ subscribe pushReleaseLong.event \(ReleaseLongMe rl) -> do
+            let outcome = longToPointOutcome rl.distance rl.pctConsumed
+            kp <- updateKnownPlayers myPlayer outcome knownPlayers
+            knownPlayersBus.push kp
+            pubNub.publish
+              $ ReleaseLong
+                  ( ReleaseLongOverTheWire
+                      { uniqueId: rl.uniqueId
+                      , hitAt: rl.hitAt
+                      , player: myPlayer
+                      , distance: rl.distance
+                      , pctConsumed: rl.pctConsumed
+                      , releasedAt: rl.releasedAt
+                      , outcome
                       }
                   )
           -- deal with incoming leaps

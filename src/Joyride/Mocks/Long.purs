@@ -104,11 +104,11 @@ mockLongs makeLongs@{ textures: Textures textures } = toScene
     let
       { init, rest } = span (\{ appearsAt } -> appearsAt <= beats + lookAhead) l
     (transform <$> init) :< go rest
-  score = mapWithIndex (\uniqueId x -> union { uniqueId } x) $ { column: C4, appearsAt: Beats 0.0 }
-    : { column: C10, appearsAt: Beats 3.0 }
-    : { column: C10, appearsAt: Beats 8.0 }
-    : { column: C10, appearsAt: Beats 12.0 }
-    : { column: C2, appearsAt: Beats 14.0 }
-    : { column: C2, appearsAt: Beats 21.0 }
-    : { column: C2, appearsAt: Beats 26.0 }
+  score = mapWithIndex (\uniqueId x -> union { uniqueId } x) $ { column: C4, appearsAt: Beats 0.0, length: 1.25 }
+    : { column: C10, appearsAt: Beats 3.0, length: 1.0 }
+    : { column: C10, appearsAt: Beats 8.0, length: 1.25 }
+    : { column: C10, appearsAt: Beats 12.0, length: 1.0 }
+    : { column: C2, appearsAt: Beats 14.0, length: 1.0 }
+    : { column: C2, appearsAt: Beats 21.0, length: 1.5 }
+    : { column: C2, appearsAt: Beats 26.0, length: 1.25 }
     : Nil
