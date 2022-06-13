@@ -40,7 +40,9 @@ import Joyride.App.Clipboard (writeTextAff)
 import Joyride.App.Explainer (explainerPage)
 import Joyride.App.GameHasStarted (gameHasStarted)
 import Joyride.App.Loading (loadingPage)
+import Joyride.App.OrientationPermission (orientationPermissionPage)
 import Joyride.App.RoomIsFull (roomIsFull)
+import Joyride.App.SorryNeedPermission (sorryNeedPermissionPage)
 import Joyride.Audio.Graph (graph)
 import Joyride.FRP.Behavior (refToBehavior)
 import Joyride.FRP.Dedup (dedup)
@@ -94,6 +96,7 @@ type ToplevelInfo =
   , longE :: forall lock payload. { | MakeLongs () } -> ASceneful lock payload
   , renderingInfo :: Behavior RenderingInfo
   , initialDims :: WindowDims
+  , givePermission :: Boolean -> Effect Unit
   , pushBasic :: EventIO HitBasicMe
   , pushLeap :: EventIO HitLeapMe
   , pushHitLong :: EventIO HitLongMe
@@ -107,7 +110,9 @@ type ToplevelInfo =
   }
 
 data TopLevelDisplay
-  = TLExplainer
+  = TLNeedsOrientation
+  | TLWillNotWorkWithoutOrientation
+  | TLExplainer
       { cubeTextures :: CubeTextures CTL.CubeTexture
       , threeStuff :: ThreeStuff
       }
@@ -137,6 +142,8 @@ toplevel tli =
   ( dedup
       ( map
           ( \{ loaded, negotiation } -> case loaded, negotiation of
+              _, NeedsOrientation -> TLNeedsOrientation
+              _, WillNotWorkWithoutOrientation -> TLWillNotWorkWithoutOrientation
               _, GetRulesOfGame s -> TLExplainer s
               false, _ -> TLLoading
               -- should never reach
@@ -157,6 +164,8 @@ toplevel tli =
           )
       )
   ) # switcher case _ of
+    TLNeedsOrientation -> orientationPermissionPage { givePermission: tli.givePermission }
+    TLWillNotWorkWithoutOrientation -> sorryNeedPermissionPage
     TLExplainer { cubeTextures, threeStuff } -> explainerPage
       { click: do
           id <- randId' 6

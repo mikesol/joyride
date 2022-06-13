@@ -5,11 +5,11 @@ import Prelude
 import Control.Alt (alt, (<|>))
 import Control.Parallel (parTraverse)
 import Data.Array (difference, fold)
-import Joyride.Random (randId)
 import Data.Array as Array
 import Data.Array.NonEmpty (toArray)
 import Data.DateTime.Instant (unInstant)
 import Data.Either (Either(..), hush)
+import Data.Filterable (filter)
 import Data.Homogeneous.Record (fromHomogeneous, homogeneous)
 import Data.Int as Int
 import Data.List (List(..), drop, foldl, take, (:))
@@ -18,7 +18,7 @@ import Data.Maybe (Maybe(..), isJust)
 import Data.Newtype (unwrap)
 import Data.Number (pi, pow, sqrt)
 import Data.Profunctor (lcmap)
-import Data.Traversable (for_)
+import Data.Traversable (for_, oneOf)
 import Data.Tuple (Tuple, fst, snd)
 import Data.Tuple.Nested (type (/\), (/\))
 import Data.Unfoldable (replicate)
@@ -31,7 +31,7 @@ import Effect.Random as Random
 import Effect.Ref (new)
 import Effect.Ref as Ref
 import FRP.Behavior (sample_)
-import FRP.Event (Event, filterMap, folded, subscribe)
+import FRP.Event (Event, bang, filterMap, folded, subscribe)
 import FRP.Event as Event
 import FRP.Event.AnimationFrame (animationFrame)
 import FRP.Event.VBus (V)
@@ -42,7 +42,7 @@ import Joyride.Effect.Ref (readFromRecord, writeToRecord)
 import Joyride.FRP.Aff (collectEventToAff)
 import Joyride.FRP.Behavior (refToBehavior)
 import Joyride.FRP.Keypress (posFromKeypress, xForKeyboard)
-import Joyride.FRP.Orientation (posFromOrientation, xForTouch)
+import Joyride.FRP.Orientation (hasOrientationPermission, posFromOrientation, xForTouch)
 import Joyride.FRP.SampleOnSubscribe (sampleOnSubscribe)
 import Joyride.Ledger.Basic (basicOutcomeToPointOutcome, beatsToBasicOutcome)
 import Joyride.Ledger.Long (longToPointOutcome)
@@ -51,6 +51,7 @@ import Joyride.Mocks.Basic (mockBasics)
 import Joyride.Mocks.Leap (mockLeaps)
 import Joyride.Mocks.Long (mockLongs)
 import Joyride.Network.Download (dlInChunks)
+import Joyride.Random (randId)
 import Joyride.Transport.PubNub as PN
 import Record (union)
 import Rito.CubeTexture as CubeTextureLoader
@@ -109,10 +110,13 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
   ----- gui
   { debug, renderingInfo } <- liftEffect useLilGui >>= (if _ then gui else noGui) >>> (_ $ renderingInfo')
   liftEffect do
+    -- permissions
+    hop <- hasOrientationPermission
     -- events
     resizeE <- Event.create
     loaded <- Event.create
     negotiation <- Event.create
+    orientationPerm <- Event.create
     pushBasic :: Event.EventIO HitBasicMe <- Event.create
     pushLeap :: Event.EventIO HitLeapMe <- Event.create
     pushHitLong :: Event.EventIO HitLongMe <- Event.create
@@ -154,6 +158,7 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
           , negotiation: negotiation.event
           , isMobile
           , lpsCallback: lowPriorityCb
+          , givePermission: orientationPerm.push
           , pushBasic: pushBasic
           , pushLeap: pushLeap
           , pushHitLong: pushHitLong
@@ -173,7 +178,6 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
           , soundObj
           }
       )
-
     -- i am me
     iAm <- randId
     -- threeeeeee
@@ -183,7 +187,7 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
       cldr <- liftEffect $ CubeTextureLoader.loader three
       --       , textures: Textures downloadedTextures
       downloadedTextures <- forkAff (fromHomogeneous <$> parTraverse (loadAff ldr) (homogeneous textures))
-      myCubeTextures <- (fromHomogeneous <$> parTraverse ( (CubeTextureLoader.loadAffRecord cldr)) (map unwrap $ homogeneous cubeTextures))
+      myCubeTextures <- (fromHomogeneous <$> parTraverse ((CubeTextureLoader.loadAffRecord cldr)) (map unwrap $ homogeneous cubeTextures))
       orbitControls <- orbitControlsAff
       cssThings <- css2DRendererAff
       let threeStuff = union { three, orbitControls } cssThings
@@ -224,6 +228,7 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
                 let movedPlayer = if wholeRec.p1p == pnp.newPosition then Just Player1 else if wholeRec.p2p == pnp.newPosition then Just Player2 else if wholeRec.p3p == pnp.newPosition then Just Player3 else if wholeRec.p4p == pnp.newPosition then Just Player4 else Nothing
                 magicLeap pnp
                 for_ movedPlayer \player -> magicLeap { player, newPosition: oldPosition }
+
               magicLeap :: forall r. { player :: Player, newPosition :: Position | r } -> Effect Unit
               magicLeap hl = do
                 leapUnsubscribes <- Ref.read leapUnsubscribesRef
@@ -373,33 +378,33 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
               Nothing
                 | f4 -> actOnProposedPlayer Player4
                 | otherwise -> do
-                  collecting <- forkAff
-                    $ collectEventToAff (Milliseconds 750.0) knownPlayersBus.event
-                  liftEffect $ negotiation.push RequestingPlayer
-                  liftEffect $ pubNub.publish RequestPlayer
-                  collected <- joinFiber collecting
-                  liftEffect $ negotiation.push ReceivedPossibilities
-                  -- we don't need `First` after the semigroup has done its thing
-                  let (mergedMap :: Array (Tuple Player StartStatus)) = Map.toUnfoldable (unwrap (fold collected))
-                  let awaitingStart = Array.null mergedMap || isJust (Array.find (_ == HasNotStartedYet) (map snd mergedMap))
-                  case awaitingStart of
-                    false -> do
-                      liftEffect $ negotiation.push GameHasStarted
-                      never
-                    true -> do
-                      candidate <- liftEffect $ randElt $ difference (toArray allPlayers) (map fst mergedMap)
-                      case candidate of
-                        Nothing -> do
-                          liftEffect $ negotiation.push RoomIsFull
-                          never
-                        Just perhapsPlayer -> actOnProposedPlayer perhapsPlayer
+                    collecting <- forkAff
+                      $ collectEventToAff (Milliseconds 750.0) knownPlayersBus.event
+                    liftEffect $ negotiation.push RequestingPlayer
+                    liftEffect $ pubNub.publish RequestPlayer
+                    collected <- joinFiber collecting
+                    liftEffect $ negotiation.push ReceivedPossibilities
+                    -- we don't need `First` after the semigroup has done its thing
+                    let (mergedMap :: Array (Tuple Player StartStatus)) = Map.toUnfoldable (unwrap (fold collected))
+                    let awaitingStart = Array.null mergedMap || isJust (Array.find (_ == HasNotStartedYet) (map snd mergedMap))
+                    case awaitingStart of
+                      false -> do
+                        liftEffect $ negotiation.push GameHasStarted
+                        never
+                      true -> do
+                        candidate <- liftEffect $ randElt $ difference (toArray allPlayers) (map fst mergedMap)
+                        case candidate of
+                          Nothing -> do
+                            liftEffect $ negotiation.push RoomIsFull
+                            never
+                          Just perhapsPlayer -> actOnProposedPlayer perhapsPlayer
             liftEffect $ Ref.modify_ (KnownPlayers (Map.singleton myPlayer HasNotStartedYet) <> _) knownPlayers
             -- we echo known players to acknowledge that we claim this
             -- there is a race condition here if all players grant the same claim to
             -- two devices for the same player
             -- blockchain would help here...
             liftEffect $ (Ref.read knownPlayers >>= \players -> pubNub.publish $ EchoKnownPlayers { players })
-            xPosE <- if isMobile then xForTouch w myPlayer pubNub.publish else liftEffect $ xForKeyboard w myPlayer pubNub.publish
+            xPosE <- liftEffect $ if isMobile then xForTouch w myPlayer pubNub.publish else xForKeyboard w myPlayer pubNub.publish
             -- ignore subscription
             _ <- liftEffect $ subscribe xPosE \xp -> case myPlayer of
               Player1 -> writeToRecord (Proxy :: _ "p1x") xp playerPositions
@@ -450,7 +455,7 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
                     )
             -- deal with incoming leaps
             _ <- liftEffect $ subscribe pushLeap.event \(HitLeapMe bt) -> do
-              magicLeaps {player: myPlayer, newPosition: bt.newPosition}
+              magicLeaps { player: myPlayer, newPosition: bt.newPosition }
               pubNub.publish
                 $ HitLeap
                     ( HitLeapOverTheWire
@@ -498,7 +503,14 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
                   -- let me know I've opted in
                   knownPlayersBus.push players
               }
-      liftEffect $ channelEvent.push myChannel'
+      -- if we need permissions, ask for them first
+      _ <- liftEffect $
+        when hop (negotiation.push NeedsOrientation)
+      _ <- liftEffect $
+        subscribe (filter identity $ oneOf [ bang (not hop), orientationPerm.event ]) \_ -> channelEvent.push myChannel'
+      _ <- liftEffect $
+        subscribe (filter identity $ map not $ orientationPerm.event) \_ -> negotiation.push WillNotWorkWithoutOrientation
+      pure unit
 
 defaultInFlightGameInfo :: InFlightGameInfo'
 defaultInFlightGameInfo =

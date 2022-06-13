@@ -794,6 +794,8 @@ derive instance Newtype HitLeapVisualForLabel _
 --
 data Negotiation
   = PageLoad
+  | NeedsOrientation
+  | WillNotWorkWithoutOrientation
   | GetRulesOfGame
       { cubeTextures :: CubeTextures CTL.CubeTexture
       , threeStuff :: ThreeStuff
