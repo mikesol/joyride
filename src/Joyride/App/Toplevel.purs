@@ -206,7 +206,7 @@ toplevel tli =
                     )
               -- stopButton :: Effect Unit -> Nut
               stopButton off = D.div
-                (bang $ D.Class := "bg-slate-50")
+                (bang $ D.Class := "bg-slate-50 select-none")
                 [ D.button
                     ( oneOf
                         [ bang $ D.Class := "pointer-events-auto p-1"
