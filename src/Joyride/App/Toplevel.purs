@@ -200,11 +200,10 @@ toplevel tli =
                     )
                     [ text_ "Stop" ]
                 ]
-              startButton = D.div
-                (bang $ D.Class := "bg-slate-50")
+              startButton = D.div_
                 [ D.button
                     ( oneOf
-                        [ bang $ D.Class := "pointer-events-auto p-4"
+                        [ bang $ D.Class := "pointer-events-auto text-center bg-gray-600 hover:bg-gray-400 text-white py-2 px-4 rounded"
                         , bang $ D.OnClick := do
                             ctx <- context
                             hk <- constant0Hack ctx

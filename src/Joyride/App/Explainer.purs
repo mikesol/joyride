@@ -126,27 +126,21 @@ explainerPage
      }
   -> Nut
 explainerPage opts = vbussed (Proxy :: _ (V (unsubscriber :: Effect Unit))) \push event -> D.div (oneOf [ bang (D.Class := "absolute") ])
-  [ D.div (oneOf [ bang (D.Class := "z-10 absolute flex flex-col h-screen w-screen") ])
-      [ filler
-      , D.div (bang $ D.Class := "grow-0 flew-row flex")
-          [ filler
-          , D.div (bang $ D.Class := "grow-0")
-              [ D.h1 (bang $ D.Class := "text-2xl text-slate-200") [ text_ "Joyride" ]
-              , D.button
-                  ( oneOf
-                      [ bang $ D.Class := "bg-gray-600 hover:bg-blue-700 text-white py-2 px-4 rounded"
-                      , DL.click
-                          ( (oneOf [ bang (pure unit), event.unsubscriber ]) <#> \u -> do
-                              opts.click
-                              u
-                          )
-                      ]
-                  )
-                  [ text_ "Take a ride" ]
-              ]
-          , filler
+  [ D.div (oneOf [ bang (D.Class := "z-10 absolute grid grid-cols-3 grid-rows-3  place-items-center h-screen w-screen") ])
+      [ D.div (bang $ D.Class := "col-start-2 col-end-3 row-start-2 row-end-3")
+          [ D.h1 (bang $ D.Class := "text-center text-2xl text-slate-200") [ text_ "Joyride" ]
+          , D.button
+              ( oneOf
+                  [ bang $ D.Class := "text-center bg-gray-600 hover:bg-gray-400 text-white py-2 px-4 rounded"
+                  , DL.click
+                      ( (oneOf [ bang (pure unit), event.unsubscriber ]) <#> \u -> do
+                          opts.click
+                          u
+                      )
+                  ]
+              )
+              [ text_ "Take a ride" ]
           ]
-      , filler
       ]
   , filler
   , D.canvas
