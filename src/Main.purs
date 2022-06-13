@@ -26,7 +26,6 @@ import Deku.Toplevel (runInBody)
 import Effect (Effect)
 import Effect.Aff (Milliseconds(..), forkAff, joinFiber, launchAff_, never)
 import Effect.Class (liftEffect)
-import Effect.Class.Console as Log
 import Effect.Now (now)
 import Effect.Random as Random
 import Effect.Ref (new)
@@ -369,7 +368,6 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
                     liftEffect $ negotiation.push ClaimFail
                     never
             f4 <- liftEffect force4
-            Log.info $ "force4: " <> show f4
             myPlayer <- case hush parsed >>= playerFromRoute of
               Just playerAsk -> actOnProposedPlayer playerAsk
               Nothing
@@ -401,7 +399,7 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
             -- two devices for the same player
             -- blockchain would help here...
             liftEffect $ (Ref.read knownPlayers >>= \players -> pubNub.publish $ EchoKnownPlayers { players })
-            xPosE <- liftEffect $ (if isMobile then xForTouch else xForKeyboard) w myPlayer pubNub.publish
+            xPosE <- if isMobile then xForTouch w myPlayer pubNub.publish else liftEffect $ xForKeyboard w myPlayer pubNub.publish
             -- ignore subscription
             _ <- liftEffect $ subscribe xPosE \xp -> case myPlayer of
               Player1 -> writeToRecord (Proxy :: _ "p1x") xp playerPositions
@@ -438,7 +436,6 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
               let outcome = longToPointOutcome rl.distance rl.pctConsumed
               kp <- updateKnownPlayers myPlayer outcome knownPlayers
               knownPlayersBus.push kp
-              Log.info $ "registering point outcome" <> show outcome
               pubNub.publish
                 $ ReleaseLong
                     ( ReleaseLongOverTheWire
