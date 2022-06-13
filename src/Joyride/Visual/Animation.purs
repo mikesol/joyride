@@ -181,7 +181,7 @@ runThree opts@{ threeStuff: { three } } = do
                               empty
                             )
                             ( oneOf
-                                [ positionX <$> posAx AxisX
+                                [ positionX <$> applyLPF (player == opts.myPlayer) (posAx AxisX)
                                 , positionY <$> (sampleBy (\{ sphereOffsetY } py -> sphereOffsetY + py) opts.renderingInfo (posAx AxisY))
                                 , positionZ <$> posAx AxisZ
                                 , bang (scaleX 0.1)
@@ -217,7 +217,7 @@ runThree opts@{ threeStuff: { three } } = do
                                 , color: c3 $ RGB 1.0 1.0 1.0
                                 }
                                 ( oneOf
-                                    [ positionX <$> posAx AxisX
+                                    [ positionX <$> applyLPF (player == opts.myPlayer) (posAx AxisX)
                                     , positionY <$> (sampleBy (\{ sphereOffsetY } py -> (sphereOffsetY / 2.0) + py) opts.renderingInfo (posAx AxisY))
                                     , positionZ <$> posAx AxisZ
                                     , keepLatest $ (dedup (playerPosition' player <$> mopts.playerPositions)) <#> case _ of
@@ -308,3 +308,10 @@ runThree opts@{ threeStuff: { three } } = do
                 ]
     )
   pure unit
+  where
+  applyLPF :: Boolean -> Event Number -> Event Number
+  applyLPF false = identity
+  applyLPF true = flip (mapAccum (\a b -> Just a /\ case b of
+    Nothing -> a
+    Just x -> (x * lowpassFactor) + (a * (1.0 - lowpassFactor)))) Nothing
+  lowpassFactor = 0.2
