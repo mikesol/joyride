@@ -227,7 +227,7 @@ let additions =
           , "web-uievents"
           ]
         , repo = "https://github.com/mikesol/purescript-rito.git"
-        , version = "listeners"
+        , version = "main"
         }
       , homogeneous =
         { dependencies =

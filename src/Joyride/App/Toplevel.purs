@@ -9,6 +9,7 @@ import Data.Compactable (compact)
 import Data.DateTime.Instant (unInstant)
 import Data.Either (hush)
 import Data.Foldable (foldl, oneOf, oneOfMap, traverse_)
+import Data.Int (round)
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import Data.Newtype (over, unwrap)
@@ -507,7 +508,7 @@ toplevel tli =
 
   makePoints :: KnownPlayers -> Nut
   makePoints (KnownPlayers m) = D.ul_
-    ( map (\(Tuple p (InFlightGameInfo x)) -> D.li_ [ D.span (bang $ D.Class := "text-white") [ text_ $ p2s p <> ": " <> JSON.writeJSON (unwrap x.points + (-1.0) * unwrap x.penalties) <> " Points" ] ])
+    ( map (\(Tuple p (InFlightGameInfo x)) -> D.li_ [ D.span (bang $ D.Class := "text-white") [ text_ $ p2s p <> ": " <> JSON.writeJSON (round (unwrap x.points + (-1.0) * unwrap x.penalties)) <> " Points" ] ])
         $ filterMap
             ( \(Tuple p k) -> case k of
                 HasNotStartedYet -> Nothing

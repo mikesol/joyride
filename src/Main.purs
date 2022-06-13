@@ -25,6 +25,7 @@ import Deku.Toplevel (runInBody)
 import Effect (Effect)
 import Effect.Aff (Milliseconds(..), forkAff, joinFiber, launchAff_, never)
 import Effect.Class (liftEffect)
+import Effect.Class.Console as Log
 import Effect.Now (now)
 import Effect.Random (randomInt)
 import Effect.Random as Random
@@ -74,6 +75,7 @@ type CanvasInfo = { x :: Number, y :: Number } /\ Number
 
 foreign import emitsTouchEvents :: Effect Boolean
 foreign import useLilGui :: Effect Boolean
+foreign import force4 :: Effect Boolean
 
 renderingInfo' :: RenderingInfo' Slider
 renderingInfo' =
@@ -366,29 +368,33 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
                 Left _ -> do
                   liftEffect $ negotiation.push ClaimFail
                   never
+          f4 <- liftEffect force4
+          Log.info $ "force4: " <> show f4
           myPlayer <- case hush parsed >>= playerFromRoute of
             Just playerAsk -> actOnProposedPlayer playerAsk
-            Nothing -> do
-              collecting <- forkAff
-                $ collectEventToAff (Milliseconds 750.0) knownPlayersBus.event
-              liftEffect $ negotiation.push RequestingPlayer
-              liftEffect $ pubNub.publish RequestPlayer
-              collected <- joinFiber collecting
-              liftEffect $ negotiation.push ReceivedPossibilities
-              -- we don't need `First` after the semigroup has done its thing
-              let (mergedMap :: Array (Tuple Player StartStatus)) = Map.toUnfoldable (unwrap (fold collected))
-              let awaitingStart = Array.null mergedMap || isJust (Array.find (_ == HasNotStartedYet) (map snd mergedMap))
-              case awaitingStart of
-                false -> do
-                  liftEffect $ negotiation.push GameHasStarted
-                  never
-                true -> do
-                  candidate <- liftEffect $ randElt $ difference (toArray allPlayers) (map fst mergedMap)
-                  case candidate of
-                    Nothing -> do
-                      liftEffect $ negotiation.push RoomIsFull
-                      never
-                    Just perhapsPlayer -> actOnProposedPlayer perhapsPlayer
+            Nothing
+              | f4 -> actOnProposedPlayer Player4
+              | otherwise -> do
+                collecting <- forkAff
+                  $ collectEventToAff (Milliseconds 750.0) knownPlayersBus.event
+                liftEffect $ negotiation.push RequestingPlayer
+                liftEffect $ pubNub.publish RequestPlayer
+                collected <- joinFiber collecting
+                liftEffect $ negotiation.push ReceivedPossibilities
+                -- we don't need `First` after the semigroup has done its thing
+                let (mergedMap :: Array (Tuple Player StartStatus)) = Map.toUnfoldable (unwrap (fold collected))
+                let awaitingStart = Array.null mergedMap || isJust (Array.find (_ == HasNotStartedYet) (map snd mergedMap))
+                case awaitingStart of
+                  false -> do
+                    liftEffect $ negotiation.push GameHasStarted
+                    never
+                  true -> do
+                    candidate <- liftEffect $ randElt $ difference (toArray allPlayers) (map fst mergedMap)
+                    case candidate of
+                      Nothing -> do
+                        liftEffect $ negotiation.push RoomIsFull
+                        never
+                      Just perhapsPlayer -> actOnProposedPlayer perhapsPlayer
           liftEffect $ Ref.modify_ (KnownPlayers (Map.singleton myPlayer HasNotStartedYet) <> _) knownPlayers
           -- we echo known players to acknowledge that we claim this
           -- there is a race condition here if all players grant the same claim to
@@ -432,6 +438,7 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
             let outcome = longToPointOutcome rl.distance rl.pctConsumed
             kp <- updateKnownPlayers myPlayer outcome knownPlayers
             knownPlayersBus.push kp
+            Log.info $ "registering point outcome" <> show outcome
             pubNub.publish
               $ ReleaseLong
                   ( ReleaseLongOverTheWire
