@@ -74,7 +74,8 @@ runThree
          -> forall lock payload
           . ASceneful lock payload
      , longE ::
-         (HitLongVisualForLabel -> Effect Unit) -> (ReleaseLongVisualForLabel -> Effect Unit)
+         (HitLongVisualForLabel -> Effect Unit)
+         -> (ReleaseLongVisualForLabel -> Effect Unit)
          -> forall lock payload
           . ASceneful lock payload
      , pushBasic :: EventIO HitBasicMe
@@ -192,17 +193,29 @@ runThree opts@{ threeStuff: { three } } = do
 
                       )
                         <>
-                          ( map toGroup
-                              ( ( makeBar <<<
-                                    { c3
-                                    , renderingInfo: opts.renderingInfo
-                                    , debug: opts.debug
-                                    , rateE: mopts.rateInfo
-                                    , position: _
-                                    }
-                                ) <$> (toArray allPositions)
-                              )
-                          )
+                          map toGroup
+                            ( ( \position -> makeBar $
+                                  { c3
+                                  , renderingInfo: opts.renderingInfo
+                                  , debug: opts.debug
+                                  , initialIsMe: opts.myPlayer == case position of
+                                      Position1 -> Player1
+                                      Position2 -> Player2
+                                      Position3 -> Player3
+                                      Position4 -> Player4
+                                  , isMe: dedup
+                                      ( opts.animatedStuff <#> \{ playerPositions } -> position == case opts.myPlayer of
+                                          Player1 -> playerPositions.p1p
+                                          Player2 -> playerPositions.p2p
+                                          Player3 -> playerPositions.p3p
+                                          Player4 -> playerPositions.p4p
+                                      )
+                                  , rateE: mopts.rateInfo
+                                  , position
+                                  }
+                              ) <$> (toArray allPositions)
+                            )
+
                         <>
                           ( (toArray allPlayers) <#> \player -> do
                               let ppos = playerPosition player
@@ -311,7 +324,12 @@ runThree opts@{ threeStuff: { three } } = do
   where
   applyLPF :: Boolean -> Event Number -> Event Number
   applyLPF false = identity
-  applyLPF true = flip (mapAccum (\a b -> Just a /\ case b of
-    Nothing -> a
-    Just x -> (x * lowpassFactor) + (a * (1.0 - lowpassFactor)))) Nothing
+  applyLPF true = flip
+    ( mapAccum
+        ( \a b -> Just a /\ case b of
+            Nothing -> a
+            Just x -> (x * lowpassFactor) + (a * (1.0 - lowpassFactor))
+        )
+    )
+    Nothing
   lowpassFactor = 0.3

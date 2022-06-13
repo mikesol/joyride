@@ -15,6 +15,7 @@ import Rito.Geometries.Box (box)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.Mesh (mesh)
 import Rito.Properties (positionX, positionY, positionZ, scaleX, scaleY, scaleZ)
+import Rito.Properties as P
 import Types (Position, RenderingInfo, RateInfo, touchPointZ)
 
 makeBar
@@ -22,15 +23,17 @@ makeBar
    . { c3 :: RGB -> Color
      , renderingInfo :: Behavior RenderingInfo
      , position :: Position
+     , initialIsMe :: Boolean
+     , isMe :: Event Boolean
      , debug :: Boolean
      , rateE :: Event RateInfo
      }
   -> ASceneful lock payload
-makeBar { c3, renderingInfo, position, debug, rateE } = toScene $ mesh (box {} empty)
+makeBar { c3, renderingInfo, initialIsMe, isMe, position, debug, rateE } = toScene $ mesh (box {} empty)
   ( meshStandardMaterial
-      { color: c3 $ RGB 1.0 1.0 1.0
+      { color: makeColor initialIsMe
       }
-      empty
+      ( isMe <#> \i -> (P.color $ makeColor i))
   )
   ( oneOf
       [ bang (positionX 0.0)
@@ -43,3 +46,4 @@ makeBar { c3, renderingInfo, position, debug, rateE } = toScene $ mesh (box {} e
   )
   where
   initializeWith f x = bang (f 0.0) <|> fireAndForget (rateE $> f x)
+  makeColor tf = c3 $ if tf then RGB 0.3 0.9 0.2 else RGB 1.0 1.0 1.0
