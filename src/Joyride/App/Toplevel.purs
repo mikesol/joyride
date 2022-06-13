@@ -9,6 +9,7 @@ import Data.Compactable (compact)
 import Data.DateTime.Instant (unInstant)
 import Data.Either (hush)
 import Data.Foldable (foldl, oneOf, oneOfMap, traverse_)
+import Data.Int (round)
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import Data.Newtype (over, unwrap)
@@ -50,7 +51,7 @@ import Rito.Matrix4 as M4
 import Safe.Coerce (coerce)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
-import Types (Beats(..), HitBasicMe, HitBasicOtherPlayer(..), HitBasicOverTheWire(..), HitLeapMe, HitLeapOtherPlayer(..), HitLeapOverTheWire(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, Negotiation(..), Player(..), PlayerAction(..), PlayerPositionsF, RateInfo, RenderingInfo, Seconds(..), StartStatus(..), Success', WindowDims)
+import Types (Beats(..), HitBasicMe, HitBasicOtherPlayer(..), HitBasicOverTheWire(..), HitLeapMe, HitLeapOtherPlayer(..), HitLeapOverTheWire(..), HitLongMe, HitLongOtherPlayer(..), HitLongOverTheWire(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, MakeLongs, Negotiation(..), Player(..), PlayerAction(..), PlayerPositionsF, RateInfo, ReleaseLongMe, ReleaseLongOtherPlayer(..), ReleaseLongOverTheWire(..), RenderingInfo, Seconds(..), StartStatus(..), Success', WindowDims)
 import WAGS.Clock (withACTime)
 import WAGS.Interpret (close, constant0Hack, context)
 import WAGS.Run (run2)
@@ -80,10 +81,13 @@ type ToplevelInfo =
   , resizeE :: Event WindowDims
   , basicE :: forall lock payload. { | MakeBasics () } -> ASceneful lock payload
   , leapE :: forall lock payload. { | MakeLeaps () } -> ASceneful lock payload
+  , longE :: forall lock payload. { | MakeLongs () } -> ASceneful lock payload
   , renderingInfo :: Behavior RenderingInfo
   , initialDims :: WindowDims
   , pushBasic :: EventIO HitBasicMe
   , pushLeap :: EventIO HitLeapMe
+  , pushHitLong :: EventIO HitLongMe
+  , pushReleaseLong :: EventIO ReleaseLongMe
   , debug :: Boolean
   , silence :: BrowserAudioBuffer
   , icid :: Ref.Ref (Maybe RequestIdleCallbackId)
@@ -400,6 +404,52 @@ toplevel tli =
                                           , pushLeap: tli.pushLeap
                                           , pushLeapVisualForLabel
                                           }
+                                      , longE: \pushHitLongVisualForLabel pushReleaseLongVisualForLabel -> tli.longE
+                                          { initialDims: tli.initialDims
+                                          , renderingInfo: tli.renderingInfo
+                                          , textures
+                                          , myPlayer
+                                          , debug: tli.debug
+                                          , notifications:
+                                              { hitLong: withTime pubNubEvent # filterMap
+                                                  ( \{ value, time } -> case value of
+                                                      HitLong (HitLongOverTheWire e) -> Just $ HitLongOtherPlayer
+                                                        { uniqueId: e.uniqueId
+                                                        , hitAt: e.hitAt
+                                                        , player: e.player
+                                                        , distance: e.distance
+                                                        , issuedAt: coerce $ unInstant time
+                                                        }
+                                                      _ -> Nothing
+                                                  )
+                                              , releaseLong: withTime pubNubEvent # filterMap
+                                                  ( \{ value, time } -> case value of
+                                                      ReleaseLong (ReleaseLongOverTheWire e) -> Just $ ReleaseLongOtherPlayer
+                                                        { uniqueId: e.uniqueId
+                                                        , releasedAt: e.releasedAt
+                                                        , pctConsumed: e.pctConsumed
+                                                        , player: e.player
+                                                        , hitAt: e.hitAt
+                                                        , distance: e.distance
+                                                        , issuedAt: coerce $ unInstant time
+                                                        }
+                                                      _ -> Nothing
+                                                  )
+                                              }
+                                          , resizeEvent: tli.resizeE
+                                          , isMobile: tli.isMobile
+                                          , lpsCallback: tli.lpsCallback
+                                          , pushAudio: push.leapAudio
+                                          , mkColor: color threeStuff.three
+                                          , mkMatrix4: M4.set threeStuff.three
+                                          , buffers: refToBehavior tli.soundObj
+                                          , silence: tli.silence
+                                          , animatedStuff
+                                          , pushHitLong: tli.pushHitLong
+                                          , pushReleaseLong: tli.pushReleaseLong
+                                          , pushHitLongVisualForLabel
+                                          , pushReleaseLongVisualForLabel
+                                          }
                                       , animatedStuff
                                       , resizeE: tli.resizeE
                                       , initialDims: tli.initialDims
@@ -458,7 +508,7 @@ toplevel tli =
 
   makePoints :: KnownPlayers -> Nut
   makePoints (KnownPlayers m) = D.ul_
-    ( map (\(Tuple p (InFlightGameInfo x)) -> D.li_ [ D.span (bang $ D.Class := "text-white") [ text_ $ p2s p <> ": " <> JSON.writeJSON (unwrap x.points + (-1.0) * unwrap x.penalties) <> " Points" ] ])
+    ( map (\(Tuple p (InFlightGameInfo x)) -> D.li_ [ D.span (bang $ D.Class := "text-white") [ text_ $ p2s p <> ": " <> JSON.writeJSON (round (unwrap x.points + (-1.0) * unwrap x.penalties)) <> " Points" ] ])
         $ filterMap
             ( \(Tuple p k) -> case k of
                 HasNotStartedYet -> Nothing

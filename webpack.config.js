@@ -14,6 +14,7 @@ module.exports = {
 		}),
 		new webpack.EnvironmentPlugin({
 			LIL_GUI: "true",
+			FORCE_4: "false",
 		}),
 	],
 	module: {

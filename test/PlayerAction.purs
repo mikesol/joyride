@@ -10,7 +10,7 @@ import Data.Tuple (Tuple(..))
 import Simple.JSON as JSON
 import Test.QuickCheck (class Arbitrary, arbitrary)
 import Test.QuickCheck.Gen (Gen, arrayOf, elements, oneOf)
-import Types (Beats(..), Claim(..), HitBasicOverTheWire(..), HitLeapOverTheWire(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), Penalty(..), Player, PlayerAction(..), PointOutcome(..), Points(..), Position, StartStatus(..), XDirection(..), allPlayers, allPositions)
+import Types (Beats(..), Claim(..), HitBasicOverTheWire(..), HitLeapOverTheWire(..), HitLongOverTheWire(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), Penalty(..), Player, PlayerAction(..), PointOutcome(..), Points(..), Position, ReleaseLongOverTheWire(..), StartStatus(..), XDirection(..), allPlayers, allPositions)
 
 newtype TestPlayerAction = TestPlayerAction PlayerAction
 derive newtype instance Eq TestPlayerAction
@@ -118,6 +118,34 @@ instance Arbitrary TestPlayerAction where
                           <*> anyPosition
                           <*> anyBeat
                           <*> anyPlayer
+                      )
+                )
+            -- tap leap
+            , HitLong <$>
+                ( HitLongOverTheWire
+                    <$>
+                      ( { uniqueId: _
+                        , hitAt: _
+                        , player: _
+                        }
+                          <$> arbitrary
+                          <*> anyBeat
+                          <*> anyPlayer
+                      )
+                )
+            -- tap leap
+            , ReleaseLong <$>
+                ( ReleaseLongOverTheWire
+                    <$>
+                      ( { uniqueId: _
+                        , releasedAt: _
+                        , player: _
+                        , outcome: _
+                        }
+                          <$> arbitrary
+                          <*> anyBeat
+                          <*> anyPlayer
+                          <*> anyPointOutcome
                       )
                 )
             -- ask to join

@@ -10,7 +10,7 @@ import Data.Filterable (filter)
 import Data.Foldable (oneOf, oneOfMap)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
-import Data.Profunctor (lcmap)
+import Data.Profunctor (dimap)
 import Data.Time.Duration (Milliseconds(..))
 import Effect.Aff (launchAff_)
 import Effect.Aff.AVar as AVar
@@ -25,6 +25,7 @@ import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Rider (rider, toRide)
 import Joyride.FRP.SampleJIT (sampleJIT)
 import Joyride.FRP.Schedule (fireAndForget)
+import Joyride.Visual.EmptyMatrix (emptyMatrix)
 import Joyride.Wags (AudibleChildEnd(..), AudibleEnd(..))
 import Rito.Core (Instance)
 import Rito.Matrix4 (Matrix4')
@@ -32,7 +33,7 @@ import Rito.Properties as P
 import Rito.RoundRobin (InstanceId, singleInstance)
 import Safe.Coerce (coerce)
 import Type.Proxy (Proxy(..))
-import Types (HitBasicMe(..), HitBasicOtherPlayer(..), HitBasicVisualForLabel(..), JMilliseconds(..), MakeBasic, Position(..), entryZ, normalizedColumn, playerPosition', touchPointZ)
+import Types (Beats, HitBasicMe(..), HitBasicOtherPlayer(..), HitBasicVisualForLabel(..), JMilliseconds(..), MakeBasic, Position(..), RateInfo, RenderingInfo, entryZ, normalizedColumn, playerPosition', touchPointZ)
 import WAGS.Core (silence, sound)
 import WAGS.Math (calcSlope)
 import Web.TouchEvent.Touch as Touch
@@ -47,9 +48,17 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
     -- this is the event that we listen to to know when to stop playing audio
     -- we stop _eitehr_ when we get an internal played _or_ when one is reported
     -- over the wire
-    played = map (unwrap >>> _.logicalBeat) iWasPlayed
-      <|> map (unwrap >>> _.logicalBeat) (filter (\(HitBasicOtherPlayer { uniqueId }) -> makeBasic.uniqueId == uniqueId) otherPlayedMe)
-    rateInfoOffAtTouch = compact
+    played :: Event Beats
+    played = oneOf
+      [ -- either I was played
+        map (unwrap >>> _.logicalBeat) iWasPlayed
+      -- or another player was played
+      , map (unwrap >>> _.logicalBeat) (filter (\(HitBasicOtherPlayer { uniqueId }) -> makeBasic.uniqueId == uniqueId) otherPlayedMe)
+      ]
+
+    -- when a tile-touch happens, we start emitting rate info to the audio engine
+    rateInfoAtTouchForAudio :: Event RateInfo
+    rateInfoAtTouchForAudio = compact
       ( sampleOn (bang Nothing <|> (map Just played))
           ( animatedStuff.rateInfo <#> \ri p -> case p of
               -- only emit the rate info if the beat has not been touched
@@ -60,6 +69,15 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
                 | otherwise -> Nothing
           )
       )
+
+    -- all the info we need for rendering
+    forRendering
+      :: Event
+           { rateInfo :: RateInfo
+           , ratio :: { ih :: Number, iw :: Number, r :: Number }
+           , endTime :: Maybe JMilliseconds
+           , renderingInfo :: RenderingInfo
+           }
     forRendering = sampleBy (#) makeBasic.renderingInfo
       ( sampleOn (bang Nothing <|> fireAndForget (sample_ (unInstant >>> coerce >>> Just <$> instant) played))
           ( sampleOn ratioEvent
@@ -73,6 +91,9 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
               )
           )
       )
+
+    -- the matrix we'll need to draw a tile
+    drawingMatrix' :: Event Matrix4'
     drawingMatrix' = forRendering <#>
       \{ rateInfo
        , ratio
@@ -119,7 +140,7 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
                   \{ audio } -> oneOf
                     [ bang $ AudibleChildEnd
                         ( sound
-                            ((\(AudibleEnd e) -> e) (audio rateInfoOffAtTouch))
+                            ((\(AudibleEnd e) -> e) (audio rateInfoAtTouchForAudio))
                         )
                     , keepLatest $ (withTime (bang unit)) <#> \{ time } -> lowPrioritySchedule makeBasic.lpsCallback
                         (JMilliseconds 10000.0 + (coerce $ unInstant time))
@@ -137,7 +158,10 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
                     , P.matrix4 <<< makeBasic.mkMatrix4 <$> drawingMatrix
                     , let
                         f = oneOf
-                          [ -- if someone else has touched this, turn off the listener
+                          [ -- if I touched this, turn off the listener
+                            iWasPlayed $> (\_ -> pure (pure unit))
+                          ,
+                            -- if someone else has touched this, turn off the listener
                             fireAndForget $ keepLatest $ hitBasicOtherPlayer <#> \(HitBasicOtherPlayer hbop) ->
                               rider
                                 ( toRide
@@ -156,9 +180,10 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
                                     , push: makeBasic.pushBasicVisualForLabel
                                     }
                                 )
-                                (bang (\_ -> pure unit))
+                                (bang (\_ -> pure (pure unit)))
                           -- otherwise keep alive
-                          , sampleJIT makeBasic.animatedStuff $ bang \av _ -> launchAff_ do
+                          -- no need for an unsub, so just pure (pure unit)
+                          , sampleJIT makeBasic.animatedStuff $ bang \av _ -> pure (pure unit) <* launchAff_ do
                               n <- liftEffect $ now
                               { rateInfo, playerPositions } <- AVar.read av
                               let
@@ -200,21 +225,23 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
                           ]
                       in
                         if makeBasic.isMobile then P.onTouchStart <$> map
-                          ( lcmap
+                          ( dimap
                               ( \e ->
                                   { cx: Touch.clientX e
                                   , cy: Touch.clientY e
                                   }
                               )
+                              (map \i -> { end: \_ -> i, cancel: \_ -> i })
                           )
                           f
                         else P.onMouseDown <$> map
-                          ( lcmap
+                          ( dimap
                               ( \e ->
                                   { cx: MouseEvent.clientX e
                                   , cy: MouseEvent.clientY e
                                   }
                               )
+                              (map const)
                           )
                           f
                     ]
@@ -245,23 +272,3 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
     Nothing -> basicThickness
     Just (JMilliseconds startTime) -> let (JMilliseconds currentTime) = ri.epochTime in max 0.0 (basicThickness - (basicThickness * shrinkRate * (currentTime - startTime) / 1000.0))
   otherPlayedMe = filter (\(HitBasicOtherPlayer { uniqueId }) -> makeBasic.uniqueId == uniqueId) makeBasic.notifications.hitBasic
-
-emptyMatrix :: Matrix4'
-emptyMatrix =
-  { n11: 0.0
-  , n12: 0.0
-  , n13: 0.0
-  , n14: 0.0
-  , n21: 0.0
-  , n22: 0.0
-  , n23: 0.0
-  , n24: 0.0
-  , n31: 0.0
-  , n32: 0.0
-  , n33: 0.0
-  , n34: 0.0
-  , n41: 0.0
-  , n42: 0.0
-  , n43: 0.0
-  , n44: 1.0
-  }

@@ -25,6 +25,7 @@ import Deku.Toplevel (runInBody)
 import Effect (Effect)
 import Effect.Aff (Milliseconds(..), forkAff, joinFiber, launchAff_, never)
 import Effect.Class (liftEffect)
+import Effect.Class.Console as Log
 import Effect.Now (now)
 import Effect.Random (randomInt)
 import Effect.Random as Random
@@ -45,9 +46,11 @@ import Joyride.FRP.Keypress (posFromKeypress, xForKeyboard)
 import Joyride.FRP.Orientation (posFromOrientation, xForTouch)
 import Joyride.FRP.SampleOnSubscribe (sampleOnSubscribe)
 import Joyride.Ledger.Basic (basicOutcomeToPointOutcome, beatsToBasicOutcome)
+import Joyride.Ledger.Long (longToPointOutcome)
 import Joyride.LilGui (Slider(..), gui, noGui)
 import Joyride.Mocks.Basic (mockBasics)
 import Joyride.Mocks.Leap (mockLeaps)
+import Joyride.Mocks.Long (mockLongs)
 import Joyride.Network.Download (dlInChunks)
 import Joyride.Transport.PubNub as PN
 import Record (union)
@@ -57,7 +60,7 @@ import Rito.Texture (loadAff, loader)
 import Route (Route(..), route)
 import Routing.Duplex (parse)
 import Type.Proxy (Proxy(..))
-import Types (BufferName(..), Channel(..), Claim(..), CubeTexture, CubeTextures(..), HitBasicMe(..), HitBasicOverTheWire(..), HitLeapMe(..), HitLeapOverTheWire(..), IAm(..), InFlightGameInfo(..), InFlightGameInfo', JMilliseconds(..), KnownPlayers(..), Negotiation(..), Penalty(..), Player(..), PlayerAction(..), PointOutcome, Points(..), Position, RenderingInfo', StartStatus(..), Textures(..), allPlayers, initialPositions, touchPointZ)
+import Types (BufferName(..), Channel(..), Claim(..), CubeTexture, CubeTextures(..), HitBasicMe(..), HitBasicOverTheWire(..), HitLeapMe(..), HitLeapOverTheWire(..), HitLongMe(..), HitLongOverTheWire(..), IAm(..), InFlightGameInfo(..), InFlightGameInfo', JMilliseconds(..), KnownPlayers(..), Negotiation(..), Penalty(..), Player(..), PlayerAction(..), PointOutcome, Points(..), Position, ReleaseLongMe(..), ReleaseLongOverTheWire(..), RenderingInfo', StartStatus(..), Textures(..), allPlayers, initialPositions, touchPointZ)
 import WAGS.Interpret (AudioBuffer(..), context, makeAudioBuffer)
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
@@ -72,6 +75,7 @@ type CanvasInfo = { x :: Number, y :: Number } /\ Number
 
 foreign import emitsTouchEvents :: Effect Boolean
 foreign import useLilGui :: Effect Boolean
+foreign import force4 :: Effect Boolean
 
 renderingInfo' :: RenderingInfo' Slider
 renderingInfo' =
@@ -115,6 +119,8 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
     negotiation <- Event.create
     pushBasic :: Event.EventIO HitBasicMe <- Event.create
     pushLeap :: Event.EventIO HitLeapMe <- Event.create
+    pushHitLong :: Event.EventIO HitLongMe <- Event.create
+    pushReleaseLong :: Event.EventIO ReleaseLongMe <- Event.create
     let renderingInfoBehavior = refToBehavior renderingInfo
     -- is this mobile
     isMobile <- emitsTouchEvents
@@ -152,12 +158,15 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
           , lpsCallback: lowPriorityCb
           , pushBasic: pushBasic
           , pushLeap: pushLeap
+          , pushHitLong: pushHitLong
+          , pushReleaseLong: pushReleaseLong
           , resizeE: resizeE.event
           , playerPositions: refToBehavior playerPositions
           , renderingInfo: renderingInfoBehavior
           , debug
           , basicE: mockBasics
           , leapE: mockLeaps
+          , longE: mockLongs
           , silence
           , initialDims
           , icid: idleCallbackId
@@ -309,6 +318,12 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
               HitBasic (HitBasicOverTheWire { player, outcome }) -> do
                 kp <- updateKnownPlayers player outcome knownPlayers
                 knownPlayersBus.push kp
+              -- if we hear a hit basic, we do nothing, as points are only attributed on release
+              HitLong _ -> notRelevant
+              -- if we hear a hit basic, we can update the points
+              ReleaseLong (ReleaseLongOverTheWire { player, outcome }) -> do
+                kp <- updateKnownPlayers player outcome knownPlayers
+                knownPlayersBus.push kp
               -- we update the xposition for when the behavior needs it
               XPositionKeyboard i -> pfun i.player (lcmap _.epochTime $ posFromKeypress i.ktp) playerPositions
               -- we update the xposition for when the behavior needs it
@@ -353,29 +368,33 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
                 Left _ -> do
                   liftEffect $ negotiation.push ClaimFail
                   never
+          f4 <- liftEffect force4
+          Log.info $ "force4: " <> show f4
           myPlayer <- case hush parsed >>= playerFromRoute of
             Just playerAsk -> actOnProposedPlayer playerAsk
-            Nothing -> do
-              collecting <- forkAff
-                $ collectEventToAff (Milliseconds 750.0) knownPlayersBus.event
-              liftEffect $ negotiation.push RequestingPlayer
-              liftEffect $ pubNub.publish RequestPlayer
-              collected <- joinFiber collecting
-              liftEffect $ negotiation.push ReceivedPossibilities
-              -- we don't need `First` after the semigroup has done its thing
-              let (mergedMap :: Array (Tuple Player StartStatus)) = Map.toUnfoldable (unwrap (fold collected))
-              let awaitingStart = Array.null mergedMap || isJust (Array.find (_ == HasNotStartedYet) (map snd mergedMap))
-              case awaitingStart of
-                false -> do
-                  liftEffect $ negotiation.push GameHasStarted
-                  never
-                true -> do
-                  candidate <- liftEffect $ randElt $ difference (toArray allPlayers) (map fst mergedMap)
-                  case candidate of
-                    Nothing -> do
-                      liftEffect $ negotiation.push RoomIsFull
-                      never
-                    Just perhapsPlayer -> actOnProposedPlayer perhapsPlayer
+            Nothing
+              | f4 -> actOnProposedPlayer Player4
+              | otherwise -> do
+                collecting <- forkAff
+                  $ collectEventToAff (Milliseconds 750.0) knownPlayersBus.event
+                liftEffect $ negotiation.push RequestingPlayer
+                liftEffect $ pubNub.publish RequestPlayer
+                collected <- joinFiber collecting
+                liftEffect $ negotiation.push ReceivedPossibilities
+                -- we don't need `First` after the semigroup has done its thing
+                let (mergedMap :: Array (Tuple Player StartStatus)) = Map.toUnfoldable (unwrap (fold collected))
+                let awaitingStart = Array.null mergedMap || isJust (Array.find (_ == HasNotStartedYet) (map snd mergedMap))
+                case awaitingStart of
+                  false -> do
+                    liftEffect $ negotiation.push GameHasStarted
+                    never
+                  true -> do
+                    candidate <- liftEffect $ randElt $ difference (toArray allPlayers) (map fst mergedMap)
+                    case candidate of
+                      Nothing -> do
+                        liftEffect $ negotiation.push RoomIsFull
+                        never
+                      Just perhapsPlayer -> actOnProposedPlayer perhapsPlayer
           liftEffect $ Ref.modify_ (KnownPlayers (Map.singleton myPlayer HasNotStartedYet) <> _) knownPlayers
           -- we echo known players to acknowledge that we claim this
           -- there is a race condition here if all players grant the same claim to
@@ -391,7 +410,8 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
             Player4 -> writeToRecord (Proxy :: _ "p4x") xp playerPositions
           -- deal with incoming basics
           _ <- liftEffect $ subscribe pushBasic.event \(HitBasicMe bt) -> do
-            kp <- updateKnownPlayers myPlayer (basicOutcomeToPointOutcome $ beatsToBasicOutcome bt.deltaBeats) knownPlayers
+            let outcome = basicOutcomeToPointOutcome $ beatsToBasicOutcome bt.deltaBeats
+            kp <- updateKnownPlayers myPlayer outcome knownPlayers
             knownPlayersBus.push kp
             pubNub.publish
               $ HitBasic
@@ -401,7 +421,34 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
                       , deltaBeats: bt.deltaBeats
                       , hitAt: bt.hitAt
                       , player: myPlayer
-                      , outcome: basicOutcomeToPointOutcome $ beatsToBasicOutcome bt.deltaBeats
+                      , outcome
+                      }
+                  )
+          _ <- liftEffect $ subscribe pushHitLong.event \(HitLongMe bt) -> do
+            pubNub.publish
+              $ HitLong
+                  ( HitLongOverTheWire
+                      { uniqueId: bt.uniqueId
+                      , hitAt: bt.hitAt
+                      , distance: bt.distance
+                      , player: myPlayer
+                      }
+                  )
+          _ <- liftEffect $ subscribe pushReleaseLong.event \(ReleaseLongMe rl) -> do
+            let outcome = longToPointOutcome rl.distance rl.pctConsumed
+            kp <- updateKnownPlayers myPlayer outcome knownPlayers
+            knownPlayersBus.push kp
+            Log.info $ "registering point outcome" <> show outcome
+            pubNub.publish
+              $ ReleaseLong
+                  ( ReleaseLongOverTheWire
+                      { uniqueId: rl.uniqueId
+                      , hitAt: rl.hitAt
+                      , player: myPlayer
+                      , distance: rl.distance
+                      , pctConsumed: rl.pctConsumed
+                      , releasedAt: rl.releasedAt
+                      , outcome
                       }
                   )
           -- deal with incoming leaps
