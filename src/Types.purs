@@ -93,11 +93,11 @@ import Foreign.Object as Object
 import Joyride.Wags (AudibleChildEnd, AudibleEnd)
 import Record (union)
 import Rito.Color (Color, RGB)
+import Rito.CubeTexture as CTL
 import Rito.Matrix4 (Matrix4, Matrix4')
 import Rito.THREE (ThreeStuff)
 import Rito.Texture (Texture)
 import Rito.Vector3 (Vector3')
-import Rito.CubeTexture as CTL
 import Simple.JSON (undefined, writeJSON)
 import Simple.JSON as JSON
 import WAGS.Math (calcSlope)
@@ -795,6 +795,9 @@ derive instance Newtype HitLeapVisualForLabel _
 data Negotiation
   = PageLoad
   | GetRulesOfGame
+      { cubeTextures :: CubeTextures CTL.CubeTexture
+      , threeStuff :: ThreeStuff
+      }
   | StartingNegotiation
   | RoomIsFull
   | GameHasStarted

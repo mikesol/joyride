@@ -43,15 +43,18 @@ import Joyride.FRP.Rate (timeFromRate)
 import Joyride.FRP.SampleOnSubscribe (initializeWithEmpty)
 import Joyride.FRP.Schedule (fireAndForget)
 import Joyride.FRP.StartingWith (startingWith)
+import Joyride.Random (randId)
 import Joyride.Visual.Animation (runThree)
 import Joyride.Wags (AudibleChildEnd)
 import Rito.Color (color)
 import Rito.Core (ASceneful)
+import Rito.CubeTexture as CTL
 import Rito.Matrix4 as M4
+import Rito.THREE (ThreeStuff)
 import Safe.Coerce (coerce)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
-import Types (Beats(..), HitBasicMe, HitBasicOtherPlayer(..), HitBasicOverTheWire(..), HitLeapMe, HitLeapOtherPlayer(..), HitLeapOverTheWire(..), HitLongMe, HitLongOtherPlayer(..), HitLongOverTheWire(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, MakeLongs, Negotiation(..), Player(..), PlayerAction(..), PlayerPositionsF, RateInfo, ReleaseLongMe, ReleaseLongOtherPlayer(..), ReleaseLongOverTheWire(..), RenderingInfo, Seconds(..), StartStatus(..), Success', WindowDims)
+import Types (Beats(..), CubeTextures, HitBasicMe, HitBasicOtherPlayer(..), HitBasicOverTheWire(..), HitLeapMe, HitLeapOtherPlayer(..), HitLeapOverTheWire(..), HitLongMe, HitLongOtherPlayer(..), HitLongOverTheWire(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, MakeLongs, Negotiation(..), Player(..), PlayerAction(..), PlayerPositionsF, RateInfo, ReleaseLongMe, ReleaseLongOtherPlayer(..), ReleaseLongOverTheWire(..), RenderingInfo, Seconds(..), StartStatus(..), Success', WindowDims)
 import WAGS.Clock (withACTime)
 import WAGS.Interpret (close, constant0Hack, context)
 import WAGS.Run (run2)
@@ -76,6 +79,7 @@ type ToplevelInfo =
   { loaded :: Event Boolean
   , negotiation :: Event Negotiation
   , isMobile :: Boolean
+  , channelChooser :: String -> Effect Unit
   , lpsCallback :: JMilliseconds -> Effect Unit -> Effect Unit
   , playerPositions :: Behavior PlayerPositionsF
   , resizeE :: Event WindowDims
@@ -98,6 +102,9 @@ type ToplevelInfo =
 
 data TopLevelDisplay
   = TLExplainer
+      { cubeTextures :: CubeTextures CTL.CubeTexture
+      , threeStuff :: ThreeStuff
+      }
   | TLLoading
   | TLGameHasStarted
   | TLRoomIsFull
@@ -112,7 +119,7 @@ data StartState
 derive instance Eq StartState
 
 instance Eq TopLevelDisplay where
-  eq TLExplainer TLExplainer = true
+  eq (TLExplainer _) (TLExplainer _) = true
   eq TLLoading TLLoading = true
   eq TLRoomIsFull TLRoomIsFull = true
   eq TLGameHasStarted TLGameHasStarted = true
@@ -124,7 +131,7 @@ toplevel tli =
   ( dedup
       ( map
           ( \{ loaded, negotiation } -> case loaded, negotiation of
-              _, GetRulesOfGame -> TLExplainer
+              _, GetRulesOfGame s -> TLExplainer s
               false, _ -> TLLoading
               -- should never reach
               _, PageLoad -> TLLoading
@@ -144,7 +151,16 @@ toplevel tli =
           )
       )
   ) # switcher case _ of
-    TLExplainer -> explainerPage
+    TLExplainer { cubeTextures, threeStuff } -> explainerPage
+      { click: do
+          id <- randId
+          tli.channelChooser id
+      , isMobile: tli.isMobile
+      , resizeE: tli.resizeE
+      , initialDims: tli.initialDims
+      , threeStuff
+      , cubeTextures
+      }
     TLLoading -> loadingPage
     TLRoomIsFull -> roomIsFull
     TLGameHasStarted -> gameHasStarted
@@ -235,7 +251,7 @@ toplevel tli =
                             optMeIn t
                         ]
                     )
-                    [ text_ "Play Joyride" ]
+                    [ text_ "Start" ]
                 ]
             D.div_
               [
