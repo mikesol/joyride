@@ -314,4 +314,4 @@ runThree opts@{ threeStuff: { three } } = do
   applyLPF true = flip (mapAccum (\a b -> Just a /\ case b of
     Nothing -> a
     Just x -> (x * lowpassFactor) + (a * (1.0 - lowpassFactor)))) Nothing
-  lowpassFactor = 0.2
+  lowpassFactor = 0.3
