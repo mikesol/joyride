@@ -480,6 +480,7 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
             liftEffect $ negotiation.push $ Success
               { player: myPlayer
               , threeStuff
+              , channelName: myChannel
               , pubNubEvent: pubNub.event
               , textures: Textures myTextures
               , cubeTextures: CubeTextures myCubeTextures

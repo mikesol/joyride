@@ -43,7 +43,7 @@ import Joyride.FRP.Rate (timeFromRate)
 import Joyride.FRP.SampleOnSubscribe (initializeWithEmpty)
 import Joyride.FRP.Schedule (fireAndForget)
 import Joyride.FRP.StartingWith (startingWith)
-import Joyride.Random (randId)
+import Joyride.Random (randId, randId')
 import Joyride.Visual.Animation (runThree)
 import Joyride.Wags (AudibleChildEnd)
 import Rito.Color (color)
@@ -153,7 +153,7 @@ toplevel tli =
   ) # switcher case _ of
     TLExplainer { cubeTextures, threeStuff } -> explainerPage
       { click: do
-          id <- randId
+          id <- randId' 6
           tli.channelChooser id
       , isMobile: tli.isMobile
       , resizeE: tli.resizeE
@@ -168,6 +168,7 @@ toplevel tli =
       { player: myPlayer
       , textures
       , cubeTextures
+      , channelName
       , threeStuff
       , pubNubEvent
       , playerStatus
@@ -200,10 +201,12 @@ toplevel tli =
                     )
                     [ text_ "Stop" ]
                 ]
-              startButton = D.div_
-                [ D.button
+              startButton = D.div (bang $ D.Class := "bg-slate-700")
+                [ D.div (bang $ D.Class := "pointer-events-auto text-center text-white p-4") [D.p_ [text_ ("Send this link to up to three people: joyride.netlify.app/" <> channelName) ]
+                , D.p_ [text_ "When everyone has joined, or if you're playing alone, press Start!"] ]
+                , D.div (bang $ D.Class := "w-full") [D.button
                     ( oneOf
-                        [ bang $ D.Class := "pointer-events-auto text-center bg-gray-600 hover:bg-gray-400 text-white py-2 px-4 rounded"
+                        [ bang $ D.Class := "w-full pointer-events-auto text-center bg-gray-800 hover:bg-gray-600 text-white py-2 px-4 rounded"
                         , bang $ D.OnClick := do
                             ctx <- context
                             hk <- constant0Hack ctx
@@ -251,7 +254,7 @@ toplevel tli =
                         ]
                     )
                     [ text_ "Start" ]
-                ]
+                ]]
             D.div_
               [
                 -- on/off

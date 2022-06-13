@@ -822,6 +822,7 @@ instance JSON.WriteForeign StartStatus where
 
 type Success' =
   { player :: Player
+  , channelName :: String
   , threeStuff :: ThreeStuff
   , pubNubEvent :: Event PlayerAction
   , textures :: Textures Texture
