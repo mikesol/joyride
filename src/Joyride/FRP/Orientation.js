@@ -4,13 +4,19 @@ export const permission = () => {
 		typeof DeviceMotionEvent.requestPermission === "function"
 	) {
 		// (optional) Do something before API request prompt.
-		return DeviceMotionEvent.requestPermission().then((response) => {
-			// (optional) Do something after API prompt dismissed.
-			if (response == "granted") {
-				return true;
+		return DeviceMotionEvent.requestPermission().then(
+			(response) => {
+				// (optional) Do something after API prompt dismissed.
+				if (response == "granted") {
+					return true;
+				}
+				return false;
+			},
+			(e) => {
+				console.error(e);
+				Promise.reject(e);
 			}
-			return false;
-		});
+		);
 	} else {
 		return Promise.resolve(true);
 	}
