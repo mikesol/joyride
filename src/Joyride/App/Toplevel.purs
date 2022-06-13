@@ -8,6 +8,7 @@ import Data.Array (span)
 import Data.Compactable (compact)
 import Data.DateTime.Instant (unInstant)
 import Data.Either (hush)
+import Data.Filterable (filter)
 import Data.Foldable (foldl, oneOf, oneOfMap, traverse_)
 import Data.Int (round)
 import Data.Map as Map
@@ -21,7 +22,10 @@ import Deku.Attribute ((:=))
 import Deku.Control (switcher, text_)
 import Deku.Core (Nut, envy, vbussed)
 import Deku.DOM as D
+import Deku.Listeners (click)
 import Effect (Effect, foreachE)
+import Effect.Aff (delay, launchAff_)
+import Effect.Class (liftEffect)
 import Effect.Now (now)
 import Effect.Ref as Ref
 import Effect.Timer (clearInterval, setInterval)
@@ -32,6 +36,7 @@ import FRP.Event.Class (biSampleOn)
 import FRP.Event.Time (withTime)
 import FRP.Event.VBus (V)
 import Foreign.Object as Object
+import Joyride.App.Clipboard (writeTextAff)
 import Joyride.App.Explainer (explainerPage)
 import Joyride.App.GameHasStarted (gameHasStarted)
 import Joyride.App.Loading (loadingPage)
@@ -43,7 +48,7 @@ import Joyride.FRP.Rate (timeFromRate)
 import Joyride.FRP.SampleOnSubscribe (initializeWithEmpty)
 import Joyride.FRP.Schedule (fireAndForget)
 import Joyride.FRP.StartingWith (startingWith)
-import Joyride.Random (randId, randId')
+import Joyride.Random (randId')
 import Joyride.Visual.Animation (runThree)
 import Joyride.Wags (AudibleChildEnd)
 import Rito.Color (color)
@@ -73,6 +78,7 @@ type UIEvents = V
   , basicAudio :: Event AudibleChildEnd
   , leapAudio :: Event AudibleChildEnd
   , renderElement :: Web.DOM.Element
+  , copiedToClipboard :: Boolean
   )
 
 type ToplevelInfo =
@@ -202,59 +208,79 @@ toplevel tli =
                     [ text_ "Stop" ]
                 ]
               startButton = D.div (bang $ D.Class := "bg-slate-700")
-                [ D.div (bang $ D.Class := "pointer-events-auto text-center text-white p-4") [D.p_ [text_ ("Send this link to up to three people: joyride.netlify.app/" <> channelName) ]
-                , D.p_ [text_ "When everyone has joined, or if you're playing alone, press Start!"] ]
-                , D.div (bang $ D.Class := "w-full") [D.button
-                    ( oneOf
-                        [ bang $ D.Class := "w-full pointer-events-auto text-center bg-gray-800 hover:bg-gray-600 text-white py-2 px-4 rounded"
-                        , bang $ D.OnClick := do
-                            ctx <- context
-                            hk <- constant0Hack ctx
-                            ci <- setInterval 5000 do
-                              Ref.read tli.icid >>= traverse_
-                                (flip cancelIdleCallback tli.wdw)
-                              requestIdleCallback { timeout: 0 }
-                                ( do
-                                    n <- (unInstant >>> coerce) <$> now
-                                    mp <- Map.toUnfoldable <$>
-                                      Ref.read tli.unschedule
-                                    let
-                                      lr = span (fst >>> (_ < n)) mp
-                                    foreachE lr.init snd
-                                    Ref.write
-                                      (Map.fromFoldable lr.rest)
-                                      tli.unschedule
-                                    pure unit
-                                )
-                                tli.wdw <#> Just >>= flip Ref.write tli.icid
-                            afE <- hot
-                              ( withACTime ctx animationFrame <#>
-                                  _.acTime
+                [ D.div (bang $ D.Class := "pointer-events-auto text-center text-white p-4")
+                    [ let
+                        url = "joyride.netlify.app/" <> channelName
+                      in
+                        D.p_
+                          [ text_ ("Send this link to up to three people: " <> url)
+                          , D.button
+                              ( oneOf
+                                  [ bang $ D.Class := "pointer-events-auto text-center bg-gray-800 hover:bg-gray-600 text-white mx-2 rounded"
+                                  , click $ bang $ launchAff_ do
+                                      liftEffect $ push.copiedToClipboard true
+                                      writeTextAff url
+                                      delay (Milliseconds 2000.0)
+                                      liftEffect $ push.copiedToClipboard false
+                                  ]
                               )
-                            withRate <-
-                              hot
-                                $ timeFromRate
-                                    (pure { rate: 1.0 })
-                                    (Seconds >>> { real: _ } <$> afE.event)
-
-                            iu0 <- subscribe withRate.event push.rateInfo
-                            st <- run2 ctx (graph { basics: event.basicAudio, leaps: event.leapAudio })
-                            push.iAmReady
-                              ( Unsubscribe
-                                  ( st *> hk *> clearInterval ci
-                                      *> afE.unsubscribe
-                                      *> iu0
-                                      --  *> iu1
-                                      *> withRate.unsubscribe
-                                      *> close ctx
+                              [ text_ "📋" ]
+                          ]
+                    , D.p_ [ text_ "When everyone has joined, or if you're playing alone, press Start!" ]
+                    ]
+                , D.div (bang $ D.Class := "w-full")
+                    [ D.button
+                        ( oneOf
+                            [ bang $ D.Class := "w-full pointer-events-auto text-center bg-gray-800 hover:bg-gray-600 text-white py-2 px-4 rounded"
+                            , bang $ D.OnClick := do
+                                ctx <- context
+                                hk <- constant0Hack ctx
+                                ci <- setInterval 5000 do
+                                  Ref.read tli.icid >>= traverse_
+                                    (flip cancelIdleCallback tli.wdw)
+                                  requestIdleCallback { timeout: 0 }
+                                    ( do
+                                        n <- (unInstant >>> coerce) <$> now
+                                        mp <- Map.toUnfoldable <$>
+                                          Ref.read tli.unschedule
+                                        let
+                                          lr = span (fst >>> (_ < n)) mp
+                                        foreachE lr.init snd
+                                        Ref.write
+                                          (Map.fromFoldable lr.rest)
+                                          tli.unschedule
+                                        pure unit
+                                    )
+                                    tli.wdw <#> Just >>= flip Ref.write tli.icid
+                                afE <- hot
+                                  ( withACTime ctx animationFrame <#>
+                                      _.acTime
                                   )
-                              )
-                            t :: JMilliseconds <- (unInstant >>> coerce) <$> now
-                            optMeIn t
-                        ]
-                    )
-                    [ text_ "Start" ]
-                ]]
+                                withRate <-
+                                  hot
+                                    $ timeFromRate
+                                        (pure { rate: 1.0 })
+                                        (Seconds >>> { real: _ } <$> afE.event)
+
+                                iu0 <- subscribe withRate.event push.rateInfo
+                                st <- run2 ctx (graph { basics: event.basicAudio, leaps: event.leapAudio })
+                                push.iAmReady
+                                  ( Unsubscribe
+                                      ( st *> hk *> clearInterval ci
+                                          *> afE.unsubscribe
+                                          *> iu0
+                                          --  *> iu1
+                                          *> withRate.unsubscribe
+                                          *> close ctx
+                                      )
+                                  )
+                                t :: JMilliseconds <- (unInstant >>> coerce) <$> now
+                                optMeIn t
+                            ]
+                        )
+                        [ text_ "Start" ]
+                    ]
+                ]
             D.div_
               [
                 -- on/off
@@ -479,6 +505,14 @@ toplevel tli =
                       []
                   , D.div (oneOfMap bang [ D.Class := "absolute pointer-events-none", D.Self := push.renderElement ]) []
                   ]
+              , D.div
+                  ( oneOf
+                      [ bang $ D.Class := "z-10 snakbar"
+                      , filter not event.copiedToClipboard $> D.Class := "z-10 snakbar"
+                      , filter identity event.copiedToClipboard $> D.Class := "z-10 snackbar show"
+                      ]
+                  )
+                  [ text_ "Copied to clipboard" ]
               ]
       )
   where
