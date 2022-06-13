@@ -113,6 +113,7 @@ threeLoader opts = do
     )
   opts.unsubscriber u
 
+filler :: Nut
 filler = D.div (bang $ D.Class := "grow") []
 
 explainerPage

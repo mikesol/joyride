@@ -13,6 +13,7 @@ import Test.QuickCheck.Gen (Gen, arrayOf, elements, oneOf)
 import Types (Beats(..), Claim(..), HitBasicOverTheWire(..), HitLeapOverTheWire(..), HitLongOverTheWire(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), Penalty(..), Player, PlayerAction(..), PointOutcome(..), Points(..), Position, ReleaseLongOverTheWire(..), StartStatus(..), XDirection(..), allPlayers, allPositions)
 
 newtype TestPlayerAction = TestPlayerAction PlayerAction
+
 derive newtype instance Eq TestPlayerAction
 derive newtype instance Show TestPlayerAction
 derive newtype instance JSON.ReadForeign TestPlayerAction
@@ -108,8 +109,8 @@ instance Arbitrary TestPlayerAction where
                 ( HitLeapOverTheWire
                     <$>
                       ( { uniqueId: _
-                      , oldPosition: _
-                      , newPosition: _
+                        , oldPosition: _
+                        , newPosition: _
                         , hitAt: _
                         , player: _
                         }
@@ -127,10 +128,12 @@ instance Arbitrary TestPlayerAction where
                       ( { uniqueId: _
                         , hitAt: _
                         , player: _
+                        , distance: _
                         }
                           <$> arbitrary
                           <*> anyBeat
                           <*> anyPlayer
+                          <*> arbitrary
                       )
                 )
             -- tap leap
@@ -138,14 +141,20 @@ instance Arbitrary TestPlayerAction where
                 ( ReleaseLongOverTheWire
                     <$>
                       ( { uniqueId: _
+                        , hitAt: _
                         , releasedAt: _
                         , player: _
                         , outcome: _
+                        , distance: _
+                        , pctConsumed: _
                         }
                           <$> arbitrary
                           <*> anyBeat
+                          <*> anyBeat
                           <*> anyPlayer
                           <*> anyPointOutcome
+                          <*> arbitrary
+                          <*> arbitrary
                       )
                 )
             -- ask to join
