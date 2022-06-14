@@ -25,6 +25,7 @@ import Deku.Toplevel (runInBody)
 import Effect (Effect)
 import Effect.Aff (Milliseconds(..), forkAff, joinFiber, launchAff_, never)
 import Effect.Class (liftEffect)
+import Effect.Class.Console as Log
 import Effect.Random as Random
 import Effect.Ref (new)
 import Effect.Ref as Ref
@@ -58,6 +59,7 @@ import Rito.Interpret (css2DRendererAff, orbitControlsAff, threeAff)
 import Rito.Texture (loadAff, loader)
 import Route (Route(..), route)
 import Routing.Duplex (parse)
+import Safe.Coerce (coerce)
 import Type.Proxy (Proxy(..))
 import Types (BufferName(..), Channel(..), Claim(..), CubeTexture, CubeTextures(..), HitBasicMe(..), HitBasicOverTheWire(..), HitLeapMe(..), HitLeapOverTheWire(..), HitLongMe(..), HitLongOverTheWire(..), IAm(..), InFlightGameInfo(..), InFlightGameInfo', JMilliseconds(..), KnownPlayers(..), Negotiation(..), Penalty(..), Player(..), PlayerAction(..), PointOutcome, Points(..), Position, ReleaseLongMe(..), ReleaseLongOverTheWire(..), RenderingInfo', StartStatus(..), Textures(..), allPlayers, initialPositions, touchPointZ)
 import WAGS.Interpret (AudioBuffer(..), context, makeAudioBuffer)
@@ -108,6 +110,7 @@ main :: CubeTextures (CubeTexture String) -> Textures String -> Object.Object St
 main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
   -- timing
   myCNow <- liftEffect cnow
+  let mappedCNow = _.time <$> myCNow.cnow
   ----- gui
   { debug, renderingInfo } <- liftEffect useLilGui >>= (if _ then gui else noGui) >>> (_ $ renderingInfo')
   liftEffect do
@@ -203,7 +206,7 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
             ( GetRulesOfGame
                 { threeStuff
                 , cubeTextures: CubeTextures myCubeTextures
-                , cNow: myCNow.cnow
+                , cNow: mappedCNow
                 }
             )
           Just myChannel -> do
@@ -247,7 +250,7 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
                   Player2 -> leapUnsubscribes.p2
                   Player3 -> leapUnsubscribes.p3
                   Player4 -> leapUnsubscribes.p4
-                startsAt <- unwrap <$> myCNow.cnow
+                startsAt <- unwrap <$> mappedCNow
                 case hl.player of
                   Player1 -> writeToRecord (Proxy :: _ "p1p") hl.newPosition playerPositions
                   Player2 -> writeToRecord (Proxy :: _ "p2p") hl.newPosition playerPositions
@@ -266,7 +269,7 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
                 let endY = 0.0
                 newSub <- subscribe (sample_ renderingInfoBehavior animationFrame) \ri -> do
                   let endZ = touchPointZ ri hl.newPosition
-                  n <- unwrap <$> myCNow.cnow
+                  n <- unwrap <$> mappedCNow
                   let distance = sqrt (((endZ - startZ) `pow` 2.0) + ((endY - startY) `pow` 2.0))
                   let midZ = (endZ + startZ) / 2.0
                   let midY = ((endY + startY) / 2.0) + 0.5
@@ -340,6 +343,10 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
                   knownPlayersBus.push kp
                 -- we update the xposition for when the behavior needs it
                 XPositionKeyboard i -> do
+                  -- Log.info $ show i.ktp
+                  -- mcn <- myCNow.cnow
+                  -- Log.info $ show mcn
+                  -- Log.info $ show ((lcmap _.epochTime $ posFromKeypress i.ktp) {epochTime: coerce mcn.time})
                   pfun i.player (lcmap _.epochTime $ posFromKeypress i.ktp) playerPositions
                 -- we update the xposition for when the behavior needs it
                 XPositionMobile i -> pfun i.player (lcmap _.epochTime $ posFromOrientation i.gtp) playerPositions
@@ -415,7 +422,7 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
             -- two devices for the same player
             -- blockchain would help here...
             liftEffect $ (Ref.read knownPlayers >>= \players -> pubNub.publish $ EchoKnownPlayers { players })
-            xPosE <- liftEffect $ if isMobile then xForTouch myCNow.cnow w myPlayer pubNub.publish else xForKeyboard myCNow.cnow w myPlayer pubNub.publish
+            xPosE <- liftEffect $ if isMobile then xForTouch mappedCNow w myPlayer pubNub.publish else xForKeyboard mappedCNow w myPlayer pubNub.publish
             -- ignore subscription
             _ <- liftEffect $ subscribe xPosE \xp -> case myPlayer of
               Player1 -> writeToRecord (Proxy :: _ "p1x") xp playerPositions
@@ -493,7 +500,7 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
             liftEffect $ negotiation.push $ Success
               { player: myPlayer
               , threeStuff
-              , cNow: myCNow.cnow
+              , cNow: mappedCNow
               , channelName: myChannel
               , pubNubEvent: pubNub.event
               , textures: Textures myTextures

@@ -29,6 +29,7 @@
   , "homogeneous"
   , "http-methods"
   , "integers"
+  , "js-date"
   , "js-timers"
   , "lists"
   , "maybe"

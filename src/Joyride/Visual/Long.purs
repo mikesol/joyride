@@ -17,7 +17,6 @@ import Effect (Effect)
 import Effect.Aff (joinFiber, launchAff, launchAff_)
 import Effect.Aff.AVar as AVar
 import Effect.Class (liftEffect)
-import Effect.Class.Console as Log
 import FRP.Behavior (sampleBy, sample_)
 import FRP.Event (Event, keepLatest, mapAccum, memoize, sampleOn)
 import FRP.Event.Class (bang)
