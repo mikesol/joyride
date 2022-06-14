@@ -5,7 +5,6 @@ import Prelude
 import Control.Monad.Except (runExcept, throwError)
 import Control.Plus (empty)
 import Data.Array (span)
-import Data.Compactable (compact)
 import Data.DateTime.Instant (unInstant)
 import Data.Either (hush)
 import Data.Filterable (filter)
@@ -96,6 +95,7 @@ type ToplevelInfo =
   , longE :: forall lock payload. { | MakeLongs () } -> ASceneful lock payload
   , renderingInfo :: Behavior RenderingInfo
   , initialDims :: WindowDims
+  , goHome :: Effect Unit
   , givePermission :: Boolean -> Effect Unit
   , pushBasic :: EventIO HitBasicMe
   , pushLeap :: EventIO HitLeapMe
@@ -214,7 +214,7 @@ toplevel tli =
                             off
                         ]
                     )
-                    [ text_ "Stop" ]
+                    [ text_ "Exit game" ]
                 ]
               startButton = D.div (bang $ D.Class := "bg-slate-700")
                 [ D.div (bang $ D.Class := "pointer-events-auto text-center text-white p-4")
@@ -310,16 +310,17 @@ toplevel tli =
                               [ envy $ map stopButton
                                   ( fromEvent
                                       ( fireAndForget
-                                          ( compact
-                                              ( map
-                                                  ( \(Tuple oi usu) -> case usu of
-                                                      Nothing -> Nothing
+                                          ( map
+                                              ( \(Tuple oi usu) ->
+                                                  ( case usu of
+                                                      Nothing -> pure unit
                                                       Just (Unsubscribe u)
-                                                        | iAmReady oi -> Just u
-                                                        | otherwise -> Nothing
-                                                  )
-                                                  (biSampleOn (initializeWithEmpty event.iAmReady) (map Tuple playerStatus))
+                                                        | iAmReady oi -> u
+                                                        | otherwise -> pure unit
+                                                  ) *> tli.goHome
                                               )
+                                              (biSampleOn (initializeWithEmpty event.iAmReady) (map Tuple playerStatus))
+
                                           )
                                       )
                                   )

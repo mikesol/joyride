@@ -164,6 +164,9 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
           , pushHitLong: pushHitLong
           , pushReleaseLong: pushReleaseLong
           , resizeE: resizeE.event
+          , goHome: do
+              -- clear the channel
+              channelEvent.push Nothing
           , playerPositions: refToBehavior playerPositions
           , renderingInfo: renderingInfoBehavior
           , debug
