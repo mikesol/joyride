@@ -26,6 +26,7 @@ import Joyride.FRP.Schedule (oneOff, scheduleCf)
 import Joyride.Visual.Basic as BasicV
 import Joyride.Wags (AudibleEnd(..))
 import Record (union)
+import Rito.Color (RGB(..))
 import Rito.Core (ASceneful, Instance, toScene)
 import Rito.Geometries.Box (box)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
@@ -94,15 +95,18 @@ severalBeats { startsAt, buffers, silence } = singleBeat (f "kick" $ Beats 0.0)
     }
 
 mockBasics :: forall lock payload. { | MakeBasics () } -> ASceneful lock payload
-mockBasics makeBasics@{ textures: Textures textures } = toScene
+mockBasics makeBasics = toScene
   ( roundRobinInstancedMesh 100 (box {} empty)
       ( meshStandardMaterial
-          { map: textures.hockeyCOL
-          , aoMap: textures.hockeyAO
-          , displacementMap: textures.hockeyDISP
-          , displacementScale: 0.1
-          , normalMap: textures.hockeyNRM
-          , roughnessMap: textures.hockeyGLOSS
+          -- { map: textures.hockeyCOL
+          -- , aoMap: textures.hockeyAO
+          -- , displacementMap: textures.hockeyDISP
+          -- , displacementScale: 0.1
+          -- , normalMap: textures.hockeyNRM
+          -- , roughnessMap: textures.hockeyGLOSS
+          -- }
+          { color: makeBasics.mkColor (RGB 0.798 0.927 0.778)
+          , roughness: 0.0
           }
           empty
       )

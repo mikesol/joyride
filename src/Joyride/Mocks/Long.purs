@@ -24,6 +24,7 @@ import Joyride.FRP.Schedule (oneOff, scheduleCf)
 import Joyride.Visual.Long as LongV
 import Joyride.Wags (AudibleEnd(..))
 import Record (union)
+import Rito.Color (RGB(..))
 import Rito.Core (ASceneful, Instance, toScene)
 import Rito.Geometries.Box (box)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
@@ -55,21 +56,26 @@ singleBeat { buffer, silence, myBeat } riE = AudibleEnd
 
   )
   where
-  doRi x = oneOff identity (x <#> \ri ->
-    if ri.beats + lookAhead >= myBeat then Just (beatToTime ri myBeat)
-    else Nothing)
+  doRi x = oneOff identity
+    ( x <#> \ri ->
+        if ri.beats + lookAhead >= myBeat then Just (beatToTime ri myBeat)
+        else Nothing
+    )
   oaOn = doRi riE.on
   oaOff = doRi riE.off
 
 mockLongs :: forall lock payload. { | MakeLongs () } -> ASceneful lock payload
-mockLongs makeLongs@{ textures: Textures textures } = toScene
+mockLongs makeLongs = toScene
   ( roundRobinInstancedMesh 100 (box {} empty)
       ( meshStandardMaterial
-          { map: textures.tilesZelligeHexCOL
-          , aoMap: textures.tilesZelligeHexAO
-          , displacementMap: textures.tilesZelligeHexDISP
-          , displacementScale: 0.1
-          , roughnessMap: textures.tilesZelligeHexGLOSS
+          -- { map: textures.tilesZelligeHexCOL
+          -- , aoMap: textures.tilesZelligeHexAO
+          -- , displacementMap: textures.tilesZelligeHexDISP
+          -- , displacementScale: 0.1
+          -- , roughnessMap: textures.tilesZelligeHexGLOSS
+          -- }
+          { color: makeLongs.mkColor (RGB 0.49 0.83 0.45)
+          , roughness: 0.1
           }
           empty
       )

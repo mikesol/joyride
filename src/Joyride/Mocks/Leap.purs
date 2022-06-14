@@ -25,6 +25,7 @@ import Joyride.FRP.Schedule (oneOff, scheduleCf)
 import Joyride.Visual.Leap as LeapV
 import Joyride.Wags (AudibleEnd(..))
 import Record (union)
+import Rito.Color (RGB(..))
 import Rito.Core (ASceneful, Instance, toScene)
 import Rito.Geometries.Box (box)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
@@ -66,14 +67,18 @@ singleBeat { buffer, silence, myBeat } riE = AudibleEnd
   )
 
 mockLeaps :: forall lock payload. { | MakeLeaps () } -> ASceneful lock payload
-mockLeaps makeLeaps@{ textures: Textures textures } = toScene
+mockLeaps makeLeaps = toScene
   ( roundRobinInstancedMesh 100 (box {} empty)
       ( meshStandardMaterial
-          { map: textures.tilesZelligeHexCOL
-          , aoMap: textures.tilesZelligeHexAO
-          , displacementMap: textures.tilesZelligeHexDISP
-          , displacementScale: 0.1
-          , roughnessMap: textures.tilesZelligeHexGLOSS
+          -- { map: textures.tilesZelligeHexCOL
+          -- , aoMap: textures.tilesZelligeHexAO
+          -- , displacementMap: textures.tilesZelligeHexDISP
+          -- , displacementScale: 0.1
+          -- , roughnessMap: textures.tilesZelligeHexGLOSS
+          -- }
+          {
+            color: makeLeaps.mkColor (RGB 0.91 0.387 0.432)
+          , roughness: 0.4
           }
           empty
       )

@@ -29,6 +29,7 @@ import Rito.Core (ASceneful, Renderer(..), cameraToGroup, toGroup, toScene)
 import Rito.CubeTexture (CubeTexture)
 import Rito.Geometries.Sphere (sphere)
 import Rito.Group (group)
+import Rito.Lights.AmbientLight (ambientLight)
 import Rito.Lights.PointLight (pointLight)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.Mesh (mesh)
@@ -216,7 +217,8 @@ runThree opts@{ threeStuff: { three } } = do
                                   }
                               ) <$> (toArray allPositions)
                             )
-
+                        <> [ toGroup $ ambientLight { intensity: 0.1
+                        , color: c3 $ RGB 1.0 1.0 1.0 } empty ]
                         <>
                           ( (toArray allPlayers) <#> \player -> do
                               let ppos = playerPosition player
