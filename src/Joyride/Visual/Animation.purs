@@ -17,6 +17,7 @@ import Effect (Effect)
 import FRP.Behavior (Behavior, sampleBy)
 import FRP.Event (Event, EventIO, bang, keepLatest, mapAccum)
 import FRP.Event.VBus (V, vbus)
+import Joyride.Effect.Lowpass (lpf)
 import Joyride.FRP.Dedup (dedup)
 import Joyride.Visual.Bar (makeBar)
 import Joyride.Visual.BasicLabels (basicLabels)
@@ -324,12 +325,5 @@ runThree opts@{ threeStuff: { three } } = do
   where
   applyLPF :: Boolean -> Event Number -> Event Number
   applyLPF false = identity
-  applyLPF true = flip
-    ( mapAccum
-        ( \a b -> Just a /\ case b of
-            Nothing -> a
-            Just x -> (x * lowpassFactor) + (a * (1.0 - lowpassFactor))
-        )
-    )
-    Nothing
-  lowpassFactor = 0.3
+  applyLPF true = lpf lowpassFactor
+  lowpassFactor = 0.65
