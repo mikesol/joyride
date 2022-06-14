@@ -2,13 +2,14 @@ module Joyride.App.Toplevel where
 
 import Prelude
 
+import Control.Alt ((<|>))
 import Control.Monad.Except (runExcept, throwError)
 import Control.Plus (empty)
 import Data.Array (span)
 import Data.DateTime.Instant (unInstant)
 import Data.Either (hush)
 import Data.Filterable (filter)
-import Data.Foldable (foldl, oneOf, oneOfMap, traverse_)
+import Data.Foldable (foldl, for_, oneOf, oneOfMap, traverse_)
 import Data.Int (round)
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
@@ -17,19 +18,20 @@ import Data.Number (pi)
 import Data.Time.Duration (Milliseconds(..))
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..), fst, snd)
-import Deku.Attribute ((:=))
+import Deku.Attribute (cb, (:=))
 import Deku.Control (switcher, text_)
-import Deku.Core (Nut, envy, vbussed)
+import Deku.Core (class Korok, Domable, Nut, envy, vbussed)
 import Deku.DOM as D
 import Deku.Listeners (click)
 import Effect (Effect, foreachE)
 import Effect.Aff (delay, launchAff_)
+import Effect.Aff.AVar as AVar
 import Effect.Class (liftEffect)
 import Effect.Now as LocalNow
 import Effect.Ref as Ref
 import Effect.Timer (clearInterval, setInterval)
 import FRP.Behavior (Behavior, sampleBy)
-import FRP.Event (EventIO, Event, bang, filterMap, fromEvent, hot, memoize, subscribe)
+import FRP.Event (AnEvent, Event, EventIO, bang, filterMap, fromEvent, hot, memoize, subscribe, toEvent)
 import FRP.Event.AnimationFrame (animationFrame)
 import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V)
@@ -45,6 +47,7 @@ import Joyride.Audio.Graph (graph)
 import Joyride.FRP.Behavior (refToBehavior)
 import Joyride.FRP.Dedup (dedup)
 import Joyride.FRP.Rate (timeFromRate)
+import Joyride.FRP.SampleJIT (sampleJIT)
 import Joyride.FRP.SampleOnSubscribe (initializeWithEmpty)
 import Joyride.FRP.Schedule (fireAndForget)
 import Joyride.FRP.StartingWith (startingWith)
@@ -67,7 +70,10 @@ import WAGS.Interpret (close, constant0Hack, context)
 import WAGS.Run (run2)
 import WAGS.WebAPI (BrowserAudioBuffer)
 import Web.DOM as Web.DOM
+import Web.Event.Event (target)
 import Web.HTML.HTMLCanvasElement as HTMLCanvasElement
+import Web.HTML.HTMLElement (focus, fromElement)
+import Web.HTML.HTMLInputElement (fromEventTarget, value)
 import Web.HTML.Window (RequestIdleCallbackId, Window, cancelIdleCallback, requestIdleCallback)
 
 twoPi = 2.0 * pi :: Number
@@ -139,7 +145,17 @@ instance Eq TopLevelDisplay where
   eq (TLSuccess _) (TLSuccess _) = true
   eq _ _ = false
 
-toplevel :: ToplevelInfo -> Nut
+type TextArea :: forall k. (Type -> k) -> Row k
+type TextArea f = (requestName :: f Unit, changeText :: f String)
+
+type Unlifted :: forall k. k -> k
+type Unlifted a = a
+
+toplevel
+  :: forall s m lock payload
+   . Korok s m
+  => ToplevelInfo
+  -> Domable m lock payload
 toplevel tli =
   ( dedup
       ( map
@@ -220,81 +236,124 @@ toplevel tli =
                     )
                     [ text_ "Exit game" ]
                 ]
-              startButton = D.div (bang $ D.Class := "bg-slate-700")
-                [ D.div (bang $ D.Class := "pointer-events-auto text-center text-white p-4")
-                    [ let
-                        url = "joyride.netlify.app/" <> channelName
-                      in
-                        D.p_
-                          [ text_ ("Send this link to up to three people: " <> url)
-                          , D.button
-                              ( oneOf
-                                  [ bang $ D.Class := "pointer-events-auto text-center bg-gray-800 hover:bg-gray-600 text-white mx-2 rounded"
-                                  , click $ bang $ launchAff_ do
-                                      liftEffect $ push.copiedToClipboard true
-                                      writeTextAff ("https://" <> url)
-                                      delay (Milliseconds 2000.0)
-                                      liftEffect $ push.copiedToClipboard false
+              startButton = do
+                let
+                  buttonStyle = bang $ D.Class := "w-full pointer-events-auto text-center bg-gray-800 hover:bg-gray-600 text-white py-2 px-4 rounded"
+                  callback toSample = oneOf
+                    [ buttonStyle
+                    , fromEvent $ sampleJIT toSample $ bang \av -> D.OnClick := launchAff_ do
+                        requestFullScreen
+                        nm <- AVar.read av
+                        liftEffect do
+                          ctx <- context
+                          hk <- constant0Hack ctx
+                          ci <- setInterval 5000 do
+                            Ref.read tli.icid >>= traverse_
+                              (flip cancelIdleCallback tli.wdw)
+                            requestIdleCallback { timeout: 0 }
+                              ( do
+                                  n <- (unInstant >>> coerce) <$> LocalNow.now
+                                  mp <- Map.toUnfoldable <$>
+                                    Ref.read tli.unschedule
+                                  let
+                                    lr = span (fst >>> (_ < n)) mp
+                                  foreachE lr.init snd
+                                  Ref.write
+                                    (Map.fromFoldable lr.rest)
+                                    tli.unschedule
+                                  pure unit
+                              )
+                              tli.wdw <#> Just >>= flip Ref.write tli.icid
+                          afE <- hot
+                            ( withACTime ctx animationFrame <#>
+                                _.acTime
+                            )
+                          withRate <-
+                            hot
+                              $ timeFromRate cNow
+                                  (pure { rate: 1.0 })
+                                  (Seconds >>> { real: _ } <$> afE.event)
+
+                          iu0 <- subscribe withRate.event push.rateInfo
+                          st <- run2 ctx (graph { basics: event.basicAudio, leaps: event.leapAudio })
+                          push.iAmReady
+                            ( Unsubscribe
+                                ( st *> hk *> clearInterval ci
+                                    *> afE.unsubscribe
+                                    *> iu0
+                                    --  *> iu1
+                                    *> withRate.unsubscribe
+                                    *> close ctx
+                                )
+                            )
+                          t :: JMilliseconds <- coerce <$> cNow
+                          optMeIn t nm
+                    ]
+                vbussed (Proxy :: _ (V (TextArea Unlifted)))
+                  \nPush (nEvent :: { | TextArea (AnEvent m) }) ->
+                    let
+                      requestName = bang false <|> (nEvent.requestName $> true)
+                      changeText = bang Nothing <|> (Just <$> nEvent.changeText)
+                      ___ = 0
+                    in
+                      requestName # switcher case _ of
+                        true -> D.div (bang $ D.Class := "mb-4 select-auto")
+                          [ D.input
+                              ( oneOfMap bang
+                                  [ D.Xtype := "text"
+                                  , D.Placeholder := "My name"
+                                  , D.Class := "pointer-events-auto shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                                  , D.OnInput := cb \e -> for_
+                                      ( target e
+                                          >>= fromEventTarget
+                                      )
+                                      (value >=> nPush.changeText)
+                                  , D.Self := (fromElement >>> traverse_ focus)
                                   ]
                               )
-                              [ text_ "📋" ]
+                              []
+                          , D.button
+                              (callback (toEvent changeText))
+                              [ text_ "Start" ]
                           ]
-                    , D.p_ [ text_ "When everyone has joined, or if you're playing alone, press Start!" ]
-                    ]
-                , D.div (bang $ D.Class := "w-full")
-                    [ D.button
-                        ( oneOf
-                            [ bang $ D.Class := "w-full pointer-events-auto text-center bg-gray-800 hover:bg-gray-600 text-white py-2 px-4 rounded"
-                            , bang $ D.OnClick := do
-                                launchAff_ requestFullScreen
-                                ctx <- context
-                                hk <- constant0Hack ctx
-                                ci <- setInterval 5000 do
-                                  Ref.read tli.icid >>= traverse_
-                                    (flip cancelIdleCallback tli.wdw)
-                                  requestIdleCallback { timeout: 0 }
-                                    ( do
-                                        n <- (unInstant >>> coerce) <$> LocalNow.now
-                                        mp <- Map.toUnfoldable <$>
-                                          Ref.read tli.unschedule
-                                        let
-                                          lr = span (fst >>> (_ < n)) mp
-                                        foreachE lr.init snd
-                                        Ref.write
-                                          (Map.fromFoldable lr.rest)
-                                          tli.unschedule
-                                        pure unit
-                                    )
-                                    tli.wdw <#> Just >>= flip Ref.write tli.icid
-                                afE <- hot
-                                  ( withACTime ctx animationFrame <#>
-                                      _.acTime
-                                  )
-                                withRate <-
-                                  hot
-                                    $ timeFromRate cNow
-                                        (pure { rate: 1.0 })
-                                        (Seconds >>> { real: _ } <$> afE.event)
-
-                                iu0 <- subscribe withRate.event push.rateInfo
-                                st <- run2 ctx (graph { basics: event.basicAudio, leaps: event.leapAudio })
-                                push.iAmReady
-                                  ( Unsubscribe
-                                      ( st *> hk *> clearInterval ci
-                                          *> afE.unsubscribe
-                                          *> iu0
-                                          --  *> iu1
-                                          *> withRate.unsubscribe
-                                          *> close ctx
+                        false -> D.div (bang $ D.Class := "bg-slate-700 select-auto")
+                          [ D.div (bang $ D.Class := "pointer-events-auto text-center text-white p-4")
+                              [ let
+                                  url = "joyride.netlify.app/" <> channelName
+                                in
+                                  D.p_
+                                    [ text_ ("Send this link to up to three people: " <> url)
+                                    , D.button
+                                        ( oneOf
+                                            [ bang $ D.Class := "pointer-events-auto text-center bg-gray-800 hover:bg-gray-600 text-white mx-2 rounded"
+                                            , click $ bang $ launchAff_ do
+                                                liftEffect $ push.copiedToClipboard true
+                                                writeTextAff ("https://" <> url)
+                                                delay (Milliseconds 2000.0)
+                                                liftEffect $ push.copiedToClipboard false
+                                            ]
+                                        )
+                                        [ text_ "📋" ]
+                                    ]
+                              , D.p_ [ text_ "When everyone has joined, or if you're playing alone, press Start!" ]
+                              ]
+                          , D.div (bang $ D.Class := "w-full flex flex-row content-between")
+                              [ D.div (bang $ D.Class := "w-6/12")
+                                  [ D.button
+                                      (callback (toEvent changeText))
+                                      [ text_ "Start" ]
+                                  ]
+                              , D.div (bang $ D.Class := "w-6/12")
+                                  [ D.button
+                                      ( oneOf
+                                          [ buttonStyle
+                                          , click $ bang $ nPush.requestName unit
+                                          ]
                                       )
-                                  )
-                                t :: JMilliseconds <- coerce <$> cNow
-                                optMeIn t
-                            ]
-                        )
-                        [ text_ "Start" ]
-                    ]
-                ]
+                                      [ text_ "Start with name" ]
+                                  ]
+                              ]
+                          ]
             D.div_
               [
                 -- on/off
@@ -578,13 +637,37 @@ toplevel tli =
 
   makeJoined :: Player -> KnownPlayers -> Nut
   makeJoined mp (KnownPlayers m) = D.ul_
-    ( map (\(Tuple p _) -> D.li_ [ D.span (bang $ D.Class := "text-white") [ text_ $ if p == mp then "You have joined!" else p2s p <> " has joined!" ] ]) $ Map.toUnfoldable m
+    ( map
+        ( \(Tuple p x) -> D.li_
+            [ D.span (bang $ D.Class := "text-white")
+                [ text_ $
+                    if p == mp then "You have joined!"
+                    else
+                      ( case x of
+                          HasStarted (InFlightGameInfo x') -> case x'.name of
+                            Just nm -> nm
+                            Nothing -> p2s p
+                          HasNotStartedYet -> p2s p
+                      ) <> " has joined!"
+                ]
+            ]
+        ) $ Map.toUnfoldable m
     )
-
 
   makePoints :: Player -> KnownPlayers -> Nut
   makePoints mp (KnownPlayers m) = D.ul_
-    ( map (\(Tuple p (InFlightGameInfo x)) -> D.li_ [ D.span (bang $ D.Class := "text-white") [ text_ $ (if p == mp then "You" else p2s p) <> ": " <> JSON.writeJSON (round (unwrap x.points + (-1.0) * unwrap x.penalties)) <> " Points" ] ])
+    ( map
+        ( \(Tuple p (InFlightGameInfo x)) -> D.li_
+            [ D.span (bang $ D.Class := "text-white")
+                [ text_ $
+                    ( if p == mp then "You"
+                      else case x.name of
+                        Just nm -> nm
+                        Nothing -> p2s p
+                    ) <> ": " <> JSON.writeJSON (round (unwrap x.points + (-1.0) * unwrap x.penalties)) <> " Points"
+                ]
+            ]
+        )
         $ filterMap
             ( \(Tuple p k) -> case k of
                 HasNotStartedYet -> Nothing

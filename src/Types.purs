@@ -835,7 +835,7 @@ type Success' =
   , pubNubEvent :: Event PlayerAction
   , textures :: Textures Texture
   , cubeTextures :: CubeTextures CTL.CubeTexture
-  , optMeIn :: JMilliseconds -> Effect Unit
+  , optMeIn :: JMilliseconds -> Maybe String -> Effect Unit
   , playerStatus :: Event KnownPlayers
   }
 

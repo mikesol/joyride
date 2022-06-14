@@ -25,7 +25,6 @@ import Deku.Toplevel (runInBody)
 import Effect (Effect)
 import Effect.Aff (Milliseconds(..), forkAff, joinFiber, launchAff_, never)
 import Effect.Class (liftEffect)
-import Effect.Class.Console as Log
 import Effect.Random as Random
 import Effect.Ref (new)
 import Effect.Ref as Ref
@@ -59,7 +58,6 @@ import Rito.Interpret (css2DRendererAff, orbitControlsAff, threeAff)
 import Rito.Texture (loadAff, loader)
 import Route (Route(..), route)
 import Routing.Duplex (parse)
-import Safe.Coerce (coerce)
 import Type.Proxy (Proxy(..))
 import Types (BufferName(..), Channel(..), Claim(..), CubeTexture, CubeTextures(..), HitBasicMe(..), HitBasicOverTheWire(..), HitLeapMe(..), HitLeapOverTheWire(..), HitLongMe(..), HitLongOverTheWire(..), IAm(..), InFlightGameInfo(..), InFlightGameInfo', JMilliseconds(..), KnownPlayers(..), Negotiation(..), Penalty(..), Player(..), PlayerAction(..), PointOutcome, Points(..), Position, ReleaseLongMe(..), ReleaseLongOverTheWire(..), RenderingInfo', StartStatus(..), Textures(..), allPlayers, initialPositions, touchPointZ)
 import WAGS.Interpret (AudioBuffer(..), context, makeAudioBuffer)
@@ -333,13 +331,13 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
                 HitLeap (HitLeapOverTheWire hl) -> magicLeaps hl
                 -- if we hear a hit basic, we update the known players
                 HitBasic (HitBasicOverTheWire { player, outcome }) -> do
-                  kp <- updateKnownPlayers player outcome knownPlayers
+                  kp <- updateKnownPlayerPoints player outcome knownPlayers
                   knownPlayersBus.push kp
                 -- if we hear a hit basic, we do nothing, as points are only attributed on release
                 HitLong _ -> notRelevant
                 -- if we hear a hit basic, we can update the points
                 ReleaseLong (ReleaseLongOverTheWire { player, outcome }) -> do
-                  kp <- updateKnownPlayers player outcome knownPlayers
+                  kp <- updateKnownPlayerPoints player outcome knownPlayers
                   knownPlayersBus.push kp
                 -- we update the xposition for when the behavior needs it
                 XPositionKeyboard i -> do
@@ -432,7 +430,7 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
             -- deal with incoming basics
             _ <- liftEffect $ subscribe pushBasic.event \(HitBasicMe bt) -> do
               let outcome = basicOutcomeToPointOutcome $ beatsToBasicOutcome bt.deltaBeats
-              kp <- updateKnownPlayers myPlayer outcome knownPlayers
+              kp <- updateKnownPlayerPoints myPlayer outcome knownPlayers
               knownPlayersBus.push kp
               pubNub.publish
                 $ HitBasic
@@ -457,7 +455,7 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
                     )
             _ <- liftEffect $ subscribe pushReleaseLong.event \(ReleaseLongMe rl) -> do
               let outcome = longToPointOutcome rl.distance rl.pctConsumed
-              kp <- updateKnownPlayers myPlayer outcome knownPlayers
+              kp <- updateKnownPlayerPoints myPlayer outcome knownPlayers
               knownPlayersBus.push kp
               pubNub.publish
                 $ ReleaseLong
@@ -515,8 +513,8 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
                     -- so we can always fold with the previous one in case there's a
                     -- regression in the incoming value (ie packets out of order)
                     folded e
-              , optMeIn: \ms -> do
-                  players <- Ref.modify (KnownPlayers (Map.singleton myPlayer (HasStarted $ InFlightGameInfo { startedAt: ms, points: Points 0.0, penalties: Penalty 0.0, name: Nothing } ) ) <> _) knownPlayers
+              , optMeIn: \ms name -> do
+                  players <- Ref.modify (KnownPlayers (Map.singleton myPlayer (HasStarted $ InFlightGameInfo { startedAt: ms, points: Points 0.0, penalties: Penalty 0.0, name } ) ) <> _) knownPlayers
                   -- let others know I've opted in
                   pubNub.publish $ EchoKnownPlayers { players }
                   -- let me know I've opted in
@@ -539,12 +537,12 @@ defaultInFlightGameInfo =
   , name: Nothing
   }
 
-updateKnownPlayers
+updateKnownPlayerPoints
   :: Player
   -> PointOutcome
   -> Ref.Ref KnownPlayers
   -> Effect KnownPlayers
-updateKnownPlayers player outcome knownPlayers = do
+updateKnownPlayerPoints player outcome knownPlayers = do
   Ref.modify
     ( \(KnownPlayers kp) ->
         ( KnownPlayers $ Map.update
