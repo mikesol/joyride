@@ -306,7 +306,7 @@ toplevel tli =
                                   -- the button should never redraw once we've started
                                   -- if there's flicker, dedup
                                   # switcher \(Tuple oi usu) -> case usu of
-                                      Nothing -> makeJoined oi
+                                      Nothing -> makeJoined myPlayer oi
                                       Just (Unsubscribe _) -> makePoints oi
                               ]
                           , D.div_
@@ -574,9 +574,9 @@ toplevel tli =
           Just x -> Just $ over Beats (_ - offsetInSeconds) x
       }
 
-  makeJoined :: KnownPlayers -> Nut
-  makeJoined (KnownPlayers m) = D.ul_
-    ( map (\(Tuple p _) -> D.li_ [ D.span (bang $ D.Class := "text-white") [ text_ $ p2s p <> " has joined!" ] ]) $ Map.toUnfoldable m
+  makeJoined :: Player -> KnownPlayers -> Nut
+  makeJoined mp (KnownPlayers m) = D.ul_
+    ( map (\(Tuple p _) -> D.li_ [ D.span (bang $ D.Class := "text-white") [ text_ $ if p == mp then "You have joined!" else p2s p <> " has joined!" ] ]) $ Map.toUnfoldable m
     )
 
 
