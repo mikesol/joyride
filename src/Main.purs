@@ -516,7 +516,7 @@ main (CubeTextures cubeTextures) (Textures textures) silentRoom = launchAff_ do
                     -- regression in the incoming value (ie packets out of order)
                     folded e
               , optMeIn: \ms -> do
-                  players <- Ref.modify (KnownPlayers (Map.singleton myPlayer (HasStarted $ InFlightGameInfo { startedAt: ms, points: Points 0.0, penalties: Penalty 0.0 })) <> _) knownPlayers
+                  players <- Ref.modify (KnownPlayers (Map.singleton myPlayer (HasStarted $ InFlightGameInfo { startedAt: ms, points: Points 0.0, penalties: Penalty 0.0, name: Nothing } ) ) <> _) knownPlayers
                   -- let others know I've opted in
                   pubNub.publish $ EchoKnownPlayers { players }
                   -- let me know I've opted in
@@ -536,6 +536,7 @@ defaultInFlightGameInfo =
   { points: Points bottom
   , penalties: Penalty bottom
   , startedAt: JMilliseconds top
+  , name: Nothing
   }
 
 updateKnownPlayers

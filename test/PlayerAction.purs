@@ -49,9 +49,10 @@ anyClaim = Claim <$> arbitrary
 anyInFlightGameInfo :: Gen InFlightGameInfo
 anyInFlightGameInfo = InFlightGameInfo <$>
   ( { startedAt: _
+    , name: _
     , points: _
     , penalties: _
-    } <$> anyJMilliseconds <*> anyPoints <*> anyPenalties
+    } <$> anyJMilliseconds <*> arbitrary <*> anyPoints <*> anyPenalties
   )
 
 anyStartStatus :: Gen StartStatus

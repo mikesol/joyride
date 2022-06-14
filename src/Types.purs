@@ -842,6 +842,7 @@ type Success' =
 type InFlightGameInfo' =
   { startedAt :: JMilliseconds
   , points :: Points
+  , name :: Maybe String
   , penalties :: Penalty
   }
 
@@ -893,6 +894,7 @@ instance Semigroup KnownPlayers where
     f (HasStarted (InFlightGameInfo x)) (HasStarted (InFlightGameInfo y)) = HasStarted $ InFlightGameInfo
       { startedAt: min x.startedAt y.startedAt
       , points: max x.points y.points
+      , name: x.name <|> y.name
       , penalties: max x.penalties y.penalties
       }
 

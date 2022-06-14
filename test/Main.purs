@@ -4,6 +4,7 @@ import Prelude
 
 import Control.Monad.Except (runExcept)
 import Data.Map as Map
+import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
 import Effect (Effect)
 import Effect.Aff (launchAff_)
@@ -44,6 +45,7 @@ main = do
                         { penalties: Penalty 0.0
                         , points: Points 0.0
                         , startedAt: JMilliseconds 1000.0
+                        , name: Just "Mike"
                         }
                     )
                 , Tuple Player2 HasNotStartedYet
@@ -58,6 +60,7 @@ main = do
                         { penalties: Penalty 1.0
                         , points: Points 4.0
                         , startedAt: JMilliseconds 1000.0
+                        , name: Just "Sue"
                         }
                     )
                 , Tuple Player2 HasNotStartedYet
@@ -67,6 +70,7 @@ main = do
                     { penalties: Penalty 5.0
                     , points: Points 2.0
                     , startedAt: JMilliseconds 998.0
+                    , name: Nothing
                     }
                 )
               mergedHasStarted = HasStarted
@@ -77,6 +81,8 @@ main = do
                     , points: Points 4.0
                     -- picks lower
                     , startedAt: JMilliseconds 998.0
+                    , name: Just "Sue"
+
                     }
                 )
             ((KnownPlayers $ Map.singleton Player1 newHasStarted) <> kp) `shouldEqual` ((KnownPlayers $ Map.singleton Player1 mergedHasStarted) <> kp)
