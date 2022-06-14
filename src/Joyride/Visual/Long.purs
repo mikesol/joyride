@@ -18,17 +18,16 @@ import Effect.Aff (joinFiber, launchAff, launchAff_)
 import Effect.Aff.AVar as AVar
 import Effect.Class (liftEffect)
 import Effect.Class.Console as Log
-import Effect.Now (now)
 import FRP.Behavior (sampleBy, sample_)
-import FRP.Behavior.Time (instant)
 import FRP.Event (Event, keepLatest, mapAccum, memoize, sampleOn)
 import FRP.Event.Class (bang)
-import FRP.Event.Time (withTime)
+import FRP.Event.Time as LocalTime
 import FRP.Event.VBus (V, vbus)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Rider (rider, toRide)
 import Joyride.FRP.SampleJIT (sampleJIT)
 import Joyride.FRP.Schedule (fireAndForget)
+import Joyride.Timing.CoordinatedNow (cInstant)
 import Joyride.Visual.EmptyMatrix (emptyMatrix)
 import Joyride.Wags (AudibleChildEnd(..), AudibleEnd(..))
 import Record (union)
@@ -62,7 +61,7 @@ long makeLong = keepLatest $ vbus (Proxy :: _ LongActions) \push event -> do
     rateInfoOnAtTouch = keepLatest (fireAndForget played $> animatedStuff.rateInfo)
     rateInfoOffAtTouch = keepLatest (fireAndForget released $> animatedStuff.rateInfo)
     forRendering = sampleBy (#) makeLong.renderingInfo
-      ( sampleOn (bang Nothing <|> (released $> Nothing) <|> sample_ (unInstant >>> (coerce :: Milliseconds -> Number) >>> Just <$> instant) played)
+      ( sampleOn (bang Nothing <|> (released $> Nothing) <|> sample_ ((coerce :: Milliseconds -> Number) >>> Just <$> cInstant makeLong.cnow) played)
           ( sampleOn ratioEvent
               ( map
                   { animatedStuff: _
@@ -125,7 +124,7 @@ long makeLong = keepLatest $ vbus (Proxy :: _ LongActions) \push event -> do
                         ( sound
                             ((\(AudibleEnd e) -> e) (makeLong.sound { on: rateInfoOnAtTouch, off: rateInfoOffAtTouch }))
                         )
-                    , keepLatest $ (withTime (bang unit)) <#> \{ time } -> lowPrioritySchedule makeLong.lpsCallback
+                    , keepLatest $ (LocalTime.withTime (bang unit)) <#> \{ time } -> lowPrioritySchedule makeLong.lpsCallback
                         (JMilliseconds 10000.0 + (coerce $ unInstant time))
                         (bang $ AudibleChildEnd silence)
 
@@ -144,7 +143,7 @@ long makeLong = keepLatest $ vbus (Proxy :: _ LongActions) \push event -> do
                             hitAtFiber <- launchAff AVar.empty
                             distanceFiber <- launchAff AVar.empty
                             launchAff_ do
-                              n <- liftEffect $ now
+                              n <- liftEffect $ makeLong.cnow
                               { animatedStuff: { rateInfo, playerPositions }, renderingInfo } /\ { n33 } <- AVar.read av
                               let
                                 pos = playerPosition' makeLong.myPlayer playerPositions
@@ -153,7 +152,7 @@ long makeLong = keepLatest $ vbus (Proxy :: _ LongActions) \push event -> do
                                 outerBroadcastInfo =
                                   { uniqueId: makeLong.uniqueId
                                   , hitAt: rateInfo.beats
-                                  , issuedAt: coerce $ unInstant n
+                                  , issuedAt: coerce n
                                   }
                                 distance = abs (myPosInThreeCoords - n33)
                                 hitLongMe = HitLongMe
@@ -180,7 +179,7 @@ long makeLong = keepLatest $ vbus (Proxy :: _ LongActions) \push event -> do
                             -- release
                             pure $ launchAff_ do
                               Log.info "mouseUp"
-                              n <- liftEffect $ now
+                              n <- liftEffect $ makeLong.cnow
                               { animatedStuff: { rateInfo }, consumedByPress } /\ _ <- AVar.read av
                               hitAt <- joinFiber hitAtFiber
                               outerHitAt <- AVar.take hitAt
@@ -192,7 +191,7 @@ long makeLong = keepLatest $ vbus (Proxy :: _ LongActions) \push event -> do
                                 broadcastInfo =
                                   { uniqueId: makeLong.uniqueId
                                   , releasedAt: rateInfo.beats
-                                  , issuedAt: coerce $ unInstant n
+                                  , issuedAt: coerce n
                                   }
                                 releaseLongMe = ReleaseLongMe
                                   { uniqueId: broadcastInfo.uniqueId
@@ -234,7 +233,7 @@ long makeLong = keepLatest $ vbus (Proxy :: _ LongActions) \push event -> do
                                               , translation: (map snd drawingMatrix) <#> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
                                               , player: hlop.player
                                               }
-                                          sampleBy (#) (map (unInstant >>> coerce) instant) (bang hitLongVisualForLabel)
+                                          sampleBy (#) (map (coerce) $ cInstant makeLong.cnow) (bang hitLongVisualForLabel)
                                       , push: makeLong.pushHitLongVisualForLabel
                                       }
                                   )
@@ -259,7 +258,7 @@ long makeLong = keepLatest $ vbus (Proxy :: _ LongActions) \push event -> do
                                               , translation: (map snd drawingMatrix) <#> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
                                               , player: rlop.player
                                               }
-                                          sampleBy (#) (map (unInstant >>> coerce) instant) (bang releaseLongVisualForLabel)
+                                          sampleBy (#) (map coerce $ cInstant makeLong.cnow) (bang releaseLongVisualForLabel)
                                       , push: makeLong.pushReleaseLongVisualForLabel
                                       }
                                   )

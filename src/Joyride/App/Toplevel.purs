@@ -25,14 +25,13 @@ import Deku.Listeners (click)
 import Effect (Effect, foreachE)
 import Effect.Aff (delay, launchAff_)
 import Effect.Class (liftEffect)
-import Effect.Now (now)
+import Effect.Now as LocalNow
 import Effect.Ref as Ref
 import Effect.Timer (clearInterval, setInterval)
 import FRP.Behavior (Behavior, sampleBy)
 import FRP.Event (EventIO, Event, bang, filterMap, fromEvent, hot, memoize, subscribe)
 import FRP.Event.AnimationFrame (animationFrame)
 import FRP.Event.Class (biSampleOn)
-import FRP.Event.Time (withTime)
 import FRP.Event.VBus (V)
 import Foreign.Object as Object
 import Joyride.App.Clipboard (writeTextAff)
@@ -50,6 +49,7 @@ import Joyride.FRP.SampleOnSubscribe (initializeWithEmpty)
 import Joyride.FRP.Schedule (fireAndForget)
 import Joyride.FRP.StartingWith (startingWith)
 import Joyride.Random (randId')
+import Joyride.Timing.CoordinatedNow (withCTime)
 import Joyride.Visual.Animation (runThree)
 import Joyride.Wags (AudibleChildEnd)
 import Rito.Color (color)
@@ -115,6 +115,7 @@ data TopLevelDisplay
   | TLExplainer
       { cubeTextures :: CubeTextures CTL.CubeTexture
       , threeStuff :: ThreeStuff
+      , cNow :: Effect Milliseconds
       }
   | TLLoading
   | TLGameHasStarted
@@ -166,11 +167,12 @@ toplevel tli =
   ) # switcher case _ of
     TLNeedsOrientation -> orientationPermissionPage { givePermission: tli.givePermission }
     TLWillNotWorkWithoutOrientation -> sorryNeedPermissionPage
-    TLExplainer { cubeTextures, threeStuff } -> explainerPage
+    TLExplainer { cubeTextures, threeStuff, cNow } -> explainerPage
       { click: do
           id <- randId' 6
           tli.channelChooser id
       , isMobile: tli.isMobile
+      , cnow: cNow
       , resizeE: tli.resizeE
       , initialDims: tli.initialDims
       , threeStuff
@@ -183,6 +185,7 @@ toplevel tli =
       { player: myPlayer
       , textures
       , cubeTextures
+      , cNow
       , channelName
       , threeStuff
       , pubNubEvent
@@ -249,7 +252,7 @@ toplevel tli =
                                     (flip cancelIdleCallback tli.wdw)
                                   requestIdleCallback { timeout: 0 }
                                     ( do
-                                        n <- (unInstant >>> coerce) <$> now
+                                        n <- (unInstant >>> coerce) <$> LocalNow.now
                                         mp <- Map.toUnfoldable <$>
                                           Ref.read tli.unschedule
                                         let
@@ -267,7 +270,7 @@ toplevel tli =
                                   )
                                 withRate <-
                                   hot
-                                    $ timeFromRate
+                                    $ timeFromRate cNow
                                         (pure { rate: 1.0 })
                                         (Seconds >>> { real: _ } <$> afE.event)
 
@@ -283,7 +286,7 @@ toplevel tli =
                                           *> close ctx
                                       )
                                   )
-                                t :: JMilliseconds <- (unInstant >>> coerce) <$> now
+                                t :: JMilliseconds <- coerce <$> cNow
                                 optMeIn t
                             ]
                         )
@@ -398,10 +401,11 @@ toplevel tli =
                                           { initialDims: tli.initialDims
                                           , renderingInfo: tli.renderingInfo
                                           , textures
+                                          , cnow: cNow
                                           , myPlayer
                                           , debug: tli.debug
                                           , notifications:
-                                              { hitBasic: withTime pubNubEvent # filterMap
+                                              { hitBasic: withCTime cNow pubNubEvent # filterMap
                                                   ( \{ value, time } -> case value of
                                                       HitBasic (HitBasicOverTheWire e) -> Just $ HitBasicOtherPlayer
                                                         { uniqueId: e.uniqueId
@@ -409,7 +413,7 @@ toplevel tli =
                                                         , deltaBeats: e.deltaBeats
                                                         , hitAt: e.hitAt
                                                         , player: e.player
-                                                        , issuedAt: coerce $ unInstant time
+                                                        , issuedAt: coerce time
                                                         }
                                                       _ -> Nothing
                                                   )
@@ -431,9 +435,10 @@ toplevel tli =
                                           , renderingInfo: tli.renderingInfo
                                           , textures
                                           , myPlayer
+                                          , cnow: cNow
                                           , debug: tli.debug
                                           , notifications:
-                                              { hitLeap: withTime pubNubEvent # filterMap
+                                              { hitLeap: withCTime cNow pubNubEvent # filterMap
                                                   ( \{ value, time } -> case value of
                                                       HitLeap (HitLeapOverTheWire e) -> Just $ HitLeapOtherPlayer
                                                         { uniqueId: e.uniqueId
@@ -441,7 +446,7 @@ toplevel tli =
                                                         , player: e.player
                                                         , oldPosition: e.oldPosition
                                                         , newPosition: e.newPosition
-                                                        , issuedAt: coerce $ unInstant time
+                                                        , issuedAt: coerce time
                                                         }
                                                       _ -> Nothing
                                                   )
@@ -463,20 +468,21 @@ toplevel tli =
                                           , renderingInfo: tli.renderingInfo
                                           , textures
                                           , myPlayer
+                                          , cnow: cNow
                                           , debug: tli.debug
                                           , notifications:
-                                              { hitLong: withTime pubNubEvent # filterMap
+                                              { hitLong: withCTime cNow pubNubEvent # filterMap
                                                   ( \{ value, time } -> case value of
                                                       HitLong (HitLongOverTheWire e) -> Just $ HitLongOtherPlayer
                                                         { uniqueId: e.uniqueId
                                                         , hitAt: e.hitAt
                                                         , player: e.player
                                                         , distance: e.distance
-                                                        , issuedAt: coerce $ unInstant time
+                                                        , issuedAt: coerce time
                                                         }
                                                       _ -> Nothing
                                                   )
-                                              , releaseLong: withTime pubNubEvent # filterMap
+                                              , releaseLong: withCTime cNow pubNubEvent # filterMap
                                                   ( \{ value, time } -> case value of
                                                       ReleaseLong (ReleaseLongOverTheWire e) -> Just $ ReleaseLongOtherPlayer
                                                         { uniqueId: e.uniqueId
@@ -485,7 +491,7 @@ toplevel tli =
                                                         , player: e.player
                                                         , hitAt: e.hitAt
                                                         , distance: e.distance
-                                                        , issuedAt: coerce $ unInstant time
+                                                        , issuedAt: coerce time
                                                         }
                                                       _ -> Nothing
                                                   )

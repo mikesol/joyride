@@ -3,11 +3,11 @@ module Joyride.App.Explainer where
 import Prelude
 
 import Bolson.Core (Element(..), envy, fixed)
-import Data.DateTime.Instant (unInstant)
 import Data.Foldable (oneOf, oneOfMap, traverse_)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.Number (cos, pi)
+import Data.Time.Duration (Milliseconds)
 import Data.Tuple.Nested ((/\))
 import Deku.Attribute ((:=))
 import Deku.Control (text_)
@@ -17,8 +17,8 @@ import Deku.Listeners as DL
 import Effect (Effect)
 import FRP.Event (Event, bang, keepLatest, mapAccum, memoize)
 import FRP.Event.Animate (animationFrameEvent)
-import FRP.Event.Time (withTime)
 import FRP.Event.VBus (V)
+import Joyride.Timing.CoordinatedNow (withCTime)
 import Rito.Cameras.PerspectiveCamera (perspectiveCamera)
 import Rito.Core (Renderer(..), cameraToGroup, toScene)
 import Rito.CubeTexture (CubeTexture)
@@ -42,15 +42,16 @@ threeLoader
      , cubeTextures :: CubeTextures CubeTexture
      , resizeE :: Event WindowDims
      , initialDims :: WindowDims
+     , cnow :: Effect Milliseconds
      , canvas :: HTMLCanvasElement
      }
   -> Effect Unit
 threeLoader opts = do
   u <- Rito.Run.run opts.threeStuff
     ( envy $ memoize
-        ( _.time >>> unInstant
+        ( _.time
             >>> unwrap
-            >>> JMilliseconds <$> withTime animationFrameEvent
+            >>> JMilliseconds <$> withCTime opts.cnow animationFrameEvent
         )
         \animationTime -> globalCameraPortal1
           ( perspectiveCamera
@@ -120,6 +121,7 @@ explainerPage
   :: { click :: Effect Unit
      , isMobile :: Boolean
      , resizeE :: Event WindowDims
+     , cnow :: Effect Milliseconds
      , cubeTextures :: CubeTextures CubeTexture
      , initialDims :: WindowDims
      , threeStuff :: ThreeStuff
@@ -153,6 +155,7 @@ explainerPage opts = vbussed (Proxy :: _ (V (unsubscriber :: Effect Unit))) \pus
                   , cubeTextures: opts.cubeTextures
                   , unsubscriber: push.unsubscriber
                   , resizeE: opts.resizeE
+                  , cnow: opts.cnow
                   , initialDims: opts.initialDims
                   , canvas: _
                   }

@@ -27,6 +27,7 @@
   , "free"
   , "heterogeneous"
   , "homogeneous"
+  , "http-methods"
   , "integers"
   , "js-timers"
   , "lists"

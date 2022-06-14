@@ -2,22 +2,23 @@ module Joyride.FRP.Rate where
 
 import Prelude
 
-import Data.DateTime.Instant (unInstant)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap)
 import Data.Time.Duration (Milliseconds(..))
 import Data.Tuple.Nested ((/\))
+import Effect (Effect)
 import FRP.Behavior (Behavior, sampleBy)
-import FRP.Behavior.Time (instant)
 import FRP.Event (Event, mapAccum)
+import Joyride.Timing.CoordinatedNow (cInstant)
 import Safe.Coerce (coerce)
 import Types (Beats(..), JMilliseconds(..), RateInfo, Seconds(..))
 
 timeFromRate
-  :: Behavior { rate :: Number }
+  :: Effect Milliseconds
+  -> Behavior { rate :: Number }
   -> Event { real :: Seconds }
   -> Event RateInfo
-timeFromRate clengthB afE = mapAccum
+timeFromRate ems clengthB afE = mapAccum
   ( \{ behaviors: { clength, epochTime }, acTime } { prevTime, prevBeats } -> do
       let prevAC = fromMaybe (Seconds 0.0) prevTime
       let prevAJ = fromMaybe (Beats 0.0) prevBeats
@@ -30,7 +31,7 @@ timeFromRate clengthB afE = mapAccum
   ( sampleBy { behaviors: _, acTime: _ }
       ( { clength: _, epochTime: _ }
           <$> (_.rate <$> (clengthB))
-          <*> (unInstant >>> coerce <$> instant)
+          <*> (coerce <$> cInstant ems)
       )
       (_.real <$> afE)
   )

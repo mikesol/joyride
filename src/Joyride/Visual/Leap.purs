@@ -5,7 +5,6 @@ import Prelude
 import Control.Alt ((<|>))
 import Data.DateTime.Instant (unInstant)
 import Data.Filterable (filter)
-import Joyride.Visual.EmptyMatrix (emptyMatrix)
 import Data.Foldable (oneOf)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
@@ -15,16 +14,16 @@ import Effect (Effect)
 import Effect.Aff (launchAff_)
 import Effect.Aff.AVar as AVar
 import Effect.Class (liftEffect)
-import Effect.Now (now)
 import FRP.Behavior (sampleBy, sample_)
-import FRP.Behavior.Time (instant)
 import FRP.Event (Event, bus, keepLatest, memoize, sampleOn)
 import FRP.Event.Class (bang)
-import FRP.Event.Time (withTime)
+import FRP.Event.Time as LocalTime
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Rider (rider, toRide)
 import Joyride.FRP.SampleJIT (sampleJIT)
 import Joyride.FRP.Schedule (fireAndForget)
+import Joyride.Timing.CoordinatedNow (cInstant)
+import Joyride.Visual.EmptyMatrix (emptyMatrix)
 import Joyride.Wags (AudibleChildEnd(..), AudibleEnd(..))
 import Rito.Core (Instance)
 import Rito.Properties as P
@@ -49,7 +48,7 @@ leap makeLeap = keepLatest $ bus \setPlayed iWasPlayed -> do
       <|> ((filter (\(HitLeapOtherPlayer { uniqueId }) -> makeLeap.uniqueId == uniqueId) otherPlayedMe) $> unit)
     rateInfoOnAtTouch = keepLatest (fireAndForget played $> animatedStuff.rateInfo)
     forRendering = sampleBy (#) makeLeap.renderingInfo
-      ( sampleOn (bang Nothing <|> fireAndForget (sample_ (unInstant >>> coerce >>> Just <$> instant) played))
+      ( sampleOn (bang Nothing <|> fireAndForget (sample_ (coerce >>> Just <$> cInstant makeLeap.cnow) played))
           ( sampleOn ratioEvent
               ( map
                   { rateInfo: _
@@ -109,7 +108,7 @@ leap makeLeap = keepLatest $ bus \setPlayed iWasPlayed -> do
                       ( sound
                           ((\(AudibleEnd e) -> e) (makeLeap.sound rateInfoOnAtTouch))
                       )
-                  , keepLatest $ (withTime (bang unit)) <#> \{ time } -> lowPrioritySchedule makeLeap.lpsCallback
+                  , keepLatest $ (LocalTime.withTime (bang unit)) <#> \{ time } -> lowPrioritySchedule makeLeap.lpsCallback
                       (JMilliseconds 10000.0 + (coerce $ unInstant time))
                       (bang $ AudibleChildEnd silence)
 
@@ -144,7 +143,7 @@ leap makeLeap = keepLatest $ bus \setPlayed iWasPlayed -> do
                                             , translation: drawingMatrix <#> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
                                             , player: hbop.player
                                             }
-                                        sampleBy (#) (map (unInstant >>> coerce) instant) (bang hitLeapVisualForLabel)
+                                        sampleBy (#) (map coerce $ cInstant makeLeap.cnow) (bang hitLeapVisualForLabel)
                                     , push: makeLeap.pushLeapVisualForLabel
                                     }
                                 )
@@ -152,7 +151,7 @@ leap makeLeap = keepLatest $ bus \setPlayed iWasPlayed -> do
                           -- otherwise keep alive
                           , sampleJIT makeLeap.animatedStuff $ bang \av _ -> do
                               launchAff_ do
-                                n <- liftEffect $ now
+                                n <- liftEffect $ makeLeap.cnow
                                 { rateInfo, playerPositions } <- AVar.read av
                                 let
                                   pos = playerPosition' makeLeap.myPlayer playerPositions
@@ -161,7 +160,7 @@ leap makeLeap = keepLatest $ bus \setPlayed iWasPlayed -> do
                                     { uniqueId: makeLeap.uniqueId
                                     , position: pos
                                     , hitAt: rateInfo.beats
-                                    , issuedAt: coerce $ unInstant n
+                                    , issuedAt: coerce n
                                     }
                                 let
                                   hitLeapMe = HitLeapMe
