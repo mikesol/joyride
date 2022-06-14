@@ -298,7 +298,7 @@ toplevel tli =
             D.div_
               [
                 -- on/off
-                D.div (bang $ D.Class := "z-10 pointer-events-none absolute w-screen h-screen flex flex-col select-none")
+                D.div (bang $ D.Class := "z-10 pointer-events-none absolute w-screen h-screen flex flex-col")
                   [ D.div (bang $ D.Class := "grow flex flex-row")
                       -- fromEvent because playerStatus is effectful
                       [ D.div (bang $ D.Class := "grow-0")

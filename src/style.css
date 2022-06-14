@@ -259,3 +259,8 @@
   from {bottom: 30px; opacity: 1;}
   to {bottom: 0; opacity: 0;}
 }
+
+/* pretty extreme, the problem is that there's so much crap that it's tough to disable this any other way */
+body {
+	user-select: none;
+}
