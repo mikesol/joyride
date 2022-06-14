@@ -228,7 +228,7 @@ toplevel tli =
                                   [ bang $ D.Class := "pointer-events-auto text-center bg-gray-800 hover:bg-gray-600 text-white mx-2 rounded"
                                   , click $ bang $ launchAff_ do
                                       liftEffect $ push.copiedToClipboard true
-                                      writeTextAff url
+                                      writeTextAff ("https://" <> url)
                                       delay (Milliseconds 2000.0)
                                       liftEffect $ push.copiedToClipboard false
                                   ]

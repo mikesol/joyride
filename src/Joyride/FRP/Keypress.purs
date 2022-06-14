@@ -56,7 +56,7 @@ xForKeyboard w myPlayer pub = do
             time <- unInstant >>> coerce <$> now
             nw <- Ref.modify (\ktp -> if ktp.curXDir == curXDir then ktp else { curXDir, time: Just time, pos: posFromKeypress ktp time }) xpe
             evt.push nw
-            pub $ XPositionKeyboard { ktp:  nw, player: myPlayer }
+            pub $ XPositionKeyboard { ktp: nw, player: myPlayer }
   keydownListener <- makeListener false
   keyupListener <- makeListener true
   addEventListener (EventType "keydown") keydownListener true (toEventTarget w)
