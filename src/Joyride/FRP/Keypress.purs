@@ -2,14 +2,12 @@ module Joyride.FRP.Keypress where
 
 import Prelude
 
-import Data.DateTime.Instant (unInstant)
 import Data.Foldable (traverse_)
 import Data.Maybe (Maybe(..))
 import Data.Number (pow)
 import Data.Profunctor (lcmap)
 import Data.Time.Duration (Milliseconds(..))
 import Effect (Effect)
-import Effect.Now (now)
 import Effect.Ref as Ref
 import FRP.Event (Event, create)
 import Safe.Coerce (coerce)
@@ -39,8 +37,8 @@ posFromKeypress ktp (JMilliseconds curMs) = case ktp.time of
   msToSeconds = 1.0 / 1000.0
   dampeningFactor = 0.77
 
-xForKeyboard :: Window -> Player -> (PlayerAction -> Effect Unit) -> Effect (Event (RateInfo -> Number))
-xForKeyboard w myPlayer pub = do
+xForKeyboard :: Effect Milliseconds -> Window -> Player -> (PlayerAction -> Effect Unit) -> Effect (Event (RateInfo -> Number))
+xForKeyboard cnow w myPlayer pub = do
   evt <- create
   xpe <- Ref.new { curXDir: Still, time: Nothing, pos: 0.0 }
   let
@@ -53,7 +51,7 @@ xForKeyboard w myPlayer pub = do
                 | isUp = Still
                 | keyCode == "ArrowLeft" = ToLeft
                 | otherwise = ToRight
-            time <- unInstant >>> coerce <$> now
+            time <- coerce <$> cnow
             nw <- Ref.modify (\ktp -> if ktp.curXDir == curXDir then ktp else { curXDir, time: Just time, pos: posFromKeypress ktp time }) xpe
             evt.push nw
             pub $ XPositionKeyboard { ktp: nw, player: myPlayer }

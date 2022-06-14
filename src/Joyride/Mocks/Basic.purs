@@ -17,7 +17,7 @@ import Data.Time.Duration (Milliseconds(..), Seconds(..))
 import FRP.Behavior (Behavior, sample_)
 import FRP.Event (Event, keepLatest, memoize)
 import FRP.Event.Class (bang)
-import FRP.Event.Time (withTime)
+import FRP.Event.Time as LocalTime
 import Foreign.Object as Object
 import Joyride.Audio.Basic as BasicA
 import Joyride.FRP.Behavior (misbehavior)
@@ -128,7 +128,7 @@ mockBasics makeBasics@{ textures: Textures textures } = toScene
             )
         )
     ) <|>
-      ( keepLatest $ (withTime (bang unit)) <#> \{ time } -> lowPrioritySchedule makeBasics.lpsCallback
+      ( keepLatest $ (LocalTime.withTime (bang unit)) <#> \{ time } -> lowPrioritySchedule makeBasics.lpsCallback
           (JMilliseconds 10000.0 + (coerce $ unInstant time))
           (bang $ Release)
       )

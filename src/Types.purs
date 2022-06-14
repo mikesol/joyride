@@ -83,6 +83,7 @@ import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype)
 import Data.NonEmpty ((:|))
 import Data.Show.Generic (genericShow)
+import Data.Time.Duration (Milliseconds)
 import Data.Tuple (Tuple(..))
 import Data.Tuple.Nested (type (/\))
 import Effect (Effect)
@@ -483,6 +484,7 @@ type MakeBasics r =
   , renderingInfo :: Behavior RenderingInfo
   , resizeEvent :: Event WindowDims
   , isMobile :: Boolean
+  , cnow :: Effect Milliseconds
   , myPlayer :: Player
   , notifications :: { hitBasic :: Event HitBasicOtherPlayer }
   , lpsCallback :: JMilliseconds -> Effect Unit -> Effect Unit
@@ -570,6 +572,7 @@ type MakeLongs r =
   ( initialDims :: WindowDims
   , renderingInfo :: Behavior RenderingInfo
   , resizeEvent :: Event WindowDims
+  , cnow :: Effect Milliseconds
   , isMobile :: Boolean
   , myPlayer :: Player
   , notifications :: { hitLong :: Event HitLongOtherPlayer, releaseLong :: Event ReleaseLongOtherPlayer }
@@ -719,6 +722,7 @@ type MakeLeaps r =
   , resizeEvent :: Event WindowDims
   , isMobile :: Boolean
   , myPlayer :: Player
+  , cnow :: Effect Milliseconds
   , notifications :: { hitLeap :: Event HitLeapOtherPlayer }
   , lpsCallback :: JMilliseconds -> Effect Unit -> Effect Unit
   , pushAudio :: Event AudibleChildEnd -> Effect Unit
@@ -799,6 +803,7 @@ data Negotiation
   | GetRulesOfGame
       { cubeTextures :: CubeTextures CTL.CubeTexture
       , threeStuff :: ThreeStuff
+      , cNow :: Effect Milliseconds
       }
   | StartingNegotiation
   | RoomIsFull
@@ -825,6 +830,7 @@ instance JSON.WriteForeign StartStatus where
 type Success' =
   { player :: Player
   , channelName :: String
+  , cNow :: Effect Milliseconds
   , threeStuff :: ThreeStuff
   , pubNubEvent :: Event PlayerAction
   , textures :: Textures Texture
