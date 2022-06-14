@@ -49,6 +49,7 @@ import Joyride.FRP.SampleOnSubscribe (initializeWithEmpty)
 import Joyride.FRP.Schedule (fireAndForget)
 import Joyride.FRP.StartingWith (startingWith)
 import Joyride.Random (randId')
+import Joyride.Screenful (requestFullScreen)
 import Joyride.Timing.CoordinatedNow (withCTime)
 import Joyride.Visual.Animation (runThree)
 import Joyride.Wags (AudibleChildEnd)
@@ -245,6 +246,7 @@ toplevel tli =
                         ( oneOf
                             [ bang $ D.Class := "w-full pointer-events-auto text-center bg-gray-800 hover:bg-gray-600 text-white py-2 px-4 rounded"
                             , bang $ D.OnClick := do
+                                launchAff_ requestFullScreen
                                 ctx <- context
                                 hk <- constant0Hack ctx
                                 ci <- setInterval 5000 do

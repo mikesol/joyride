@@ -217,8 +217,13 @@ runThree opts@{ threeStuff: { three } } = do
                                   }
                               ) <$> (toArray allPositions)
                             )
-                        <> [ toGroup $ ambientLight { intensity: 0.1
-                        , color: c3 $ RGB 1.0 1.0 1.0 } empty ]
+                        <>
+                          [ toGroup $ ambientLight
+                              { intensity: 0.1
+                              , color: c3 $ RGB 1.0 1.0 1.0
+                              }
+                              empty
+                          ]
                         <>
                           ( (toArray allPlayers) <#> \player -> do
                               let ppos = playerPosition player
