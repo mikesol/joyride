@@ -241,7 +241,7 @@ toplevel tli =
                           ]
                     , D.p_ [ text_ "When everyone has joined, or if you're playing alone, press Start!" ]
                     ]
-                , D.div (bang $ D.Class := "w-full select-none")
+                , D.div (bang $ D.Class := "w-full")
                     [ D.button
                         ( oneOf
                             [ bang $ D.Class := "w-full pointer-events-auto text-center bg-gray-800 hover:bg-gray-600 text-white py-2 px-4 rounded"
@@ -298,7 +298,7 @@ toplevel tli =
             D.div_
               [
                 -- on/off
-                D.div (bang $ D.Class := "z-10 pointer-events-none absolute w-screen h-screen flex flex-col")
+                D.div (bang $ D.Class := "z-10 pointer-events-none absolute w-screen h-screen flex flex-col select-none")
                   [ D.div (bang $ D.Class := "grow flex flex-row")
                       -- fromEvent because playerStatus is effectful
                       [ D.div (bang $ D.Class := "grow-0")
