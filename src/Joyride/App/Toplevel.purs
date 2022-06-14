@@ -307,7 +307,7 @@ toplevel tli =
                                   -- if there's flicker, dedup
                                   # switcher \(Tuple oi usu) -> case usu of
                                       Nothing -> makeJoined myPlayer oi
-                                      Just (Unsubscribe _) -> makePoints oi
+                                      Just (Unsubscribe _) -> makePoints myPlayer oi
                               ]
                           , D.div_
                               [ envy $ map stopButton
@@ -580,9 +580,9 @@ toplevel tli =
     )
 
 
-  makePoints :: KnownPlayers -> Nut
-  makePoints (KnownPlayers m) = D.ul_
-    ( map (\(Tuple p (InFlightGameInfo x)) -> D.li_ [ D.span (bang $ D.Class := "text-white") [ text_ $ p2s p <> ": " <> JSON.writeJSON (round (unwrap x.points + (-1.0) * unwrap x.penalties)) <> " Points" ] ])
+  makePoints :: Player -> KnownPlayers -> Nut
+  makePoints mp (KnownPlayers m) = D.ul_
+    ( map (\(Tuple p (InFlightGameInfo x)) -> D.li_ [ D.span (bang $ D.Class := "text-white") [ text_ $ (if p == mp then "You" else p2s p) <> ": " <> JSON.writeJSON (round (unwrap x.points + (-1.0) * unwrap x.penalties)) <> " Points" ] ])
         $ filterMap
             ( \(Tuple p k) -> case k of
                 HasNotStartedYet -> Nothing
