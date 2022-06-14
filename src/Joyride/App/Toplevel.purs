@@ -210,7 +210,7 @@ toplevel tli =
                     )
               -- stopButton :: Effect Unit -> Nut
               stopButton off = D.div
-                (bang $ D.Class := "bg-slate-50 select-none")
+                (bang $ D.Class := "bg-slate-50")
                 [ D.button
                     ( oneOf
                         [ bang $ D.Class := "pointer-events-auto p-1"
@@ -241,7 +241,7 @@ toplevel tli =
                           ]
                     , D.p_ [ text_ "When everyone has joined, or if you're playing alone, press Start!" ]
                     ]
-                , D.div (bang $ D.Class := "w-full")
+                , D.div (bang $ D.Class := "w-full select-none")
                     [ D.button
                         ( oneOf
                             [ bang $ D.Class := "w-full pointer-events-auto text-center bg-gray-800 hover:bg-gray-600 text-white py-2 px-4 rounded"
