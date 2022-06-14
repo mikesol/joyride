@@ -178,7 +178,6 @@ long makeLong = keepLatest $ vbus (Proxy :: _ LongActions) \push event -> do
                               liftEffect $ setPlayed hitLongMe
                             -- release
                             pure $ launchAff_ do
-                              Log.info "mouseUp"
                               n <- liftEffect $ makeLong.cnow
                               { animatedStuff: { rateInfo }, consumedByPress } /\ _ <- AVar.read av
                               hitAt <- joinFiber hitAtFiber
