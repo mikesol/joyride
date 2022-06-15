@@ -72,7 +72,7 @@ import WAGS.WebAPI (BrowserAudioBuffer)
 import Web.DOM as Web.DOM
 import Web.Event.Event (target)
 import Web.HTML.HTMLCanvasElement as HTMLCanvasElement
-import Web.HTML.HTMLElement (focus, fromElement)
+import Web.HTML.HTMLElement as HTMLElement
 import Web.HTML.HTMLInputElement (fromEventTarget, value)
 import Web.HTML.Window (RequestIdleCallbackId, Window, cancelIdleCallback, requestIdleCallback)
 
@@ -308,7 +308,10 @@ toplevel tli =
                                           >>= fromEventTarget
                                       )
                                       (value >=> nPush.changeText)
-                                  , D.Self := (fromElement >>> traverse_ focus)
+                                  , D.Self := \e' -> do
+                                      for_ (HTMLElement.fromElement e') \e -> do
+                                        HTMLElement.focus e
+                                        HTMLElement.click e
                                   ]
                               )
                               []
