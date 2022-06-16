@@ -35,6 +35,13 @@ import Safe.Coerce (coerce)
 import Types (Beats(..), Column(..), JMilliseconds(..), MakeBasics, RateInfo, Textures(..), beatToTime)
 import WAGS.WebAPI (BrowserAudioBuffer)
 
+-- words
+-- 🥁
+-- 👏
+-- ⚡
+-- 🤖
+-- 🪘
+
 infixr 4 cons as :/
 infixr 4 union as |+|
 
