@@ -5,6 +5,7 @@ import Prelude
 import Data.Foldable (oneOf)
 import Data.Int as Int
 import Data.Maybe (Maybe(..))
+import Data.Newtype (unwrap)
 import Data.Number (pi, pow)
 import Data.Typelevel.Num (D2)
 import FRP.Behavior (Behavior, sample_)
@@ -13,7 +14,7 @@ import FRP.Event.Class (bang)
 import Foreign.Object as Object
 import Joyride.FRP.Schedule (oneOff)
 import Joyride.Wags (AudibleChildEnd(..))
-import Types (RateInfo, Seconds(..))
+import Types (Beats(..), RateInfo, beatToTime)
 import WAGS.Control (gain_, playBuf)
 import WAGS.Core (Audible, AudioOnOff(..), _on, dyn)
 import WAGS.Properties (buffer, onOff)
@@ -47,10 +48,10 @@ graph { basics, leaps, rateInfo, silence, buffers } =
                   Just b -> buffer b
                   Nothing -> buffer silence
               , oneOff
-                  ( \i@{ time: Seconds time } ->
-                      if time > 0.94 then Just i else Nothing
+                  ( \i@{ beats: Beats beats } ->
+                      if beats > 0.94 then Just i else Nothing
                   )
-                  rateInfo <#> (\_ -> onOff $ AudioOnOff { o: 1.0, x: _on })
+                  rateInfo <#> (\ri -> onOff $ AudioOnOff { o: unwrap $ beatToTime ri (Beats 1.0), x: _on })
               ]
 
           )

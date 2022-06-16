@@ -237,7 +237,7 @@ toplevel tli =
                     )
                     [ text_ "Exit game" ]
                 ]
-              startButton = do
+              startButton aStuff = do
                 let
                   buttonStyle = bang $ D.Class := "w-full pointer-events-auto text-center bg-gray-800 hover:bg-gray-600 text-white py-2 px-4 rounded"
                   callback toSample = oneOf
@@ -293,7 +293,7 @@ toplevel tli =
                           ( graph
                               { basics: event.basicAudio
                               , leaps: event.leapAudio
-                              , rateInfo: withRate.event
+                              , rateInfo: _.rateInfo <$> aStuff
                               , buffers: refToBehavior tli.soundObj
                               , silence: tli.silence
                               }
@@ -392,234 +392,233 @@ toplevel tli =
                                         ]
                                     ]
                           ]
-            D.div_
-              [
-                -- on/off
-                D.div (bang $ D.Class := "z-10 pointer-events-none absolute w-screen h-screen flex flex-col")
-                  [ D.div (bang $ D.Class := "grow flex flex-row")
-                      -- fromEvent because playerStatus is effectful
-                      [ D.div (bang $ D.Class := "grow-0")
-                          [ D.div_
-                              [ fromEvent (biSampleOn (initializeWithEmpty event.iAmReady) (map Tuple playerStatus))
-                                  -- we theoretically don't need to dedup because
-                                  -- the button should never redraw once we've started
-                                  -- if there's flicker, dedup
-                                  # switcher \(Tuple oi usu) -> case usu of
-                                      Nothing -> makeJoined myPlayer oi
-                                      Just (Unsubscribe _) -> makePoints myPlayer oi
-                              ]
-                          , D.div_
-                              [ envy $ map stopButton
-                                  ( fromEvent
-                                          ( map
-                                              ( \(Unsubscribe u)-> u *> tli.goHome
-                                              )
-                                              (event.iAmReady)
+            envy $ fromEvent $ memoize
+              ( makeAnimatedStuff
+                  ( biSampleOn
+                      ( fireAndForget
+                          ( playerStatus # filterMap
+                              \m -> { startTime: _, myTime: _ } <$> allAreReady m <*>
+                                join
+                                  ( map
+                                      ( case _ of
+                                          HasNotStartedYet -> Nothing
+                                          HasStarted (InFlightGameInfo { startedAt }) -> Just startedAt
                                       )
+                                      (Map.lookup myPlayer (unwrap m))
                                   )
-                              ]
-                          ]
-                      , D.div (bang $ D.Class := "grow") []
-                      ]
-                  , let
-                      frame mid = D.div (bang $ D.Class := "flex flex-row")
-                        [ D.div (bang $ D.Class := "grow") []
-                        , D.div (bang $ D.Class := "grow-0") [ mid ]
+                          )
+                      )
+                      (event.rateInfo <#> \ri { startTime, myTime } -> adjustRateInfoBasedOnActualStart myTime startTime ri)
+                  )
+              )
+              \animatedStuff -> D.div_
+                [
+                  -- on/off
+                  D.div (bang $ D.Class := "z-10 pointer-events-none absolute w-screen h-screen flex flex-col")
+                    [ D.div (bang $ D.Class := "grow flex flex-row")
+                        -- fromEvent because playerStatus is effectful
+                        [ D.div (bang $ D.Class := "grow-0")
+                            [ D.div_
+                                [ fromEvent (biSampleOn (initializeWithEmpty event.iAmReady) (map Tuple playerStatus))
+                                    -- we theoretically don't need to dedup because
+                                    -- the button should never redraw once we've started
+                                    -- if there's flicker, dedup
+                                    # switcher \(Tuple oi usu) -> case usu of
+                                        Nothing -> makeJoined myPlayer oi
+                                        Just (Unsubscribe _) -> makePoints myPlayer oi
+                                ]
+                            , D.div_
+                                [ envy $ map stopButton
+                                    ( fromEvent
+                                        ( map
+                                            ( \(Unsubscribe u) -> u *> tli.goHome
+                                            )
+                                            (event.iAmReady)
+                                        )
+                                    )
+                                ]
+                            ]
                         , D.div (bang $ D.Class := "grow") []
                         ]
-                    in
-                      D.div_
-                        [ ( fromEvent
-                              ( dedup
-                                  ( playerStatus <#>
-                                      \m -> case allAreReady m of
-                                        Just x -> Started x
-                                        Nothing
-                                          | iAmReady m -> WaitingForOthers
-                                          | otherwise -> WaitingForMe
-                                  )
-                              )
-                          )
-                            # switcher case _ of
-                                WaitingForMe -> frame startButton
-                                WaitingForOthers -> frame (D.span (bang $ D.Class := "text-lg text-white") [ text_ "Waiting for others to join" ])
-                                Started _ -> envy empty
-                        ]
-                  , D.div (bang $ D.Class := "grow") []
-                  ]
-              , D.div
-                  (bang (D.Class := "absolute"))
-                  [ D.canvas
-                      ( oneOf
-                          [ bang (D.Class := "absolute")
-                          -- one gratuitous lookup as if all are ready then myPlayer
-                          -- must be ready, but should be computationally fine
-                          -- fireAndForget so that it only ever fires once
-                          , fromEvent $ memoize
-                              ( makeAnimatedStuff
-                                  ( biSampleOn
-                                      ( fireAndForget
-                                          ( playerStatus # filterMap
-                                              \m -> { startTime: _, myTime: _ } <$> allAreReady m <*>
-                                                join
-                                                  ( map
-                                                      ( case _ of
-                                                          HasNotStartedYet -> Nothing
-                                                          HasStarted (InFlightGameInfo { startedAt }) -> Just startedAt
-                                                      )
-                                                      (Map.lookup myPlayer (unwrap m))
-                                                  )
-                                          )
-                                      )
-                                      (event.rateInfo <#> \ri { startTime, myTime } -> adjustRateInfoBasedOnActualStart myTime startTime ri)
-                                  )
-                              )
-                              \animatedStuff ->
-                                D.Self := HTMLCanvasElement.fromElement >>> traverse_
-                                  ( runThree <<<
-                                      { threeStuff: threeStuff
-                                      , cssRendererElt: event.renderElement
-                                      , isMobile: tli.isMobile
-                                      , renderingInfo: tli.renderingInfo
-                                      , lowPriorityCb: tli.lpsCallback
-                                      , myPlayer
-                                      , debug: tli.debug
-                                      , textures
-                                      , cubeTextures
-                                      , pushBasic: tli.pushBasic
-                                      , basicE: \pushBasicVisualForLabel -> tli.basicE
-                                          { initialDims: tli.initialDims
-                                          , renderingInfo: tli.renderingInfo
-                                          , textures
-                                          , cnow: cNow
-                                          , myPlayer
-                                          , debug: tli.debug
-                                          , notifications:
-                                              { hitBasic: withCTime cNow pubNubEvent # filterMap
-                                                  ( \{ value, time } -> case value of
-                                                      HitBasic (HitBasicOverTheWire e) -> Just $ HitBasicOtherPlayer
-                                                        { uniqueId: e.uniqueId
-                                                        , logicalBeat: e.logicalBeat
-                                                        , deltaBeats: e.deltaBeats
-                                                        , hitAt: e.hitAt
-                                                        , player: e.player
-                                                        , issuedAt: coerce time
-                                                        }
-                                                      _ -> Nothing
-                                                  )
-                                              }
-                                          , resizeEvent: tli.resizeE
-                                          , isMobile: tli.isMobile
-                                          , lpsCallback: tli.lpsCallback
-                                          , pushAudio: push.basicAudio
-                                          , mkColor: color threeStuff.three
-                                          , mkMatrix4: M4.set threeStuff.three
-                                          , buffers: refToBehavior tli.soundObj
-                                          , silence: tli.silence
-                                          , animatedStuff
-                                          , pushBasic: tli.pushBasic
-                                          , pushBasicVisualForLabel
-                                          }
-                                      , leapE: \pushLeapVisualForLabel -> tli.leapE
-                                          { initialDims: tli.initialDims
-                                          , renderingInfo: tli.renderingInfo
-                                          , textures
-                                          , myPlayer
-                                          , cnow: cNow
-                                          , debug: tli.debug
-                                          , notifications:
-                                              { hitLeap: withCTime cNow pubNubEvent # filterMap
-                                                  ( \{ value, time } -> case value of
-                                                      HitLeap (HitLeapOverTheWire e) -> Just $ HitLeapOtherPlayer
-                                                        { uniqueId: e.uniqueId
-                                                        , hitAt: e.hitAt
-                                                        , player: e.player
-                                                        , oldPosition: e.oldPosition
-                                                        , newPosition: e.newPosition
-                                                        , issuedAt: coerce time
-                                                        }
-                                                      _ -> Nothing
-                                                  )
-                                              }
-                                          , resizeEvent: tli.resizeE
-                                          , isMobile: tli.isMobile
-                                          , lpsCallback: tli.lpsCallback
-                                          , pushAudio: push.leapAudio
-                                          , mkColor: color threeStuff.three
-                                          , mkMatrix4: M4.set threeStuff.three
-                                          , buffers: refToBehavior tli.soundObj
-                                          , silence: tli.silence
-                                          , animatedStuff
-                                          , pushLeap: tli.pushLeap
-                                          , pushLeapVisualForLabel
-                                          }
-                                      , longE: \pushHitLongVisualForLabel pushReleaseLongVisualForLabel -> tli.longE
-                                          { initialDims: tli.initialDims
-                                          , renderingInfo: tli.renderingInfo
-                                          , textures
-                                          , myPlayer
-                                          , cnow: cNow
-                                          , debug: tli.debug
-                                          , notifications:
-                                              { hitLong: withCTime cNow pubNubEvent # filterMap
-                                                  ( \{ value, time } -> case value of
-                                                      HitLong (HitLongOverTheWire e) -> Just $ HitLongOtherPlayer
-                                                        { uniqueId: e.uniqueId
-                                                        , hitAt: e.hitAt
-                                                        , player: e.player
-                                                        , distance: e.distance
-                                                        , issuedAt: coerce time
-                                                        }
-                                                      _ -> Nothing
-                                                  )
-                                              , releaseLong: withCTime cNow pubNubEvent # filterMap
-                                                  ( \{ value, time } -> case value of
-                                                      ReleaseLong (ReleaseLongOverTheWire e) -> Just $ ReleaseLongOtherPlayer
-                                                        { uniqueId: e.uniqueId
-                                                        , releasedAt: e.releasedAt
-                                                        , pctConsumed: e.pctConsumed
-                                                        , player: e.player
-                                                        , hitAt: e.hitAt
-                                                        , distance: e.distance
-                                                        , issuedAt: coerce time
-                                                        }
-                                                      _ -> Nothing
-                                                  )
-                                              }
-                                          , resizeEvent: tli.resizeE
-                                          , isMobile: tli.isMobile
-                                          , lpsCallback: tli.lpsCallback
-                                          , pushAudio: push.leapAudio
-                                          , mkColor: color threeStuff.three
-                                          , mkMatrix4: M4.set threeStuff.three
-                                          , buffers: refToBehavior tli.soundObj
-                                          , silence: tli.silence
-                                          , animatedStuff
-                                          , pushHitLong: tli.pushHitLong
-                                          , pushReleaseLong: tli.pushReleaseLong
-                                          , pushHitLongVisualForLabel
-                                          , pushReleaseLongVisualForLabel
-                                          }
-                                      , animatedStuff
-                                      , resizeE: tli.resizeE
-                                      , initialDims: tli.initialDims
-                                      , canvas: _
-                                      }
-                                  )
+                    , let
+                        frame mid = D.div (bang $ D.Class := "flex flex-row")
+                          [ D.div (bang $ D.Class := "grow") []
+                          , D.div (bang $ D.Class := "grow-0") [ mid ]
+                          , D.div (bang $ D.Class := "grow") []
                           ]
-                      )
-                      []
-                  , D.div (oneOfMap bang [ D.Class := "absolute pointer-events-none", D.Self := push.renderElement ]) []
-                  ]
-              , D.div
-                  ( oneOf
-                      [ bang $ D.Class := "z-10 snakbar"
-                      , filter not event.copiedToClipboard $> D.Class := "z-10 snakbar"
-                      , filter identity event.copiedToClipboard $> D.Class := "z-10 snackbar show"
-                      ]
-                  )
-                  [ text_ "Copied to clipboard" ]
-              ]
+                      in
+                        D.div_
+                          [ ( fromEvent
+                                ( dedup
+                                    ( playerStatus <#>
+                                        \m -> case allAreReady m of
+                                          Just x -> Started x
+                                          Nothing
+                                            | iAmReady m -> WaitingForOthers
+                                            | otherwise -> WaitingForMe
+                                    )
+                                )
+                            )
+                              # switcher case _ of
+                                  WaitingForMe -> frame (startButton animatedStuff)
+                                  WaitingForOthers -> frame (D.span (bang $ D.Class := "text-lg text-white") [ text_ "Waiting for others to join" ])
+                                  Started _ -> envy empty
+                          ]
+                    , D.div (bang $ D.Class := "grow") []
+                    ]
+                , D.div
+                    (bang (D.Class := "absolute"))
+                    [ D.canvas
+                        ( oneOf
+                            [ bang (D.Class := "absolute")
+                            -- one gratuitous lookup as if all are ready then myPlayer
+                            -- must be ready, but should be computationally fine
+                            -- fireAndForget so that it only ever fires once
+                            , bang $ D.Self := HTMLCanvasElement.fromElement >>> traverse_
+                                ( runThree <<<
+                                    { threeStuff: threeStuff
+                                    , cssRendererElt: event.renderElement
+                                    , isMobile: tli.isMobile
+                                    , renderingInfo: tli.renderingInfo
+                                    , lowPriorityCb: tli.lpsCallback
+                                    , myPlayer
+                                    , debug: tli.debug
+                                    , textures
+                                    , cubeTextures
+                                    , pushBasic: tli.pushBasic
+                                    , basicE: \pushBasicVisualForLabel -> tli.basicE
+                                        { initialDims: tli.initialDims
+                                        , renderingInfo: tli.renderingInfo
+                                        , textures
+                                        , cnow: cNow
+                                        , myPlayer
+                                        , debug: tli.debug
+                                        , notifications:
+                                            { hitBasic: withCTime cNow pubNubEvent # filterMap
+                                                ( \{ value, time } -> case value of
+                                                    HitBasic (HitBasicOverTheWire e) -> Just $ HitBasicOtherPlayer
+                                                      { uniqueId: e.uniqueId
+                                                      , logicalBeat: e.logicalBeat
+                                                      , deltaBeats: e.deltaBeats
+                                                      , hitAt: e.hitAt
+                                                      , player: e.player
+                                                      , issuedAt: coerce time
+                                                      }
+                                                    _ -> Nothing
+                                                )
+                                            }
+                                        , resizeEvent: tli.resizeE
+                                        , isMobile: tli.isMobile
+                                        , lpsCallback: tli.lpsCallback
+                                        , pushAudio: push.basicAudio
+                                        , mkColor: color threeStuff.three
+                                        , mkMatrix4: M4.set threeStuff.three
+                                        , buffers: refToBehavior tli.soundObj
+                                        , silence: tli.silence
+                                        , animatedStuff
+                                        , pushBasic: tli.pushBasic
+                                        , pushBasicVisualForLabel
+                                        }
+                                    , leapE: \pushLeapVisualForLabel -> tli.leapE
+                                        { initialDims: tli.initialDims
+                                        , renderingInfo: tli.renderingInfo
+                                        , textures
+                                        , myPlayer
+                                        , cnow: cNow
+                                        , debug: tli.debug
+                                        , notifications:
+                                            { hitLeap: withCTime cNow pubNubEvent # filterMap
+                                                ( \{ value, time } -> case value of
+                                                    HitLeap (HitLeapOverTheWire e) -> Just $ HitLeapOtherPlayer
+                                                      { uniqueId: e.uniqueId
+                                                      , hitAt: e.hitAt
+                                                      , player: e.player
+                                                      , oldPosition: e.oldPosition
+                                                      , newPosition: e.newPosition
+                                                      , issuedAt: coerce time
+                                                      }
+                                                    _ -> Nothing
+                                                )
+                                            }
+                                        , resizeEvent: tli.resizeE
+                                        , isMobile: tli.isMobile
+                                        , lpsCallback: tli.lpsCallback
+                                        , pushAudio: push.leapAudio
+                                        , mkColor: color threeStuff.three
+                                        , mkMatrix4: M4.set threeStuff.three
+                                        , buffers: refToBehavior tli.soundObj
+                                        , silence: tli.silence
+                                        , animatedStuff
+                                        , pushLeap: tli.pushLeap
+                                        , pushLeapVisualForLabel
+                                        }
+                                    , longE: \pushHitLongVisualForLabel pushReleaseLongVisualForLabel -> tli.longE
+                                        { initialDims: tli.initialDims
+                                        , renderingInfo: tli.renderingInfo
+                                        , textures
+                                        , myPlayer
+                                        , cnow: cNow
+                                        , debug: tli.debug
+                                        , notifications:
+                                            { hitLong: withCTime cNow pubNubEvent # filterMap
+                                                ( \{ value, time } -> case value of
+                                                    HitLong (HitLongOverTheWire e) -> Just $ HitLongOtherPlayer
+                                                      { uniqueId: e.uniqueId
+                                                      , hitAt: e.hitAt
+                                                      , player: e.player
+                                                      , distance: e.distance
+                                                      , issuedAt: coerce time
+                                                      }
+                                                    _ -> Nothing
+                                                )
+                                            , releaseLong: withCTime cNow pubNubEvent # filterMap
+                                                ( \{ value, time } -> case value of
+                                                    ReleaseLong (ReleaseLongOverTheWire e) -> Just $ ReleaseLongOtherPlayer
+                                                      { uniqueId: e.uniqueId
+                                                      , releasedAt: e.releasedAt
+                                                      , pctConsumed: e.pctConsumed
+                                                      , player: e.player
+                                                      , hitAt: e.hitAt
+                                                      , distance: e.distance
+                                                      , issuedAt: coerce time
+                                                      }
+                                                    _ -> Nothing
+                                                )
+                                            }
+                                        , resizeEvent: tli.resizeE
+                                        , isMobile: tli.isMobile
+                                        , lpsCallback: tli.lpsCallback
+                                        , pushAudio: push.leapAudio
+                                        , mkColor: color threeStuff.three
+                                        , mkMatrix4: M4.set threeStuff.three
+                                        , buffers: refToBehavior tli.soundObj
+                                        , silence: tli.silence
+                                        , animatedStuff
+                                        , pushHitLong: tli.pushHitLong
+                                        , pushReleaseLong: tli.pushReleaseLong
+                                        , pushHitLongVisualForLabel
+                                        , pushReleaseLongVisualForLabel
+                                        }
+                                    , animatedStuff
+                                    , resizeE: tli.resizeE
+                                    , initialDims: tli.initialDims
+                                    , canvas: _
+                                    }
+                                )
+                            ]
+                        )
+                        []
+                    , D.div (oneOfMap bang [ D.Class := "absolute pointer-events-none", D.Self := push.renderElement ]) []
+                    ]
+                , D.div
+                    ( oneOf
+                        [ bang $ D.Class := "z-10 snakbar"
+                        , filter not event.copiedToClipboard $> D.Class := "z-10 snakbar"
+                        , filter identity event.copiedToClipboard $> D.Class := "z-10 snackbar show"
+                        ]
+                    )
+                    [ text_ "Copied to clipboard" ]
+                ]
       )
   where
   makeAnimatedStuff rateInfo = sampleBy
