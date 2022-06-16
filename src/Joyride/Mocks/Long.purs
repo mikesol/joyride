@@ -6,7 +6,6 @@ import Control.Alt ((<|>))
 import Control.Comonad.Cofree ((:<))
 import Control.Plus (empty)
 import Data.DateTime.Instant (unInstant)
-import Data.FastVect.FastVect (cons)
 import Data.Foldable (oneOfMap)
 import Data.FunctorWithIndex (mapWithIndex)
 import Data.List (List(..), span, (:))
@@ -30,11 +29,8 @@ import Rito.Geometries.Box (box)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.RoundRobin (InstanceId, Semaphore(..), roundRobinInstancedMesh)
 import Safe.Coerce (coerce)
-import Types (Beats(..), Column(..), JMilliseconds(..), MakeLongs, RateInfo, Textures(..), beatToTime)
+import Types (Beats(..), Column(..), JMilliseconds(..), MakeLongs, RateInfo, beatToTime)
 import WAGS.WebAPI (BrowserAudioBuffer)
-
-infixr 4 cons as :/
-infixr 4 union as |+|
 
 lookAhead :: Beats
 lookAhead = Beats 0.1
@@ -90,7 +86,7 @@ mockLongs makeLongs = toScene
   transform input =
     ( map Acquire
         ( LongV.long
-            ( makeLongs |+| input |+|
+            ( makeLongs `union` input `union`
                 { sound: singleBeat
                     { myBeat: input.appearsAt + Beats 1.0
                     , silence: makeLongs.silence
