@@ -2,9 +2,9 @@ module Joyride.Mocks.Basic where
 
 import Prelude
 
-import Bolson.Core (envy)
+import Bolson.Core (Child(..), dyn, envy, fixed)
 import Control.Alt ((<|>))
-import Control.Comonad.Cofree ((:<))
+import Control.Comonad.Cofree (Cofree, (:<))
 import Control.Plus (empty)
 import Data.DateTime.Instant (unInstant)
 import Data.FastVect.FastVect (Vect, cons)
@@ -14,6 +14,7 @@ import Data.FunctorWithIndex (mapWithIndex)
 import Data.List (List(..), span, (:))
 import Data.Maybe (Maybe(..))
 import Data.Time.Duration (Milliseconds(..), Seconds(..))
+import Effect (Effect)
 import FRP.Behavior (Behavior, sample_)
 import FRP.Event (Event, keepLatest, memoize)
 import FRP.Event.Class (bang)
@@ -24,19 +25,32 @@ import Joyride.FRP.Behavior (misbehavior)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Schedule (oneOff, scheduleCf)
 import Joyride.Visual.Basic as BasicV
+import Joyride.Visual.BasicWord as BasicW
 import Joyride.Wags (AudibleEnd(..))
 import Record (union)
 import Rito.Color (RGB(..))
-import Rito.Core (ASceneful, Instance, toScene)
+import Rito.Core (ASceneful, CSS3DObject, Instance, toScene)
 import Rito.Geometries.Box (box)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.RoundRobin (InstanceId, Semaphore(..), roundRobinInstancedMesh)
 import Safe.Coerce (coerce)
-import Types (Beats(..), Column(..), JMilliseconds(..), MakeBasics, RateInfo, Textures(..), beatToTime)
+import Types (Beats(..), Column(..), HitBasicMe, JMilliseconds(..), MakeBasics, RateInfo, beatToTime)
 import WAGS.WebAPI (BrowserAudioBuffer)
 
+type ACU =
+  { appearsAt :: Beats
+  , column :: Column
+  , uniqueId :: Int
+  }
+
+-- words
+-- 🥁
+-- 👏
+-- ⚡
+-- 🤖
+-- 🪘
+
 infixr 4 cons as :/
-infixr 4 union as |+|
 
 lookAhead :: Beats
 lookAhead = Beats 0.1
@@ -95,33 +109,39 @@ severalBeats { startsAt, buffers, silence } = singleBeat (f "kick" $ Beats 0.0)
     }
 
 mockBasics :: forall lock payload. { | MakeBasics () } -> ASceneful lock payload
-mockBasics makeBasics = toScene
-  ( roundRobinInstancedMesh 100 (box {} empty)
-      ( meshStandardMaterial
-          -- { map: textures.hockeyCOL
-          -- , aoMap: textures.hockeyAO
-          -- , displacementMap: textures.hockeyDISP
-          -- , displacementScale: 0.1
-          -- , normalMap: textures.hockeyNRM
-          -- , roughnessMap: textures.hockeyGLOSS
-          -- }
-          { color: makeBasics.mkColor (RGB 0.798 0.927 0.778)
-          , roughness: 0.0
-          }
-          empty
-      )
-      children
+mockBasics makeBasics =
+  ( fixed
+      [ toScene $ roundRobinInstancedMesh 100 (box {} empty)
+          ( meshStandardMaterial
+              -- { map: textures.hockeyCOL
+              -- , aoMap: textures.hockeyAO
+              -- , displacementMap: textures.hockeyDISP
+              -- , displacementScale: 0.1
+              -- , normalMap: textures.hockeyNRM
+              -- , roughnessMap: textures.hockeyGLOSS
+              -- }
+              { color: makeBasics.mkColor (RGB 0.798 0.927 0.778)
+              , roughness: 0.0
+              }
+              empty
+          )
+          (children transformBasic)
+      , toScene $ dyn (children transformBasicWord)
+      ]
   )
 
   where
-  children = keepLatest $ map (oneOfMap bang) eventList
-  eventList = scheduleCf (go score) (_.rateInfo <$> makeBasics.animatedStuff)
+  children :: forall a. (ACU -> Event a) -> Event (Event a)
+  children f = keepLatest (map (oneOfMap bang) (eventList f))
 
-  transform :: _ -> Event (Semaphore (InstanceId -> Instance lock payload))
-  transform input =
+  eventList :: forall a. (ACU -> Event a) -> Event (List (Event a))
+  eventList f = scheduleCf (go f score) (_.rateInfo <$> makeBasics.animatedStuff)
+
+  transformBasic :: ACU -> Event (Semaphore (InstanceId -> Instance lock payload))
+  transformBasic input =
     ( map Acquire
         ( BasicV.basic
-            ( makeBasics |+| input |+|
+            ( makeBasics `union` input `union`
                 { beats: severalBeats
                     { startsAt: input.appearsAt + Beats 1.0
                     , silence: makeBasics.silence
@@ -136,11 +156,35 @@ mockBasics makeBasics = toScene
           (JMilliseconds 10000.0 + (coerce $ unInstant time))
           (bang $ Release)
       )
-  go Nil _ = Nil :< go Nil
-  go l { beats } = do
+
+  transformBasicWord :: ACU -> Event (Child Void (CSS3DObject lock payload) Effect lock)
+  transformBasicWord input =
+    ( bang $ Insert
+        ( BasicW.basicWord
+            ( makeBasics `union` input `union`
+                { beats: severalBeats
+                    { startsAt: input.appearsAt + Beats 1.0
+                    , silence: makeBasics.silence
+                    , buffers: makeBasics.buffers
+                    }
+                , uniqueId: input.uniqueId
+                -- empty for now, fill this in later
+                , someonePlayedMe: (empty :: Event HitBasicMe)
+                }
+            )
+        )
+    ) <|>
+      ( keepLatest $ (LocalTime.withTime (bang unit)) <#> \{ time } -> lowPrioritySchedule makeBasics.lpsCallback
+          (JMilliseconds 10000.0 + (coerce $ unInstant time))
+          (bang $ Remove)
+      )
+
+  go :: forall a. (ACU -> Event a) -> List ACU -> RateInfo -> Cofree ((->) RateInfo) (List (Event a))
+  go f Nil _ = Nil :< go f Nil
+  go f l { beats } = do
     let
       { init, rest } = span (\{ appearsAt } -> appearsAt <= beats + lookAhead) l
-    (transform <$> init) :< go rest
+    (f <$> init) :< go f rest
   score = mapWithIndex (\uniqueId x -> union { uniqueId } x) $ { column: C4, appearsAt: Beats 0.0 }
     : { column: C3, appearsAt: Beats 2.0 }
     : { column: C2, appearsAt: Beats 3.0 }

@@ -37,6 +37,7 @@ import Rito.Portal (globalCameraPortal1, globalScenePortal1)
 import Rito.Properties (aspect, background, decay, distance, intensity, rotateX, rotateY, rotateZ) as P
 import Rito.Properties (positionX, positionY, positionZ, render, scaleX, scaleY, scaleZ, size)
 import Rito.Renderers.CSS2D (css2DRenderer)
+import Rito.Renderers.CSS3D (css3DRenderer)
 import Rito.Renderers.WebGL (webGLRenderer)
 import Rito.Run as Rito.Run
 import Rito.Scene (Background(..), scene)
@@ -54,7 +55,8 @@ speed = 4.0 :: Number
 runThree
   :: { threeStuff :: ThreeStuff
      , debug :: Boolean
-     , cssRendererElt :: Event Web.DOM.Element
+     , css2DRendererElt :: Event Web.DOM.Element
+     , css3DRendererElt :: Event Web.DOM.Element
      , isMobile :: Boolean
      , lowPriorityCb :: JMilliseconds -> Effect Unit -> Effect Unit
      , myPlayer :: Player
@@ -325,7 +327,20 @@ runThree opts@{ threeStuff: { three } } = do
                             ]
                         )
                     )
-                    opts.cssRendererElt
+                    opts.css2DRendererElt
+                , envy $ map
+                    ( \element -> css3DRenderer
+                        myScene
+                        myCamera
+                        { canvas: opts.canvas, element }
+                        ( oneOf
+                            [ opts.resizeE <#> \i -> size { width: i.iw, height: i.ih }
+                            , bang render
+                            , (mopts.rateInfo $> render)
+                            ]
+                        )
+                    )
+                    opts.css3DRendererElt
                 ]
     )
   pure unit

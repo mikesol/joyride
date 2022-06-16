@@ -56,7 +56,7 @@ import Joyride.Timing.CoordinatedNow (cnow)
 import Joyride.Transport.PubNub as PN
 import Record (union)
 import Rito.CubeTexture as CubeTextureLoader
-import Rito.Interpret (css2DRendererAff, orbitControlsAff, threeAff)
+import Rito.Interpret (css2DRendererAff, css3DRendererAff, orbitControlsAff, threeAff)
 import Rito.Texture (loadAff, loader)
 import Route (Route(..), route)
 import Routing.Duplex (parse)
@@ -204,8 +204,9 @@ main (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ do
       downloadedTextures <- forkAff (fromHomogeneous <$> parTraverse (loadAff ldr) (homogeneous textures))
       myCubeTextures <- (fromHomogeneous <$> parTraverse ((CubeTextureLoader.loadAffRecord cldr)) (map unwrap $ homogeneous cubeTextures))
       orbitControls <- orbitControlsAff
-      cssThings <- css2DRendererAff
-      let threeStuff = union { three, orbitControls } cssThings
+      css2DThings <- css2DRendererAff
+      css3DThings <- css3DRendererAff
+      let threeStuff = { three, orbitControls } `union` css2DThings `union` css3DThings
       -- "server" via pubnub
       let myChannel' = hush parsed >>= channelFromRoute
       _ <- liftEffect $ subscribe channelEvent.event \chan -> launchAff_ $ do
