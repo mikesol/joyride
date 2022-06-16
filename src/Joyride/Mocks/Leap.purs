@@ -34,9 +34,6 @@ import Safe.Coerce (coerce)
 import Types (Beats(..), Column(..), JMilliseconds(..), MakeLeaps, Position(..), RateInfo, Textures(..), beatToTime)
 import WAGS.WebAPI (BrowserAudioBuffer)
 
-infixr 4 cons as :/
-infixr 4 union as |+|
-
 lookAhead :: Beats
 lookAhead = Beats 0.1
 
@@ -93,7 +90,7 @@ mockLeaps makeLeaps = toScene
   transform input =
     ( map Acquire
         ( LeapV.leap
-            ( makeLeaps |+| input |+|
+            ( makeLeaps `union` input `union`
                 { sound: singleBeat
                     { myBeat: input.appearsAt + Beats 1.0
                     , silence: makeLeaps.silence

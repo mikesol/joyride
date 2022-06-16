@@ -35,6 +35,7 @@ module Types
   , allPlayers
   , allPositions
   , allAxes
+  , MakeBasicWord
   , MakeBasic
   , MakeBasics
   , MakeLong
@@ -88,7 +89,7 @@ import Data.Tuple (Tuple(..))
 import Data.Tuple.Nested (type (/\))
 import Effect (Effect)
 import FRP.Behavior (Behavior)
-import FRP.Event (Event, EventIO)
+import FRP.Event (EventIO, Event)
 import Foreign (ForeignError(..), fail)
 import Foreign.Object as Object
 import Joyride.Wags (AudibleChildEnd, AudibleEnd)
@@ -471,6 +472,11 @@ instance JSON.WriteForeign PointOutcome where
   writeImpl (PointOutcome (Right val)) = JSON.writeImpl { _type: "Points", val }
 
 -- hits
+type MakeBasicWord r =
+  ( someonePlayedMe :: Event HitBasicMe
+  | MakeBasic r
+  )
+
 type MakeBasic r =
   ( column :: Column
   , appearsAt :: Beats

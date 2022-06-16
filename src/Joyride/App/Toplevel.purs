@@ -85,7 +85,8 @@ type UIEvents = V
   , rateInfo :: RateInfo
   , basicAudio :: Event AudibleChildEnd
   , leapAudio :: Event AudibleChildEnd
-  , renderElement :: Web.DOM.Element
+  , render2DElement :: Web.DOM.Element
+  , render3DElement :: Web.DOM.Element
   , copiedToClipboard :: Boolean
   )
 
@@ -477,7 +478,8 @@ toplevel tli =
                             , bang $ D.Self := HTMLCanvasElement.fromElement >>> traverse_
                                 ( runThree <<<
                                     { threeStuff: threeStuff
-                                    , cssRendererElt: event.renderElement
+                                    , css2DRendererElt: event.render2DElement
+                                    , css3DRendererElt: event.render3DElement
                                     , isMobile: tli.isMobile
                                     , renderingInfo: tli.renderingInfo
                                     , lowPriorityCb: tli.lpsCallback
@@ -608,7 +610,8 @@ toplevel tli =
                             ]
                         )
                         []
-                    , D.div (oneOfMap bang [ D.Class := "absolute pointer-events-none", D.Self := push.renderElement ]) []
+                    , D.div (oneOfMap bang [ D.Class := "absolute pointer-events-none", D.Self := push.render2DElement ]) []
+                    , D.div (oneOfMap bang [ D.Class := "absolute pointer-events-none", D.Self := push.render3DElement ]) []
                     ]
                 , D.div
                     ( oneOf
