@@ -1,0 +1,266 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@keyframes fade-out-animation {
+	0% {
+		opacity: 1;
+	}
+	30% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0;
+	}
+}
+
+.fade-out {
+	animation: fade-out-animation 1.5s;
+	animation-fill-mode: forwards;
+}
+/* countdown */
+
+.countdown-container {
+	background-color: #777;
+	height: 100vh;
+	background-image: linear-gradient(
+			black,
+			transparent 10%,
+			transparent calc(50% - 1px),
+			#aaa calc(50% - 1px),
+			#aaa calc(50% + 1px),
+			transparent calc(50% + 1px),
+			transparent 90%,
+			black
+		),
+		linear-gradient(
+			90deg,
+			black,
+			transparent 10%,
+			transparent calc(50% - 1px),
+			#aaa calc(50% - 1px),
+			#aaa calc(50% + 1px),
+			transparent calc(50% + 1px),
+			transparent 90%,
+			black
+		);
+}
+
+.countdown-cont {
+	width: 250px;
+	height: 250px;
+	position: fixed;
+	text-align: center;
+	font-weight: bold;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	border: 2px solid #aaa;
+	border-radius: 50%;
+	overflow: hidden;
+}
+.countdown-cont::after {
+	content: "";
+	width: 200px;
+	height: 200px;
+	position: absolute;
+	top: 23px;
+	left: 23px;
+	border: 1px solid #aaa;
+	border-radius: 50%;
+	background: #777;
+	background-image: linear-gradient(
+			transparent calc(50% - 1px),
+			#aaa calc(50% - 1px),
+			#aaa calc(50% + 1px),
+			transparent calc(50% + 1px)
+		),
+		linear-gradient(
+			90deg,
+			transparent calc(50% - 1px),
+			#aaa calc(50% - 1px),
+			#aaa calc(50% + 1px),
+			transparent calc(50% + 1px)
+		);
+}
+
+.countdown-spinner {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 125px;
+	height: 100px;
+	transform-origin: 0 0;
+	background-image: linear-gradient(black, transparent);
+	animation: countdown-spin 1s infinite linear;
+}
+
+@keyframes countdown-spin {
+		from {
+			transform: rotate(0deg);
+		}
+		to {
+			transform: rotate(-360deg);
+		}
+	}
+.countdown-number {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	z-index: 2;
+	transform: translate(-50%, -50%);
+	width: 250px;
+	height: 250px;
+}
+
+.countdown-number::after {
+	content: "";
+	width: 250px;
+	height: 250px;
+	position: absolute;
+	top: 0;
+	left: 0;
+	font-size: 150px;
+	line-height: 250px;
+	animation: countdown-count 10s infinite steps(10, start);
+}
+@keyframes countdown-count {
+		0% {
+			content: "10";
+		}
+		10% {
+			content: "9";
+		}
+		20% {
+			content: "8";
+		}
+		30% {
+			content: "7";
+		}
+		40% {
+			content: "6";
+		}
+		50% {
+			content: "5";
+		}
+		60% {
+			content: "4";
+		}
+		70% {
+			content: "3";
+		}
+		80% {
+			content: "2";
+		}
+		90% {
+			content: "1";
+		}
+	}
+
+/* loader */
+.wave-center {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #000;
+}
+.wave-loader {
+  width: 5px;
+  height: 100px;
+  background: linear-gradient(45deg, cyan, #fff);
+  margin: 10px;
+  transform: scale(0);
+  animation: wave-loader 1s linear infinite;
+  border-radius: 20px;
+}
+.wave-loader:nth-child(2) {
+  animation-delay: 0.1s;
+}
+.wave-loader:nth-child(3) {
+  animation-delay: 0.2s;
+}
+.wave-loader:nth-child(4) {
+  animation-delay: 0.3s;
+}
+.wave-loader:nth-child(5) {
+  animation-delay: 0.4s;
+}
+.wave-loader:nth-child(6) {
+  animation-delay: 0.5s;
+}
+.wave-loader:nth-child(7) {
+  animation-delay: 0.6s;
+}
+.wave-loader:nth-child(8) {
+  animation-delay: 0.7s;
+}
+.wave-loader:nth-child(9) {
+  animation-delay: 0.8s;
+}
+.wave-loader:nth-child(10) {
+  animation-delay: 0.9s;
+}
+
+@keyframes wave-loader {
+  0% {
+    transform: scale(0);
+  }
+  50% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(0);
+  }
+}
+
+/* The snackbar - position it at the bottom and in the middle of the screen */
+.snackbar {
+  visibility: hidden; /* Hidden by default. Visible on click */
+  min-width: 250px; /* Set a default minimum width */
+  margin-left: -125px; /* Divide value of min-width by 2 */
+  background-color: #333; /* Black background color */
+  color: #fff; /* White text color */
+  text-align: center; /* Centered text */
+  border-radius: 2px; /* Rounded borders */
+  padding: 16px; /* Padding */
+  position: fixed; /* Sit on top of the screen */
+  z-index: 1; /* Add a z-index if needed */
+  left: 50%; /* Center the snackbar */
+  bottom: 30px; /* 30px from the bottom */
+}
+
+/* Show the snackbar when clicking on a button (class added with JavaScript) */
+.snackbar.show {
+  visibility: visible; /* Show the snackbar */
+  /* Add animation: Take 0.5 seconds to fade in and out the snackbar.
+  However, delay the fade out process for 2.5 seconds */
+  -webkit-animation: fadein 0.5s, fadeout 0.5s 2.5s;
+  animation: fadein 0.5s, fadeout 0.5s 2.5s;
+}
+
+/* Animations to fade the snackbar in and out */
+@-webkit-keyframes fadein {
+  from {bottom: 0; opacity: 0;}
+  to {bottom: 30px; opacity: 1;}
+}
+
+@keyframes fadein {
+  from {bottom: 0; opacity: 0;}
+  to {bottom: 30px; opacity: 1;}
+}
+
+@-webkit-keyframes fadeout {
+  from {bottom: 30px; opacity: 1;}
+  to {bottom: 0; opacity: 0;}
+}
+
+@keyframes fadeout {
+  from {bottom: 30px; opacity: 1;}
+  to {bottom: 0; opacity: 0;}
+}
+
+/* pretty extreme, the problem is that there's so much crap that it's tough to disable this any other way */
+body {
+	user-select: none;
+}
