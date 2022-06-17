@@ -30,7 +30,7 @@ makeBar
      , rateE :: Event RateInfo
      }
   -> ASceneful lock payload
-makeBar { c3, threeDI, renderingInfo, initialIsMe, isMe, position, debug, rateE } = toScene $ mesh { mesh: threeDI.mesh } (box { box: threeDI.boxGeometry } empty)
+makeBar { c3, threeDI, renderingInfo, initialIsMe, isMe, position, debug, rateE } = toScene $ mesh { mesh: threeDI.mesh } (box { box: threeDI.boxGeometry })
   ( meshStandardMaterial
       { meshStandardMaterial: threeDI.meshStandardMaterial
       , color: makeColor initialIsMe

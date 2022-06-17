@@ -117,7 +117,7 @@ mockBasics makeBasics =
           , mesh: makeBasics.threeDI.mesh
           }
           100
-          (box { box: makeBasics.threeDI.boxGeometry } empty)
+          (box { box: makeBasics.threeDI.boxGeometry })
           ( meshStandardMaterial
               -- { map: textures.hockeyCOL
               -- , aoMap: textures.hockeyAO

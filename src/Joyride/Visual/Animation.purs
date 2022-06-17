@@ -154,7 +154,7 @@ runThree opts = do
                           let ppos = playerPosition player
                           let posAx axis = map (ppos axis) mopts.playerPositions
                           toGroup $ mesh { mesh: opts.threeDI.mesh }
-                            (sphere { sphere: opts.threeDI.sphereGeometry } empty)
+                            (sphere { sphere: opts.threeDI.sphereGeometry })
                             ( case player of
                                 Player1 ->
                                   meshStandardMaterial

@@ -71,7 +71,7 @@ mockLeaps makeLeaps = toScene
       , mesh: makeLeaps.threeDI.mesh
       }
       100
-      (box { box: makeLeaps.threeDI.boxGeometry } empty)
+      (box { box: makeLeaps.threeDI.boxGeometry })
       ( meshStandardMaterial
           -- { map: textures.tilesZelligeHexCOL
           -- , aoMap: textures.tilesZelligeHexAO
