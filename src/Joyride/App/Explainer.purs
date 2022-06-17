@@ -29,14 +29,13 @@ import Rito.Properties (positionX, positionY, positionZ, render, size)
 import Rito.Renderers.WebGL (webGLRenderer)
 import Rito.Run as Rito.Run
 import Rito.Scene (Background(..), scene)
-import Rito.THREE (ThreeStuff)
 import Type.Proxy (Proxy(..))
-import Types (CubeTextures, JMilliseconds(..), WindowDims)
+import Types (CubeTextures, JMilliseconds(..), WindowDims, ThreeDI)
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 import Web.HTML.HTMLCanvasElement as HTMLCanvasElement
 
 threeLoader
-  :: { threeStuff :: ThreeStuff
+  :: { threeDI :: ThreeDI
      , isMobile :: Boolean
      , unsubscriber :: Effect Unit -> Effect Unit
      , cubeTextures :: CubeTextures CubeTexture
@@ -47,7 +46,7 @@ threeLoader
      }
   -> Effect Unit
 threeLoader opts = do
-  u <- Rito.Run.run opts.threeStuff
+  u <- Rito.Run.run
     ( envy $ memoize
         ( _.time
             >>> unwrap
@@ -55,7 +54,8 @@ threeLoader opts = do
         )
         \animationTime -> globalCameraPortal1
           ( perspectiveCamera
-              { fov: 75.0
+              { perspectiveCamera: opts.threeDI.perspectiveCamera
+              , fov: 75.0
               , aspect: opts.initialDims.iw / opts.initialDims.ih
               , near: 0.1
               , far: 100.0
@@ -70,8 +70,8 @@ threeLoader opts = do
 
           )
           \myCamera -> globalScenePortal1
-            ( scene (bang $ P.background (CubeTexture (unwrap opts.cubeTextures).skybox))
-                [ toScene $ group
+            ( scene { scene: opts.threeDI.scene } (bang $ P.background (CubeTexture (unwrap opts.cubeTextures).skybox))
+                [ toScene $ group { group: opts.threeDI.group }
                     ( keepLatest $
                         ( mapAccum
                             ( \a b -> case b of
@@ -102,7 +102,10 @@ threeLoader opts = do
                 [ webGLRenderer
                     myScene
                     myCamera
-                    { canvas: opts.canvas }
+                    { canvas: opts.canvas
+                    , webGLRenderer: opts.threeDI.webGLRenderer
+                    , raycaster: opts.threeDI.raycaster
+                    }
                     ( oneOf
                         [ bang (size { width: opts.initialDims.iw, height: opts.initialDims.ih })
                         , bang render
@@ -124,7 +127,7 @@ explainerPage
      , cnow :: Effect Milliseconds
      , cubeTextures :: CubeTextures CubeTexture
      , initialDims :: WindowDims
-     , threeStuff :: ThreeStuff
+     , threeDI :: ThreeDI
      }
   -> Nut
 explainerPage opts = vbussed (Proxy :: _ (V (unsubscriber :: Effect Unit))) \push event -> D.div (oneOf [ bang (D.Class := "absolute") ])
@@ -150,7 +153,7 @@ explainerPage opts = vbussed (Proxy :: _ (V (unsubscriber :: Effect Unit))) \pus
           [ bang (D.Class := "absolute")
           , bang $ D.Self := HTMLCanvasElement.fromElement >>> traverse_
               ( threeLoader <<<
-                  { threeStuff: opts.threeStuff
+                  { threeDI: opts.threeDI
                   , isMobile: opts.isMobile
                   , cubeTextures: opts.cubeTextures
                   , unsubscriber: push.unsubscriber

@@ -16,24 +16,26 @@ import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.Mesh (mesh)
 import Rito.Properties (positionX, positionY, positionZ, scaleX, scaleY, scaleZ)
 import Rito.Properties as P
-import Types (Position, RenderingInfo, RateInfo, touchPointZ)
+import Types (Position, RateInfo, RenderingInfo, ThreeDI, touchPointZ)
 
 makeBar
   :: forall lock payload
    . { c3 :: RGB -> Color
      , renderingInfo :: Behavior RenderingInfo
      , position :: Position
+     , threeDI :: ThreeDI
      , initialIsMe :: Boolean
      , isMe :: Event Boolean
      , debug :: Boolean
      , rateE :: Event RateInfo
      }
   -> ASceneful lock payload
-makeBar { c3, renderingInfo, initialIsMe, isMe, position, debug, rateE } = toScene $ mesh (box {} empty)
+makeBar { c3, threeDI, renderingInfo, initialIsMe, isMe, position, debug, rateE } = toScene $ mesh { mesh: threeDI.mesh } (box { box: threeDI.boxGeometry } empty)
   ( meshStandardMaterial
-      { color: makeColor initialIsMe
+      { meshStandardMaterial: threeDI.meshStandardMaterial
+      , color: makeColor initialIsMe
       }
-      ( isMe <#> \i -> (P.color $ makeColor i))
+      (isMe <#> \i -> (P.color $ makeColor i))
   )
   ( oneOf
       [ bang (positionX 0.0)

@@ -41,10 +41,9 @@ import Rito.Renderers.CSS3D (css3DRenderer)
 import Rito.Renderers.WebGL (webGLRenderer)
 import Rito.Run as Rito.Run
 import Rito.Scene (Background(..), scene)
-import Rito.THREE (ThreeStuff)
 import Rito.Texture (Texture)
 import Type.Proxy (Proxy(..))
-import Types (Axis(..), CubeTextures, HitBasicMe, HitBasicVisualForLabel, HitLeapVisualForLabel, HitLongVisualForLabel, JMilliseconds, Player(..), PlayerPositions, Position(..), RateInfo, ReleaseLongVisualForLabel, RenderingInfo, Textures, WindowDims, allPlayers, allPositions, playerPosition, playerPosition')
+import Types (Axis(..), CubeTextures, HitBasicMe, HitBasicVisualForLabel, HitLeapVisualForLabel, HitLongVisualForLabel, JMilliseconds, Player(..), PlayerPositions, Position(..), RateInfo, ReleaseLongVisualForLabel, RenderingInfo, Textures, WindowDims, ThreeDI, allPlayers, allPositions, playerPosition, playerPosition')
 import Web.DOM as Web.DOM
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 
@@ -53,7 +52,7 @@ twoPi = 2.0 * pi :: Number
 speed = 4.0 :: Number
 
 runThree
-  :: { threeStuff :: ThreeStuff
+  :: { threeDI :: ThreeDI
      , debug :: Boolean
      , css2DRendererElt :: Event Web.DOM.Element
      , css3DRendererElt :: Event Web.DOM.Element
@@ -87,11 +86,11 @@ runThree
      , canvas :: HTMLCanvasElement
      }
   -> Effect Unit
-runThree opts@{ threeStuff: { three } } = do
-  let c3 = color three
+runThree opts = do
+  let c3 = color opts.threeDI.color
   let textures = unwrap opts.textures
   let mopts = { playerPositions: _.playerPositions <$> opts.animatedStuff, rateInfo: _.rateInfo <$> opts.animatedStuff }
-  _ <- Rito.Run.run opts.threeStuff
+  _ <- Rito.Run.run
     ( envy $ vbus
         ( Proxy
             :: _
@@ -105,7 +104,8 @@ runThree opts@{ threeStuff: { three } } = do
         )
         \scenePush sceneEvent -> globalCameraPortal1
           ( perspectiveCamera
-              { fov: 75.0
+              { perspectiveCamera: opts.threeDI.perspectiveCamera
+              , fov: 75.0
               , aspect: opts.initialDims.iw / opts.initialDims.ih
               , near: 0.1
               , far: 100.0
@@ -128,8 +128,8 @@ runThree opts@{ threeStuff: { three } } = do
               )
           )
           \myCamera -> globalScenePortal1
-            ( scene (bang $ P.background (CubeTexture (unwrap opts.cubeTextures).skybox))
-                [ toScene $ group
+            ( scene { scene: opts.threeDI.scene } (bang $ P.background (CubeTexture (unwrap opts.cubeTextures).skybox))
+                [ toScene $ group { group: opts.threeDI.group }
                     ( keepLatest $
                         ( mapAccum
                             ( \a b -> case b of
@@ -153,11 +153,13 @@ runThree opts@{ threeStuff: { three } } = do
                     ( ( filter (_ /= opts.myPlayer) (toArray allPlayers) <#> \player -> do
                           let ppos = playerPosition player
                           let posAx axis = map (ppos axis) mopts.playerPositions
-                          toGroup $ mesh (sphere {} empty)
+                          toGroup $ mesh { mesh: opts.threeDI.mesh }
+                            (sphere { sphere: opts.threeDI.sphereGeometry } empty)
                             ( case player of
                                 Player1 ->
                                   meshStandardMaterial
-                                    { map: textures.hockeyCOL
+                                    { meshStandardMaterial: opts.threeDI.meshStandardMaterial
+                                    , map: textures.hockeyCOL
                                     , aoMap: textures.hockeyAO
                                     , displacementMap: textures.hockeyDISP
                                     , displacementScale: 0.1
@@ -166,20 +168,23 @@ runThree opts@{ threeStuff: { three } } = do
                                     }
                                 Player2 ->
                                   meshStandardMaterial
-                                    { map: textures.marble19COL
+                                    { meshStandardMaterial: opts.threeDI.meshStandardMaterial
+                                    , map: textures.marble19COL
                                     , normalMap: textures.marble19NRM
                                     , roughnessMap: textures.marble19GLOSS
                                     }
                                 Player3 ->
                                   meshStandardMaterial
-                                    { map: textures.marble21COL
+                                    { meshStandardMaterial: opts.threeDI.meshStandardMaterial
+                                    , map: textures.marble21COL
                                     , normalMap: textures.marble21NRM
                                     , roughnessMap: textures.marble21GLOSS
                                     }
                                 -- todo: change to something unique
                                 Player4 ->
                                   meshStandardMaterial
-                                    { map: textures.marble19COL
+                                    { meshStandardMaterial: opts.threeDI.meshStandardMaterial
+                                    , map: textures.marble19COL
                                     , normalMap: textures.marble19NRM
                                     , roughnessMap: textures.marble19GLOSS
                                     }
@@ -200,6 +205,7 @@ runThree opts@{ threeStuff: { three } } = do
                           map toGroup
                             ( ( \position -> makeBar $
                                   { c3
+                                  , threeDI: opts.threeDI
                                   , renderingInfo: opts.renderingInfo
                                   , debug: opts.debug
                                   , initialIsMe: opts.myPlayer == case position of
@@ -221,7 +227,8 @@ runThree opts@{ threeStuff: { three } } = do
                             )
                         <>
                           [ toGroup $ ambientLight
-                              { intensity: 0.1
+                              { ambientLight: opts.threeDI.ambientLight
+                              , intensity: 0.1
                               , color: c3 $ RGB 1.0 1.0 1.0
                               }
                               empty
@@ -234,7 +241,8 @@ runThree opts@{ threeStuff: { three } } = do
                               let normalDecay = 2.0
                               let normalIntensity = 1.0
                               toGroup $ pointLight
-                                { distance: normalDistance
+                                { pointLight: opts.threeDI.pointLight
+                                , distance: normalDistance
                                 , decay: normalDecay
                                 , intensity: normalIntensity
                                 , color: c3 $ RGB 1.0 1.0 1.0
@@ -274,14 +282,16 @@ runThree opts@{ threeStuff: { three } } = do
                         <>
                           -- basic labels
                           [ toGroup $ basicLabels
-                              { basicTap: sceneEvent.hitBasicVisualForLabel
+                              { threeDI: opts.threeDI
+                              , basicTap: sceneEvent.hitBasicVisualForLabel
                               , lpsCallback: opts.lowPriorityCb
                               }
                           ]
                         <>
                           -- leap labels
                           [ toGroup $ leapLabels
-                              { leapTap: sceneEvent.hitLeapVisualForLabel
+                              { threeDI: opts.threeDI
+                              , leapTap: sceneEvent.hitLeapVisualForLabel
                               , lpsCallback: opts.lowPriorityCb
                               }
                           ]
@@ -289,7 +299,8 @@ runThree opts@{ threeStuff: { three } } = do
                         <>
                           -- leap labels
                           [ toGroup $ longLabels
-                              { longTap: sceneEvent.hitLongVisualForLabel
+                              { threeDI: opts.threeDI
+                              , longTap: sceneEvent.hitLongVisualForLabel
                               , longRelease: sceneEvent.releaseLongVisualForLabel
                               , lpsCallback: opts.lowPriorityCb
                               }
@@ -307,7 +318,10 @@ runThree opts@{ threeStuff: { three } } = do
                 [ webGLRenderer
                     myScene
                     myCamera
-                    { canvas: opts.canvas }
+                    { canvas: opts.canvas
+                    , webGLRenderer: opts.threeDI.webGLRenderer
+                    , raycaster: opts.threeDI.raycaster
+                    }
                     ( oneOf
                         [ bang (size { width: opts.initialDims.iw, height: opts.initialDims.ih })
                         , bang render
@@ -319,7 +333,7 @@ runThree opts@{ threeStuff: { three } } = do
                     ( \element -> css2DRenderer
                         myScene
                         myCamera
-                        { canvas: opts.canvas, element }
+                        { canvas: opts.canvas, element, css2DRenderer: opts.threeDI.css2DRenderer }
                         ( oneOf
                             [ opts.resizeE <#> \i -> size { width: i.iw, height: i.ih }
                             , bang render
@@ -332,7 +346,7 @@ runThree opts@{ threeStuff: { three } } = do
                     ( \element -> css3DRenderer
                         myScene
                         myCamera
-                        { canvas: opts.canvas, element }
+                        { canvas: opts.canvas, element, css3DRenderer: opts.threeDI.css3DRenderer }
                         ( oneOf
                             [ opts.resizeE <#> \i -> size { width: i.iw, height: i.ih }
                             , bang render

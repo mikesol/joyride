@@ -3,7 +3,7 @@ module Main where
 import Prelude
 
 import Control.Alt (alt, (<|>))
-import Control.Parallel (parTraverse)
+import Control.Parallel (parTraverse, sequential)
 import Control.Promise (toAffE)
 import Data.Array (difference, fold)
 import Data.Array as Array
@@ -24,7 +24,7 @@ import Data.Tuple.Nested (type (/\), (/\))
 import Data.Unfoldable (replicate)
 import Deku.Toplevel (runInBody)
 import Effect (Effect)
-import Effect.Aff (Milliseconds(..), forkAff, joinFiber, launchAff_, never, try)
+import Effect.Aff (Milliseconds(..), ParAff, forkAff, joinFiber, launchAff_, never, try)
 import Effect.Class (liftEffect)
 import Effect.Random as Random
 import Effect.Ref (new)
@@ -35,6 +35,7 @@ import FRP.Event as Event
 import FRP.Event.AnimationFrame (animationFrame)
 import FRP.Event.VBus (V)
 import Foreign.Object as Object
+import Heterogeneous.Folding (hfoldlWithIndex)
 import Joyride.App.Toplevel (toplevel)
 import Joyride.Effect.Random (randElt)
 import Joyride.Effect.Ref (readFromRecord, writeToRecord)
@@ -43,6 +44,7 @@ import Joyride.FRP.Behavior (refToBehavior)
 import Joyride.FRP.Keypress (posFromKeypress, xForKeyboard)
 import Joyride.FRP.Orientation (hasOrientationPermission, orientationPermission, posFromOrientation, xForTouch)
 import Joyride.FRP.SampleOnSubscribe (sampleOnSubscribe)
+import Joyride.IO.ParFold (ParFold(..))
 import Joyride.Ledger.Basic (basicOutcomeToPointOutcome, beatsToBasicOutcome)
 import Joyride.Ledger.Long (longToPointOutcome)
 import Joyride.LilGui (Slider(..), gui, noGui)
@@ -56,12 +58,12 @@ import Joyride.Timing.CoordinatedNow (cnow)
 import Joyride.Transport.PubNub as PN
 import Record (union)
 import Rito.CubeTexture as CubeTextureLoader
-import Rito.Interpret (css2DRendererAff, css3DRendererAff, orbitControlsAff, threeAff)
+import Rito.THREE as THREE
 import Rito.Texture (loadAff, loader)
 import Route (Route(..), route)
 import Routing.Duplex (parse)
 import Type.Proxy (Proxy(..))
-import Types (BufferName(..), Channel(..), Claim(..), CubeTexture, CubeTextures(..), HitBasicMe(..), HitBasicOverTheWire(..), HitLeapMe(..), HitLeapOverTheWire(..), HitLongMe(..), HitLongOverTheWire(..), IAm(..), InFlightGameInfo(..), InFlightGameInfo', JMilliseconds(..), KnownPlayers(..), Negotiation(..), Penalty(..), Player(..), PlayerAction(..), PointOutcome, Points(..), Position, ReleaseLongMe(..), ReleaseLongOverTheWire(..), RenderingInfo', StartStatus(..), Textures(..), allPlayers, initialPositions, touchPointZ)
+import Types (BufferName(..), Channel(..), Claim(..), CubeTexture, CubeTextures(..), HitBasicMe(..), HitBasicOverTheWire(..), HitLeapMe(..), HitLeapOverTheWire(..), HitLongMe(..), HitLongOverTheWire(..), IAm(..), InFlightGameInfo(..), InFlightGameInfo', JMilliseconds(..), KnownPlayers(..), Negotiation(..), Penalty(..), Player(..), PlayerAction(..), PointOutcome, Points(..), Position, ReleaseLongMe(..), ReleaseLongOverTheWire(..), RenderingInfo', StartStatus(..), Textures(..), ThreeDI, allPlayers, initialPositions, touchPointZ)
 import WAGS.Interpret (AudioBuffer(..), context, makeAudioBuffer)
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
@@ -197,23 +199,41 @@ main (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ do
     iAm <- randId
     -- threeeeeee
     launchAff_ do
-      three <- threeAff
-      ldr <- liftEffect $ loader three
-      cldr <- liftEffect $ CubeTextureLoader.loader three
+      threeDI :: ThreeDI <- sequential $ hfoldlWithIndex ParFold (pure {} :: ParAff {})
+        { scene: THREE.sceneAff
+        , vector3: THREE.vector3Aff
+        , meshStandardMaterial: THREE.meshStandardMaterialAff
+        , boxGeometry: THREE.boxGeometryAff
+        , pointLight: THREE.pointLightAff
+        , ambientLight: THREE.ambientLightAff
+        , css2DObject: THREE.css2DObjectAff
+        , webGLRenderer: THREE.webGLRendererAff
+        , color: THREE.colorAff
+        , instancedMesh: THREE.instancedMeshAff
+        , raycaster: THREE.raycasterAff
+        , mesh: THREE.meshAff
+        , perspectiveCamera: THREE.perspectiveCameraAff
+        , matrix4: THREE.matrix4Aff
+        , cubeTextureLoader: THREE.cubeTextureLoaderAff
+        , sphereGeometry: THREE.sphereGeometryAff
+        , css2DRenderer: THREE.css2DRendererAff
+        , css3DObject: THREE.css3DObjectAff
+        , css3DRenderer: THREE.css3DRendererAff
+        , group: THREE.groupAff
+        , textureLoader: THREE.textureLoaderAff
+        }
+      ldr <- liftEffect $ loader threeDI.textureLoader
+      cldr <- liftEffect $ CubeTextureLoader.loader threeDI.cubeTextureLoader
       --       , textures: Textures downloadedTextures
       downloadedTextures <- forkAff (fromHomogeneous <$> parTraverse (loadAff ldr) (homogeneous textures))
       myCubeTextures <- (fromHomogeneous <$> parTraverse ((CubeTextureLoader.loadAffRecord cldr)) (map unwrap $ homogeneous cubeTextures))
-      orbitControls <- orbitControlsAff
-      css2DThings <- css2DRendererAff
-      css3DThings <- css3DRendererAff
-      let threeStuff = { three, orbitControls } `union` css2DThings `union` css3DThings
       -- "server" via pubnub
       let myChannel' = hush parsed >>= channelFromRoute
       _ <- liftEffect $ subscribe channelEvent.event \chan -> launchAff_ $ do
         case chan of
           Nothing -> liftEffect $ negotiation.push
             ( GetRulesOfGame
-                { threeStuff
+                { threeDI
                 , cubeTextures: CubeTextures myCubeTextures
                 , cNow: mappedCNow
                 }
@@ -506,7 +526,7 @@ main (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ do
             playerName <- liftEffect $ LS.getItem LocalStorage.playerName stor
             liftEffect $ negotiation.push $ Success
               { player: myPlayer
-              , threeStuff
+              , threeDI
               , playerName
               , cNow: mappedCNow
               , channelName: myChannel
@@ -525,7 +545,7 @@ main (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ do
                     folded e
               , optMeIn: \ms name -> do
                   for_ name \name' -> LS.setItem LocalStorage.playerName name' stor
-                  players <- Ref.modify (KnownPlayers (Map.singleton myPlayer (HasStarted $ InFlightGameInfo { startedAt: ms, points: Points 0.0, penalties: Penalty 0.0, name: name <|> playerName } ) ) <> _) knownPlayers
+                  players <- Ref.modify (KnownPlayers (Map.singleton myPlayer (HasStarted $ InFlightGameInfo { startedAt: ms, points: Points 0.0, penalties: Penalty 0.0, name: name <|> playerName })) <> _) knownPlayers
                   -- let others know I've opted in
                   pubNub.publish $ EchoKnownPlayers { players }
                   -- let me know I've opted in

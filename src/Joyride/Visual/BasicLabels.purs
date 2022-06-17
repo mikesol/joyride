@@ -18,10 +18,11 @@ import Joyride.Ledger.Basic (basicOutcomeToString, beatsToBasicOutcome)
 import Rito.CSS.CSS2DObject (css2DObject)
 import Rito.Core (ACSS2DObject)
 import Rito.Properties as P
-import Types (HitBasicVisualForLabel(..), JMilliseconds(..), Player(..))
+import Types (HitBasicVisualForLabel(..), JMilliseconds(..), Player(..), ThreeDI)
 
 type MakeBasicLabels =
-  { basicTap :: Event HitBasicVisualForLabel
+  { threeDI :: ThreeDI
+  , basicTap :: Event HitBasicVisualForLabel
   , lpsCallback :: JMilliseconds -> Effect Unit -> Effect Unit
   }
 
@@ -35,14 +36,15 @@ basicLabels :: forall lock payload. MakeBasicLabels -> ACSS2DObject lock payload
 basicLabels mbl = dyn
   ( mbl.basicTap <#> \(HitBasicVisualForLabel e) ->
       ( bang $ Insert $ css2DObject
-          { nut: ANut
+          { css2DObject: mbl.threeDI.css2DObject
+          , nut: ANut
               ( D.span
                   ( oneOfMap bang
                       [ D.Class := "text-zinc-100 fade-out"
                       ]
                   )
                   [ text_
-                      (p2s e.player <> " " <> (basicOutcomeToString $ beatsToBasicOutcome e.deltaBeats)
+                      ( p2s e.player <> " " <> (basicOutcomeToString $ beatsToBasicOutcome e.deltaBeats)
                       )
                   ]
               )

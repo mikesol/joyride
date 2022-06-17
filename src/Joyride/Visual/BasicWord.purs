@@ -101,7 +101,8 @@ basicWord makeBasic = do
         , n44: 1.0
         }
   envy $ memoize drawingMatrix' \drawingMatrix ->
-    ( ( css3DObject { nut: ANut (D.span (bang $ D.Class := "text-white pointer-events-none") [ text_ "foo" ]) }
+    ( ( css3DObject { css3DObject: makeBasic.threeDI.css3DObject
+          , nut: ANut (D.span (bang $ D.Class := "text-white pointer-events-none") [ text_ "foo" ]) }
           ( oneOf
               [ --bang $ P.matrix4 $ makeBasic.mkMatrix4 emptyMatrix
                 --, P.matrix4 <<< makeBasic.mkMatrix4 <$> drawingMatrix

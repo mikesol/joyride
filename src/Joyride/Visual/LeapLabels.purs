@@ -17,10 +17,11 @@ import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Rito.CSS.CSS2DObject (css2DObject)
 import Rito.Core (ACSS2DObject)
 import Rito.Properties as P
-import Types (HitLeapVisualForLabel(..), JMilliseconds(..), Player(..))
+import Types (HitLeapVisualForLabel(..), JMilliseconds(..), Player(..), ThreeDI)
 
 type MakeLeapLabels =
-  { leapTap :: Event HitLeapVisualForLabel
+  { threeDI :: ThreeDI
+  , leapTap :: Event HitLeapVisualForLabel
   , lpsCallback :: JMilliseconds -> Effect Unit -> Effect Unit
   }
 
@@ -34,7 +35,8 @@ leapLabels :: forall lock payload. MakeLeapLabels -> ACSS2DObject lock payload
 leapLabels mbl = dyn
   ( mbl.leapTap <#> \(HitLeapVisualForLabel e) ->
       ( bang $ Insert $ css2DObject
-          { nut: ANut
+          { css2DObject: mbl.threeDI.css2DObject
+          , nut: ANut
               ( D.span
                   ( oneOfMap bang
                       [ D.Class := "text-zinc-100 fade-out"

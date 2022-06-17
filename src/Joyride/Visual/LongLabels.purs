@@ -17,10 +17,11 @@ import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Rito.CSS.CSS2DObject (css2DObject)
 import Rito.Core (ACSS2DObject)
 import Rito.Properties as P
-import Types (HitLongVisualForLabel(..), JMilliseconds(..), Player(..), ReleaseLongVisualForLabel)
+import Types (HitLongVisualForLabel(..), JMilliseconds(..), Player(..), ReleaseLongVisualForLabel, ThreeDI)
 
 type MakeLongLabels =
-  { longTap :: Event HitLongVisualForLabel
+  { threeDI :: ThreeDI
+  , longTap :: Event HitLongVisualForLabel
   , longRelease :: Event ReleaseLongVisualForLabel
   , lpsCallback :: JMilliseconds -> Effect Unit -> Effect Unit
   }
@@ -35,7 +36,8 @@ longLabels :: forall lock payload. MakeLongLabels -> ACSS2DObject lock payload
 longLabels mbl = dyn
   ( mbl.longTap <#> \(HitLongVisualForLabel e) ->
       ( bang $ Insert $ css2DObject
-          { nut: ANut
+          { css2DObject: mbl.threeDI.css2DObject
+          , nut: ANut
               ( D.span
                   ( oneOfMap bang
                       [ D.Class := "text-zinc-100 fade-out"

@@ -62,7 +62,7 @@ singleBeat { buffer, silence, myBeat } riE = AudibleEnd
 
 mockLongs :: forall lock payload. { | MakeLongs () } -> ASceneful lock payload
 mockLongs makeLongs = toScene
-  ( roundRobinInstancedMesh 100 (box {} empty)
+  ( roundRobinInstancedMesh { instancedMesh: makeLongs.threeDI.instancedMesh, mesh: makeLongs.threeDI.mesh, matrix4: makeLongs.threeDI.matrix4 } 100 (box { box: makeLongs.threeDI.boxGeometry } empty)
       ( meshStandardMaterial
           -- { map: textures.tilesZelligeHexCOL
           -- , aoMap: textures.tilesZelligeHexAO
@@ -70,7 +70,8 @@ mockLongs makeLongs = toScene
           -- , displacementScale: 0.1
           -- , roughnessMap: textures.tilesZelligeHexGLOSS
           -- }
-          { color: makeLongs.mkColor (RGB 0.49 0.83 0.45)
+          { meshStandardMaterial: makeLongs.threeDI.meshStandardMaterial
+          , color: makeLongs.mkColor (RGB 0.49 0.83 0.45)
           , roughness: 0.1
           }
           empty

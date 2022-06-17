@@ -111,7 +111,13 @@ severalBeats { startsAt, buffers, silence } = singleBeat (f "kick" $ Beats 0.0)
 mockBasics :: forall lock payload. { | MakeBasics () } -> ASceneful lock payload
 mockBasics makeBasics =
   ( fixed
-      [ toScene $ roundRobinInstancedMesh 100 (box {} empty)
+      [ toScene $ roundRobinInstancedMesh
+          { instancedMesh: makeBasics.threeDI.instancedMesh
+          , matrix4: makeBasics.threeDI.matrix4
+          , mesh: makeBasics.threeDI.mesh
+          }
+          100
+          (box { box: makeBasics.threeDI.boxGeometry } empty)
           ( meshStandardMaterial
               -- { map: textures.hockeyCOL
               -- , aoMap: textures.hockeyAO
@@ -120,7 +126,8 @@ mockBasics makeBasics =
               -- , normalMap: textures.hockeyNRM
               -- , roughnessMap: textures.hockeyGLOSS
               -- }
-              { color: makeBasics.mkColor (RGB 0.798 0.927 0.778)
+              { meshStandardMaterial: makeBasics.threeDI.meshStandardMaterial
+              , color: makeBasics.mkColor (RGB 0.798 0.927 0.778)
               , roughness: 0.0
               }
               empty

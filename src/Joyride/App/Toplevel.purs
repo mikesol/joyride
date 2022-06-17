@@ -60,11 +60,10 @@ import Rito.Color (color)
 import Rito.Core (ASceneful)
 import Rito.CubeTexture as CTL
 import Rito.Matrix4 as M4
-import Rito.THREE (ThreeStuff)
 import Safe.Coerce (coerce)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
-import Types (Beats(..), CubeTextures, HitBasicMe, HitBasicOtherPlayer(..), HitBasicOverTheWire(..), HitLeapMe, HitLeapOtherPlayer(..), HitLeapOverTheWire(..), HitLongMe, HitLongOtherPlayer(..), HitLongOverTheWire(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, MakeLongs, Negotiation(..), Player(..), PlayerAction(..), PlayerPositionsF, RateInfo, ReleaseLongMe, ReleaseLongOtherPlayer(..), ReleaseLongOverTheWire(..), RenderingInfo, Seconds(..), StartStatus(..), Success', WindowDims)
+import Types (Beats(..), CubeTextures, HitBasicMe, HitBasicOtherPlayer(..), HitBasicOverTheWire(..), HitLeapMe, HitLeapOtherPlayer(..), HitLeapOverTheWire(..), HitLongMe, HitLongOtherPlayer(..), HitLongOverTheWire(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, MakeLongs, Negotiation(..), Player(..), PlayerAction(..), PlayerPositionsF, RateInfo, ReleaseLongMe, ReleaseLongOtherPlayer(..), ReleaseLongOverTheWire(..), RenderingInfo, Seconds(..), StartStatus(..), Success', WindowDims, ThreeDI)
 import WAGS.Clock (withACTime)
 import WAGS.Interpret (close, constant0Hack, context)
 import WAGS.Run (run2)
@@ -122,7 +121,7 @@ data TopLevelDisplay
   | TLWillNotWorkWithoutOrientation
   | TLExplainer
       { cubeTextures :: CubeTextures CTL.CubeTexture
-      , threeStuff :: ThreeStuff
+      , threeDI :: ThreeDI
       , cNow :: Effect Milliseconds
       }
   | TLLoading
@@ -185,7 +184,7 @@ toplevel tli =
   ) # switcher case _ of
     TLNeedsOrientation -> orientationPermissionPage { givePermission: tli.givePermission }
     TLWillNotWorkWithoutOrientation -> sorryNeedPermissionPage
-    TLExplainer { cubeTextures, threeStuff, cNow } -> explainerPage
+    TLExplainer { cubeTextures, threeDI, cNow } -> explainerPage
       { click: do
           id <- randId' 6
           tli.channelChooser id
@@ -193,7 +192,7 @@ toplevel tli =
       , cnow: cNow
       , resizeE: tli.resizeE
       , initialDims: tli.initialDims
-      , threeStuff
+      , threeDI
       , cubeTextures
       }
     TLLoading -> loadingPage
@@ -206,7 +205,7 @@ toplevel tli =
       , cNow
       , playerName
       , channelName
-      , threeStuff
+      , threeDI
       , pubNubEvent
       , playerStatus
       , optMeIn
@@ -477,7 +476,7 @@ toplevel tli =
                             -- fireAndForget so that it only ever fires once
                             , bang $ D.Self := HTMLCanvasElement.fromElement >>> traverse_
                                 ( runThree <<<
-                                    { threeStuff: threeStuff
+                                    { threeDI: threeDI
                                     , css2DRendererElt: event.render2DElement
                                     , css3DRendererElt: event.render3DElement
                                     , isMobile: tli.isMobile
@@ -493,6 +492,7 @@ toplevel tli =
                                         , renderingInfo: tli.renderingInfo
                                         , textures
                                         , cnow: cNow
+                                        , threeDI
                                         , myPlayer
                                         , debug: tli.debug
                                         , notifications:
@@ -513,8 +513,8 @@ toplevel tli =
                                         , isMobile: tli.isMobile
                                         , lpsCallback: tli.lpsCallback
                                         , pushAudio: push.basicAudio
-                                        , mkColor: color threeStuff.three
-                                        , mkMatrix4: M4.set threeStuff.three
+                                        , mkColor: color threeDI.color
+                                        , mkMatrix4: M4.set threeDI.matrix4
                                         , buffers: refToBehavior tli.soundObj
                                         , silence: tli.silence
                                         , animatedStuff
@@ -546,8 +546,9 @@ toplevel tli =
                                         , isMobile: tli.isMobile
                                         , lpsCallback: tli.lpsCallback
                                         , pushAudio: push.leapAudio
-                                        , mkColor: color threeStuff.three
-                                        , mkMatrix4: M4.set threeStuff.three
+                                        , mkColor: color threeDI.color
+                                        , mkMatrix4: M4.set threeDI.matrix4
+                                        , threeDI
                                         , buffers: refToBehavior tli.soundObj
                                         , silence: tli.silence
                                         , animatedStuff
@@ -591,8 +592,9 @@ toplevel tli =
                                         , isMobile: tli.isMobile
                                         , lpsCallback: tli.lpsCallback
                                         , pushAudio: push.leapAudio
-                                        , mkColor: color threeStuff.three
-                                        , mkMatrix4: M4.set threeStuff.three
+                                        , mkColor: color threeDI.color
+                                        , mkMatrix4: M4.set threeDI.matrix4
+                                        , threeDI
                                         , buffers: refToBehavior tli.soundObj
                                         , silence: tli.silence
                                         , animatedStuff

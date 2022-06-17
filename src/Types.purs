@@ -6,6 +6,7 @@ module Types
   , RenderingInfo'
   , Position(..)
   , Axis(..)
+  , ThreeDI
   , CubeTextures(..)
   , CubeTexture(..)
   , playerPosition'
@@ -97,7 +98,7 @@ import Record (union)
 import Rito.Color (Color, RGB)
 import Rito.CubeTexture as CTL
 import Rito.Matrix4 (Matrix4, Matrix4')
-import Rito.THREE (ThreeStuff)
+import Rito.THREE as THREE
 import Rito.Texture (Texture)
 import Rito.Vector3 (Vector3')
 import Simple.JSON (undefined, writeJSON)
@@ -490,6 +491,7 @@ type MakeBasics r =
   , renderingInfo :: Behavior RenderingInfo
   , resizeEvent :: Event WindowDims
   , isMobile :: Boolean
+  , threeDI :: ThreeDI
   , cnow :: Effect Milliseconds
   , myPlayer :: Player
   , notifications :: { hitBasic :: Event HitBasicOtherPlayer }
@@ -581,6 +583,7 @@ type MakeLongs r =
   , cnow :: Effect Milliseconds
   , isMobile :: Boolean
   , myPlayer :: Player
+  , threeDI :: ThreeDI
   , notifications :: { hitLong :: Event HitLongOtherPlayer, releaseLong :: Event ReleaseLongOtherPlayer }
   , lpsCallback :: JMilliseconds -> Effect Unit -> Effect Unit
   , pushAudio :: Event AudibleChildEnd -> Effect Unit
@@ -726,6 +729,7 @@ type MakeLeaps r =
   ( initialDims :: WindowDims
   , renderingInfo :: Behavior RenderingInfo
   , resizeEvent :: Event WindowDims
+  , threeDI :: ThreeDI
   , isMobile :: Boolean
   , myPlayer :: Player
   , cnow :: Effect Milliseconds
@@ -808,7 +812,7 @@ data Negotiation
   | WillNotWorkWithoutOrientation
   | GetRulesOfGame
       { cubeTextures :: CubeTextures CTL.CubeTexture
-      , threeStuff :: ThreeStuff
+      , threeDI :: ThreeDI
       , cNow :: Effect Milliseconds
       }
   | StartingNegotiation
@@ -838,7 +842,7 @@ type Success' =
   , playerName :: Maybe String
   , channelName :: String
   , cNow :: Effect Milliseconds
-  , threeStuff :: ThreeStuff
+  , threeDI :: ThreeDI
   , pubNubEvent :: Event PlayerAction
   , textures :: Textures Texture
   , cubeTextures :: CubeTextures CTL.CubeTexture
@@ -965,3 +969,28 @@ instance fromJSONPubNubPlayerAction :: JSON.WriteForeign PlayerAction where
   writeImpl (ClaimPlayer j) = JSON.writeImpl $ union { _type: "ClaimPlayer" } j
   writeImpl (AcceptClaim j) = JSON.writeImpl $ union { _type: "AcceptClaim" } j
   writeImpl (RefuteClaim j) = JSON.writeImpl $ union { _type: "RefuteClaim" } j
+
+
+type ThreeDI =
+  { scene :: THREE.TScene
+  , group :: THREE.TGroup
+  , vector3 :: THREE.TVector3
+  , textureLoader :: THREE.TTextureLoader
+  , cubeTextureLoader :: THREE.TCubeTextureLoader
+  , meshStandardMaterial :: THREE.TMeshStandardMaterial
+  , ambientLight :: THREE.TAmbientLight
+  , pointLight :: THREE.TPointLight
+  , css2DObject :: THREE.TCSS2DObject
+  , css3DObject :: THREE.TCSS3DObject
+  , webGLRenderer :: THREE.TWebGLRenderer
+  , color :: THREE.TColor
+  , instancedMesh :: THREE.TInstancedMesh
+  , raycaster :: THREE.TRaycaster
+  , mesh :: THREE.TMesh
+  , perspectiveCamera :: THREE.TPerspectiveCamera
+  , matrix4 :: THREE.TMatrix4
+  , boxGeometry :: THREE.TBoxGeometry
+  , sphereGeometry :: THREE.TSphereGeometry
+  , css2DRenderer :: THREE.TCSS2DRenderer
+  , css3DRenderer :: THREE.TCSS3DRenderer
+  }

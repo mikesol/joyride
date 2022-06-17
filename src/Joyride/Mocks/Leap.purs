@@ -65,7 +65,13 @@ singleBeat { buffer, silence, myBeat } riE = AudibleEnd
 
 mockLeaps :: forall lock payload. { | MakeLeaps () } -> ASceneful lock payload
 mockLeaps makeLeaps = toScene
-  ( roundRobinInstancedMesh 100 (box {} empty)
+  ( roundRobinInstancedMesh
+      { instancedMesh: makeLeaps.threeDI.instancedMesh
+      , matrix4: makeLeaps.threeDI.matrix4
+      , mesh: makeLeaps.threeDI.mesh
+      }
+      100
+      (box { box: makeLeaps.threeDI.boxGeometry } empty)
       ( meshStandardMaterial
           -- { map: textures.tilesZelligeHexCOL
           -- , aoMap: textures.tilesZelligeHexAO
@@ -73,8 +79,8 @@ mockLeaps makeLeaps = toScene
           -- , displacementScale: 0.1
           -- , roughnessMap: textures.tilesZelligeHexGLOSS
           -- }
-          {
-            color: makeLeaps.mkColor (RGB 0.91 0.387 0.432)
+          { meshStandardMaterial: makeLeaps.threeDI.meshStandardMaterial
+          , color: makeLeaps.mkColor (RGB 0.91 0.387 0.432)
           , roughness: 0.4
           }
           empty
