@@ -13,10 +13,12 @@ import Data.Newtype (unwrap)
 import Data.Number (cos, pi)
 import Data.Tuple (Tuple(..))
 import Data.Tuple.Nested ((/\))
+import Data.Variant (inj)
 import Effect (Effect)
 import FRP.Behavior (Behavior, sampleBy)
 import FRP.Event (Event, EventIO, bang, keepLatest, mapAccum)
 import FRP.Event.VBus (V, vbus)
+import Foreign.Object (fromHomogeneous)
 import Joyride.Effect.Lowpass (lpf)
 import Joyride.FRP.Dedup (dedup)
 import Joyride.Visual.Bar (makeBar)
@@ -27,14 +29,17 @@ import Rito.Cameras.PerspectiveCamera (perspectiveCamera)
 import Rito.Color (RGB(..), color)
 import Rito.Core (ASceneful, Renderer(..), cameraToGroup, toGroup, toScene)
 import Rito.CubeTexture (CubeTexture)
+import Rito.Geometries.BufferGeometry (bufferGeometry)
 import Rito.Geometries.Sphere (sphere)
 import Rito.Group (group)
 import Rito.Lights.AmbientLight (ambientLight)
 import Rito.Lights.PointLight (pointLight)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
+import Rito.Materials.ShaderMaterial (shaderMaterial)
 import Rito.Mesh (mesh)
+import Rito.Points (points)
 import Rito.Portal (globalCameraPortal1, globalScenePortal1)
-import Rito.Properties (aspect, background, decay, distance, intensity, rotateX, rotateY, rotateZ) as P
+import Rito.Properties (aspect, background, decay, distance, intensity, rotateX, rotateY, rotateZ, uniform) as P
 import Rito.Properties (positionX, positionY, positionZ, render, scaleX, scaleY, scaleZ, size)
 import Rito.Renderers.CSS2D (css2DRenderer)
 import Rito.Renderers.CSS3D (css3DRenderer)
@@ -43,7 +48,7 @@ import Rito.Run as Rito.Run
 import Rito.Scene (Background(..), scene)
 import Rito.Texture (Texture)
 import Type.Proxy (Proxy(..))
-import Types (Axis(..), CubeTextures, HitBasicMe, HitBasicVisualForLabel, HitLeapVisualForLabel, HitLongVisualForLabel, JMilliseconds, Player(..), PlayerPositions, Position(..), RateInfo, ReleaseLongVisualForLabel, RenderingInfo, Textures, WindowDims, ThreeDI, allPlayers, allPositions, playerPosition, playerPosition')
+import Types (Axis(..), CubeTextures, GalaxyAttributes, HitBasicMe, HitBasicVisualForLabel, HitLeapVisualForLabel, HitLongVisualForLabel, JMilliseconds, Player(..), PlayerPositions, Position(..), RateInfo, ReleaseLongVisualForLabel, RenderingInfo, Seconds(..), Shaders, Textures, ThreeDI, WindowDims, allPlayers, allPositions, playerPosition, playerPosition')
 import Web.DOM as Web.DOM
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 
@@ -54,6 +59,8 @@ speed = 4.0 :: Number
 runThree
   :: { threeDI :: ThreeDI
      , debug :: Boolean
+     , galaxyAttributes :: GalaxyAttributes
+     , shaders :: Shaders
      , css2DRendererElt :: Event Web.DOM.Element
      , css3DRendererElt :: Event Web.DOM.Element
      , isMobile :: Boolean
@@ -295,7 +302,6 @@ runThree opts = do
                               , lpsCallback: opts.lowPriorityCb
                               }
                           ]
-
                         <>
                           -- leap labels
                           [ toGroup $ longLabels
@@ -304,6 +310,22 @@ runThree opts = do
                               , longRelease: sceneEvent.releaseLongVisualForLabel
                               , lpsCallback: opts.lowPriorityCb
                               }
+                          ]
+                        <>
+                          -- galaxy test
+                          [ toGroup $ points { points: opts.threeDI.points }
+                              (bufferGeometry { bufferGeometry: opts.threeDI.bufferGeometry, bufferAttributes: fromHomogeneous opts.galaxyAttributes })
+                              ( shaderMaterial { uSize: 1.0, uTime: 0.0 }
+                                  { shaderMaterial: opts.threeDI.shaderMaterial
+                                  , vertexShader: opts.shaders.galaxy.vertex
+                                  , fragmentShader: opts.shaders.galaxy.fragment
+                                  }
+                                  ( opts.animatedStuff <#>
+                                      \{ rateInfo: { time: Seconds time } } -> P.uniform (inj (Proxy :: _ "uTime") time)
+                                  )
+                              )
+                              empty
+
                           ]
                         <>
                           -- camera

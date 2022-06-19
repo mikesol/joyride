@@ -35,7 +35,8 @@ module.exports = {
 				use: ["style-loader", "css-loader", "sass-loader"],
 			},
 			{
-				test: /\.bme/,
+				test: /\.glsl/,
+				include: [path.resolve(__dirname, "src")],
 				type: "asset/source",
 			},
 			{

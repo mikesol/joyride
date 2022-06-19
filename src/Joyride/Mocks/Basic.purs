@@ -31,6 +31,7 @@ import Record (union)
 import Rito.Color (RGB(..))
 import Rito.Core (ASceneful, CSS3DObject, Instance, toScene)
 import Rito.Geometries.Box (box)
+import Rito.Materials.MeshPhongMaterial (meshPhongMaterial)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.RoundRobin (InstanceId, Semaphore(..), roundRobinInstancedMesh)
 import Safe.Coerce (coerce)
@@ -118,17 +119,23 @@ mockBasics makeBasics =
           }
           100
           (box { box: makeBasics.threeDI.boxGeometry })
-          ( meshStandardMaterial
-              -- { map: textures.hockeyCOL
-              -- , aoMap: textures.hockeyAO
-              -- , displacementMap: textures.hockeyDISP
-              -- , displacementScale: 0.1
-              -- , normalMap: textures.hockeyNRM
-              -- , roughnessMap: textures.hockeyGLOSS
-              -- }
-              { meshStandardMaterial: makeBasics.threeDI.meshStandardMaterial
+          -- ( meshStandardMaterial
+          --     -- { map: textures.hockeyCOL
+          --     -- , aoMap: textures.hockeyAO
+          --     -- , displacementMap: textures.hockeyDISP
+          --     -- , displacementScale: 0.1
+          --     -- , normalMap: textures.hockeyNRM
+          --     -- , roughnessMap: textures.hockeyGLOSS
+          --     -- }
+          --     { meshStandardMaterial: makeBasics.threeDI.meshStandardMaterial
+          --     , color: makeBasics.mkColor (RGB 0.798 0.927 0.778)
+          --     , roughness: 0.0
+          --     }
+          --     empty
+          -- )
+          ( meshPhongMaterial
+              { meshPhongMaterial: makeBasics.threeDI.meshPhongMaterial
               , color: makeBasics.mkColor (RGB 0.798 0.927 0.778)
-              , roughness: 0.0
               }
               empty
           )

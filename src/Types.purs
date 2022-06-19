@@ -1,6 +1,9 @@
 module Types
   ( Player(..)
   , entryZ
+  , Shaders
+  , Shader
+  , GalaxyAttributes
   , RenderingInfo
   , InFlightGameInfo'
   , RenderingInfo'
@@ -95,6 +98,7 @@ import Foreign (ForeignError(..), fail)
 import Foreign.Object as Object
 import Joyride.Wags (AudibleChildEnd, AudibleEnd)
 import Record (union)
+import Rito.BufferAttribute (BufferAttribute)
 import Rito.Color (Color, RGB)
 import Rito.CubeTexture as CTL
 import Rito.Matrix4 (Matrix4, Matrix4')
@@ -839,6 +843,8 @@ instance JSON.WriteForeign StartStatus where
 
 type Success' =
   { player :: Player
+  , shaders :: Shaders
+  , galaxyAttributes :: GalaxyAttributes
   , playerName :: Maybe String
   , channelName :: String
   , cNow :: Effect Milliseconds
@@ -974,10 +980,15 @@ instance fromJSONPubNubPlayerAction :: JSON.WriteForeign PlayerAction where
 type ThreeDI =
   { scene :: THREE.TScene
   , group :: THREE.TGroup
+  , points :: THREE.TPoints
   , vector3 :: THREE.TVector3
+  , shaderMaterial :: THREE.TShaderMaterial
+  , bufferGeometry :: THREE.TBufferGeometry
   , textureLoader :: THREE.TTextureLoader
   , cubeTextureLoader :: THREE.TCubeTextureLoader
+  , meshPhongMaterial :: THREE.TMeshPhongMaterial
   , meshStandardMaterial :: THREE.TMeshStandardMaterial
+  , bufferAttribute :: THREE.TBufferAttribute
   , ambientLight :: THREE.TAmbientLight
   , pointLight :: THREE.TPointLight
   , css2DObject :: THREE.TCSS2DObject
@@ -993,4 +1004,13 @@ type ThreeDI =
   , sphereGeometry :: THREE.TSphereGeometry
   , css2DRenderer :: THREE.TCSS2DRenderer
   , css3DRenderer :: THREE.TCSS3DRenderer
+  }
+
+type Shader = { vertex :: String, fragment :: String }
+type Shaders = { galaxy :: Shader }
+
+type GalaxyAttributes =
+  { position :: BufferAttribute
+  , color :: BufferAttribute
+  , aScale :: BufferAttribute
   }

@@ -54,16 +54,16 @@ import Joyride.Mocks.Leap (mockLeaps)
 import Joyride.Mocks.Long (mockLongs)
 import Joyride.Network.Download (dlInChunks)
 import Joyride.Random (randId)
+import Joyride.Shaders.Galaxy (makeGalaxyAttributes)
 import Joyride.Timing.CoordinatedNow (cnow)
 import Joyride.Transport.PubNub as PN
-import Record (union)
 import Rito.CubeTexture as CubeTextureLoader
 import Rito.THREE as THREE
 import Rito.Texture (loadAff, loader)
 import Route (Route(..), route)
 import Routing.Duplex (parse)
 import Type.Proxy (Proxy(..))
-import Types (BufferName(..), Channel(..), Claim(..), CubeTexture, CubeTextures(..), HitBasicMe(..), HitBasicOverTheWire(..), HitLeapMe(..), HitLeapOverTheWire(..), HitLongMe(..), HitLongOverTheWire(..), IAm(..), InFlightGameInfo(..), InFlightGameInfo', JMilliseconds(..), KnownPlayers(..), Negotiation(..), Penalty(..), Player(..), PlayerAction(..), PointOutcome, Points(..), Position, ReleaseLongMe(..), ReleaseLongOverTheWire(..), RenderingInfo', StartStatus(..), Textures(..), ThreeDI, allPlayers, initialPositions, touchPointZ)
+import Types (BufferName(..), Channel(..), Claim(..), CubeTexture, CubeTextures(..), HitBasicMe(..), HitBasicOverTheWire(..), HitLeapMe(..), HitLeapOverTheWire(..), HitLongMe(..), HitLongOverTheWire(..), IAm(..), InFlightGameInfo(..), InFlightGameInfo', JMilliseconds(..), KnownPlayers(..), Negotiation(..), Penalty(..), Player(..), PlayerAction(..), PointOutcome, Points(..), Position, ReleaseLongMe(..), ReleaseLongOverTheWire(..), RenderingInfo', StartStatus(..), Textures(..), ThreeDI, Shaders, allPlayers, initialPositions, touchPointZ)
 import WAGS.Interpret (AudioBuffer(..), context, makeAudioBuffer)
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
@@ -109,8 +109,13 @@ type LeapUnsubscribes =
   , p4 :: Effect Unit
   }
 
-main :: CubeTextures (CubeTexture String) -> Textures String -> Object.Object String -> Effect Unit
-main (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ do
+main
+  :: Shaders
+  -> CubeTextures (CubeTexture String)
+  -> Textures String
+  -> Object.Object String
+  -> Effect Unit
+main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ do
   ----- gui
   { debug, renderingInfo } <- liftEffect useLilGui >>= (if _ then gui else noGui) >>> (_ $ renderingInfo')
   -- has orientation permission
@@ -203,6 +208,9 @@ main (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ do
         { scene: THREE.sceneAff
         , vector3: THREE.vector3Aff
         , meshStandardMaterial: THREE.meshStandardMaterialAff
+        , bufferGeometry: THREE.bufferGeometryAff
+        , points: THREE.pointsAff
+        , meshPhongMaterial: THREE.meshPhongMaterialAff
         , boxGeometry: THREE.boxGeometryAff
         , pointLight: THREE.pointLightAff
         , ambientLight: THREE.ambientLightAff
@@ -214,6 +222,8 @@ main (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ do
         , mesh: THREE.meshAff
         , perspectiveCamera: THREE.perspectiveCameraAff
         , matrix4: THREE.matrix4Aff
+        , bufferAttribute: THREE.bufferAttributeAff
+        , shaderMaterial: THREE.shaderMaterialAff
         , cubeTextureLoader: THREE.cubeTextureLoaderAff
         , sphereGeometry: THREE.sphereGeometryAff
         , css2DRenderer: THREE.css2DRendererAff
@@ -524,10 +534,13 @@ main (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ do
             dlInChunks audio 100 n2ot ctx' soundObj
             myTextures <- joinFiber downloadedTextures
             playerName <- liftEffect $ LS.getItem LocalStorage.playerName stor
+            let galaxyAttributes = makeGalaxyAttributes threeDI.bufferAttribute
             liftEffect $ negotiation.push $ Success
               { player: myPlayer
               , threeDI
               , playerName
+              , shaders
+              , galaxyAttributes
               , cNow: mappedCNow
               , channelName: myChannel
               , pubNubEvent: pubNub.event

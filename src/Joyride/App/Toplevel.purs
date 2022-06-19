@@ -203,6 +203,8 @@ toplevel tli =
       , textures
       , cubeTextures
       , cNow
+      , galaxyAttributes
+      , shaders
       , playerName
       , channelName
       , threeDI
@@ -480,6 +482,8 @@ toplevel tli =
                                     , css2DRendererElt: event.render2DElement
                                     , css3DRendererElt: event.render3DElement
                                     , isMobile: tli.isMobile
+                                    , galaxyAttributes
+                                    , shaders
                                     , renderingInfo: tli.renderingInfo
                                     , lowPriorityCb: tli.lpsCallback
                                     , myPlayer
