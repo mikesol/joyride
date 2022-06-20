@@ -29,9 +29,32 @@ mat4 rotationZ( in float angle ) {
 							0,				0,		0,	1);
 }
 
+mat3 rotMat(float costheta, vec3 vc) {
+  float c = costheta;
+  float s = sqrt(1.0-(c*c));
+  float C = 1.0-c;
+  float x = vc.x;
+  float y = vc.y;
+  float z = vc.z;
+  mat3 outv;
+  outv[0][0] = x*x*C+c;
+  outv[1][0] = x*y*C-z*s;
+  outv[2][0] = x*z*C+y*s;
+  outv[1][0] = y*x*C+z*s;
+  outv[1][1] = y*y*C+c;
+  outv[1][2] = y*z*C-x*s;
+  outv[2][0] = z*x*C-y*s;
+  outv[2][1] = z*y*C+x*s;
+  outv[2][2] = z*z*C+c;
+  return outv;
+}
+
 void main() {
-  float sinTime = sin(uTime * PI * 0.05) * 0.5 + 0.5;
-  float cosTime = cos(uTime * PI * 0.05) * 0.5 + 0.5;
+  float dt = 0.02;
+  float sinTime = sin(uTime * PI * (0.04 + aPosition.x * 0.03)) * 0.5 + 0.5;
+  float cosTime = cos(uTime * PI * (0.04 + aPosition.y * 0.03)) * 0.5 + 0.5;
+  float sinTimeFuture = sin((uTime + dt) * PI * 0.05) * 0.5 + 0.5;
+  float cosTimeFuture = cos((uTime + dt) * PI * 0.05) * 0.5 + 0.5;
   float sinTime2 = sin(uTime * PI * 0.5) * 0.5 + 0.5;
   float cosTime2 = cos(uTime * PI * 0.5) * 0.5 + 0.5;
   float sinTime3 = sin(uTime * PI * 6.0 * aPosition.z) * 0.5 + 0.5;
@@ -44,14 +67,26 @@ void main() {
   scaleMatrix[0][0] = 0.05;
   scaleMatrix[1][1] = 0.05;
   scaleMatrix[2][2] = 0.05;
-  mat4 rotationXMatrix = rotationX(aColor2.x * PI);
-  mat4 rotationYMatrix = rotationY(aColor2.y * PI);
-  mat4 rotationZMatrix = rotationZ(aColor2.z * PI);
   mat4 translationMatrix = mat4(1.0);
-  translationMatrix[3][0] = mix(aPosition.x * 2.0, aPosition2.x * 2.0, sinTime);
-  translationMatrix[3][1] = mix(aPosition.y * 2.0, aPosition2.y * 2.0, cosTime);
-  translationMatrix[3][2] = -2.0 + mix(aPosition.z * 2.0, aPosition2.z * 2.0, sinTime);
+  float xnow = mix(aPosition.x * 2.0, aPosition2.x * 2.0, sinTime);
+  float ynow = mix(aPosition.y * 2.0, aPosition2.y * 2.0, cosTime);
+  float znow = -2.0 + mix(aPosition.z * 2.0, aPosition2.z * 2.0, sinTime);
+  float xFuture = mix(aPosition.x * 2.0, aPosition2.x * 2.0, sinTimeFuture);
+  float yFuture = mix(aPosition.y * 2.0, aPosition2.y * 2.0, cosTimeFuture);
+  float zFuture = -2.0 + mix(aPosition.z * 2.0, aPosition2.z * 2.0, sinTimeFuture);
+  float xVel = (xFuture - xnow) / dt;
+  float yVel = (yFuture - ynow) / dt;
+  float zVel = (zFuture - znow) / dt;
+  vec3 vel = normalize(vec3(xVel, yVel, zVel));
+  vec3 M = vec3(0.0, 0.0, 1.0);
+  vec3 N = M - (vec3(0.0, 1.0, 0.0) - vel);
+  float costheta = dot(M,N)/(length(M)*length(N));
+  vec3 crossMN = cross(M, N);
+  vec3 axis = crossMN / length(crossMN);
+  translationMatrix[3][0] = xnow;
+  translationMatrix[3][1] = ynow;
+  translationMatrix[3][2] = znow;
   vUv = uv;
-  gl_Position = projectionMatrix * viewMatrix * modelMatrix * translationMatrix * rotationZMatrix * rotationYMatrix * rotationXMatrix * scaleMatrix * vec4(modPosition, 1.0);
+  gl_Position = projectionMatrix * viewMatrix * modelMatrix * translationMatrix *  scaleMatrix * vec4(rotMat(costheta, crossMN) * modPosition, 1.0);
   vColor = vec3(mix(aColor.x,aColor2.x,sinTime2), mix(aColor.y,aColor2.y,cosTime2), mix(aColor.z,aColor2.z,sinTime2));
 }
