@@ -44,7 +44,7 @@ import Rito.Mesh (mesh)
 import Rito.Points (points)
 import Rito.Portal (globalCameraPortal1, globalScenePortal1)
 import Rito.Properties (aspect, background, decay, distance, intensity, positionZ, rotateX, rotateY, rotateZ, uniform) as P
-import Rito.Properties (positionX, positionY, positionZ, render, scaleX, scaleY, scaleZ, size)
+import Rito.Properties (positionX, positionY, positionZ, render, scaleX, scaleY, scaleZ, size, widthSegments)
 import Rito.Renderers.CSS2D (css2DRenderer)
 import Rito.Renderers.CSS3D (css3DRenderer)
 import Rito.Renderers.WebGL (webGLRenderer)
@@ -317,7 +317,6 @@ runThree opts = do
                               }
                           ]
                         <>
-                          -- galaxy test
                           [ toGroup $ instancedMesh' galaxyParams.count
                               { matrix4: opts.threeDI.matrix4
                               , mesh: opts.threeDI.mesh
@@ -326,6 +325,8 @@ runThree opts = do
                               ( plane
                                   { plane: opts.threeDI.plane
                                   , instancedBufferAttributes: fromHomogeneous opts.galaxyAttributes
+                                  , widthSegments: 4
+                                  , heightSegments: 4
                                   }
                               )
                               ( shaderMaterial
