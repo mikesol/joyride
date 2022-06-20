@@ -24,6 +24,7 @@ import skyboxFront from "./textures/skybox/front.png";
 import skyboxLeft from "./textures/skybox/left.png";
 import skyboxRight from "./textures/skybox/right.png";
 import skyboxTop from "./textures/skybox/top.png";
+import butterfly0 from "./textures/butterflies/butterfly0.png";
 
 export const cubeTextures = {
 	skybox: {
@@ -57,4 +58,5 @@ export const textures = {
 	tilesZelligeHexDISP,
 	tilesZelligeHexGLOSS,
 	tilesZelligeHexREFL,
+	butterfly0
 };

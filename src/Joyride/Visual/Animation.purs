@@ -359,7 +359,11 @@ void main()
                           -- galaxy test
                           [ toGroup $ points { points: opts.threeDI.points }
                               (bufferGeometry { bufferGeometry: opts.threeDI.bufferGeometry, bufferAttributes: fromHomogeneous opts.galaxyAttributes })
-                              ( shaderMaterial { uSize: 30.0, uTime: 0.0 }
+                              ( shaderMaterial
+                                  { uSize: 30.0
+                                  , uTime: 0.0
+                                  , uButterfly: (unwrap opts.textures).butterfly0
+                                  }
                                   { shaderMaterial: opts.threeDI.shaderMaterial
                                   , vertexShader: opts.shaders.galaxy.vertex
                                   , depthWrite: false

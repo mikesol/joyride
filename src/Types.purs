@@ -439,6 +439,7 @@ newtype Textures a = Textures
   , tilesZelligeHexDISP :: a
   , tilesZelligeHexGLOSS :: a
   , tilesZelligeHexREFL :: a
+  , butterfly0 :: a
   }
 
 newtype CubeTexture a = CubeTexture
