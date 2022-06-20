@@ -49,12 +49,20 @@ mat3 rotMat(float costheta, vec3 vc) {
   return outv;
 }
 
+float mkSinTime (float uTime, vec3 fuzz) {
+  return sin(uTime * PI * (0.04 + fuzz.x * 0.03) + fuzz.y * PI) * 0.5 + 0.5;
+}
+
+float mkCosTime (float uTime, vec3 fuzz) {
+  return cos(uTime * PI * (0.04 + fuzz.y * 0.03) + fuzz.z * PI) * 0.5 + 0.5;
+}
+
 void main() {
   float dt = 0.02;
-  float sinTime = sin(uTime * PI * (0.04 + aPosition.x * 0.03)) * 0.5 + 0.5;
-  float cosTime = cos(uTime * PI * (0.04 + aPosition.y * 0.03)) * 0.5 + 0.5;
-  float sinTimeFuture = sin((uTime + dt) * PI * 0.05) * 0.5 + 0.5;
-  float cosTimeFuture = cos((uTime + dt) * PI * 0.05) * 0.5 + 0.5;
+  float sinTime = mkSinTime(uTime, aPosition);
+  float cosTime = mkCosTime(uTime, aPosition);
+  float sinTimeFuture = mkSinTime(uTime + dt, aPosition);
+  float cosTimeFuture = mkCosTime(uTime + dt, aPosition);
   float sinTime2 = sin(uTime * PI * 0.5) * 0.5 + 0.5;
   float cosTime2 = cos(uTime * PI * 0.5) * 0.5 + 0.5;
   float sinTime3 = sin(uTime * PI * 6.0 * aPosition.z) * 0.5 + 0.5;
