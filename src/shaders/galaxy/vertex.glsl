@@ -51,8 +51,8 @@ mat3 rotMat(float costheta, vec3 vc) {
 
 void main() {
   float dt = 0.02;
-  float sinTime = sin(uTime * PI * 0.05) * 0.5 + 0.5;
-  float cosTime = cos(uTime * PI * 0.05) * 0.5 + 0.5;
+  float sinTime = sin(uTime * PI * (0.04 + aPosition.x * 0.03)) * 0.5 + 0.5;
+  float cosTime = cos(uTime * PI * (0.04 + aPosition.y * 0.03)) * 0.5 + 0.5;
   float sinTimeFuture = sin((uTime + dt) * PI * 0.05) * 0.5 + 0.5;
   float cosTimeFuture = cos((uTime + dt) * PI * 0.05) * 0.5 + 0.5;
   float sinTime2 = sin(uTime * PI * 0.5) * 0.5 + 0.5;
