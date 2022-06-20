@@ -55,6 +55,13 @@ makeGalaxyAttributes tba = bufferAttributes
       y1R = sfc32 y0R
       z0R = sfc32 y1R
       z1R = sfc32 z0R
+      r0R = sfc32 z1R
+      r1R = sfc32 r0R
+      g0R = sfc32 r1R
+      g1R = sfc32 g0R
+      b0R = sfc32 g1R
+      b1R = sfc32 b0R
+      final = b1R
       -- radius = radiusR.r * galaxyParams.radius
       -- branchAngle =
       --   ( (toNumber i % galaxyParams.branches)
@@ -80,10 +87,11 @@ makeGalaxyAttributes tba = bufferAttributes
       ypos2 =normalizeRand y1R.r
       zpos2 =normalizeRand z1R.r
       position2 = xpos2 : ypos2 : zpos2 : empty
-      radius = sqrt((xpos `pow` 2.0) + (ypos `pow` 2.0) + (zpos `pow` 2.0))
-      color = let RGB r g b = lerp (radius / galaxyParams.radius) galaxyParams.insideColor galaxyParams.outsideColor in r : g : b : empty
+      -- radius = sqrt((xpos `pow` 2.0) + (ypos `pow` 2.0) + (zpos `pow` 2.0))
+      color = r0R.r : g0R.r : b0R.r : empty-- let RGB r g b = lerp (radius / galaxyParams.radius) galaxyParams.insideColor galaxyParams.outsideColor in r : g : b : empty
+      color2 = r1R.r : g1R.r : b1R.r : empty
       aScale = scaleR.r : empty
-    { position, position2, color, aScale} /\ (delete (Proxy :: _ "r") z1R)
+    { position, position2, color, color2, aScale} /\ (delete (Proxy :: _ "r") final)
   where
   seeded :: { | ABCD Number () }
   seeded = cyrb128 "galaxy"

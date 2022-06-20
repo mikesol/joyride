@@ -1014,5 +1014,6 @@ type GalaxyAttributes =
   { position :: BufferAttribute
   , position2 :: BufferAttribute
   , color :: BufferAttribute
+  , color2 :: BufferAttribute
   , aScale :: BufferAttribute
   }
