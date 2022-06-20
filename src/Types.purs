@@ -982,6 +982,7 @@ type ThreeDI =
   , group :: THREE.TGroup
   , points :: THREE.TPoints
   , vector3 :: THREE.TVector3
+  , plane :: THREE.TPlaneGeometry
   , shaderMaterial :: THREE.TShaderMaterial
   , bufferGeometry :: THREE.TBufferGeometry
   , textureLoader :: THREE.TTextureLoader

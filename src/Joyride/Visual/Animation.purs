@@ -25,11 +25,13 @@ import Joyride.Visual.Bar (makeBar)
 import Joyride.Visual.BasicLabels (basicLabels)
 import Joyride.Visual.LeapLabels (leapLabels)
 import Joyride.Visual.LongLabels (longLabels)
+import Rito.Blending (Blending(..))
 import Rito.Cameras.PerspectiveCamera (perspectiveCamera)
 import Rito.Color (RGB(..), color)
 import Rito.Core (ASceneful, Renderer(..), cameraToGroup, toGroup, toScene)
 import Rito.CubeTexture (CubeTexture)
 import Rito.Geometries.BufferGeometry (bufferGeometry)
+import Rito.Geometries.Plane (plane)
 import Rito.Geometries.Sphere (sphere)
 import Rito.Group (group)
 import Rito.Lights.AmbientLight (ambientLight)
@@ -39,7 +41,7 @@ import Rito.Materials.ShaderMaterial (shaderMaterial)
 import Rito.Mesh (mesh)
 import Rito.Points (points)
 import Rito.Portal (globalCameraPortal1, globalScenePortal1)
-import Rito.Properties (aspect, background, decay, distance, intensity, rotateX, rotateY, rotateZ, uniform) as P
+import Rito.Properties (aspect, background, decay, distance, intensity, positionZ, rotateX, rotateY, rotateZ, uniform) as P
 import Rito.Properties (positionX, positionY, positionZ, render, scaleX, scaleY, scaleZ, size)
 import Rito.Renderers.CSS2D (css2DRenderer)
 import Rito.Renderers.CSS3D (css3DRenderer)
@@ -312,12 +314,53 @@ runThree opts = do
                               }
                           ]
                         <>
+                          -- this is a test to make sure that custom shaders are working
+                          -- use it as a sanity check
+                          if true then [] else [ toGroup $ mesh { mesh: opts.threeDI.mesh }
+                              (plane { plane: opts.threeDI.plane })
+                              ( shaderMaterial { uTime: 15.0 }
+                                  { shaderMaterial: opts.threeDI.shaderMaterial
+                                  , vertexShader:
+                                      """
+varying vec2 vUv;
+varying float vTime;
+uniform float uTime;
+
+void main()
+{
+    vUv = uv;
+    vTime = uTime;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}
+"""
+                                  , fragmentShader:
+                                      """
+varying vec2 vUv;
+varying float vTime;
+
+#define PI 3.1416
+
+void main()
+{
+    float c = mod(vUv.x * vUv.y * (10.0 * cos(vTime * PI * 0.25) + 10.5), 1.0);
+    gl_FragColor = vec4(c,c,c,1.0);
+}
+                        """
+                                  }
+                                  empty
+                              )
+                              (bang $ P.positionZ (-5.0))
+                          ]
+                        <>
                           -- galaxy test
                           [ toGroup $ points { points: opts.threeDI.points }
                               (bufferGeometry { bufferGeometry: opts.threeDI.bufferGeometry, bufferAttributes: fromHomogeneous opts.galaxyAttributes })
                               ( shaderMaterial { uSize: 1.0, uTime: 0.0 }
                                   { shaderMaterial: opts.threeDI.shaderMaterial
                                   , vertexShader: opts.shaders.galaxy.vertex
+                                  , depthWrite: false
+                                  , blending: AdditiveBlending
+                                  , vertexColors: true
                                   , fragmentShader: opts.shaders.galaxy.fragment
                                   }
                                   ( opts.animatedStuff <#>

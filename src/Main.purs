@@ -222,6 +222,7 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
         , mesh: THREE.meshAff
         , perspectiveCamera: THREE.perspectiveCameraAff
         , matrix4: THREE.matrix4Aff
+        , plane: THREE.planeGeometryAff
         , bufferAttribute: THREE.bufferAttributeAff
         , shaderMaterial: THREE.shaderMaterialAff
         , cubeTextureLoader: THREE.cubeTextureLoaderAff
