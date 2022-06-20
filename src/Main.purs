@@ -224,6 +224,7 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
         , matrix4: THREE.matrix4Aff
         , plane: THREE.planeGeometryAff
         , bufferAttribute: THREE.bufferAttributeAff
+        , instancedBufferAttribute: THREE.instancedBufferAttributeAff
         , shaderMaterial: THREE.shaderMaterialAff
         , cubeTextureLoader: THREE.cubeTextureLoaderAff
         , sphereGeometry: THREE.sphereGeometryAff
@@ -535,7 +536,7 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
             dlInChunks audio 100 n2ot ctx' soundObj
             myTextures <- joinFiber downloadedTextures
             playerName <- liftEffect $ LS.getItem LocalStorage.playerName stor
-            let galaxyAttributes = makeGalaxyAttributes threeDI.bufferAttribute
+            let galaxyAttributes = makeGalaxyAttributes threeDI.instancedBufferAttribute
             liftEffect $ negotiation.push $ Success
               { player: myPlayer
               , threeDI

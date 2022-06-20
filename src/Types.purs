@@ -101,6 +101,7 @@ import Record (union)
 import Rito.BufferAttribute (BufferAttribute)
 import Rito.Color (Color, RGB)
 import Rito.CubeTexture as CTL
+import Rito.InstancedBufferAttribute (InstancedBufferAttribute)
 import Rito.Matrix4 (Matrix4, Matrix4')
 import Rito.THREE as THREE
 import Rito.Texture (Texture)
@@ -991,6 +992,7 @@ type ThreeDI =
   , meshPhongMaterial :: THREE.TMeshPhongMaterial
   , meshStandardMaterial :: THREE.TMeshStandardMaterial
   , bufferAttribute :: THREE.TBufferAttribute
+  , instancedBufferAttribute :: THREE.TInstancedBufferAttribute
   , ambientLight :: THREE.TAmbientLight
   , pointLight :: THREE.TPointLight
   , css2DObject :: THREE.TCSS2DObject
@@ -1012,9 +1014,8 @@ type Shader = { vertex :: String, fragment :: String }
 type Shaders = { galaxy :: Shader }
 
 type GalaxyAttributes =
-  { position :: BufferAttribute
-  , position2 :: BufferAttribute
-  , color :: BufferAttribute
-  , color2 :: BufferAttribute
-  , aScale :: BufferAttribute
+  { aPosition :: InstancedBufferAttribute
+  , aPosition2 :: InstancedBufferAttribute
+  , aColor :: InstancedBufferAttribute
+  , aColor2 :: InstancedBufferAttribute
   }
