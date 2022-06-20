@@ -3,21 +3,18 @@ module Joyride.Shaders.Galaxy where
 import Prelude
 
 import Data.FastVect.FastVect (empty, (:))
-import Data.Int (toNumber)
-import Data.Number (cos, pi, pow, sin, sqrt, (%))
 import Data.Tuple.Nested ((/\))
-import Joyride.Color (lerp)
 import Joyride.Random (ABCD, cyrb128, sfc32)
 import Record (delete)
-import Rito.BufferAttribute (bufferAttributes)
 import Rito.Color (RGB(..))
+import Rito.InstancedBufferAttribute (instancedBufferAttributes)
 import Rito.THREE as THREE
 import Type.Proxy (Proxy(..))
 import Types (GalaxyAttributes)
 
 type GalaxyParams =
   { branches :: Number
-  , count :: Proxy 200000
+  , count :: Proxy 2000
   , insideColor :: RGB
   , outsideColor :: RGB
   , radius :: Number
@@ -29,7 +26,7 @@ type GalaxyParams =
 
 galaxyParams :: GalaxyParams
 galaxyParams =
-  { count: Proxy :: Proxy 200000
+  { count: Proxy :: Proxy 2000
   , size: 0.005
   , radius: 5.0
   , branches: 3.0
@@ -40,8 +37,8 @@ galaxyParams =
   , outsideColor: RGB 0.043137254901960784 0.08627450980392157 0.20392156862745098 -- "#1b3984"
   }
 
-makeGalaxyAttributes :: THREE.TBufferAttribute -> GalaxyAttributes
-makeGalaxyAttributes tba = bufferAttributes
+makeGalaxyAttributes :: THREE.TInstancedBufferAttribute -> GalaxyAttributes
+makeGalaxyAttributes tba = instancedBufferAttributes
   galaxyParams.count
   tba
   seeded
@@ -90,8 +87,7 @@ makeGalaxyAttributes tba = bufferAttributes
       -- radius = sqrt((xpos `pow` 2.0) + (ypos `pow` 2.0) + (zpos `pow` 2.0))
       color = r0R.r : g0R.r : b0R.r : empty-- let RGB r g b = lerp (radius / galaxyParams.radius) galaxyParams.insideColor galaxyParams.outsideColor in r : g : b : empty
       color2 = r1R.r : g1R.r : b1R.r : empty
-      aScale = scaleR.r : empty
-    { position, position2, color, color2, aScale} /\ (delete (Proxy :: _ "r") final)
+    { aPosition: position, aPosition2: position2, aColor: color, aColor2: color2 } /\ (delete (Proxy :: _ "r") final)
   where
   seeded :: { | ABCD Number () }
   seeded = cyrb128 "galaxy"

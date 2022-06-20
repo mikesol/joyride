@@ -21,6 +21,7 @@ import FRP.Event.VBus (V, vbus)
 import Foreign.Object (fromHomogeneous)
 import Joyride.Effect.Lowpass (lpf)
 import Joyride.FRP.Dedup (dedup)
+import Joyride.Shaders.Galaxy (galaxyParams)
 import Joyride.Visual.Bar (makeBar)
 import Joyride.Visual.BasicLabels (basicLabels)
 import Joyride.Visual.LeapLabels (leapLabels)
@@ -34,6 +35,7 @@ import Rito.Geometries.BufferGeometry (bufferGeometry)
 import Rito.Geometries.Plane (plane)
 import Rito.Geometries.Sphere (sphere)
 import Rito.Group (group)
+import Rito.InstancedMesh (instancedMesh')
 import Rito.Lights.AmbientLight (ambientLight)
 import Rito.Lights.PointLight (pointLight)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
@@ -315,50 +317,17 @@ runThree opts = do
                               }
                           ]
                         <>
-                          -- this is a test to make sure that custom shaders are working
-                          -- use it as a sanity check
-                          ( if true then []
-                            else
-                              [ toGroup $ mesh { mesh: opts.threeDI.mesh }
-                                  (plane { plane: opts.threeDI.plane })
-                                  ( shaderMaterial { uTime: 15.0 }
-                                      { shaderMaterial: opts.threeDI.shaderMaterial
-                                      , vertexShader:
-                                          """
-varying vec2 vUv;
-varying float vTime;
-uniform float uTime;
-
-void main()
-{
-    vUv = uv;
-    vTime = uTime;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-}
-"""
-                                      , fragmentShader:
-                                          """
-varying vec2 vUv;
-varying float vTime;
-
-#define PI 3.1416
-
-void main()
-{
-    float c = mod(vUv.x * vUv.y * (10.0 * cos(vTime * PI * 0.25) + 10.5), 1.0);
-    gl_FragColor = vec4(c,c,c,1.0);
-}
-                        """
-                                      }
-                                      empty
-                                  )
-                                  (oneOf [ bang $ P.positionZ (-3.0), bang $ positionY 1.0 ])
-                              ]
-                          )
-                        <>
                           -- galaxy test
-                          [ toGroup $ points { points: opts.threeDI.points }
-                              (bufferGeometry { bufferGeometry: opts.threeDI.bufferGeometry, bufferAttributes: fromHomogeneous opts.galaxyAttributes })
+                          [ toGroup $ instancedMesh' galaxyParams.count
+                              { matrix4: opts.threeDI.matrix4
+                              , mesh: opts.threeDI.mesh
+                              , instancedMesh: opts.threeDI.instancedMesh
+                              }
+                              ( plane
+                                  { plane: opts.threeDI.plane
+                                  , instancedBufferAttributes: fromHomogeneous opts.galaxyAttributes
+                                  }
+                              )
                               ( shaderMaterial
                                   { uSize: 30.0
                                   , uTime: 0.0
@@ -375,7 +344,7 @@ void main()
                                       \{ rateInfo: { time: Seconds time } } -> P.uniform (inj (Proxy :: _ "uTime") time)
                                   )
                               )
-                              (oneOf [ bang $ P.positionZ (-1.0), bang $ positionY 0.0, bang $ scaleX 3.0, bang $ scaleY 3.0, bang $ scaleZ 3.0 ])
+                              empty -- oneOf [ bang $ P.positionZ (-1.0), bang $ positionY 0.0, bang $ scaleX 3.0, bang $ scaleY 3.0, bang $ scaleZ 3.0 ]
                           ]
                         <>
                           -- camera

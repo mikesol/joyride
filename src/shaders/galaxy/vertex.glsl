@@ -1,27 +1,31 @@
 uniform float uSize;
 uniform float uTime;
 varying vec3 vColor;
-attribute float aScale;
-attribute vec3 position2;
-attribute vec3 color2;
+attribute vec3 aPosition;
+attribute vec3 aPosition2;
+attribute vec3 aColor;
+attribute vec3 aColor2;
+varying vec2 vUv;
 #define PI 3.1416
 void main() {
   float sinTime = sin(uTime * PI * 0.05) * 0.5 + 0.5;
   float cosTime = cos(uTime * PI * 0.05) * 0.5 + 0.5;
   float sinTime2 = sin(uTime * PI * 0.5) * 0.5 + 0.5;
   float cosTime2 = cos(uTime * PI * 0.5) * 0.5 + 0.5;
-  vec4 newPos = vec4(mix(position.x,position2.x,sinTime), mix(position.y,position2.y,cosTime), mix(position.z,position2.z,sinTime), 1.0);
-  vec4 modelPosition = newPos;
-  // float angle = atan(modelPosition.x, modelPosition.z);
-  // float distanceToCenter = length(modelPosition.xz);
-  // float angleOffset = (1.0 / distanceToCenter) * uTime * 0.1;
-  // angle += angleOffset;
-  // modelPosition.x = cos(angle) * distanceToCenter;
-  // modelPosition.z = sin(angle) * distanceToCenter;
-  vec4 viewPosition = viewMatrix * modelMatrix * modelPosition;
-  vec4 projectionPosition = projectionMatrix * viewPosition;
-  gl_Position = projectionPosition;
-  vColor = vec3(mix(color.x,color2.x,sinTime2), mix(color.y,color2.y,cosTime2), mix(color.z,color2.z,sinTime2)); //color;
-  gl_PointSize = uSize * aScale;
-  gl_PointSize *= ( 1.0 / - viewPosition.z );
+  mat4 modInstanceMatrix = mat4(instanceMatrix);
+  vec3 modPosition;
+  modPosition.x = position.x;
+  modPosition.y = position.y;
+  modPosition.z = position.z - 2.0;
+  modInstanceMatrix[0][0] = 0.05;
+  modInstanceMatrix[1][1] = 0.05;
+  modInstanceMatrix[2][2] = 0.05;
+  modInstanceMatrix[3][3] = 1.0;
+  modInstanceMatrix[3][0] += mix(aPosition.x * 2.0 - 1.0, aPosition2.x * 2.0 - 1.0, sinTime);
+  modInstanceMatrix[3][1] += mix(aPosition.y * 2.0 - 1.0, aPosition2.y * 2.0 - 1.0, cosTime) + 2.0;
+  modInstanceMatrix[3][2] += mix(aPosition.z * 2.0 - 1.0, aPosition2.z * 2.0 - 1.0, sinTime);
+  vUv = uv;
+  vec4 instanced = modInstanceMatrix * vec4(modPosition, 1.0);
+  gl_Position = projectionMatrix * viewMatrix * instanced;
+  vColor = vec3(mix(aColor.x,aColor2.x,sinTime2), mix(aColor.y,aColor2.y,cosTime2), mix(aColor.z,aColor2.z,sinTime2));
 }
