@@ -1012,6 +1012,7 @@ type Shaders = { galaxy :: Shader }
 
 type GalaxyAttributes =
   { position :: BufferAttribute
+  , position2 :: BufferAttribute
   , color :: BufferAttribute
   , aScale :: BufferAttribute
   }

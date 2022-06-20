@@ -359,7 +359,7 @@ void main()
                           -- galaxy test
                           [ toGroup $ points { points: opts.threeDI.points }
                               (bufferGeometry { bufferGeometry: opts.threeDI.bufferGeometry, bufferAttributes: fromHomogeneous opts.galaxyAttributes })
-                              ( shaderMaterial { uSize: 10.0, uTime: 0.0 }
+                              ( shaderMaterial { uSize: 30.0, uTime: 0.0 }
                                   { shaderMaterial: opts.threeDI.shaderMaterial
                                   , vertexShader: opts.shaders.galaxy.vertex
                                   , depthWrite: false
@@ -371,7 +371,7 @@ void main()
                                       \{ rateInfo: { time: Seconds time } } -> P.uniform (inj (Proxy :: _ "uTime") time)
                                   )
                               )
-                              (oneOf [ bang $ P.positionZ (-2.0), bang $ positionY 1.0, bang $ scaleX 2.0, bang $ scaleY 2.0, bang $ scaleZ 2.0 ])
+                              (oneOf [ bang $ P.positionZ (-1.0), bang $ positionY 0.0, bang $ scaleX 3.0, bang $ scaleY 3.0, bang $ scaleZ 3.0 ])
                           ]
                         <>
                           -- camera
