@@ -153,7 +153,8 @@ runThree opts = do
                           let
                             fac = t / 1000.0
                           in
-                            oneOfMap bang
+                            if false then empty
+                            else oneOfMap bang
                               [ P.rotateX $ 0.001 * cos (fac * pi * 0.01)
                               , P.rotateY $ 0.001 * cos (fac * pi * 0.01)
                               , P.rotateZ $ 0.001 * cos (fac * pi * 0.01)
@@ -316,12 +317,14 @@ runThree opts = do
                         <>
                           -- this is a test to make sure that custom shaders are working
                           -- use it as a sanity check
-                          if true then [] else [ toGroup $ mesh { mesh: opts.threeDI.mesh }
-                              (plane { plane: opts.threeDI.plane })
-                              ( shaderMaterial { uTime: 15.0 }
-                                  { shaderMaterial: opts.threeDI.shaderMaterial
-                                  , vertexShader:
-                                      """
+                          ( if true then []
+                            else
+                              [ toGroup $ mesh { mesh: opts.threeDI.mesh }
+                                  (plane { plane: opts.threeDI.plane })
+                                  ( shaderMaterial { uTime: 15.0 }
+                                      { shaderMaterial: opts.threeDI.shaderMaterial
+                                      , vertexShader:
+                                          """
 varying vec2 vUv;
 varying float vTime;
 uniform float uTime;
@@ -333,8 +336,8 @@ void main()
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 }
 """
-                                  , fragmentShader:
-                                      """
+                                      , fragmentShader:
+                                          """
 varying vec2 vUv;
 varying float vTime;
 
@@ -346,16 +349,17 @@ void main()
     gl_FragColor = vec4(c,c,c,1.0);
 }
                         """
-                                  }
-                                  empty
-                              )
-                              (bang $ P.positionZ (-5.0))
-                          ]
+                                      }
+                                      empty
+                                  )
+                                  (oneOf [ bang $ P.positionZ (-3.0), bang $ positionY 1.0 ])
+                              ]
+                          )
                         <>
                           -- galaxy test
                           [ toGroup $ points { points: opts.threeDI.points }
                               (bufferGeometry { bufferGeometry: opts.threeDI.bufferGeometry, bufferAttributes: fromHomogeneous opts.galaxyAttributes })
-                              ( shaderMaterial { uSize: 1.0, uTime: 0.0 }
+                              ( shaderMaterial { uSize: 10.0, uTime: 0.0 }
                                   { shaderMaterial: opts.threeDI.shaderMaterial
                                   , vertexShader: opts.shaders.galaxy.vertex
                                   , depthWrite: false
@@ -367,8 +371,7 @@ void main()
                                       \{ rateInfo: { time: Seconds time } } -> P.uniform (inj (Proxy :: _ "uTime") time)
                                   )
                               )
-                              empty
-
+                              (oneOf [ bang $ P.positionZ (-2.0), bang $ positionY 1.0, bang $ scaleX 2.0, bang $ scaleY 2.0, bang $ scaleZ 2.0 ])
                           ]
                         <>
                           -- camera
