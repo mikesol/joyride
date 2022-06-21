@@ -11,8 +11,26 @@ jobs:
     if: '${{ github.event.pull_request.head.repo.full_name == github.repository }}'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - run: npm ci && npm run build
+      - name: Check out repository code
+        uses: actions/checkout@v2
+        with:
+          lfs: true
+      - name: Checkout LFS objects
+        run: git lfs checkout
+      - name: Cache purescript dependencies
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.npm
+            .spago
+            ${{ env.spago_global_cache }}
+            output
+          key: >-
+            ${{ hashFiles('package-lock.json') }}-
+            ${{ hashFiles('spago.dhall') }}-
+            ${{ hashFiles('packages.dhall') }}
+      - name: Install dependencies
+        run: npm ci --loglevel verbose
       - run: npm install -g firebase-tools
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
