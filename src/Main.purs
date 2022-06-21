@@ -2,30 +2,28 @@ module Main where
 
 import Prelude
 
-import Control.Alt (alt, (<|>))
+import Control.Alt ((<|>))
 import Control.Parallel (parTraverse, sequential)
 import Control.Promise (toAffE)
-import Data.Array (difference, fold)
-import Data.Array as Array
-import Data.Array.NonEmpty (toArray)
 import Data.Either (Either(..), hush)
 import Data.Filterable (filter)
 import Data.Homogeneous.Record (fromHomogeneous, homogeneous)
 import Data.Int as Int
-import Data.List (List(..), drop, foldl, take, (:))
+import Data.List (List(..), drop, take, (:))
 import Data.Map as Map
-import Data.Maybe (Maybe(..), isJust)
+import Data.Maybe (Maybe(..), maybe)
 import Data.Newtype (unwrap)
 import Data.Number (pi, pow, sqrt)
 import Data.Profunctor (lcmap)
 import Data.Traversable (for_, oneOf)
-import Data.Tuple (Tuple, fst, snd)
+import Data.Tuple (Tuple)
 import Data.Tuple.Nested (type (/\), (/\))
 import Data.Unfoldable (replicate)
 import Deku.Toplevel (runInBody)
 import Effect (Effect)
-import Effect.Aff (Milliseconds(..), ParAff, forkAff, joinFiber, launchAff_, never, try)
+import Effect.Aff (ParAff, forkAff, joinFiber, launchAff_, never, try)
 import Effect.Class (liftEffect)
+import Effect.Class.Console as Log
 import Effect.Random as Random
 import Effect.Ref (new)
 import Effect.Ref as Ref
@@ -37,15 +35,15 @@ import FRP.Event.VBus (V)
 import Foreign.Object as Object
 import Heterogeneous.Folding (hfoldlWithIndex)
 import Joyride.App.Toplevel (toplevel)
-import Joyride.Effect.Random (randElt)
 import Joyride.Effect.Ref (readFromRecord, writeToRecord)
-import Joyride.FRP.Aff (collectEventToAff)
 import Joyride.FRP.Behavior (refToBehavior)
 import Joyride.FRP.Keypress (posFromKeypress, xForKeyboard)
 import Joyride.FRP.Orientation (hasOrientationPermission, orientationPermission, posFromOrientation, xForTouch)
 import Joyride.FRP.SampleOnSubscribe (sampleOnSubscribe)
-import Joyride.Firebase.Analytics (firebaseAnalytics, firebaseAnalyticsAff)
+import Joyride.Firebase.Analytics (firebaseAnalyticsAff)
+import Joyride.Firebase.Auth (authStateChangedEventWithAnonymousAccountCreation, firebaseAuthAff)
 import Joyride.Firebase.Config (firebaseAppAff)
+import Joyride.Firebase.Firestore (createRideIfNotExistsYet, eventChannelChanges, firestoreDbAff, getPlayerForChannel, sendMyPointsAndPenaltiesToFirebase)
 import Joyride.IO.ParFold (ParFold(..))
 import Joyride.Ledger.Basic (basicOutcomeToPointOutcome, beatsToBasicOutcome)
 import Joyride.Ledger.Long (longToPointOutcome)
@@ -64,8 +62,9 @@ import Rito.THREE as THREE
 import Rito.Texture (loadAff, loader)
 import Route (Route(..), route)
 import Routing.Duplex (parse)
+import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
-import Types (BufferName(..), Channel(..), Claim(..), CubeTexture, CubeTextures(..), HitBasicMe(..), HitBasicOverTheWire(..), HitLeapMe(..), HitLeapOverTheWire(..), HitLongMe(..), HitLongOverTheWire(..), IAm(..), InFlightGameInfo(..), InFlightGameInfo', JMilliseconds(..), KnownPlayers(..), Negotiation(..), Penalty(..), Player(..), PlayerAction(..), PointOutcome, Points(..), Position, ReleaseLongMe(..), ReleaseLongOverTheWire(..), RenderingInfo', StartStatus(..), Textures(..), ThreeDI, Shaders, allPlayers, initialPositions, touchPointZ)
+import Types (BufferName(..), Channel(..), CubeTexture, CubeTextures(..), HitBasicMe(..), HitBasicOverTheWire(..), HitLeapMe(..), HitLeapOverTheWire(..), HitLongMe(..), HitLongOverTheWire(..), IAm(..), InFlightGameInfo(..), InFlightGameInfo', JMilliseconds(..), KnownPlayers(..), Negotiation(..), Penalty(..), Player(..), PlayerAction(..), PointOutcome, Points(..), Position, ReleaseLongMe(..), ReleaseLongOverTheWire(..), RenderingInfo', Ride(..), Shaders, StartStatus(..), Textures(..), ThreeDI, initialPositions, touchPointZ)
 import WAGS.Interpret (AudioBuffer(..), context, makeAudioBuffer)
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
@@ -111,6 +110,53 @@ type LeapUnsubscribes =
   , p4 :: Effect Unit
   }
 
+constructAppendableKnownPlayersFromRide :: Ride -> KnownPlayers
+constructAppendableKnownPlayersFromRide
+  ( RideV0
+      { player1
+      , player2
+      , player3
+      , player4
+      , player1StartTimeInMilliseconds
+      , player2StartTimeInMilliseconds
+      , player3StartTimeInMilliseconds
+      , player4StartTimeInMilliseconds
+      , player1Points
+      , player2Points
+      , player3Points
+      , player4Points
+      , player1Penalties
+      , player2Penalties
+      , player3Penalties
+      , player4Penalties
+      , player1Name
+      , player2Name
+      , player3Name
+      , player4Name
+      }
+  ) = KnownPlayers (Map.fromFoldable (go Player1 player1 player1StartTimeInMilliseconds player1Points player1Penalties player1Name <> go Player2 player2 player2StartTimeInMilliseconds player2Points player2Penalties player2Name <> go Player3 player3 player3StartTimeInMilliseconds player3Points player3Penalties player3Name <> go Player4 player4 player4StartTimeInMilliseconds player4Points player4Penalties player4Name))
+  where
+  go :: Player -> Maybe String -> Maybe Number -> Maybe Number -> Maybe Number -> Maybe String -> Array (Tuple Player StartStatus)
+  go pyr mplay mst mpoi mpen mname = case mplay of
+    Just _ ->
+      [ pyr /\ case mst of
+          Nothing -> HasNotStartedYet
+          Just st -> HasStarted $ InFlightGameInfo
+            { startedAt: JMilliseconds st
+            , points: maybe (Points bottom) Points mpoi
+            , name: mname
+            , penalties: maybe (Penalty bottom) Penalty mpen
+            }
+      ]
+    Nothing -> []
+
+getInFlightGameInfo :: StartStatus -> Maybe InFlightGameInfo
+getInFlightGameInfo HasNotStartedYet = Nothing
+getInFlightGameInfo (HasStarted inflight) = Just inflight
+
+updateKnownPlayerPointsUsingRide :: Ride -> KnownPlayers -> KnownPlayers
+updateKnownPlayerPointsUsingRide a b = (constructAppendableKnownPlayersFromRide a) <> b
+
 main
   :: Shaders
   -> CubeTextures (CubeTexture String)
@@ -123,6 +169,8 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
   -- firebsae
   fbApp <- firebaseAppAff
   fbAnalytics <- firebaseAnalyticsAff fbApp
+  firestoreDb <- firestoreDbAff fbApp
+  fbAuth <- firebaseAuthAff fbApp
   -- has orientation permission
   -- see if this helps get rid of the screen on iOS for successive plays
   -- if not, get rid of it and just use hasOrientationPermission
@@ -130,6 +178,14 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
     Right _ -> pure false
     Left _ -> liftEffect hasOrientationPermission
   liftEffect do
+    -- auth
+    -- ONLY CALL THIS LISTENER ONCE, AT THE TOP LEVEL
+    -- it is not idempotent across subsequent calls
+    -- although for a single subscription it _is_ idempotent
+    -- for each thunk
+    -- TODO: do we want to do something interesting with unsubscrube?
+    _ <- subscribe (authStateChangedEventWithAnonymousAccountCreation fbAuth) \maybeUser -> do
+      Log.info ("I'm a user: " <> JSON.writeJSON maybeUser)
     -- timing
     myCNow <- cnow
     let mappedCNow = _.time <$> myCNow.cnow
@@ -151,6 +207,8 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
     isMobile <- emitsTouchEvents
     -- low priority event
     unschedule <- new Map.empty
+    -- unsubscribe from previous channel
+    channelUnsub <- Ref.new (pure unit)
     let
       lowPriorityCb k v = do
         n <- Random.random
@@ -245,8 +303,9 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
       downloadedTextures <- forkAff (fromHomogeneous <$> parTraverse (loadAff ldr) (homogeneous textures))
       myCubeTextures <- (fromHomogeneous <$> parTraverse ((CubeTextureLoader.loadAffRecord cldr)) (map unwrap $ homogeneous cubeTextures))
       -- "server" via pubnub
-      let myChannel' = hush parsed >>= channelFromRoute
+      let proposedChannel' = hush parsed >>= channelFromRoute
       _ <- liftEffect $ subscribe channelEvent.event \chan -> launchAff_ $ do
+        liftEffect $ join $ Ref.read channelUnsub
         case chan of
           Nothing -> liftEffect $ negotiation.push
             ( GetRulesOfGame
@@ -255,11 +314,23 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
                 , cNow: mappedCNow
                 }
             )
-          Just myChannel -> do
+          Just proposedChannel -> do
             -- maybe is not ideal here
             -- what it means semantically is "player exists but has not started"
             -- a new type for this?
             knownPlayers :: Ref.Ref KnownPlayers <- liftEffect $ Ref.new $ KnownPlayers Map.empty
+            -- for when we need to ping _both_ pubnub and ourselves internally with the same data
+            -- this is the case, for example, with points
+            -- we want to update our own _and_ others' points
+            knownPlayersBus <- liftEffect $ Event.create
+            liftEffect $ negotiation.push StartingNegotiation
+            f4 <- liftEffect force4
+            myChannel <- createRideIfNotExistsYet firestoreDb proposedChannel
+            liftEffect do
+              usu <- subscribe (eventChannelChanges firestoreDb myChannel) \ride -> do
+                kp <- Ref.modify (updateKnownPlayerPointsUsingRide ride) knownPlayers
+                knownPlayersBus.push kp
+              Ref.write usu channelUnsub
             pubNub <- do
               { event, publish } <- PN.pubnub (IAm iAm) (Channel myChannel)
               pure
@@ -269,10 +340,6 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
                     )
                     event
                 }
-            -- for when we need to ping _both_ pubnub and ourselves internally with the same data
-            -- this is the case, for example, with points
-            -- we want to update our own _and_ others' points
-            knownPlayersBus <- liftEffect $ Event.create
             leapUnsubscribesRef <- liftEffect $ Ref.new (mempty :: LeapUnsubscribes)
             let
               magicLeaps :: forall r. { player :: Player, newPosition :: Position | r } -> Effect Unit
@@ -373,8 +440,6 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
                   Player4 -> writeToRecord (Proxy :: _ "p4x")
                 notRelevant = pure unit
               case pevt of
-                RefuteClaim _ -> notRelevant
-                AcceptClaim _ -> notRelevant
                 -- if we get a hit leap, we need to generate an event that will change the position
                 HitLeap (HitLeapOverTheWire hl) -> magicLeaps hl
                 -- if we hear a hit basic, we update the known players
@@ -382,6 +447,24 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
                   kp <- updateKnownPlayerPoints player outcome knownPlayers
                   knownPlayersBus.push kp
                 -- if we hear a hit basic, we do nothing, as points are only attributed on release
+                -- Pressed start
+                PressedStart { startedAt, name, player } -> do
+                  kp <- Ref.modify
+                    ( append
+                        ( KnownPlayers $ Map.singleton player
+                            ( HasStarted
+                                ( InFlightGameInfo
+                                    { name
+                                    , startedAt
+                                    , points: Points bottom
+                                    , penalties: Penalty bottom
+                                    }
+                                )
+                            )
+                        )
+                    )
+                    knownPlayers
+                  knownPlayersBus.push kp
                 HitLong _ -> notRelevant
                 -- if we hear a hit basic, we can update the points
                 ReleaseLong (ReleaseLongOverTheWire { player, outcome }) -> do
@@ -396,186 +479,155 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
                   pfun i.player (lcmap _.epochTime $ posFromKeypress i.ktp) playerPositions
                 -- we update the xposition for when the behavior needs it
                 XPositionMobile i -> pfun i.player (lcmap _.epochTime $ posFromOrientation i.gtp) playerPositions
-                -- we stash known players and forward this to our internal bus
-                -- the double mechanism is because, upon subscription, we bang
-                -- from the stash and then switch to the internal bus
-                EchoKnownPlayers { players } -> do
-                  kp <- Ref.modify (_ <> players) knownPlayers
+            -- we stash known players and forward this to our internal bus
+            -- the double mechanism is because, upon subscription, we bang
+            -- from the stash and then switch to the internal bus
+            ----- EchoKnownPlayers { players } -> do
+            -----   kp <- Ref.modify (_ <> players) knownPlayers
+            -----   knownPlayersBus.push kp
+            -- if someone asks for known players, we send what we know
+            ----- RequestPlayer -> do
+            -----   known <- Ref.read knownPlayers
+            -----   pubNub.publish $ EchoKnownPlayers { players: known }
+            ----- -- if someone claims a player, we accept the claim iff the player
+            ----- -- is not already claimed
+            ----- ClaimPlayer { claim, player } -> do
+            -----   KnownPlayers known <- Ref.read knownPlayers
+            -----   case Map.lookup player known of
+            -----     Just _ -> pubNub.publish $ RefuteClaim { claim, player }
+            -----     Nothing ->
+            -----       pubNub.publish $ AcceptClaim { claim, player }
+
+            let
+              myPlayerHint = case hush parsed >>= playerFromRoute of
+                Just playerAsk -> Just playerAsk
+                Nothing
+                  | f4 -> Just Player4
+                  | otherwise -> Nothing
+            -- collecting <- forkAff  $ collectEventToAff (Milliseconds 750.0) knownPlayersBus.event
+            (playerOrBust :: Maybe Player) <- getPlayerForChannel fbAuth firestoreDb myChannel myPlayerHint
+            case playerOrBust of
+              Nothing -> do
+                liftEffect $ negotiation.push GameHasStarted
+                never
+              Just myPlayer -> do
+                liftEffect $ Ref.modify_ (KnownPlayers (Map.singleton myPlayer HasNotStartedYet) <> _) knownPlayers
+                xPosE <- liftEffect $ if isMobile then xForTouch mappedCNow w myPlayer pubNub.publish else xForKeyboard mappedCNow w myPlayer pubNub.publish
+                -- ignore subscription
+                _ <- liftEffect $ subscribe xPosE \xp -> case myPlayer of
+                  Player1 -> writeToRecord (Proxy :: _ "p1x") xp playerPositions
+                  Player2 -> writeToRecord (Proxy :: _ "p2x") xp playerPositions
+                  Player3 -> writeToRecord (Proxy :: _ "p3x") xp playerPositions
+                  Player4 -> writeToRecord (Proxy :: _ "p4x") xp playerPositions
+                -- deal with incoming basics
+                _ <- liftEffect $ subscribe pushBasic.event \(HitBasicMe bt) -> do
+                  let outcome = basicOutcomeToPointOutcome $ beatsToBasicOutcome bt.deltaBeats
+                  kp <- updateKnownPlayerPoints myPlayer outcome knownPlayers
                   knownPlayersBus.push kp
-                -- if someone asks for known players, we send what we know
-                RequestPlayer -> do
-                  known <- Ref.read knownPlayers
-                  pubNub.publish $ EchoKnownPlayers { players: known }
-                -- if someone claims a player, we accept the claim iff the player
-                -- is not already claimed
-                ClaimPlayer { claim, player } -> do
-                  KnownPlayers known <- Ref.read knownPlayers
-                  case Map.lookup player known of
-                    Just _ -> pubNub.publish $ RefuteClaim { claim, player }
-                    Nothing ->
-                      pubNub.publish $ AcceptClaim { claim, player }
-            liftEffect $ negotiation.push StartingNegotiation
-            let
-              actOnProposedPlayer perhapsPlayer = do
-                claim <- liftEffect (Claim <$> randId)
-                request <- forkAff
-                  -- accepts own claim in case no one else responds
-                  $ map (foldl alt (Right { claim, player: perhapsPlayer }))
-                  $ collectEventToAff (Milliseconds 750.0)
-                      ( filterMap
-                          ( case _ of
-                              AcceptClaim c -> Just (Right c)
-                              RefuteClaim c -> Just (Left c)
-                              _ -> Nothing
-                          )
-                          pubNub.event
-                      )
-                liftEffect $ pubNub.publish $ ClaimPlayer { claim, player: perhapsPlayer }
-                joinFiber request >>= case _ of
-                  Right { player } -> pure player
-                  Left _ -> do
-                    liftEffect $ negotiation.push ClaimFail
-                    never
-            f4 <- liftEffect force4
-            myPlayer <- case hush parsed >>= playerFromRoute of
-              Just playerAsk -> actOnProposedPlayer playerAsk
-              Nothing
-                | f4 -> actOnProposedPlayer Player4
-                | otherwise -> do
-                    collecting <- forkAff
-                      $ collectEventToAff (Milliseconds 750.0) knownPlayersBus.event
-                    liftEffect $ negotiation.push RequestingPlayer
-                    liftEffect $ pubNub.publish RequestPlayer
-                    collected <- joinFiber collecting
-                    liftEffect $ negotiation.push ReceivedPossibilities
-                    -- we don't need `First` after the semigroup has done its thing
-                    let (mergedMap :: Array (Tuple Player StartStatus)) = Map.toUnfoldable (unwrap (fold collected))
-                    let awaitingStart = Array.null mergedMap || isJust (Array.find (_ == HasNotStartedYet) (map snd mergedMap))
-                    case awaitingStart of
-                      false -> do
-                        liftEffect $ negotiation.push GameHasStarted
-                        never
-                      true -> do
-                        candidate <- liftEffect $ randElt $ difference (toArray allPlayers) (map fst mergedMap)
-                        case candidate of
-                          Nothing -> do
-                            liftEffect $ negotiation.push RoomIsFull
-                            never
-                          Just perhapsPlayer -> actOnProposedPlayer perhapsPlayer
-            liftEffect $ Ref.modify_ (KnownPlayers (Map.singleton myPlayer HasNotStartedYet) <> _) knownPlayers
-            -- we echo known players to acknowledge that we claim this
-            -- there is a race condition here if all players grant the same claim to
-            -- two devices for the same player
-            -- blockchain would help here...
-            liftEffect $ (Ref.read knownPlayers >>= \players -> pubNub.publish $ EchoKnownPlayers { players })
-            xPosE <- liftEffect $ if isMobile then xForTouch mappedCNow w myPlayer pubNub.publish else xForKeyboard mappedCNow w myPlayer pubNub.publish
-            -- ignore subscription
-            _ <- liftEffect $ subscribe xPosE \xp -> case myPlayer of
-              Player1 -> writeToRecord (Proxy :: _ "p1x") xp playerPositions
-              Player2 -> writeToRecord (Proxy :: _ "p2x") xp playerPositions
-              Player3 -> writeToRecord (Proxy :: _ "p3x") xp playerPositions
-              Player4 -> writeToRecord (Proxy :: _ "p4x") xp playerPositions
-            -- deal with incoming basics
-            _ <- liftEffect $ subscribe pushBasic.event \(HitBasicMe bt) -> do
-              let outcome = basicOutcomeToPointOutcome $ beatsToBasicOutcome bt.deltaBeats
-              kp <- updateKnownPlayerPoints myPlayer outcome knownPlayers
-              knownPlayersBus.push kp
-              pubNub.publish
-                $ HitBasic
-                    ( HitBasicOverTheWire
-                        { uniqueId: bt.uniqueId
-                        , logicalBeat: bt.logicalBeat
-                        , deltaBeats: bt.deltaBeats
-                        , hitAt: bt.hitAt
+                  for_ (Map.lookup myPlayer (unwrap kp) >>= getInFlightGameInfo) \(InFlightGameInfo { penalties, points }) -> do
+                    launchAff_ $ sendMyPointsAndPenaltiesToFirebase firestoreDb fbAuth myChannel myPlayer points penalties
+                  pubNub.publish
+                    $ HitBasic
+                        ( HitBasicOverTheWire
+                            { uniqueId: bt.uniqueId
+                            , logicalBeat: bt.logicalBeat
+                            , deltaBeats: bt.deltaBeats
+                            , hitAt: bt.hitAt
+                            , player: myPlayer
+                            , outcome
+                            }
+                        )
+                _ <- liftEffect $ subscribe pushHitLong.event \(HitLongMe bt) -> do
+                  pubNub.publish
+                    $ HitLong
+                        ( HitLongOverTheWire
+                            { uniqueId: bt.uniqueId
+                            , hitAt: bt.hitAt
+                            , distance: bt.distance
+                            , player: myPlayer
+                            }
+                        )
+                _ <- liftEffect $ subscribe pushReleaseLong.event \(ReleaseLongMe rl) -> do
+                  let outcome = longToPointOutcome rl.distance rl.pctConsumed
+                  kp <- updateKnownPlayerPoints myPlayer outcome knownPlayers
+                  knownPlayersBus.push kp
+                  for_ (Map.lookup myPlayer (unwrap kp) >>= getInFlightGameInfo) \(InFlightGameInfo { penalties, points }) -> do
+                    launchAff_ $ sendMyPointsAndPenaltiesToFirebase firestoreDb fbAuth myChannel myPlayer points penalties
+                  pubNub.publish
+                    $ ReleaseLong
+                        ( ReleaseLongOverTheWire
+                            { uniqueId: rl.uniqueId
+                            , hitAt: rl.hitAt
+                            , player: myPlayer
+                            , distance: rl.distance
+                            , pctConsumed: rl.pctConsumed
+                            , releasedAt: rl.releasedAt
+                            , outcome
+                            }
+                        )
+                -- deal with incoming leaps
+                _ <- liftEffect $ subscribe pushLeap.event \(HitLeapMe bt) -> do
+                  magicLeaps { player: myPlayer, newPosition: bt.newPosition }
+                  pubNub.publish
+                    $ HitLeap
+                        ( HitLeapOverTheWire
+                            { uniqueId: bt.uniqueId
+                            , hitAt: bt.hitAt
+                            , player: myPlayer
+                            , oldPosition: bt.oldPosition
+                            , newPosition: bt.newPosition
+                            }
+                        )
+                let
+                  bufferNames :: List (BufferName /\ String)
+                  bufferNames = (BufferName "butterflies" /\ "butterflies")
+                    : Nil
+                let n2oh = take 300 bufferNames
+                let n2ot = drop 300 bufferNames
+                dlInChunks audio 100 n2oh ctx' soundObj
+                liftEffect $ loaded.push true
+                dlInChunks audio 100 n2ot ctx' soundObj
+                myTextures <- joinFiber downloadedTextures
+                playerName <- liftEffect $ LS.getItem LocalStorage.playerName stor
+                let galaxyAttributes = makeGalaxyAttributes threeDI.instancedBufferAttribute
+                liftEffect $ negotiation.push $ Success
+                  { player: myPlayer
+                  , threeDI
+                  , playerName
+                  , shaders
+                  , galaxyAttributes
+                  , cNow: mappedCNow
+                  , channelName: myChannel
+                  , pubNubEvent: pubNub.event
+                  , textures: Textures myTextures
+                  , cubeTextures: CubeTextures myCubeTextures
+                  , playerStatus:
+                      let
+                        e :: Event KnownPlayers
+                        e = sampleOnSubscribe (refToBehavior knownPlayers) <|> knownPlayersBus.event
+                      in
+                        -- folded because, by design, we always know which value "wins"
+                        -- in player status
+                        -- so we can always fold with the previous one in case there's a
+                        -- regression in the incoming value (ie packets out of order)
+                        folded e
+                  , optMeIn: \ms name -> do
+                      let thisIsMyRealName = name <|> playerName
+                      for_ name \name' -> LS.setItem LocalStorage.playerName name' stor
+                      players <- Ref.modify (KnownPlayers (Map.singleton myPlayer (HasStarted $ InFlightGameInfo { startedAt: ms, points: Points 0.0, penalties: Penalty 0.0, name: thisIsMyRealName })) <> _) knownPlayers
+                      -- let me know I've opted in
+                      pubNub.publish $ PressedStart
+                        { startedAt: ms
+                        , name: thisIsMyRealName
                         , player: myPlayer
-                        , outcome
                         }
-                    )
-            _ <- liftEffect $ subscribe pushHitLong.event \(HitLongMe bt) -> do
-              pubNub.publish
-                $ HitLong
-                    ( HitLongOverTheWire
-                        { uniqueId: bt.uniqueId
-                        , hitAt: bt.hitAt
-                        , distance: bt.distance
-                        , player: myPlayer
-                        }
-                    )
-            _ <- liftEffect $ subscribe pushReleaseLong.event \(ReleaseLongMe rl) -> do
-              let outcome = longToPointOutcome rl.distance rl.pctConsumed
-              kp <- updateKnownPlayerPoints myPlayer outcome knownPlayers
-              knownPlayersBus.push kp
-              pubNub.publish
-                $ ReleaseLong
-                    ( ReleaseLongOverTheWire
-                        { uniqueId: rl.uniqueId
-                        , hitAt: rl.hitAt
-                        , player: myPlayer
-                        , distance: rl.distance
-                        , pctConsumed: rl.pctConsumed
-                        , releasedAt: rl.releasedAt
-                        , outcome
-                        }
-                    )
-            -- deal with incoming leaps
-            _ <- liftEffect $ subscribe pushLeap.event \(HitLeapMe bt) -> do
-              magicLeaps { player: myPlayer, newPosition: bt.newPosition }
-              pubNub.publish
-                $ HitLeap
-                    ( HitLeapOverTheWire
-                        { uniqueId: bt.uniqueId
-                        , hitAt: bt.hitAt
-                        , player: myPlayer
-                        , oldPosition: bt.oldPosition
-                        , newPosition: bt.newPosition
-                        }
-                    )
-            let
-              bufferNames :: List (BufferName /\ String)
-              bufferNames = (BufferName "butterflies" /\ "butterflies")
-                : Nil
-            let n2oh = take 300 bufferNames
-            let n2ot = drop 300 bufferNames
-            dlInChunks audio 100 n2oh ctx' soundObj
-            liftEffect $ loaded.push true
-            dlInChunks audio 100 n2ot ctx' soundObj
-            myTextures <- joinFiber downloadedTextures
-            playerName <- liftEffect $ LS.getItem LocalStorage.playerName stor
-            let galaxyAttributes = makeGalaxyAttributes threeDI.instancedBufferAttribute
-            liftEffect $ negotiation.push $ Success
-              { player: myPlayer
-              , threeDI
-              , playerName
-              , shaders
-              , galaxyAttributes
-              , cNow: mappedCNow
-              , channelName: myChannel
-              , pubNubEvent: pubNub.event
-              , textures: Textures myTextures
-              , cubeTextures: CubeTextures myCubeTextures
-              , playerStatus:
-                  let
-                    e :: Event KnownPlayers
-                    e = sampleOnSubscribe (refToBehavior knownPlayers) <|> knownPlayersBus.event
-                  in
-                    -- folded because, by design, we always know which value "wins"
-                    -- in player status
-                    -- so we can always fold with the previous one in case there's a
-                    -- regression in the incoming value (ie packets out of order)
-                    folded e
-              , optMeIn: \ms name -> do
-                  for_ name \name' -> LS.setItem LocalStorage.playerName name' stor
-                  players <- Ref.modify (KnownPlayers (Map.singleton myPlayer (HasStarted $ InFlightGameInfo { startedAt: ms, points: Points 0.0, penalties: Penalty 0.0, name: name <|> playerName })) <> _) knownPlayers
-                  -- let others know I've opted in
-                  pubNub.publish $ EchoKnownPlayers { players }
-                  -- let me know I've opted in
-                  knownPlayersBus.push players
-              }
+                      knownPlayersBus.push players
+                  }
       -- if we need permissions, ask for them first
       _ <- liftEffect $
         when hop (negotiation.push NeedsOrientation)
       _ <- liftEffect $
-        subscribe (filter identity $ oneOf [ bang (not hop), orientationPerm.event ]) \_ -> channelEvent.push myChannel'
+        subscribe (filter identity $ oneOf [ bang (not hop), orientationPerm.event ]) \_ -> channelEvent.push proposedChannel'
       _ <- liftEffect $
         subscribe (filter identity $ map not $ orientationPerm.event) \_ -> negotiation.push WillNotWorkWithoutOrientation
       pure unit

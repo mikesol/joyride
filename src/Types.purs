@@ -5,6 +5,10 @@ module Types
   , Shader
   , GalaxyAttributes
   , RenderingInfo
+  , Ride(..)
+  , RideV0'
+  , Version
+  , defaultRide
   , InFlightGameInfo'
   , RenderingInfo'
   , Position(..)
@@ -87,6 +91,7 @@ import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype)
 import Data.NonEmpty ((:|))
+import Data.Reflectable (class Reflectable, reflectType)
 import Data.Show.Generic (genericShow)
 import Data.Time.Duration (Milliseconds)
 import Data.Tuple (Tuple(..))
@@ -98,7 +103,6 @@ import Foreign (ForeignError(..), fail)
 import Foreign.Object as Object
 import Joyride.Wags (AudibleChildEnd, AudibleEnd)
 import Record (union)
-import Rito.BufferAttribute (BufferAttribute)
 import Rito.Color (Color, RGB)
 import Rito.CubeTexture as CTL
 import Rito.InstancedBufferAttribute (InstancedBufferAttribute)
@@ -108,6 +112,7 @@ import Rito.Texture (Texture)
 import Rito.Vector3 (Vector3')
 import Simple.JSON (undefined, writeJSON)
 import Simple.JSON as JSON
+import Type.Proxy (Proxy(..))
 import WAGS.Math (calcSlope)
 import WAGS.WebAPI (BrowserAudioBuffer)
 
@@ -935,16 +940,8 @@ data PlayerAction
   | HitLong HitLongOverTheWire
   -- release long
   | ReleaseLong ReleaseLongOverTheWire
-  -- ask to join
-  | RequestPlayer
-  -- say whose available
-  | EchoKnownPlayers { players :: KnownPlayers }
-  -- claim a player
-  | ClaimPlayer { claim :: Claim, player :: Player }
-  -- accept claim
-  | AcceptClaim { claim :: Claim, player :: Player }
-  -- refute claim
-  | RefuteClaim { claim :: Claim, player :: Player }
+  --
+  | PressedStart { startedAt :: JMilliseconds, name :: Maybe String, player :: Player }
 
 derive instance Eq PlayerAction
 
@@ -958,11 +955,7 @@ instance toJSONPubNubPlayerAction :: JSON.ReadForeign PlayerAction where
       "HitLeap" -> HitLeap <$> JSON.readImpl i
       "HitLong" -> HitLong <$> JSON.readImpl i
       "ReleaseLong" -> ReleaseLong <$> JSON.readImpl i
-      "RequestPlayer" -> pure RequestPlayer
-      "EchoKnownPlayers" -> EchoKnownPlayers <$> JSON.readImpl i
-      "ClaimPlayer" -> ClaimPlayer <$> JSON.readImpl i
-      "AcceptClaim" -> AcceptClaim <$> JSON.readImpl i
-      "RefuteClaim" -> RefuteClaim <$> JSON.readImpl i
+      "PressedStart" -> PressedStart <$> JSON.readImpl i
       _ -> fail (ForeignError $ "Could not parse: " <> JSON.writeJSON i)
 
 instance fromJSONPubNubPlayerAction :: JSON.WriteForeign PlayerAction where
@@ -972,13 +965,7 @@ instance fromJSONPubNubPlayerAction :: JSON.WriteForeign PlayerAction where
   writeImpl (HitLeap (HitLeapOverTheWire j)) = JSON.writeImpl $ union { _type: "HitLeap" } j
   writeImpl (HitLong (HitLongOverTheWire j)) = JSON.writeImpl $ union { _type: "HitLong" } j
   writeImpl (ReleaseLong (ReleaseLongOverTheWire j)) = JSON.writeImpl $ union { _type: "ReleaseLong" } j
-  writeImpl RequestPlayer = JSON.writeImpl { _type: "RequestPlayer" }
-  writeImpl (EchoKnownPlayers j) = JSON.writeImpl $ union { _type: "EchoKnownPlayers" } j
-  writeImpl (ClaimPlayer j) = JSON.writeImpl $ union { _type: "ClaimPlayer" } j
-  writeImpl (AcceptClaim j) = JSON.writeImpl $ union { _type: "AcceptClaim" } j
-  writeImpl (RefuteClaim j) = JSON.writeImpl $ union { _type: "RefuteClaim" } j
-
-
+  writeImpl (PressedStart ps) = JSON.writeImpl $ union { _type: "PressedStart" } ps
 type ThreeDI =
   { scene :: THREE.TScene
   , group :: THREE.TGroup
@@ -1019,3 +1006,74 @@ type GalaxyAttributes =
   , aColor :: InstancedBufferAttribute
   , aColor2 :: InstancedBufferAttribute
   }
+
+data Version (i :: Int) = Version Int
+
+instance Reflectable i Int => JSON.ReadForeign (Version i) where
+  readImpl i' = do
+    i <- JSON.readImpl i'
+    let j = reflectType (Proxy :: _ i)
+    if i == j then pure (Version i) else fail (ForeignError $ "Expecting version " <> show j <> " but received " <> show i)
+
+instance Reflectable i Int => JSON.WriteForeign (Version i) where
+  writeImpl _ = JSON.writeImpl (reflectType (Proxy :: _ i))
+
+type RideV0' =
+  { player1 :: Maybe String
+  , player2 :: Maybe String
+  , player3 :: Maybe String
+  , player4 :: Maybe String
+  , player1StartTimeInMilliseconds :: Maybe Number
+  , player2StartTimeInMilliseconds :: Maybe Number
+  , player3StartTimeInMilliseconds :: Maybe Number
+  , player4StartTimeInMilliseconds :: Maybe Number
+  , player1Points :: Maybe Number
+  , player2Points :: Maybe Number
+  , player3Points :: Maybe Number
+  , player4Points :: Maybe Number
+  , player1Penalties :: Maybe Number
+  , player2Penalties :: Maybe Number
+  , player3Penalties :: Maybe Number
+  , player4Penalties :: Maybe Number
+  , player1Name :: Maybe String
+  , player2Name :: Maybe String
+  , player3Name :: Maybe String
+  , player4Name :: Maybe String
+  , open :: Boolean
+  , version :: Version 0
+  }
+
+defaultRide :: Ride
+defaultRide = RideV0
+  { player1: Nothing
+  , player2: Nothing
+  , player3: Nothing
+  , player4: Nothing
+  , player1StartTimeInMilliseconds: Nothing
+  , player2StartTimeInMilliseconds: Nothing
+  , player3StartTimeInMilliseconds: Nothing
+  , player4StartTimeInMilliseconds: Nothing
+  , player1Points: Nothing
+  , player2Points: Nothing
+  , player3Points: Nothing
+  , player4Points: Nothing
+  , player1Penalties: Nothing
+  , player2Penalties: Nothing
+  , player3Penalties: Nothing
+  , player4Penalties: Nothing
+  , player1Name: Nothing
+  , player2Name: Nothing
+  , player3Name: Nothing
+  , player4Name: Nothing
+  , open: true
+  , version: Version 0
+  }
+
+data Ride =
+  RideV0 RideV0'
+
+instance JSON.ReadForeign Ride where
+  readImpl i = RideV0 <$> (JSON.readImpl i)
+
+instance JSON.WriteForeign Ride where
+  writeImpl (RideV0 i) = JSON.writeImpl i
