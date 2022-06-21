@@ -33,6 +33,8 @@ jobs:
         run: npm ci --loglevel verbose
       - name: Build
         run: npm run build
+      - name: Test
+        run: npm t
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: '${{ secrets.GITHUB_TOKEN }}'

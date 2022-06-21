@@ -158,16 +158,8 @@ instance Arbitrary TestPlayerAction where
                           <*> arbitrary
                       )
                 )
-            -- ask to join
-            , pure RequestPlayer
             -- say whose available
-            , EchoKnownPlayers <$> ({ players: _ } <$> anyKnownPlayers)
-            -- claim a player
-            , ClaimPlayer <$> ({ claim: _, player: _ } <$> anyClaim <*> anyPlayer)
-            -- accept claim
-            , AcceptClaim <$> ({ claim: _, player: _ } <$> anyClaim <*> anyPlayer)
-            -- refute claim
-            , RefuteClaim <$> ({ claim: _, player: _ } <$> anyClaim <*> anyPlayer)
+            , PressedStart <$> ({ player: _, name: _, startedAt: _ } <$> anyPlayer <*> arbitrary <*> anyJMilliseconds)
             ]
         )
     )
