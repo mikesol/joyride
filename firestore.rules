@@ -1,0 +1,27 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /rides/{ride} {
+      // add rules later
+      allow read, write, delete, create: if request.auth != null;
+      // the current user is setting player1
+      // the current user is setting player2
+      // the current user is setting player3
+      // the current user is setting player4
+      // the current user is player1
+      // the current user is player2
+      // the current user is player3
+      // the current user is player4
+      allow update: if (
+        (request.resource.data.player1 != resource.data.player1 && request.resource.data.player2 == resource.data.player2 && request.resource.data.player3 == resource.data.player3 && request.resource.data.player4 == resource.data.player4) ||
+        (request.resource.data.player1 == resource.data.player1 && request.resource.data.player2 != resource.data.player2 && request.resource.data.player3 == resource.data.player3 && request.resource.data.player4 == resource.data.player4) ||
+        (request.resource.data.player1 == resource.data.player1 && request.resource.data.player2 == resource.data.player2 && request.resource.data.player3 != resource.data.player3 && request.resource.data.player4 == resource.data.player4) ||
+        (request.resource.data.player1 == resource.data.player1 && request.resource.data.player2 == resource.data.player2 && request.resource.data.player3 == resource.data.player3 && request.resource.data.player4 != resource.data.player4) ||
+        (request.auth.uid == resource.data.player1) ||
+        (request.auth.uid == resource.data.player2) ||
+        (request.auth.uid == resource.data.player3) ||
+        (request.auth.uid == resource.data.player4)
+        );
+    }
+  }
+}
