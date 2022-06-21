@@ -44,6 +44,8 @@ import Joyride.FRP.Behavior (refToBehavior)
 import Joyride.FRP.Keypress (posFromKeypress, xForKeyboard)
 import Joyride.FRP.Orientation (hasOrientationPermission, orientationPermission, posFromOrientation, xForTouch)
 import Joyride.FRP.SampleOnSubscribe (sampleOnSubscribe)
+import Joyride.Firebase.Analytics (firebaseAnalytics, firebaseAnalyticsAff)
+import Joyride.Firebase.Config (firebaseAppAff)
 import Joyride.IO.ParFold (ParFold(..))
 import Joyride.Ledger.Basic (basicOutcomeToPointOutcome, beatsToBasicOutcome)
 import Joyride.Ledger.Long (longToPointOutcome)
@@ -118,6 +120,9 @@ main
 main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ do
   ----- gui
   { debug, renderingInfo } <- liftEffect useLilGui >>= (if _ then gui else noGui) >>> (_ $ renderingInfo')
+  -- firebsae
+  fbApp <- firebaseAppAff
+  fbAnalytics <- firebaseAnalyticsAff fbApp
   -- has orientation permission
   -- see if this helps get rid of the screen on iOS for successive plays
   -- if not, get rid of it and just use hasOrientationPermission
