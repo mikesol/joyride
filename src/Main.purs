@@ -53,7 +53,7 @@ import Joyride.Mocks.Basic (mockBasics)
 import Joyride.Mocks.Leap (mockLeaps)
 import Joyride.Mocks.Long (mockLongs)
 import Joyride.Network.Download (dlInChunks)
-import Joyride.Random (randId)
+import Joyride.Random (randId', randId)
 import Joyride.Shaders.Galaxy (makeGalaxyAttributes)
 import Joyride.Timing.CoordinatedNow (cnow)
 import Joyride.Transport.PubNub as PN
@@ -64,7 +64,7 @@ import Route (Route(..), route)
 import Routing.Duplex (parse)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
-import Types (BufferName(..), Channel(..), CubeTexture, CubeTextures(..), HitBasicMe(..), HitBasicOverTheWire(..), HitLeapMe(..), HitLeapOverTheWire(..), HitLongMe(..), HitLongOverTheWire(..), IAm(..), InFlightGameInfo(..), InFlightGameInfo', JMilliseconds(..), KnownPlayers(..), Negotiation(..), Penalty(..), Player(..), PlayerAction(..), PointOutcome, Points(..), Position, ReleaseLongMe(..), ReleaseLongOverTheWire(..), RenderingInfo', Ride(..), Shaders, StartStatus(..), Textures(..), ThreeDI, initialPositions, touchPointZ)
+import Types (BufferName(..), Channel(..), ChannelChooser(..), CubeTexture, CubeTextures(..), HitBasicMe(..), HitBasicOverTheWire(..), HitLeapMe(..), HitLeapOverTheWire(..), HitLongMe(..), HitLongOverTheWire(..), IAm(..), InFlightGameInfo(..), InFlightGameInfo', JMilliseconds(..), KnownPlayers(..), Negotiation(..), Penalty(..), Player(..), PlayerAction(..), PointOutcome, Points(..), Position, ReleaseLongMe(..), ReleaseLongOverTheWire(..), RenderingInfo', Ride(..), Shaders, StartStatus(..), Textures(..), ThreeDI, initialPositions, touchPointZ)
 import WAGS.Interpret (AudioBuffer(..), context, makeAudioBuffer)
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
@@ -236,8 +236,11 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
     runInBody
       ( toplevel
           { loaded: loaded.event
-          , channelChooser: Just >>> channelEvent.push
+          , ride: do
+              id <- randId' 6
+              channelEvent.push (RideChannel id)
           , negotiation: negotiation.event
+          , tutorial: channelEvent.push TutorialChannel
           , isMobile
           , lpsCallback: lowPriorityCb
           , givePermission: orientationPerm.push
@@ -248,7 +251,7 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
           , resizeE: resizeE.event
           , goHome: do
               -- clear the channel
-              channelEvent.push Nothing
+              channelEvent.push NoChannel
           , playerPositions: refToBehavior playerPositions
           , renderingInfo: renderingInfoBehavior
           , debug
@@ -303,18 +306,59 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
       downloadedTextures <- forkAff (fromHomogeneous <$> parTraverse (loadAff ldr) (homogeneous textures))
       myCubeTextures <- (fromHomogeneous <$> parTraverse ((CubeTextureLoader.loadAffRecord cldr)) (map unwrap $ homogeneous cubeTextures))
       -- "server" via pubnub
-      let proposedChannel' = hush parsed >>= channelFromRoute
+      let
+        proposedChannel' = case hush parsed >>= channelFromRoute of
+          Nothing -> NoChannel
+          Just x -> RideChannel x
+      let galaxyAttributes = makeGalaxyAttributes threeDI.instancedBufferAttribute
       _ <- liftEffect $ subscribe channelEvent.event \chan -> launchAff_ $ do
+        Log.info ("received channel " <> show chan)
         liftEffect $ join $ Ref.read channelUnsub
         case chan of
-          Nothing -> liftEffect $ negotiation.push
+          TutorialChannel -> do
+            liftEffect $ negotiation.push StartingNegotiation
+            myTextures <- joinFiber downloadedTextures
+            knownPlayers :: Ref.Ref KnownPlayers <- liftEffect $ Ref.new $ KnownPlayers Map.empty
+            knownPlayersBus <- liftEffect Event.create
+            let
+              bufferNames :: List (BufferName /\ String)
+              bufferNames = (BufferName "butterflies" /\ "butterflies")
+                : Nil
+            let n2oh = take 300 bufferNames
+            let n2ot = drop 300 bufferNames
+            dlInChunks audio 100 n2oh ctx' soundObj
+            liftEffect $ loaded.push true
+            dlInChunks audio 100 n2ot ctx' soundObj
+            liftEffect $ negotiation.push $ WantsTutorial
+              { player: Player4
+              , threeDI
+              , shaders
+              , galaxyAttributes
+              , cNow: mappedCNow
+              , textures: Textures myTextures
+              , cubeTextures: CubeTextures myCubeTextures
+              , playerStatus:
+                  let
+                    e :: Event KnownPlayers
+                    e = sampleOnSubscribe (refToBehavior knownPlayers) <|> knownPlayersBus.event
+                  in
+                    -- folded because, by design, we always know which value "wins"
+                    -- in player status
+                    -- so we can always fold with the previous one in case there's a
+                    -- regression in the incoming value (ie packets out of order)
+                    folded e
+              , optMeIn: \ms -> do
+                  players <- Ref.modify (KnownPlayers (Map.singleton Player4 (HasStarted $ InFlightGameInfo { startedAt: ms, points: Points 0.0, penalties: Penalty 0.0, name: Nothing })) <> _) knownPlayers
+                  knownPlayersBus.push players
+              }
+          NoChannel -> liftEffect $ negotiation.push
             ( GetRulesOfGame
                 { threeDI
                 , cubeTextures: CubeTextures myCubeTextures
                 , cNow: mappedCNow
                 }
             )
-          Just proposedChannel -> do
+          RideChannel proposedChannel -> do
             -- maybe is not ideal here
             -- what it means semantically is "player exists but has not started"
             -- a new type for this?
@@ -479,25 +523,6 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
                   pfun i.player (lcmap _.epochTime $ posFromKeypress i.ktp) playerPositions
                 -- we update the xposition for when the behavior needs it
                 XPositionMobile i -> pfun i.player (lcmap _.epochTime $ posFromOrientation i.gtp) playerPositions
-            -- we stash known players and forward this to our internal bus
-            -- the double mechanism is because, upon subscription, we bang
-            -- from the stash and then switch to the internal bus
-            ----- EchoKnownPlayers { players } -> do
-            -----   kp <- Ref.modify (_ <> players) knownPlayers
-            -----   knownPlayersBus.push kp
-            -- if someone asks for known players, we send what we know
-            ----- RequestPlayer -> do
-            -----   known <- Ref.read knownPlayers
-            -----   pubNub.publish $ EchoKnownPlayers { players: known }
-            ----- -- if someone claims a player, we accept the claim iff the player
-            ----- -- is not already claimed
-            ----- ClaimPlayer { claim, player } -> do
-            -----   KnownPlayers known <- Ref.read knownPlayers
-            -----   case Map.lookup player known of
-            -----     Just _ -> pubNub.publish $ RefuteClaim { claim, player }
-            -----     Nothing ->
-            -----       pubNub.publish $ AcceptClaim { claim, player }
-
             let
               myPlayerHint = case hush parsed >>= playerFromRoute of
                 Just playerAsk -> Just playerAsk
@@ -589,7 +614,6 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
                 dlInChunks audio 100 n2ot ctx' soundObj
                 myTextures <- joinFiber downloadedTextures
                 playerName <- liftEffect $ LS.getItem LocalStorage.playerName stor
-                let galaxyAttributes = makeGalaxyAttributes threeDI.instancedBufferAttribute
                 liftEffect $ negotiation.push $ Success
                   { player: myPlayer
                   , threeDI
@@ -615,7 +639,7 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
                       let thisIsMyRealName = name <|> playerName
                       for_ name \name' -> LS.setItem LocalStorage.playerName name' stor
                       players <- Ref.modify (KnownPlayers (Map.singleton myPlayer (HasStarted $ InFlightGameInfo { startedAt: ms, points: Points 0.0, penalties: Penalty 0.0, name: thisIsMyRealName })) <> _) knownPlayers
-                      -- let me know I've opted in
+                      -- let others know I've opted in
                       pubNub.publish $ PressedStart
                         { startedAt: ms
                         , name: thisIsMyRealName

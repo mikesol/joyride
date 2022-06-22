@@ -2,25 +2,21 @@ export const firebaseAuth = (app) => () =>
 	import("firebase/auth").then(({ getAuth }) => getAuth(app));
 
 export const onAuthStateChanged =
-	(autoAnon) => (signedOut) => (signedIn) => (auth) => () =>
+	(errorF) => (signedIn) => (auth) => () =>
 		import("firebase/auth").then(
-			({ getAuth, onAuthStateChanged, signInAnonymously }) => {
-				let hasTriedAnon = false;
+			({ onAuthStateChanged, signInAnonymously }) => {
 				const thunk = onAuthStateChanged(auth, (user) => {
 					if (user) {
 						signedIn(user)();
 					} else {
-						if (autoAnon && !hasTriedAnon) {
-							hasTriedAnon = true;
+						if (autoAnon) {
 							signInAnonymously(auth)
 								.then(() => {
 									// Signed in..
 									// do nothing
 								})
 								.catch((error) => {
-									const errorCode = error.code;
-									const errorMessage = error.message;
-									console.error(errorCode, errorMessage);
+									errorF(error)();
 								});
 						} else {
 							signedOut();

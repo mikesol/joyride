@@ -5,6 +5,7 @@ module Types
   , Shader
   , GalaxyAttributes
   , RenderingInfo
+  , ChannelChooser(..)
   , Ride(..)
   , RideV0'
   , Version
@@ -24,6 +25,7 @@ module Types
   , touchPointZ
   , Column(..)
   , Success'
+  , WantsTutorial'
   , normalizedColumn
   , Orientation
   , Claim(..)
@@ -826,6 +828,7 @@ data Negotiation
       , threeDI :: ThreeDI
       , cNow :: Effect Milliseconds
       }
+  | WantsTutorial WantsTutorial'
   | StartingNegotiation
   | RoomIsFull
   | GameHasStarted
@@ -860,6 +863,18 @@ type Success' =
   , textures :: Textures Texture
   , cubeTextures :: CubeTextures CTL.CubeTexture
   , optMeIn :: JMilliseconds -> Maybe String -> Effect Unit
+  , playerStatus :: Event KnownPlayers
+  }
+
+type WantsTutorial' =
+  { player :: Player
+  , shaders :: Shaders
+  , galaxyAttributes :: GalaxyAttributes
+  , cNow :: Effect Milliseconds
+  , threeDI :: ThreeDI
+  , textures :: Textures Texture
+  , cubeTextures :: CubeTextures CTL.CubeTexture
+  , optMeIn :: JMilliseconds -> Effect Unit
   , playerStatus :: Event KnownPlayers
   }
 
@@ -1077,3 +1092,8 @@ instance JSON.ReadForeign Ride where
 
 instance JSON.WriteForeign Ride where
   writeImpl (RideV0 i) = JSON.writeImpl i
+
+data ChannelChooser = NoChannel | RideChannel String | TutorialChannel
+derive instance Generic ChannelChooser _
+instance Show ChannelChooser where
+  show = genericShow

@@ -18,6 +18,7 @@ import Data.Number (pi)
 import Data.Time.Duration (Milliseconds(..))
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..), fst, snd)
+import Debug (spy)
 import Deku.Attribute (cb, (:=))
 import Deku.Control (switcher, text_)
 import Deku.Core (class Korok, Domable, Nut, envy, vbussed)
@@ -52,7 +53,6 @@ import Joyride.FRP.SampleJIT (sampleJIT)
 import Joyride.FRP.SampleOnSubscribe (initializeWithEmpty)
 import Joyride.FRP.Schedule (fireAndForget)
 import Joyride.FRP.StartingWith (startingWith)
-import Joyride.Random (randId')
 import Joyride.Timing.CoordinatedNow (withCTime)
 import Joyride.Visual.Animation (runThree)
 import Joyride.Wags (AudibleChildEnd)
@@ -63,7 +63,7 @@ import Rito.Matrix4 as M4
 import Safe.Coerce (coerce)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
-import Types (Beats(..), CubeTextures, HitBasicMe, HitBasicOtherPlayer(..), HitBasicOverTheWire(..), HitLeapMe, HitLeapOtherPlayer(..), HitLeapOverTheWire(..), HitLongMe, HitLongOtherPlayer(..), HitLongOverTheWire(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, MakeLongs, Negotiation(..), Player(..), PlayerAction(..), PlayerPositionsF, RateInfo, ReleaseLongMe, ReleaseLongOtherPlayer(..), ReleaseLongOverTheWire(..), RenderingInfo, Seconds(..), StartStatus(..), Success', WindowDims, ThreeDI)
+import Types (Beats(..), CubeTextures, HitBasicMe, HitBasicOtherPlayer(..), HitBasicOverTheWire(..), HitLeapMe, HitLeapOtherPlayer(..), HitLeapOverTheWire(..), HitLongMe, HitLongOtherPlayer(..), HitLongOverTheWire(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, MakeLongs, Negotiation(..), Player(..), PlayerAction(..), PlayerPositionsF, RateInfo, ReleaseLongMe, ReleaseLongOtherPlayer(..), ReleaseLongOverTheWire(..), RenderingInfo, Seconds(..), StartStatus(..), Success', ThreeDI, WindowDims, WantsTutorial')
 import WAGS.Clock (withACTime)
 import WAGS.Interpret (close, constant0Hack, context)
 import WAGS.Run (run2)
@@ -93,7 +93,8 @@ type ToplevelInfo =
   { loaded :: Event Boolean
   , negotiation :: Event Negotiation
   , isMobile :: Boolean
-  , channelChooser :: String -> Effect Unit
+  , tutorial :: Effect Unit
+  , ride :: Effect Unit
   , lpsCallback :: JMilliseconds -> Effect Unit -> Effect Unit
   , playerPositions :: Behavior PlayerPositionsF
   , resizeE :: Event WindowDims
@@ -127,6 +128,7 @@ data TopLevelDisplay
   | TLLoading
   | TLGameHasStarted
   | TLRoomIsFull
+  | TLWantsTutorial WantsTutorial'
   | TLSuccess Success'
 
 -- effect unit is unsub
@@ -159,20 +161,25 @@ toplevel
 toplevel tli =
   ( dedup
       ( map
-          ( \{ loaded, negotiation } -> case loaded, negotiation of
-              _, NeedsOrientation -> TLNeedsOrientation
-              _, WillNotWorkWithoutOrientation -> TLWillNotWorkWithoutOrientation
-              _, GetRulesOfGame s -> TLExplainer s
-              false, _ -> TLLoading
-              -- should never reach
-              _, PageLoad -> TLLoading
-              _, StartingNegotiation -> TLLoading
-              _, RoomIsFull -> TLRoomIsFull
-              _, GameHasStarted -> TLGameHasStarted
-              _, RequestingPlayer -> TLLoading
-              _, ReceivedPossibilities -> TLLoading
-              _, ClaimFail -> TLRoomIsFull
-              true, Success s -> TLSuccess s
+          ( \{ loaded, negotiation } ->
+              let
+                __ = spy "ln" { loaded, negotiation }
+              in
+                case loaded, negotiation of
+                  _, NeedsOrientation -> TLNeedsOrientation
+                  _, WillNotWorkWithoutOrientation -> TLWillNotWorkWithoutOrientation
+                  _, GetRulesOfGame s -> TLExplainer s
+                  false, _ -> TLLoading
+                  -- should never reach
+                  _, PageLoad -> TLLoading
+                  _, StartingNegotiation -> TLLoading
+                  _, RoomIsFull -> TLRoomIsFull
+                  _, GameHasStarted -> TLGameHasStarted
+                  _, RequestingPlayer -> TLLoading
+                  _, ReceivedPossibilities -> TLLoading
+                  _, ClaimFail -> TLRoomIsFull
+                  true, Success s -> TLSuccess s
+                  true, WantsTutorial s -> TLWantsTutorial s
           )
           ( biSampleOn
               (startingWith PageLoad $ fromEvent tli.negotiation)
@@ -185,9 +192,8 @@ toplevel tli =
     TLNeedsOrientation -> orientationPermissionPage { givePermission: tli.givePermission }
     TLWillNotWorkWithoutOrientation -> sorryNeedPermissionPage
     TLExplainer { cubeTextures, threeDI, cNow } -> explainerPage
-      { click: do
-          id <- randId' 6
-          tli.channelChooser id
+      { ride: tli.ride
+      , tutorial: tli.tutorial
       , isMobile: tli.isMobile
       , cnow: cNow
       , resizeE: tli.resizeE
@@ -198,6 +204,317 @@ toplevel tli =
     TLLoading -> loadingPage
     TLRoomIsFull -> roomIsFull
     TLGameHasStarted -> gameHasStarted
+    TLWantsTutorial
+      { player: myPlayer
+      , textures
+      , cubeTextures
+      , cNow
+      , galaxyAttributes
+      , shaders
+      , threeDI
+      , playerStatus
+      , optMeIn
+      } ->
+      ( vbussed (Proxy :: _ UIEvents) \push event ->
+          do
+            let
+              -- todo: need to initialize at higher level
+              iAmReady :: KnownPlayers -> Boolean
+              iAmReady (KnownPlayers m) = let lookup = Map.lookup myPlayer m in Just HasNotStartedYet /= lookup && Nothing /= lookup
+
+              allAreReady :: KnownPlayers -> Maybe JMilliseconds
+              allAreReady (KnownPlayers m)
+                | Map.isEmpty m = Nothing
+                | otherwise = map (foldl max (JMilliseconds 0.0)) $ hush $ runExcept
+                    ( m # traverse \v -> case v of
+                        HasNotStartedYet -> throwError unit
+                        HasStarted (InFlightGameInfo t) -> pure t.startedAt
+                    )
+              -- stopButton :: Effect Unit -> Nut
+              stopButton off = D.div
+                (bang $ D.Class := "bg-slate-50")
+                [ D.button
+                    ( oneOf
+                        [ bang $ D.Class := "pointer-events-auto p-1"
+                        , bang $ D.OnClick := do
+                            off
+                        ]
+                    )
+                    [ text_ "Exit game" ]
+                ]
+              startButton aStuff = do
+                let
+                  buttonStyle = bang $ D.Class := "w-full pointer-events-auto text-center bg-gray-800 hover:bg-gray-600 text-white py-2 px-4 rounded"
+                  callback = oneOf
+                    [ buttonStyle
+                    ----- IMPORTANT -----
+                    ----- IMPORTANT -----
+                    ----- IMPORTANT -----
+                    ----- IMPORTANT -----
+                    ----- IMPORTANT -----
+                    ----- IMPORTANT -----
+                    ----- IMPORTANT -----
+                    ----- IMPORTANT -----
+                    ----- IMPORTANT -----
+                    ----- IMPORTANT -----
+                    ----- IMPORTANT -----
+                    ----- IMPORTANT -----
+                    -- all of the audio context stuff MUST execute in effect as a DIRECT RESULT of the calling of this handler
+                    -- it CANNOT be in Aff, even an Aff that is theoretically in the same tick
+                    -- this will put it in some sort of defered structure like a setTimeout, which means that it won't start on iOS
+                    -- please move this comment if you move the bloc of code below and, if needed, copy it to other places where an audio context starts!!!!!
+                    , bang $ D.OnClick := do
+                        ricid <- requestIdleCallbackIsDefined
+                        ctx <- context
+                        hk <- constant0Hack ctx
+                        ci <- setInterval 5000 do
+                          Ref.read tli.icid >>= traverse_
+                            (flip cancelIdleCallback tli.wdw)
+                          let
+                            icb = do
+                              n <- (unInstant >>> coerce) <$> LocalNow.now
+                              mp <- Map.toUnfoldable <$>
+                                Ref.read tli.unschedule
+                              let
+                                lr = span (fst >>> (_ < n)) mp
+                              foreachE lr.init snd
+                              Ref.write
+                                (Map.fromFoldable lr.rest)
+                                tli.unschedule
+                              pure unit
+                          if ricid then (requestIdleCallback { timeout: 0 } icb tli.wdw <#> Just >>= flip Ref.write tli.icid) else icb
+                        afE <- hot
+                          ( withACTime ctx animationFrame <#>
+                              _.acTime
+                          )
+                        withRate <-
+                          hot
+                            $ timeFromRate cNow
+                                (pure { rate: 1.0 })
+                                (Seconds >>> { real: _ } <$> afE.event)
+
+                        iu0 <- subscribe withRate.event push.rateInfo
+                        st <- run2 ctx
+                          ( graph
+                              { basics: event.basicAudio
+                              , leaps: event.leapAudio
+                              , rateInfo: _.rateInfo <$> aStuff
+                              , buffers: refToBehavior tli.soundObj
+                              , silence: tli.silence
+                              }
+                          )
+                        push.iAmReady
+                          ( Unsubscribe
+                              ( st *> hk *> clearInterval ci
+                                  *> afE.unsubscribe
+                                  *> iu0
+                                  --  *> iu1
+                                  *> withRate.unsubscribe
+                                  *> close ctx
+                              )
+                          )
+                        t :: JMilliseconds <- coerce <$> cNow
+                        optMeIn t
+                    ]
+                D.div (bang $ D.Class := "bg-slate-700 select-auto")
+                  [ D.div (bang $ D.Class := "pointer-events-auto text-center text-white p-4")
+                      [ D.p_ [ text_ ("Welcome to Joyride!") ]
+                      ]
+                  , D.div (bang $ D.Class := "w-full flex flex-row content-between")
+                      [ D.div (bang $ D.Class := "w-full")
+                          [ D.button
+                              callback
+                              [ text_ "Start Tutorial" ]
+                          ]
+                      ]
+                  ]
+            envy $ fromEvent $ memoize
+              ( makeAnimatedStuff
+                  ( biSampleOn
+                      ( fireAndForget
+                          ( playerStatus # filterMap
+                              \m -> { startTime: _, myTime: _ } <$> allAreReady m <*>
+                                join
+                                  ( map
+                                      ( case _ of
+                                          HasNotStartedYet -> Nothing
+                                          HasStarted (InFlightGameInfo { startedAt }) -> Just startedAt
+                                      )
+                                      (Map.lookup myPlayer (unwrap m))
+                                  )
+                          )
+                      )
+                      (event.rateInfo <#> \ri { startTime, myTime } -> adjustRateInfoBasedOnActualStart myTime startTime ri)
+                  )
+              )
+              \animatedStuff -> D.div_
+                [
+                  -- on/off
+                  D.div (bang $ D.Class := "z-10 pointer-events-none absolute w-screen h-screen flex flex-col")
+                    [ D.div (bang $ D.Class := "grow flex flex-row")
+                        -- fromEvent because playerStatus is effectful
+                        [ D.div (bang $ D.Class := "grow-0")
+                            [ D.div_
+                                [ fromEvent (biSampleOn (initializeWithEmpty event.iAmReady) (map Tuple playerStatus))
+                                    -- we theoretically don't need to dedup because
+                                    -- the button should never redraw once we've started
+                                    -- if there's flicker, dedup
+                                    # switcher \(Tuple oi usu) -> case usu of
+                                        Nothing -> makeJoined myPlayer oi
+                                        Just (Unsubscribe _) -> makePoints myPlayer oi
+                                ]
+                            , D.div_
+                                [ envy $ map stopButton
+                                    ( fromEvent
+                                        ( map
+                                            ( \(Unsubscribe u) -> u *> tli.goHome
+                                            )
+                                            (event.iAmReady)
+                                        )
+                                    )
+                                ]
+                            ]
+                        , D.div (bang $ D.Class := "grow") []
+                        ]
+                    , let
+                        frame mid = D.div (bang $ D.Class := "flex flex-row")
+                          [ D.div (bang $ D.Class := "grow") []
+                          , D.div (bang $ D.Class := "grow-0") [ mid ]
+                          , D.div (bang $ D.Class := "grow") []
+                          ]
+                      in
+                        D.div_
+                          [ ( fromEvent
+                                ( dedup
+                                    ( playerStatus <#>
+                                        \m -> case allAreReady m of
+                                          Just x -> Started x
+                                          Nothing
+                                            | iAmReady m -> WaitingForOthers
+                                            | otherwise -> WaitingForMe
+                                    )
+                                )
+                            )
+                              # switcher case _ of
+                                  WaitingForMe -> frame (startButton animatedStuff)
+                                  WaitingForOthers -> frame (D.span (bang $ D.Class := "text-lg text-white") [ text_ "Waiting for others to join" ])
+                                  Started _ -> envy empty
+                          ]
+                    , D.div (bang $ D.Class := "grow") []
+                    ]
+                , D.div
+                    (bang (D.Class := "absolute"))
+                    [ D.canvas
+                        ( oneOf
+                            [ bang (D.Class := "absolute")
+                            -- one gratuitous lookup as if all are ready then myPlayer
+                            -- must be ready, but should be computationally fine
+                            -- fireAndForget so that it only ever fires once
+                            , bang $ D.Self := HTMLCanvasElement.fromElement >>> traverse_
+                                ( runThree <<<
+                                    { threeDI: threeDI
+                                    , css2DRendererElt: event.render2DElement
+                                    , css3DRendererElt: event.render3DElement
+                                    , isMobile: tli.isMobile
+                                    , galaxyAttributes
+                                    , shaders
+                                    , renderingInfo: tli.renderingInfo
+                                    , lowPriorityCb: tli.lpsCallback
+                                    , myPlayer
+                                    , debug: tli.debug
+                                    , textures
+                                    , cubeTextures
+                                    , pushBasic: tli.pushBasic
+                                    , basicE: \pushBasicVisualForLabel -> tli.basicE
+                                        { initialDims: tli.initialDims
+                                        , renderingInfo: tli.renderingInfo
+                                        , textures
+                                        , cnow: cNow
+                                        , threeDI
+                                        , myPlayer
+                                        , debug: tli.debug
+                                        , notifications: { hitBasic: empty }
+                                        , resizeEvent: tli.resizeE
+                                        , isMobile: tli.isMobile
+                                        , lpsCallback: tli.lpsCallback
+                                        , pushAudio: push.basicAudio
+                                        , mkColor: color threeDI.color
+                                        , mkMatrix4: M4.set threeDI.matrix4
+                                        , buffers: refToBehavior tli.soundObj
+                                        , silence: tli.silence
+                                        , animatedStuff
+                                        , pushBasic: tli.pushBasic
+                                        , pushBasicVisualForLabel
+                                        }
+                                    , leapE: \pushLeapVisualForLabel -> tli.leapE
+                                        { initialDims: tli.initialDims
+                                        , renderingInfo: tli.renderingInfo
+                                        , textures
+                                        , myPlayer
+                                        , cnow: cNow
+                                        , debug: tli.debug
+                                        , notifications: { hitLeap: empty }
+                                        , resizeEvent: tli.resizeE
+                                        , isMobile: tli.isMobile
+                                        , lpsCallback: tli.lpsCallback
+                                        , pushAudio: push.leapAudio
+                                        , mkColor: color threeDI.color
+                                        , mkMatrix4: M4.set threeDI.matrix4
+                                        , threeDI
+                                        , buffers: refToBehavior tli.soundObj
+                                        , silence: tli.silence
+                                        , animatedStuff
+                                        , pushLeap: tli.pushLeap
+                                        , pushLeapVisualForLabel
+                                        }
+                                    , longE: \pushHitLongVisualForLabel pushReleaseLongVisualForLabel -> tli.longE
+                                        { initialDims: tli.initialDims
+                                        , renderingInfo: tli.renderingInfo
+                                        , textures
+                                        , myPlayer
+                                        , cnow: cNow
+                                        , debug: tli.debug
+                                        , notifications:
+                                            { hitLong: empty
+                                            , releaseLong: empty
+                                            }
+                                        , resizeEvent: tli.resizeE
+                                        , isMobile: tli.isMobile
+                                        , lpsCallback: tli.lpsCallback
+                                        , pushAudio: push.leapAudio
+                                        , mkColor: color threeDI.color
+                                        , mkMatrix4: M4.set threeDI.matrix4
+                                        , threeDI
+                                        , buffers: refToBehavior tli.soundObj
+                                        , silence: tli.silence
+                                        , animatedStuff
+                                        , pushHitLong: tli.pushHitLong
+                                        , pushReleaseLong: tli.pushReleaseLong
+                                        , pushHitLongVisualForLabel
+                                        , pushReleaseLongVisualForLabel
+                                        }
+                                    , animatedStuff
+                                    , resizeE: tli.resizeE
+                                    , initialDims: tli.initialDims
+                                    , canvas: _
+                                    }
+                                )
+                            ]
+                        )
+                        []
+                    , D.div (oneOfMap bang [ D.Class := "absolute pointer-events-none", D.Self := push.render2DElement ]) []
+                    , D.div (oneOfMap bang [ D.Class := "absolute pointer-events-none", D.Self := push.render3DElement ]) []
+                    ]
+                , D.div
+                    ( oneOf
+                        [ bang $ D.Class := "z-10 snakbar"
+                        , filter not event.copiedToClipboard $> D.Class := "z-10 snakbar"
+                        , filter identity event.copiedToClipboard $> D.Class := "z-10 snackbar show"
+                        ]
+                    )
+                    [ text_ "Copied to clipboard" ]
+                ]
+      )
     TLSuccess
       { player: myPlayer
       , textures

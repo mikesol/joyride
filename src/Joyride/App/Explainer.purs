@@ -121,7 +121,8 @@ filler :: Nut
 filler = D.div (bang $ D.Class := "grow") []
 
 explainerPage
-  :: { click :: Effect Unit
+  :: { ride :: Effect Unit
+     , tutorial :: Effect Unit
      , isMobile :: Boolean
      , resizeE :: Event WindowDims
      , cnow :: Effect Milliseconds
@@ -132,14 +133,25 @@ explainerPage
   -> Nut
 explainerPage opts = vbussed (Proxy :: _ (V (unsubscriber :: Effect Unit))) \push event -> D.div (oneOf [ bang (D.Class := "absolute") ])
   [ D.div (oneOf [ bang (D.Class := "z-10 absolute grid grid-cols-3 grid-rows-3  place-items-center h-screen w-screen") ])
-      [ D.div (bang $ D.Class := "col-start-2 col-end-3 row-start-2 row-end-3")
-          [ D.h1 (bang $ D.Class := "text-center text-2xl text-slate-200") [ text_ "Joyride" ]
+      [ D.div (bang $ D.Class := "col-start-2 col-end-3 row-start-2 row-end-3 flex flex-col")
+         $ let buttonCls = "my-4 bg-transparent hover:bg-slate-300 text-white font-semibold hover:text-zinc-700 py-2 px-4 border border-slate-300 hover:border-transparent rounded" in [ D.h1 (bang $ D.Class := "text-center text-2xl text-slate-200") [ text_ "Joyride" ]
           , D.button
               ( oneOf
-                  [ bang $ D.Class := "text-center bg-gray-600 hover:bg-gray-400 text-white py-2 px-4 rounded"
+                  [ bang $ D.Class := buttonCls
                   , DL.click
                       ( (oneOf [ bang (pure unit), event.unsubscriber ]) <#> \u -> do
-                          opts.click
+                          opts.tutorial
+                          u
+                      )
+                  ]
+              )
+              [ text_ "Tutorial" ]
+              , D.button
+              ( oneOf
+                  [ bang $ D.Class := buttonCls
+                  , DL.click
+                      ( (oneOf [ bang (pure unit), event.unsubscriber ]) <#> \u -> do
+                          opts.ride
                           u
                       )
                   ]
