@@ -5,11 +5,11 @@ import Prelude
 import Control.Alt ((<|>))
 import Data.Typelevel.Num (D2)
 import FRP.Event (Event)
-import Joyride.Wags (offAt, onAt)
-import WAGS.Control (gain_, playBuf)
-import WAGS.Core (Audible)
-import WAGS.Properties as P
-import WAGS.WebAPI (BrowserAudioBuffer)
+import Joyride.Ocarina (offAt, onAt)
+import Ocarina.Control (gain_, playBuf)
+import Ocarina.Core (Audible)
+import Ocarina.Properties as P
+import Ocarina.WebAPI (BrowserAudioBuffer)
 
 leap
   :: forall lock payload

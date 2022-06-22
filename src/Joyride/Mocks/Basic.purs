@@ -26,7 +26,7 @@ import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Schedule (oneOff, scheduleCf)
 import Joyride.Visual.Basic as BasicV
 import Joyride.Visual.BasicWord as BasicW
-import Joyride.Wags (AudibleEnd(..))
+import Joyride.Ocarina (AudibleEnd(..))
 import Record (union)
 import Rito.Color (RGB(..))
 import Rito.Core (ASceneful, CSS3DObject, Instance, toScene)
@@ -36,7 +36,7 @@ import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.RoundRobin (InstanceId, Semaphore(..), roundRobinInstancedMesh)
 import Safe.Coerce (coerce)
 import Types (Beats(..), Column(..), HitBasicMe, JMilliseconds(..), MakeBasics, RateInfo, beatToTime)
-import WAGS.WebAPI (BrowserAudioBuffer)
+import Ocarina.WebAPI (BrowserAudioBuffer)
 
 type ACU =
   { appearsAt :: Beats

@@ -28,7 +28,7 @@ import Rito.Properties as P
 import Safe.Coerce (coerce)
 import Type.Proxy (Proxy(..))
 import Types (Beats, JMilliseconds(..), MakeBasicWord, Position(..), RateInfo, RenderingInfo, entryZ, normalizedColumn, touchPointZ)
-import WAGS.Math (calcSlope)
+import Ocarina.Math (calcSlope)
 
 basicWord
   :: forall r lock payload

@@ -21,7 +21,7 @@ import Joyride.FRP.Behavior (misbehavior)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Schedule (oneOff, scheduleCf)
 import Joyride.Visual.Long as LongV
-import Joyride.Wags (AudibleEnd(..))
+import Joyride.Ocarina (AudibleEnd(..))
 import Record (union)
 import Rito.Color (RGB(..))
 import Rito.Core (ASceneful, Instance, toScene)
@@ -30,7 +30,7 @@ import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.RoundRobin (InstanceId, Semaphore(..), roundRobinInstancedMesh)
 import Safe.Coerce (coerce)
 import Types (Beats(..), Column(..), JMilliseconds(..), MakeLongs, RateInfo, beatToTime)
-import WAGS.WebAPI (BrowserAudioBuffer)
+import Ocarina.WebAPI (BrowserAudioBuffer)
 
 lookAhead :: Beats
 lookAhead = Beats 0.1

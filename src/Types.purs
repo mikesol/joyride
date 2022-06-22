@@ -103,7 +103,7 @@ import FRP.Behavior (Behavior)
 import FRP.Event (EventIO, Event)
 import Foreign (ForeignError(..), fail)
 import Foreign.Object as Object
-import Joyride.Wags (AudibleChildEnd, AudibleEnd)
+import Joyride.Ocarina (AudibleChildEnd, AudibleEnd)
 import Record (union)
 import Rito.Color (Color, RGB)
 import Rito.CubeTexture as CTL
@@ -115,8 +115,8 @@ import Rito.Vector3 (Vector3')
 import Simple.JSON (undefined, writeJSON)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
-import WAGS.Math (calcSlope)
-import WAGS.WebAPI (BrowserAudioBuffer)
+import Ocarina.Math (calcSlope)
+import Ocarina.WebAPI (BrowserAudioBuffer)
 
 type CanvasInfo = { x :: Number, y :: Number } /\ Number
 

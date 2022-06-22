@@ -25,11 +25,11 @@ import Joyride.App.SorryNeedPermission (sorryNeedPermissionPage)
 import Joyride.App.Tutorial (tutorial)
 import Joyride.FRP.Dedup (dedup)
 import Joyride.FRP.StartingWith (startingWith)
-import Joyride.Wags (AudibleChildEnd)
+import Joyride.Ocarina (AudibleChildEnd)
 import Rito.Core (ASceneful)
 import Rito.CubeTexture as CTL
 import Types (CubeTextures, HitBasicMe, HitLeapMe, HitLongMe, JMilliseconds, MakeBasics, MakeLeaps, MakeLongs, Negotiation(..), PlayerPositionsF, RateInfo, ReleaseLongMe, RenderingInfo, Success', ThreeDI, WantsTutorial', WindowDims)
-import WAGS.WebAPI (BrowserAudioBuffer)
+import Ocarina.WebAPI (BrowserAudioBuffer)
 import Web.DOM as Web.DOM
 import Web.HTML.Window (RequestIdleCallbackId, Window)
 

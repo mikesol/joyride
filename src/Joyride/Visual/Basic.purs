@@ -25,7 +25,7 @@ import Joyride.FRP.SampleJIT (sampleJIT)
 import Joyride.FRP.Schedule (fireAndForget)
 import Joyride.Timing.CoordinatedNow (cInstant)
 import Joyride.Visual.EmptyMatrix (emptyMatrix)
-import Joyride.Wags (AudibleChildEnd(..), AudibleEnd(..))
+import Joyride.Ocarina (AudibleChildEnd(..), AudibleEnd(..))
 import Rito.Core (Instance)
 import Rito.Matrix4 (Matrix4')
 import Rito.Properties as P
@@ -33,8 +33,8 @@ import Rito.RoundRobin (InstanceId, singleInstance)
 import Safe.Coerce (coerce)
 import Type.Proxy (Proxy(..))
 import Types (Beats, HitBasicMe(..), HitBasicOtherPlayer(..), HitBasicVisualForLabel(..), JMilliseconds(..), MakeBasic, Position(..), RateInfo, RenderingInfo, entryZ, normalizedColumn, playerPosition', touchPointZ)
-import WAGS.Core (silence, sound)
-import WAGS.Math (calcSlope)
+import Ocarina.Core (silence, sound)
+import Ocarina.Math (calcSlope)
 import Web.TouchEvent.Touch as Touch
 import Web.UIEvent.MouseEvent as MouseEvent
 

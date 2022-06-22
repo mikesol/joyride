@@ -17,8 +17,8 @@ import Effect.Class (liftEffect)
 import Effect.Ref as Ref
 import Foreign.Object as Object
 import Types (BufferName)
-import WAGS.Interpret (decodeAudioDataFromUri)
-import WAGS.WebAPI (AudioContext, BrowserAudioBuffer)
+import Ocarina.Interpret (decodeAudioDataFromUri)
+import Ocarina.WebAPI (AudioContext, BrowserAudioBuffer)
 
 dlInChunks
   :: Object.Object String

@@ -10,12 +10,12 @@ import Prelude
 -- import Effect (Effect)
 -- import FRP.Event (Event)
 -- import Foreign.Object (Object)
--- import Joyride.Wags (AudibleChildEnd, AudibleEnd)
+-- import Joyride.Ocarina (AudibleChildEnd, AudibleEnd)
 -- import Rito.Color (Color, RGB)
 -- import Rito.Core (AMesh)
 -- import Types (Beats, Column, Penalty, Player, Points, RateInfo, Seconds, WindowDims)
--- import WAGS.Core (Audible)
--- import WAGS.WebAPI (BrowserAudioBuffer)
+-- import Ocarina.Core (Audible)
+-- import Ocarina.WebAPI (BrowserAudioBuffer)
 
 -- type Claimed = { who :: Player }
 -- type PlayerInfo = (player :: Maybe Claimed)
