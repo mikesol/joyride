@@ -2,6 +2,7 @@ module Joyride.App.Tutorial where
 
 import Prelude
 
+import Control.Alt ((<|>))
 import Control.Monad.Except (runExcept, throwError)
 import Control.Plus (empty)
 import Data.Array (span)
@@ -13,14 +14,17 @@ import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import Data.Newtype (over, unwrap)
 import Data.Number (pi)
+import Data.String as String
 import Data.Time.Duration (Milliseconds(..))
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..), fst, snd)
 import Deku.Attribute ((:=))
 import Deku.Control (switcher, text_)
-import Deku.Core (class Korok, Domable, Nut, envy, vbussed)
+import Deku.Core (class Korok, Domable, Nut, bussed, envy, vbussed)
 import Deku.DOM as D
 import Effect (Effect, foreachE)
+import Effect.Aff (delay, launchAff_)
+import Effect.Class (liftEffect)
 import Effect.Now as LocalNow
 import Effect.Ref as Ref
 import Effect.Timer (clearInterval, setInterval)
@@ -31,14 +35,18 @@ import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V)
 import Foreign.Object as Object
 import Joyride.App.RequestIdleCallbackIsDefined (requestIdleCallbackIsDefined)
-import Joyride.Audio.Graph.Ride (graph)
+import Joyride.Audio.Graph.Tutorial (graph)
 import Joyride.FRP.Behavior (refToBehavior)
 import Joyride.FRP.Dedup (dedup)
 import Joyride.FRP.Rate (timeFromRate)
 import Joyride.FRP.SampleOnSubscribe (initializeWithEmpty)
 import Joyride.FRP.Schedule (fireAndForget)
-import Joyride.Visual.Animation (runThree)
 import Joyride.Ocarina (AudibleChildEnd)
+import Joyride.Visual.Animation.Tutorial (runThree)
+import Ocarina.Clock (withACTime)
+import Ocarina.Interpret (close, constant0Hack, context)
+import Ocarina.Run (run2)
+import Ocarina.WebAPI (BrowserAudioBuffer)
 import Rito.Color (color)
 import Rito.Core (ASceneful)
 import Rito.Matrix4 as M4
@@ -46,15 +54,15 @@ import Safe.Coerce (coerce)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
 import Types (Beats(..), HitBasicMe, HitLeapMe, HitLongMe, InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, MakeLongs, Player(..), PlayerPositionsF, RateInfo, ReleaseLongMe, RenderingInfo, Seconds(..), StartStatus(..), WantsTutorial', WindowDims)
-import Ocarina.Clock (withACTime)
-import Ocarina.Interpret (close, constant0Hack, context)
-import Ocarina.Run (run2)
-import Ocarina.WebAPI (BrowserAudioBuffer)
 import Web.DOM as Web.DOM
 import Web.HTML.HTMLCanvasElement as HTMLCanvasElement
 import Web.HTML.Window (RequestIdleCallbackId, Window, cancelIdleCallback, requestIdleCallback)
 
 twoPi = 2.0 * pi :: Number
+
+data FadeInstruction = FadeIn | FadeOut | FadeInOut | NoFade
+
+data CenterState = Intro | Tiles | Leap | Long | End | Empty
 
 newtype Unsubscribe = Unsubscribe (Effect Unit)
 
@@ -104,6 +112,7 @@ type TutorialEvents = V
   , leapAudio :: Event AudibleChildEnd
   , render2DElement :: Web.DOM.Element
   , render3DElement :: Web.DOM.Element
+  , tutorialCenterState :: CenterState
   )
 
 tutorial
@@ -153,9 +162,7 @@ tutorial
             ]
           startButton aStuff = do
             let
-              buttonStyle = bang $ D.Class := "w-full pointer-events-auto text-center bg-gray-800 hover:bg-gray-600 text-white py-2 px-4 rounded"
-              callback = oneOf
-                [ buttonStyle
+              startCallback =
                 ----- IMPORTANT -----
                 ----- IMPORTANT -----
                 ----- IMPORTANT -----
@@ -172,71 +179,59 @@ tutorial
                 -- it CANNOT be in Aff, even an Aff that is theoretically in the same tick
                 -- this will put it in some sort of defered structure like a setTimeout, which means that it won't start on iOS
                 -- please move this comment if you move the bloc of code below and, if needed, copy it to other places where an audio context starts!!!!!
-                , bang $ D.OnClick := do
-                    ricid <- requestIdleCallbackIsDefined
-                    ctx <- context
-                    hk <- constant0Hack ctx
-                    ci <- setInterval 5000 do
-                      Ref.read tli.icid >>= traverse_
-                        (flip cancelIdleCallback tli.wdw)
-                      let
-                        icb = do
-                          n <- (unInstant >>> coerce) <$> LocalNow.now
-                          mp <- Map.toUnfoldable <$>
-                            Ref.read tli.unschedule
-                          let
-                            lr = span (fst >>> (_ < n)) mp
-                          foreachE lr.init snd
-                          Ref.write
-                            (Map.fromFoldable lr.rest)
-                            tli.unschedule
-                          pure unit
-                      if ricid then (requestIdleCallback { timeout: 0 } icb tli.wdw <#> Just >>= flip Ref.write tli.icid) else icb
-                    afE <- hot
-                      ( withACTime ctx animationFrame <#>
-                          _.acTime
-                      )
-                    withRate <-
-                      hot
-                        $ timeFromRate cNow
-                            (pure { rate: 1.0 })
-                            (Seconds >>> { real: _ } <$> afE.event)
+                do
+                  ricid <- requestIdleCallbackIsDefined
+                  ctx <- context
+                  hk <- constant0Hack ctx
+                  ci <- setInterval 5000 do
+                    Ref.read tli.icid >>= traverse_
+                      (flip cancelIdleCallback tli.wdw)
+                    let
+                      icb = do
+                        n <- (unInstant >>> coerce) <$> LocalNow.now
+                        mp <- Map.toUnfoldable <$>
+                          Ref.read tli.unschedule
+                        let
+                          lr = span (fst >>> (_ < n)) mp
+                        foreachE lr.init snd
+                        Ref.write
+                          (Map.fromFoldable lr.rest)
+                          tli.unschedule
+                        pure unit
+                    if ricid then (requestIdleCallback { timeout: 0 } icb tli.wdw <#> Just >>= flip Ref.write tli.icid) else icb
+                  afE <- hot
+                    ( withACTime ctx animationFrame <#>
+                        _.acTime
+                    )
+                  withRate <-
+                    hot
+                      $ timeFromRate cNow
+                          (pure { rate: 1.0 })
+                          (Seconds >>> { real: _ } <$> afE.event)
 
-                    iu0 <- subscribe withRate.event push.rateInfo
-                    st <- run2 ctx
-                      ( graph
-                          { basics: event.basicAudio
-                          , leaps: event.leapAudio
-                          , rateInfo: _.rateInfo <$> aStuff
-                          , buffers: refToBehavior tli.soundObj
-                          , silence: tli.silence
-                          }
-                      )
-                    push.iAmReady
-                      ( Unsubscribe
-                          ( st *> hk *> clearInterval ci
-                              *> afE.unsubscribe
-                              *> iu0
-                              --  *> iu1
-                              *> withRate.unsubscribe
-                              *> close ctx
-                          )
-                      )
-                    t :: JMilliseconds <- coerce <$> cNow
-                    optMeIn t
-                ]
-            D.div (bang $ D.Class := "bg-slate-700 select-auto")
-              [ D.div (bang $ D.Class := "pointer-events-auto text-center text-white p-4")
-                  [ D.p_ [ text_ ("Welcome to Joyride!") ]
-                  ]
-              , D.div (bang $ D.Class := "w-full flex flex-row content-between")
-                  [ D.div (bang $ D.Class := "w-full")
-                      [ D.button
-                          callback
-                          [ text_ "Start Tutorial" ]
-                      ]
-                  ]
-              ]
+                  iu0 <- subscribe withRate.event push.rateInfo
+                  st <- run2 ctx
+                    ( graph
+                        { basics: event.basicAudio
+                        , leaps: event.leapAudio
+                        , rateInfo: _.rateInfo <$> aStuff
+                        , buffers: refToBehavior tli.soundObj
+                        , silence: tli.silence
+                        }
+                    )
+                  push.iAmReady
+                    ( Unsubscribe
+                        ( st *> hk *> clearInterval ci
+                            *> afE.unsubscribe
+                            *> iu0
+                            --  *> iu1
+                            *> withRate.unsubscribe
+                            *> close ctx
+                        )
+                    )
+                  t :: JMilliseconds <- coerce <$> cNow
+                  optMeIn t
+            tutorialCenterMatter (bang Intro <|> event.tutorialCenterState) push.tutorialCenterState { startCallback }
         envy $ fromEvent $ memoize
           ( makeAnimatedStuff
               ( biSampleOn
@@ -292,23 +287,7 @@ tutorial
                       , D.div (bang $ D.Class := "grow") []
                       ]
                   in
-                    D.div_
-                      [ ( fromEvent
-                            ( dedup
-                                ( playerStatus <#>
-                                    \m -> case allAreReady m of
-                                      Just x -> Started x
-                                      Nothing
-                                        | iAmReady m -> WaitingForOthers
-                                        | otherwise -> WaitingForMe
-                                )
-                            )
-                        )
-                          # switcher case _ of
-                              WaitingForMe -> frame (startButton animatedStuff)
-                              WaitingForOthers -> frame (D.span (bang $ D.Class := "text-lg text-white") [ text_ "Waiting for others to join" ])
-                              Started _ -> envy empty
-                      ]
+                    D.div_ [ frame (startButton animatedStuff) ]
                 , D.div (bang $ D.Class := "grow") []
                 ]
             , D.div
@@ -458,6 +437,57 @@ tutorial
           Nothing -> Nothing
           Just x -> Just $ over Beats (_ - offsetInSeconds) x
       }
+
+  tutorialCenterMatter currentState pushCurrentState { startCallback } = currentState # switcher \cs -> case cs of
+    Intro -> tutorialCenterMatterFrame "Welcome to Joyride!" "Start Tutorial" FadeOut startCallback pushCurrentState
+    _ -> envy empty
+
+  tutorialFadeInAnimation = "tutorial-fade-in-animation"
+  tutorialFadeOutAnimation = "tutorial-fade-out-animation"
+  replaceFadeInWithFadeOut = (if _ then _ else _) <$> String.contains (String.Pattern tutorialFadeInAnimation) <*> String.replace (String.Pattern tutorialFadeInAnimation) (String.Replacement tutorialFadeOutAnimation) <*> append (tutorialFadeOutAnimation <> space)
+  space = " "
+
+  tutorialCenterMatterFrame txt action fade cb pcenter = bussed \setFadeOut fadeOut' -> do
+    let
+      buttonStyle = bang $ D.Class := "w-full pointer-events-auto text-center bg-gray-800 hover:bg-gray-600 text-white py-2 px-4 rounded"
+      fadeOut = bang identity <|> fadeOut'
+    D.div (bang $ D.Class := "bg-slate-700 select-auto")
+      [ D.div
+          ( fadeOut <#> \f ->
+              D.Class :=
+                ( f
+                    ( case fade of
+                        FadeIn -> tutorialFadeInAnimation <> space
+                        FadeInOut -> tutorialFadeInAnimation <> space
+                        _ -> ""
+                    ) <> "pointer-events-auto text-center text-white p-4"
+                )
+          )
+          [ D.p_ [ text_ txt ]
+          ]
+      , D.div (bang $ D.Class := "w-full flex flex-row content-between")
+          [ D.div (bang $ D.Class := "w-full")
+              [ D.button
+                  ( oneOf
+                      [ buttonStyle
+                      , bang $
+                          D.OnClick :=
+                            let
+                              goodbye = pcenter Empty
+                              fout = setFadeOut replaceFadeInWithFadeOut *> launchAff_ (delay (Milliseconds 1500.0) *> liftEffect goodbye)
+                            in
+                              ( ( case fade of
+                                    FadeOut -> fout
+                                    FadeInOut -> fout
+                                    _ -> goodbye
+                                ) *> cb
+                              )
+                      ]
+                  )
+                  [ text_ action ]
+              ]
+          ]
+      ]
 
   makeJoined :: Player -> KnownPlayers -> Nut
   makeJoined mp (KnownPlayers m) = D.ul_

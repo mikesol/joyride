@@ -1,4 +1,4 @@
-module Joyride.Visual.Animation where
+module Joyride.Visual.Animation.Tutorial where
 
 import Prelude
 
@@ -13,38 +13,29 @@ import Data.Newtype (unwrap)
 import Data.Number (cos, pi)
 import Data.Tuple (Tuple(..))
 import Data.Tuple.Nested ((/\))
-import Data.Variant (inj)
 import Effect (Effect)
 import FRP.Behavior (Behavior, sampleBy)
 import FRP.Event (Event, EventIO, bang, keepLatest, mapAccum)
 import FRP.Event.VBus (V, vbus)
-import Foreign.Object (fromHomogeneous)
 import Joyride.Effect.Lowpass (lpf)
 import Joyride.FRP.Dedup (dedup)
-import Joyride.Shaders.Galaxy (galaxyParams)
 import Joyride.Visual.Bar (makeBar)
 import Joyride.Visual.BasicLabels (basicLabels)
 import Joyride.Visual.LeapLabels (leapLabels)
 import Joyride.Visual.LongLabels (longLabels)
-import Rito.Blending (Blending(..))
 import Rito.Cameras.PerspectiveCamera (perspectiveCamera)
 import Rito.Color (RGB(..), color)
 import Rito.Core (ASceneful, Renderer(..), cameraToGroup, toGroup, toScene)
 import Rito.CubeTexture (CubeTexture)
-import Rito.Geometries.BufferGeometry (bufferGeometry)
-import Rito.Geometries.Plane (plane)
 import Rito.Geometries.Sphere (sphere)
 import Rito.Group (group)
-import Rito.InstancedMesh (instancedMesh')
 import Rito.Lights.AmbientLight (ambientLight)
 import Rito.Lights.PointLight (pointLight)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
-import Rito.Materials.ShaderMaterial (shaderMaterial)
 import Rito.Mesh (mesh)
-import Rito.Points (points)
 import Rito.Portal (globalCameraPortal1, globalScenePortal1)
-import Rito.Properties (aspect, background, decay, distance, intensity, positionZ, rotateX, rotateY, rotateZ, uniform) as P
-import Rito.Properties (positionX, positionY, positionZ, render, scaleX, scaleY, scaleZ, size, widthSegments)
+import Rito.Properties (aspect, background, decay, distance, intensity, rotateX, rotateY, rotateZ) as P
+import Rito.Properties (positionX, positionY, positionZ, render, scaleX, scaleY, scaleZ, size)
 import Rito.Renderers.CSS2D (css2DRenderer)
 import Rito.Renderers.CSS3D (css3DRenderer)
 import Rito.Renderers.WebGL (webGLRenderer)
@@ -52,7 +43,7 @@ import Rito.Run as Rito.Run
 import Rito.Scene (Background(..), scene)
 import Rito.Texture (Texture)
 import Type.Proxy (Proxy(..))
-import Types (Axis(..), CubeTextures, GalaxyAttributes, HitBasicMe, HitBasicVisualForLabel, HitLeapVisualForLabel, HitLongVisualForLabel, JMilliseconds, Player(..), PlayerPositions, Position(..), RateInfo, ReleaseLongVisualForLabel, RenderingInfo, Seconds(..), Shaders, Textures, ThreeDI, WindowDims, allPlayers, allPositions, playerPosition, playerPosition')
+import Types (Axis(..), CubeTextures, GalaxyAttributes, HitBasicMe, HitBasicVisualForLabel, HitLeapVisualForLabel, HitLongVisualForLabel, JMilliseconds, Player(..), PlayerPositions, Position(..), RateInfo, ReleaseLongVisualForLabel, RenderingInfo, Shaders, Textures, ThreeDI, WindowDims, allPlayers, allPositions, playerPosition, playerPosition')
 import Web.DOM as Web.DOM
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 
@@ -139,7 +130,7 @@ runThree opts = do
               )
           )
           \myCamera -> globalScenePortal1
-            ( scene { scene: opts.threeDI.scene } (bang $ P.background (CubeTexture (unwrap opts.cubeTextures).skybox))
+            ( scene { scene: opts.threeDI.scene } (bang $ P.background (CubeTexture (unwrap opts.cubeTextures).skybox2))
                 [ toScene $ group { group: opts.threeDI.group }
                     ( keepLatest $
                         ( mapAccum
@@ -315,37 +306,6 @@ runThree opts = do
                               , longRelease: sceneEvent.releaseLongVisualForLabel
                               , lpsCallback: opts.lowPriorityCb
                               }
-                          ]
-                        <>
-                          [ toGroup $ instancedMesh' galaxyParams.count
-                              { matrix4: opts.threeDI.matrix4
-                              , mesh: opts.threeDI.mesh
-                              , instancedMesh: opts.threeDI.instancedMesh
-                              }
-                              ( plane
-                                  { plane: opts.threeDI.plane
-                                  , instancedBufferAttributes: fromHomogeneous opts.galaxyAttributes
-                                  , widthSegments: 4
-                                  , heightSegments: 4
-                                  }
-                              )
-                              ( shaderMaterial
-                                  { uSize: 30.0
-                                  , uTime: 0.0
-                                  , uButterfly: (unwrap opts.textures).butterfly0
-                                  }
-                                  { shaderMaterial: opts.threeDI.shaderMaterial
-                                  , vertexShader: opts.shaders.galaxy.vertex
-                                  , depthWrite: false
-                                  , blending: AdditiveBlending
-                                  , vertexColors: true
-                                  , fragmentShader: opts.shaders.galaxy.fragment
-                                  }
-                                  ( opts.animatedStuff <#>
-                                      \{ rateInfo: { time: Seconds time } } -> P.uniform (inj (Proxy :: _ "uTime") time)
-                                  )
-                              )
-                              empty -- oneOf [ bang $ P.positionZ (-1.0), bang $ positionY 0.0, bang $ scaleX 3.0, bang $ scaleY 3.0, bang $ scaleZ 3.0 ]
                           ]
                         <>
                           -- camera
