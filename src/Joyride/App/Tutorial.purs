@@ -135,9 +135,6 @@ tutorial
   ( vbussed (Proxy :: _ TutorialEvents) \push event ->
       do
         let
-          -- todo: need to initialize at higher level
-          iAmReady :: KnownPlayers -> Boolean
-          iAmReady (KnownPlayers m) = let lookup = Map.lookup myPlayer m in Just HasNotStartedYet /= lookup && Nothing /= lookup
 
           allAreReady :: KnownPlayers -> Maybe JMilliseconds
           allAreReady (KnownPlayers m)
@@ -279,7 +276,7 @@ tutorial
                     ]
                 , let
                     frame mid = D.div (bang $ D.Class := "justify-self-center self-center row-start-2 row-end-3 col-start-2 col-end-3")
-                      [ mid                      ]
+                      [ mid ]
                   in
                     frame (startButton animatedStuff)
                 ]
@@ -432,15 +429,45 @@ tutorial
       }
 
   tutorialCenterMatter currentState pushCurrentState { startCallback } = currentState # switcher \cs -> case cs of
-    Intro -> tutorialCenterMatterFrame "Welcome to Joyride!" "Start Tutorial" FadeOut startCallback pushCurrentState
-    _ -> envy empty
+    Intro -> tutorialCenterMatterFrame "Welcome to Joyride!" Nothing "Start Tutorial" FadeOut
+      ( startCallback *> launchAff_
+          ( delay (Milliseconds 4000.0)
+              *> liftEffect (pushCurrentState Tiles)
+          )
+      )
+      pushCurrentState
+    Tiles -> tutorialCenterMatterFrame "Tiles!" (Just "Something about tiles") "Next >" FadeInOut
+      ( launchAff_
+          ( delay (Milliseconds 10000.0)
+              *> liftEffect (pushCurrentState Leap)
+          )
+      )
+      pushCurrentState
+    Leap -> tutorialCenterMatterFrame "Leap" (Just "Something about leap") "Next >" FadeInOut
+      ( launchAff_
+          ( delay (Milliseconds 10000.0)
+              *> liftEffect (pushCurrentState Long)
+          )
+      )
+      pushCurrentState
+    Long -> tutorialCenterMatterFrame "Looonngg" (Just "Something about long") "Next >" FadeInOut
+      ( launchAff_
+          ( delay (Milliseconds 10000.0)
+              *> liftEffect (pushCurrentState End)
+          )
+      )
+      pushCurrentState
+    End -> tutorialCenterMatterFrame "That's it!" (Just "You rock.") "Home >" FadeInOut
+      (mempty)
+      pushCurrentState
+    Empty -> envy empty
 
   tutorialFadeInAnimation = "tutorial-fade-in-animation"
   tutorialFadeOutAnimation = "tutorial-fade-out-animation"
-  replaceFadeInWithFadeOut = ((if _ then _ else _) <$> String.contains (String.Pattern tutorialFadeInAnimation) <*> String.replace (String.Pattern tutorialFadeInAnimation) (String.Replacement (tutorialFadeOutAnimation <> "opacity-0 ")) <*> append (tutorialFadeOutAnimation <> space <> "opacity-0 "))
+  replaceFadeInWithFadeOut = ((if _ then _ else _) <$> String.contains (String.Pattern tutorialFadeInAnimation) <*> String.replace (String.Pattern tutorialFadeInAnimation) (String.Replacement (tutorialFadeOutAnimation <> space <> "opacity-0 ")) <*> append (tutorialFadeOutAnimation <> space <> "opacity-0 "))
   space = " "
 
-  tutorialCenterMatterFrame txt action fade cb pcenter = bussed \setFadeOut fadeOut' -> do
+  tutorialCenterMatterFrame hd txt action fade cb pcenter = bussed \setFadeOut fadeOut' -> do
     let
       buttonStyle = bang $ D.Class := "w-full pointer-events-auto text-center bg-gray-800 hover:bg-gray-600 text-white py-2 px-4 rounded"
       fadeOut = bang identity <|> fadeOut'
@@ -455,33 +482,46 @@ tutorial
                 ) <> "bg-slate-700 select-auto"
             )
       )
-      [ D.div
-          (bang $ D.Class := "pointer-events-auto text-center text-white p-4")
-          [ D.p_ [ text_ txt ]
-          ]
-      , D.div (bang $ D.Class := "w-full flex flex-row content-between")
-          [ D.div (bang $ D.Class := "w-full")
-              [ D.button
-                  ( oneOf
-                      [ buttonStyle
-                      , bang $
-                          D.OnClick :=
-                            let
-                              goodbye = pcenter Empty
-                              fout = setFadeOut replaceFadeInWithFadeOut *> launchAff_ (delay (Milliseconds 1500.0) *> liftEffect goodbye)
-                            in
-                              ( ( case fade of
-                                    FadeOut -> fout
-                                    FadeInOut -> fout
-                                    _ -> goodbye
-                                ) *> cb
-                              )
+      ( [ D.div
+            (bang $ D.Class := "pointer-events-auto text-center text-white p-4")
+            [ D.p_ [ text_ hd ]
+            ]
+        ]
+          <>
+            ( case txt of
+                Just x ->
+                  [ D.div
+                      (bang $ D.Class := "pointer-events-auto text-center text-white p-4")
+                      [ D.p_ [ text_ x ]
                       ]
-                  )
-                  [ text_ action ]
-              ]
-          ]
-      ]
+                  ]
+                Nothing -> []
+            )
+          <>
+            [ D.div (bang $ D.Class := "w-full flex flex-row content-between")
+                [ D.div (bang $ D.Class := "w-full")
+                    [ D.button
+                        ( oneOf
+                            [ buttonStyle
+                            , bang $
+                                D.OnClick :=
+                                  let
+                                    goodbye = pcenter Empty
+                                    fout = setFadeOut replaceFadeInWithFadeOut *> launchAff_ (delay (Milliseconds 1500.0) *> liftEffect goodbye)
+                                  in
+                                    ( ( case fade of
+                                          FadeOut -> fout
+                                          FadeInOut -> fout
+                                          _ -> goodbye
+                                      ) *> cb
+                                    )
+                            ]
+                        )
+                        [ text_ action ]
+                    ]
+                ]
+            ]
+      )
 
   makeJoined :: Player -> KnownPlayers -> Nut
   makeJoined mp (KnownPlayers m) = D.ul_

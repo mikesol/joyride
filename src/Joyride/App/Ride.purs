@@ -50,12 +50,11 @@ import Joyride.Visual.Animation.Ride (runThree)
 import Joyride.Ocarina (AudibleChildEnd)
 import Rito.Color (color)
 import Rito.Core (ASceneful)
-import Rito.CubeTexture as CTL
 import Rito.Matrix4 as M4
 import Safe.Coerce (coerce)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
-import Types (Beats(..), CubeTextures, HitBasicMe, HitBasicOtherPlayer(..), HitBasicOverTheWire(..), HitLeapMe, HitLeapOtherPlayer(..), HitLeapOverTheWire(..), HitLongMe, HitLongOtherPlayer(..), HitLongOverTheWire(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, MakeLongs, Player(..), PlayerAction(..), PlayerPositionsF, RateInfo, ReleaseLongMe, ReleaseLongOtherPlayer(..), ReleaseLongOverTheWire(..), RenderingInfo, Seconds(..), StartStatus(..), Success', ThreeDI, WantsTutorial', WindowDims)
+import Types (Beats(..), HitBasicMe, HitBasicOtherPlayer(..), HitBasicOverTheWire(..), HitLeapMe, HitLeapOtherPlayer(..), HitLeapOverTheWire(..), HitLongMe, HitLongOtherPlayer(..), HitLongOverTheWire(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, MakeLongs, Player(..), PlayerAction(..), PlayerPositionsF, RateInfo, ReleaseLongMe, ReleaseLongOtherPlayer(..), ReleaseLongOverTheWire(..), RenderingInfo, Seconds(..), StartStatus(..), Success', WindowDims)
 import Ocarina.Clock (withACTime)
 import Ocarina.Interpret (close, constant0Hack, context)
 import Ocarina.Run (run2)
@@ -162,8 +161,7 @@ ride
             [ D.button
                 ( oneOf
                     [ bang $ D.Class := "pointer-events-auto p-1"
-                    , bang $ D.OnClick := do
-                        off
+                    , bang $ D.OnClick := off
                     ]
                 )
                 [ text_ "Exit tutorial" ]
