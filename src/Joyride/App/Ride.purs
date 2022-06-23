@@ -45,9 +45,14 @@ import Joyride.FRP.Rate (timeFromRate)
 import Joyride.FRP.SampleJIT (sampleJIT)
 import Joyride.FRP.SampleOnSubscribe (initializeWithEmpty)
 import Joyride.FRP.Schedule (fireAndForget)
+import Joyride.Ocarina (AudibleChildEnd)
+import Joyride.Style (buttonCls)
 import Joyride.Timing.CoordinatedNow (withCTime)
 import Joyride.Visual.Animation.Ride (runThree)
-import Joyride.Ocarina (AudibleChildEnd)
+import Ocarina.Clock (withACTime)
+import Ocarina.Interpret (close, constant0Hack, context)
+import Ocarina.Run (run2)
+import Ocarina.WebAPI (BrowserAudioBuffer)
 import Rito.Color (color)
 import Rito.Core (ASceneful)
 import Rito.Matrix4 as M4
@@ -55,10 +60,6 @@ import Safe.Coerce (coerce)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
 import Types (Beats(..), HitBasicMe, HitBasicOtherPlayer(..), HitBasicOverTheWire(..), HitLeapMe, HitLeapOtherPlayer(..), HitLeapOverTheWire(..), HitLongMe, HitLongOtherPlayer(..), HitLongOverTheWire(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, MakeLongs, Player(..), PlayerAction(..), PlayerPositionsF, RateInfo, ReleaseLongMe, ReleaseLongOtherPlayer(..), ReleaseLongOverTheWire(..), RenderingInfo, Seconds(..), StartStatus(..), Success', WindowDims)
-import Ocarina.Clock (withACTime)
-import Ocarina.Interpret (close, constant0Hack, context)
-import Ocarina.Run (run2)
-import Ocarina.WebAPI (BrowserAudioBuffer)
 import Web.DOM as Web.DOM
 import Web.Event.Event (target)
 import Web.HTML.HTMLCanvasElement as HTMLCanvasElement
@@ -168,9 +169,9 @@ ride
             ]
           startButton aStuff = do
             let
-              buttonStyle = bang $ D.Class := "w-full pointer-events-auto text-center bg-gray-800 hover:bg-gray-600 text-white py-2 px-4 rounded"
               callback toSample = oneOf
-                [ buttonStyle
+                [ bang $ D.Class := buttonCls
+
                 ----- IMPORTANT -----
                 ----- IMPORTANT -----
                 ----- IMPORTANT -----
@@ -307,13 +308,17 @@ ride
                               Nothing ->
                                 [ D.div (bang $ D.Class := "w-6/12")
                                     [ D.button
-                                        (callback (toEvent changeText))
+                                        ( oneOf
+                                            [ bang $ D.Class := buttonCls
+                                            , callback (toEvent changeText)
+                                            ]
+                                        )
                                         [ text_ "Start" ]
                                     ]
                                 , D.div (bang $ D.Class := "w-6/12")
                                     [ D.button
                                         ( oneOf
-                                            [ buttonStyle
+                                            [ bang $ D.Class := buttonCls
                                             , click $ bang $ nPush.requestName unit
                                             ]
                                         )

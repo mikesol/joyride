@@ -41,6 +41,7 @@ import Joyride.FRP.Rate (timeFromRate)
 import Joyride.FRP.SampleOnSubscribe (initializeWithEmpty)
 import Joyride.FRP.Schedule (fireAndForget)
 import Joyride.Ocarina (AudibleChildEnd)
+import Joyride.Style (buttonCls, headerCls)
 import Joyride.Visual.Animation.Tutorial (runThree)
 import Ocarina.Clock (withACTime)
 import Ocarina.Interpret (close, constant0Hack, context)
@@ -250,8 +251,8 @@ tutorial
           \animatedStuff -> D.div_
             [
               -- on/off
-              D.div (bang $ D.Class := "z-10 pointer-events-none absolute w-screen h-screen grid grid-rows-3 grid-cols-3")
-                [ D.div (bang $ D.Class := "row-start-1 row-end-2 col-start-1 col-end-2")
+              D.div (bang $ D.Class := "z-10 pointer-events-none absolute w-screen h-screen grid grid-rows-6 grid-cols-6")
+                [ D.div (bang $ D.Class := "row-start-1 row-end-3 col-start-1 col-end-3")
                     -- fromEvent because playerStatus is effectful
 
                     [ D.div_
@@ -274,11 +275,7 @@ tutorial
                             )
                         ]
                     ]
-                , let
-                    frame mid = D.div (bang $ D.Class := "justify-self-center self-center row-start-2 row-end-3 col-start-2 col-end-3")
-                      [ mid ]
-                  in
-                    frame (startButton animatedStuff)
+                , startButton animatedStuff
                 ]
             , D.div
                 (bang (D.Class := "absolute"))
@@ -469,7 +466,6 @@ tutorial
 
   tutorialCenterMatterFrame hd txt action fade cb pcenter = bussed \setFadeOut fadeOut' -> do
     let
-      buttonStyle = bang $ D.Class := "w-full pointer-events-auto text-center bg-gray-800 hover:bg-gray-600 text-white py-2 px-4 rounded"
       fadeOut = bang identity <|> fadeOut'
     D.div
       ( fadeOut <#> \f ->
@@ -479,11 +475,11 @@ tutorial
                     FadeIn -> tutorialFadeInAnimation <> space
                     FadeInOut -> tutorialFadeInAnimation <> space
                     _ -> ""
-                ) <> "bg-slate-700 select-auto"
+                ) <> "select-auto justify-self-center self-center row-start-2 row-end-4 col-start-3 col-end-5"
             )
       )
       ( [ D.div
-            (bang $ D.Class := "pointer-events-auto text-center text-white p-4")
+            (bang $ D.Class := "pointer-events-auto text-center p-4 " <> headerCls)
             [ D.p_ [ text_ hd ]
             ]
         ]
@@ -498,28 +494,24 @@ tutorial
                 Nothing -> []
             )
           <>
-            [ D.div (bang $ D.Class := "w-full flex flex-row content-between")
-                [ D.div (bang $ D.Class := "w-full")
-                    [ D.button
-                        ( oneOf
-                            [ buttonStyle
-                            , bang $
-                                D.OnClick :=
-                                  let
-                                    goodbye = pcenter Empty
-                                    fout = setFadeOut replaceFadeInWithFadeOut *> launchAff_ (delay (Milliseconds 1500.0) *> liftEffect goodbye)
-                                  in
-                                    ( ( case fade of
-                                          FadeOut -> fout
-                                          FadeInOut -> fout
-                                          _ -> goodbye
-                                      ) *> cb
-                                    )
-                            ]
-                        )
-                        [ text_ action ]
+            [ D.div (bang $ D.Class := "flex w-full justify-center items-center") [D.button
+                ( oneOf
+                    [ bang $ D.Class := buttonCls <> " pointer-events-auto"
+                    , bang $
+                        D.OnClick :=
+                          let
+                            goodbye = pcenter Empty
+                            fout = setFadeOut replaceFadeInWithFadeOut *> launchAff_ (delay (Milliseconds 1500.0) *> liftEffect goodbye)
+                          in
+                            ( ( case fade of
+                                  FadeOut -> fout
+                                  FadeInOut -> fout
+                                  _ -> goodbye
+                              ) *> cb
+                            )
                     ]
-                ]
+                )
+                [ text_ action ]]
             ]
       )
 
