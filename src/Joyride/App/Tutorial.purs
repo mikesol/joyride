@@ -37,7 +37,6 @@ import Foreign.Object as Object
 import Joyride.App.RequestIdleCallbackIsDefined (requestIdleCallbackIsDefined)
 import Joyride.Audio.Graph.Tutorial (graph)
 import Joyride.FRP.Behavior (refToBehavior)
-import Joyride.FRP.Dedup (dedup)
 import Joyride.FRP.Rate (timeFromRate)
 import Joyride.FRP.SampleOnSubscribe (initializeWithEmpty)
 import Joyride.FRP.Schedule (fireAndForget)
@@ -254,41 +253,35 @@ tutorial
           \animatedStuff -> D.div_
             [
               -- on/off
-              D.div (bang $ D.Class := "z-10 pointer-events-none absolute w-screen h-screen flex flex-col")
-                [ D.div (bang $ D.Class := "grow flex flex-row")
+              D.div (bang $ D.Class := "z-10 pointer-events-none absolute w-screen h-screen grid grid-rows-3 grid-cols-3")
+                [ D.div (bang $ D.Class := "row-start-1 row-end-2 col-start-1 col-end-2")
                     -- fromEvent because playerStatus is effectful
-                    [ D.div (bang $ D.Class := "grow-0")
-                        [ D.div_
-                            [ fromEvent (biSampleOn (initializeWithEmpty event.iAmReady) (map Tuple playerStatus))
-                                -- we theoretically don't need to dedup because
-                                -- the button should never redraw once we've started
-                                -- if there's flicker, dedup
-                                # switcher \(Tuple oi usu) -> case usu of
-                                    Nothing -> makeJoined myPlayer oi
-                                    Just (Unsubscribe _) -> makePoints myPlayer oi
-                            ]
-                        , D.div_
-                            [ envy $ map stopButton
-                                ( fromEvent
-                                    ( map
-                                        ( \(Unsubscribe u) -> u *> tli.goHome
-                                        )
-                                        (event.iAmReady)
-                                    )
-                                )
-                            ]
+
+                    [ D.div_
+                        [ fromEvent (biSampleOn (initializeWithEmpty event.iAmReady) (map Tuple playerStatus))
+                            -- we theoretically don't need to dedup because
+                            -- the button should never redraw once we've started
+                            -- if there's flicker, dedup
+                            # switcher \(Tuple oi usu) -> case usu of
+                                Nothing -> makeJoined myPlayer oi
+                                Just (Unsubscribe _) -> makePoints myPlayer oi
                         ]
-                    , D.div (bang $ D.Class := "grow") []
+                    , D.div_
+                        [ envy $ map stopButton
+                            ( fromEvent
+                                ( map
+                                    ( \(Unsubscribe u) -> u *> tli.goHome
+                                    )
+                                    (event.iAmReady)
+                                )
+                            )
+                        ]
                     ]
                 , let
-                    frame mid = D.div (bang $ D.Class := "flex flex-row")
-                      [ D.div (bang $ D.Class := "grow") []
-                      , D.div (bang $ D.Class := "grow-0") [ mid ]
-                      , D.div (bang $ D.Class := "grow") []
-                      ]
+                    frame mid = D.div (bang $ D.Class := "justify-self-center self-center row-start-2 row-end-3 col-start-2 col-end-3")
+                      [ mid                      ]
                   in
-                    D.div_ [ frame (startButton animatedStuff) ]
-                , D.div (bang $ D.Class := "grow") []
+                    frame (startButton animatedStuff)
                 ]
             , D.div
                 (bang (D.Class := "absolute"))
@@ -444,25 +437,26 @@ tutorial
 
   tutorialFadeInAnimation = "tutorial-fade-in-animation"
   tutorialFadeOutAnimation = "tutorial-fade-out-animation"
-  replaceFadeInWithFadeOut = (if _ then _ else _) <$> String.contains (String.Pattern tutorialFadeInAnimation) <*> String.replace (String.Pattern tutorialFadeInAnimation) (String.Replacement tutorialFadeOutAnimation) <*> append (tutorialFadeOutAnimation <> space)
+  replaceFadeInWithFadeOut = ((if _ then _ else _) <$> String.contains (String.Pattern tutorialFadeInAnimation) <*> String.replace (String.Pattern tutorialFadeInAnimation) (String.Replacement (tutorialFadeOutAnimation <> "opacity-0 ")) <*> append (tutorialFadeOutAnimation <> space <> "opacity-0 "))
   space = " "
 
   tutorialCenterMatterFrame txt action fade cb pcenter = bussed \setFadeOut fadeOut' -> do
     let
       buttonStyle = bang $ D.Class := "w-full pointer-events-auto text-center bg-gray-800 hover:bg-gray-600 text-white py-2 px-4 rounded"
       fadeOut = bang identity <|> fadeOut'
-    D.div (bang $ D.Class := "bg-slate-700 select-auto")
+    D.div
+      ( fadeOut <#> \f ->
+          D.Class :=
+            ( f
+                ( case fade of
+                    FadeIn -> tutorialFadeInAnimation <> space
+                    FadeInOut -> tutorialFadeInAnimation <> space
+                    _ -> ""
+                ) <> "bg-slate-700 select-auto"
+            )
+      )
       [ D.div
-          ( fadeOut <#> \f ->
-              D.Class :=
-                ( f
-                    ( case fade of
-                        FadeIn -> tutorialFadeInAnimation <> space
-                        FadeInOut -> tutorialFadeInAnimation <> space
-                        _ -> ""
-                    ) <> "pointer-events-auto text-center text-white p-4"
-                )
-          )
+          (bang $ D.Class := "pointer-events-auto text-center text-white p-4")
           [ D.p_ [ text_ txt ]
           ]
       , D.div (bang $ D.Class := "w-full flex flex-row content-between")

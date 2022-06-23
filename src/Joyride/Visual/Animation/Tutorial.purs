@@ -193,13 +193,21 @@ runThree opts = do
                                     }
                               empty
                             )
+
                             ( oneOf
                                 [ positionX <$> applyLPF (player == opts.myPlayer) (posAx AxisX)
                                 , positionY <$> (sampleBy (\{ sphereOffsetY } py -> sphereOffsetY + py) opts.renderingInfo (posAx AxisY))
+                                , bang $ positionZ
+                                    ( case player of
+                                        Player1 -> -4.0
+                                        Player2 -> -3.0
+                                        Player3 -> -2.0
+                                        Player4 -> -1.0
+                                    )
                                 , positionZ <$> posAx AxisZ
-                                , bang (scaleX 0.1)
-                                , bang (scaleY 0.1)
-                                , bang (scaleZ 0.1)
+                                , bang $ scaleX 0.1
+                                , bang $ scaleY 0.1
+                                , bang $ scaleZ 0.1
                                 ]
                             )
 

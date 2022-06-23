@@ -166,7 +166,7 @@ ride
                         off
                     ]
                 )
-                [ text_ "Exit game" ]
+                [ text_ "Exit tutorial" ]
             ]
           startButton aStuff = do
             let
@@ -345,31 +345,29 @@ ride
           \animatedStuff -> D.div_
             [
               -- on/off
-              D.div (bang $ D.Class := "z-10 pointer-events-none absolute w-screen h-screen flex flex-col")
-                [ D.div (bang $ D.Class := "grow flex flex-row")
+              D.div (bang $ D.Class := "z-10 pointer-events-none absolute w-screen h-screen grid grid-rows-3 grid-cols-3")
+                [ D.div (bang $ D.Class := "row-start-1 row-end-2 col-start-1 col-end-2")
                     -- fromEvent because playerStatus is effectful
-                    [ D.div (bang $ D.Class := "grow-0")
-                        [ D.div_
-                            [ fromEvent (biSampleOn (initializeWithEmpty event.iAmReady) (map Tuple playerStatus))
-                                -- we theoretically don't need to dedup because
-                                -- the button should never redraw once we've started
-                                -- if there's flicker, dedup
-                                # switcher \(Tuple oi usu) -> case usu of
-                                    Nothing -> makeJoined myPlayer oi
-                                    Just (Unsubscribe _) -> makePoints myPlayer oi
-                            ]
-                        , D.div_
-                            [ envy $ map stopButton
-                                ( fromEvent
-                                    ( map
-                                        ( \(Unsubscribe u) -> u *> tli.goHome
-                                        )
-                                        (event.iAmReady)
-                                    )
-                                )
-                            ]
+                    [ D.div_
+                        [ fromEvent (biSampleOn (initializeWithEmpty event.iAmReady) (map Tuple playerStatus))
+                            -- we theoretically don't need to dedup because
+                            -- the button should never redraw once we've started
+                            -- if there's flicker, dedup
+                            # switcher \(Tuple oi usu) -> case usu of
+                                Nothing -> makeJoined myPlayer oi
+                                Just (Unsubscribe _) -> makePoints myPlayer oi
                         ]
-                    , D.div (bang $ D.Class := "grow") []
+                    , D.div_
+                        [ envy $ map stopButton
+                            ( fromEvent
+                                ( map
+                                    ( \(Unsubscribe u) -> u *> tli.goHome
+                                    )
+                                    (event.iAmReady)
+                                )
+                            )
+                        ]
+
                     ]
                 , let
                     frame mid = D.div (bang $ D.Class := "flex flex-row")
@@ -378,7 +376,7 @@ ride
                       , D.div (bang $ D.Class := "grow") []
                       ]
                   in
-                    D.div_
+                    D.div (bang $ D.Class := "justify-self-center self-center row-start-2 row-end-3 col-start-2 col-end-3")
                       [ ( fromEvent
                             ( dedup
                                 ( playerStatus <#>

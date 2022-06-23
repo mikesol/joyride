@@ -21,6 +21,7 @@ import FRP.Event.VBus (V, vbus)
 import Foreign.Object (fromHomogeneous)
 import Joyride.Effect.Lowpass (lpf)
 import Joyride.FRP.Dedup (dedup)
+import Joyride.FRP.Schedule (fireAndForget)
 import Joyride.Shaders.Galaxy (galaxyParams)
 import Joyride.Visual.Bar (makeBar)
 import Joyride.Visual.BasicLabels (basicLabels)
@@ -206,6 +207,13 @@ runThree opts = do
                                 [ positionX <$> applyLPF (player == opts.myPlayer) (posAx AxisX)
                                 , positionY <$> (sampleBy (\{ sphereOffsetY } py -> sphereOffsetY + py) opts.renderingInfo (posAx AxisY))
                                 , positionZ <$> posAx AxisZ
+                               , bang $ positionZ (case player of
+                                  Player1 -> -4.0
+                                  Player2 -> -3.0
+                                  Player3 -> -2.0
+                                  Player4 -> -1.0
+                                  )
+
                                 , bang (scaleX 0.1)
                                 , bang (scaleY 0.1)
                                 , bang (scaleZ 0.1)
