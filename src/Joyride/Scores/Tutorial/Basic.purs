@@ -2,7 +2,7 @@ module Joyride.Scores.Tutorial.Basic where
 
 import Prelude
 
-import Bolson.Core (Child(..), dyn, envy, fixed)
+import Bolson.Core (envy, fixed)
 import Control.Alt ((<|>))
 import Control.Comonad.Cofree (Cofree, (:<))
 import Control.Plus (empty)
@@ -17,7 +17,6 @@ import Data.List (List(..), span, (:))
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.Time.Duration (Milliseconds(..), Seconds(..))
-import Effect (Effect)
 import FRP.Behavior (Behavior, sample_)
 import FRP.Event (Event, keepLatest, memoize)
 import FRP.Event.Class (bang)
@@ -29,17 +28,16 @@ import Joyride.FRP.Schedule (oneOff, scheduleCf)
 import Joyride.Ocarina (AudibleEnd(..))
 import Joyride.Scores.Tutorial.Base as Base
 import Joyride.Visual.Basic as BasicV
-import Joyride.Visual.BasicWord as BasicW
 import Ocarina.WebAPI (BrowserAudioBuffer)
 import Record (union)
 import Rito.Color (RGB(..))
-import Rito.Core (ASceneful, CSS3DObject, Instance, toScene)
+import Rito.Core (ASceneful, Instance, toScene)
 import Rito.Geometries.Box (box)
 import Rito.Materials.MeshPhongMaterial (meshPhongMaterial)
 import Rito.RoundRobin (InstanceId, Semaphore(..), roundRobinInstancedMesh)
 import Safe.Coerce (coerce)
 import Type.Proxy (Proxy(..))
-import Types (Beats(..), Column(..), HitBasicMe, JMilliseconds(..), MakeBasics, RateInfo, beatToTime)
+import Types (Beats(..), Column(..), JMilliseconds(..), MakeBasics, RateInfo, beatToTime)
 
 type ACU =
   { appearsAt :: Beats
@@ -148,7 +146,6 @@ tutorialBasics makeBasics =
               empty
           )
           (children transformBasic)
-      , toScene $ dyn (children transformBasicWord)
       ]
   )
 
@@ -179,30 +176,6 @@ tutorialBasics makeBasics =
       ( keepLatest $ (LocalTime.withTime (bang unit)) <#> \{ time } -> lowPrioritySchedule makeBasics.lpsCallback
           (JMilliseconds 10000.0 + (coerce $ unInstant time))
           (bang $ Release)
-      )
-
-  transformBasicWord :: ACU -> Event (Child Void (CSS3DObject lock payload) Effect lock)
-  transformBasicWord input =
-    ( bang $ Insert
-        ( BasicW.basicWord
-            ( makeBasics `union` input `union`
-                { beats: severalBeats
-                    { b0: input.b0
-                    , b1: input.b1
-                    , b2: input.b2
-                    , b3: input.b3
-                    , silence: makeBasics.silence
-                    }
-                , uniqueId: input.uniqueId
-                -- empty for now, fill this in later
-                , someonePlayedMe: (empty :: Event HitBasicMe)
-                }
-            )
-        )
-    ) <|>
-      ( keepLatest $ (LocalTime.withTime (bang unit)) <#> \{ time } -> lowPrioritySchedule makeBasics.lpsCallback
-          (JMilliseconds 10000.0 + (coerce $ unInstant time))
-          (bang $ Remove)
       )
 
   go :: forall a. (ACU -> Event a) -> List ACU -> RateInfo -> Cofree ((->) RateInfo) (List (Event a))
