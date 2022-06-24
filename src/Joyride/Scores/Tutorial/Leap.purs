@@ -1,4 +1,4 @@
-module Joyride.Mocks.Leap where
+module Joyride.Scores.Tutorial.Leap where
 
 import Prelude
 
@@ -7,7 +7,6 @@ import Control.Alt ((<|>))
 import Control.Comonad.Cofree ((:<))
 import Control.Plus (empty)
 import Data.DateTime.Instant (unInstant)
-import Data.FastVect.FastVect (cons)
 import Data.Foldable (oneOfMap)
 import Data.FunctorWithIndex (mapWithIndex)
 import Data.List (List(..), span, (:))
@@ -31,7 +30,7 @@ import Rito.Geometries.Box (box)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.RoundRobin (InstanceId, Semaphore(..), roundRobinInstancedMesh)
 import Safe.Coerce (coerce)
-import Types (Beats(..), Column(..), JMilliseconds(..), MakeLeaps, Position(..), RateInfo, Textures(..), beatToTime)
+import Types (Beats(..), Column(..), JMilliseconds(..), MakeLeaps, Position(..), RateInfo, beatToTime)
 import Ocarina.WebAPI (BrowserAudioBuffer)
 
 lookAhead :: Beats
@@ -63,8 +62,8 @@ singleBeat { buffer, silence, myBeat } riE = AudibleEnd
 
   )
 
-mockLeaps :: forall lock payload. { | MakeLeaps () } -> ASceneful lock payload
-mockLeaps makeLeaps = toScene
+tutorialLeaps :: forall lock payload. { | MakeLeaps () } -> ASceneful lock payload
+tutorialLeaps makeLeaps = toScene
   ( roundRobinInstancedMesh
       { instancedMesh: makeLeaps.threeDI.instancedMesh
       , matrix4: makeLeaps.threeDI.matrix4
@@ -117,7 +116,18 @@ mockLeaps makeLeaps = toScene
     let
       { init, rest } = span (\{ appearsAt } -> appearsAt <= beats + lookAhead) l
     (transform <$> init) :< go rest
-  score = mapWithIndex (\uniqueId x -> union { uniqueId } x) $ { column: C4, appearsAt: Beats 0.0, position: Position2 }
+  score = mapWithIndex (\uniqueId x -> union { uniqueId } x) $ tmpScore0
+
+type ScoreMorcel = { appearsAt :: Beats
+  , column :: Column
+  , position :: Position
+  }
+
+tmpScore0 :: List ScoreMorcel
+tmpScore0 = Nil
+
+tmpScore :: List ScoreMorcel
+tmpScore = { column: C4, appearsAt: Beats 0.0, position: Position2 }
     : { column: C8, appearsAt: Beats 2.0, position: Position3 }
     : { column: C8, appearsAt: Beats 3.0, position: Position1 }
     : { column: C8, appearsAt: Beats 5.0, position: Position3 }

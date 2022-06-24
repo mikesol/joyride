@@ -264,3 +264,17 @@
 body {
 	user-select: none;
 }
+
+.tutorial-fade-in-animation { animation: tutorialFadeIn 1s; animation-fill-mode: forwards; }
+
+@keyframes tutorialFadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 0.8; }
+}
+
+.tutorial-fade-out-animation { animation: tutorialFadeOut 1s; animation-fill-mode: forwards; }
+
+@keyframes tutorialFadeOut {
+  0% { opacity: 0.8; }
+  100% { opacity: 0; }
+}

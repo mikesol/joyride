@@ -1,4 +1,4 @@
-module Joyride.Mocks.Basic where
+module Joyride.Scores.Tutorial.Basic where
 
 import Prelude
 
@@ -11,35 +11,42 @@ import Data.FastVect.FastVect (Vect, cons)
 import Data.FastVect.FastVect as V
 import Data.Foldable (oneOfMap)
 import Data.FunctorWithIndex (mapWithIndex)
+import Data.Lens (over, traversed)
+import Data.Lens.Record (prop)
 import Data.List (List(..), span, (:))
 import Data.Maybe (Maybe(..))
+import Data.Newtype (unwrap)
 import Data.Time.Duration (Milliseconds(..), Seconds(..))
 import Effect (Effect)
 import FRP.Behavior (Behavior, sample_)
 import FRP.Event (Event, keepLatest, memoize)
 import FRP.Event.Class (bang)
 import FRP.Event.Time as LocalTime
-import Foreign.Object as Object
 import Joyride.Audio.Basic as BasicA
-import Joyride.FRP.Behavior (misbehavior)
+import Joyride.Constants.Tutorial (tutorialStartOffset)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Schedule (oneOff, scheduleCf)
+import Joyride.Ocarina (AudibleEnd(..))
+import Joyride.Scores.Tutorial.Base as Base
 import Joyride.Visual.Basic as BasicV
 import Joyride.Visual.BasicWord as BasicW
-import Joyride.Ocarina (AudibleEnd(..))
+import Ocarina.WebAPI (BrowserAudioBuffer)
 import Record (union)
 import Rito.Color (RGB(..))
 import Rito.Core (ASceneful, CSS3DObject, Instance, toScene)
 import Rito.Geometries.Box (box)
 import Rito.Materials.MeshPhongMaterial (meshPhongMaterial)
-import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.RoundRobin (InstanceId, Semaphore(..), roundRobinInstancedMesh)
 import Safe.Coerce (coerce)
+import Type.Proxy (Proxy(..))
 import Types (Beats(..), Column(..), HitBasicMe, JMilliseconds(..), MakeBasics, RateInfo, beatToTime)
-import Ocarina.WebAPI (BrowserAudioBuffer)
 
 type ACU =
   { appearsAt :: Beats
+  , b0 :: Beats
+  , b1 :: Beats
+  , b2 :: Beats
+  , b3 :: Beats
   , column :: Column
   , uniqueId :: Int
   }
@@ -85,32 +92,33 @@ singleBeat { buffer, silence, myBeat } =
   }
 
 severalBeats
-  :: { startsAt :: Beats
+  :: { b0 :: Beats
+     , b1 :: Beats
+     , b2 :: Beats
+     , b3 :: Beats
      , silence :: BrowserAudioBuffer
-     , buffers :: Behavior (Object.Object BrowserAudioBuffer)
      }
   -> Vect 4 { startsAt :: Beats, audio :: Event RateInfo -> AudibleEnd }
-severalBeats { startsAt, buffers, silence } = singleBeat (f "kick" $ Beats 0.0)
-  :/ singleBeat (f "hihat" $ Beats 1.0)
-  :/ singleBeat (f "note" $ Beats 2.0)
-  :/ singleBeat (f "tambourine" $ Beats 3.0)
+severalBeats { b0, b1, b2, b3, silence } = singleBeat (f $ b0)
+  :/ singleBeat (f $ b1)
+  :/ singleBeat (f $ b2)
+  :/ singleBeat (f $ b3)
   :/ V.empty
   where
   f
-    :: String
-    -> Beats
+    :: Beats
     -> { buffer :: Behavior BrowserAudioBuffer
        , silence :: BrowserAudioBuffer
        , myBeat :: Beats
        }
-  f name offset =
-    { myBeat: startsAt + offset
-    , buffer: misbehavior (Object.lookup name) buffers
+  f myBeat =
+    { myBeat
+    , buffer: pure silence
     , silence
     }
 
-mockBasics :: forall lock payload. { | MakeBasics () } -> ASceneful lock payload
-mockBasics makeBasics =
+tutorialBasics :: forall lock payload. { | MakeBasics () } -> ASceneful lock payload
+tutorialBasics makeBasics =
   ( fixed
       [ toScene $ roundRobinInstancedMesh
           { instancedMesh: makeBasics.threeDI.instancedMesh
@@ -157,9 +165,11 @@ mockBasics makeBasics =
         ( BasicV.basic
             ( makeBasics `union` input `union`
                 { beats: severalBeats
-                    { startsAt: input.appearsAt + Beats 1.0
+                    { b0: input.b0
+                    , b1: input.b1
+                    , b2: input.b2
+                    , b3: input.b3
                     , silence: makeBasics.silence
-                    , buffers: makeBasics.buffers
                     }
                 , uniqueId: input.uniqueId
                 }
@@ -177,9 +187,11 @@ mockBasics makeBasics =
         ( BasicW.basicWord
             ( makeBasics `union` input `union`
                 { beats: severalBeats
-                    { startsAt: input.appearsAt + Beats 1.0
+                    { b0: input.b0
+                    , b1: input.b1
+                    , b2: input.b2
+                    , b3: input.b3
                     , silence: makeBasics.silence
-                    , buffers: makeBasics.buffers
                     }
                 , uniqueId: input.uniqueId
                 -- empty for now, fill this in later
@@ -199,24 +211,77 @@ mockBasics makeBasics =
     let
       { init, rest } = span (\{ appearsAt } -> appearsAt <= beats + lookAhead) l
     (f <$> init) :< go f rest
-  score = mapWithIndex (\uniqueId x -> union { uniqueId } x) $ { column: C4, appearsAt: Beats 0.0 }
-    : { column: C3, appearsAt: Beats 2.0 }
-    : { column: C2, appearsAt: Beats 3.0 }
-    : { column: C1, appearsAt: Beats 5.0 }
-    : { column: C0, appearsAt: Beats 6.0 }
-    : { column: C1, appearsAt: Beats 8.0 }
-    : { column: C2, appearsAt: Beats 9.0 }
-    : { column: C3, appearsAt: Beats 11.0 }
-    : { column: C4, appearsAt: Beats 12.0 }
-    : { column: C5, appearsAt: Beats 14.0 }
-    : { column: C6, appearsAt: Beats 15.0 }
-    : { column: C7, appearsAt: Beats 17.0 }
-    : { column: C8, appearsAt: Beats 18.0 }
-    : { column: C9, appearsAt: Beats 20.0 }
-    : { column: C10, appearsAt: Beats 21.0 }
-    : { column: C11, appearsAt: Beats 23.0 }
-    : { column: C12, appearsAt: Beats 24.0 }
-    : { column: C13, appearsAt: Beats 26.0 }
-    : { column: C14, appearsAt: Beats 27.0 }
-    : { column: C15, appearsAt: Beats 29.0 }
-    : Nil
+  score = mapWithIndex (\uniqueId x -> union { uniqueId } x) $ fromBase Base.beats
+
+type ScoreMorcel =
+  { appearsAt :: Beats
+  , b0 :: Beats
+  , b1 :: Beats
+  , b2 :: Beats
+  , b3 :: Beats
+  , column :: Column
+  }
+
+tmpScore :: List ScoreMorcel
+tmpScore = { column: C4, appearsAt: Beats 0.0, b0: Beats 1.0, b1: Beats 2.0, b2: Beats 3.0, b3: Beats 4.0 } : Nil
+
+predC :: Column -> Column
+predC C15 = C14
+predC C14 = C13
+predC C13 = C12
+predC C12 = C11
+predC C11 = C10
+predC C10 = C9
+predC C9 = C8
+predC C8 = C7
+predC C7 = C6
+predC C6 = C5
+predC C5 = C4
+predC C4 = C3
+predC C3 = C2
+predC C2 = C1
+predC C1 = C0
+predC C0 = C15
+
+succC :: Column -> Column
+succC C0 = C1
+succC C1 = C2
+succC C2 = C3
+succC C3 = C4
+succC C4 = C5
+succC C5 = C6
+succC C6 = C7
+succC C7 = C8
+succC C8 = C9
+succC C9 = C10
+succC C10 = C11
+succC C11 = C12
+succC C12 = C13
+succC C13 = C14
+succC C14 = C15
+succC C15 = C0
+
+fromBase :: List Base.BeatInstruction -> List ScoreMorcel
+fromBase = addStartOffset >>> go true C8
+  where
+  go tf col (a : b : c : d : e) =
+    { appearsAt: Beats (a.t - 1.0)
+    , b0: Beats a.t
+    , b1: Beats b.t
+    , b2: Beats c.t
+    , b3: Beats d.t
+    , column: col
+    } : go
+      ( case col of
+          C15 -> false
+          C0 -> true
+          _ -> tf
+      )
+      ( case col of
+          C15 -> C14
+          C0 -> C1
+          x -> (if tf then succC else predC) x
+      )
+      (b : c : d : e)
+  go _ _ _ = Nil
+  addStartOffset = over (traversed <<< prop (Proxy :: _ "t")) (add (unwrap tutorialStartOffset))

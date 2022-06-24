@@ -1,4 +1,4 @@
-module Joyride.Mocks.Long where
+module Joyride.Scores.Tutorial.Long where
 
 import Prelude
 
@@ -60,8 +60,8 @@ singleBeat { buffer, silence, myBeat } riE = AudibleEnd
   oaOn = doRi riE.on
   oaOff = doRi riE.off
 
-mockLongs :: forall lock payload. { | MakeLongs () } -> ASceneful lock payload
-mockLongs makeLongs = toScene
+tutorialLongs :: forall lock payload. { | MakeLongs () } -> ASceneful lock payload
+tutorialLongs makeLongs = toScene
   ( roundRobinInstancedMesh { instancedMesh: makeLongs.threeDI.instancedMesh, mesh: makeLongs.threeDI.mesh, matrix4: makeLongs.threeDI.matrix4 } 100 (box { box: makeLongs.threeDI.boxGeometry })
       ( meshStandardMaterial
           -- { map: textures.tilesZelligeHexCOL
@@ -107,11 +107,23 @@ mockLongs makeLongs = toScene
     let
       { init, rest } = span (\{ appearsAt } -> appearsAt <= beats + lookAhead) l
     (transform <$> init) :< go rest
-  score = mapWithIndex (\uniqueId x -> union { uniqueId } x) $ { column: C10, appearsAt: Beats 0.0, length: 1.25 }
-    : { column: C10, appearsAt: Beats 3.0, length: 1.0 }
-    : { column: C10, appearsAt: Beats 8.0, length: 1.25 }
-    : { column: C10, appearsAt: Beats 12.0, length: 1.0 }
-    : { column: C2, appearsAt: Beats 14.0, length: 1.0 }
-    : { column: C2, appearsAt: Beats 21.0, length: 1.5 }
-    : { column: C2, appearsAt: Beats 26.0, length: 1.25 }
-    : Nil
+  score = mapWithIndex (\uniqueId x -> union { uniqueId } x) $ tmpScore0
+
+type ScoreMorcel =
+  { appearsAt :: Beats
+  , column :: Column
+  , length :: Number
+  }
+
+tmpScore0 :: List ScoreMorcel
+tmpScore0 = Nil
+
+tmpScore :: List ScoreMorcel
+tmpScore = { column: C10, appearsAt: Beats 0.0, length: 1.25 }
+  : { column: C10, appearsAt: Beats 3.0, length: 1.0 }
+  : { column: C10, appearsAt: Beats 8.0, length: 1.25 }
+  : { column: C10, appearsAt: Beats 12.0, length: 1.0 }
+  : { column: C2, appearsAt: Beats 14.0, length: 1.0 }
+  : { column: C2, appearsAt: Beats 21.0, length: 1.5 }
+  : { column: C2, appearsAt: Beats 26.0, length: 1.25 }
+  : Nil

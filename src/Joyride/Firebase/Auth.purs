@@ -1,6 +1,5 @@
 module Joyride.Firebase.Auth
   ( authStateChangedEventWithAnonymousAccountCreation
-  , authStateChangedEvent
   , firebaseAuthAff
   , User(..)
   , FirebaseAuth
@@ -14,11 +13,12 @@ import Prelude
 
 import Control.Promise (Promise, toAffE)
 import Data.Either (Either(..))
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe)
 import Data.Newtype (class Newtype)
 import Effect (Effect)
-import Effect.Aff (Aff, error, launchAff_, throwError)
+import Effect.Aff (Aff, Error, error, launchAff_, throwError)
 import Effect.Class (liftEffect)
+import Effect.Class.Console as Log
 import Effect.Ref as Ref
 import FRP.Event (Event, makeEvent)
 import Foreign (Foreign)
@@ -77,26 +77,20 @@ foreign import firebaseAuth :: FirebaseApp -> Effect (Promise FirebaseAuth)
 firebaseAuthAff :: FirebaseApp -> Aff FirebaseAuth
 firebaseAuthAff = toAffE <<< firebaseAuth
 
-foreign import onAuthStateChanged :: Boolean -> Effect Unit -> (Foreign -> Effect Unit) -> FirebaseAuth -> Effect (Promise (Effect Unit))
+foreign import onAuthStateChanged :: (Error -> Effect Unit) -> (Foreign -> Effect Unit) -> FirebaseAuth -> Effect (Promise (Effect Unit))
 
-authStateChangedEvent' :: Boolean -> FirebaseAuth -> Event (Maybe User)
-authStateChangedEvent' autoAnon auth = makeEvent \k -> do
+authStateChangedEventWithAnonymousAccountCreation :: FirebaseAuth -> Event User
+authStateChangedEventWithAnonymousAccountCreation auth = makeEvent \k -> do
   unsub <- Ref.new (pure unit)
   launchAff_ do
-    us <- toAffE $ onAuthStateChanged autoAnon (k Nothing)
+    us <- toAffE $ onAuthStateChanged (show >>> Log.error)
       ( \u -> do
           let user' = JSON.read u
           case user' of
             Left e -> do
               throwError (error $ (show (JSON.writeJSON u) <> " " <> show e))
-            Right user -> k (Just user)
+            Right user -> k user
       )
       auth
     liftEffect $ Ref.write us unsub
   pure $ join $ Ref.read unsub
-
-authStateChangedEvent :: FirebaseAuth -> Event (Maybe User)
-authStateChangedEvent = authStateChangedEvent' false
-
-authStateChangedEventWithAnonymousAccountCreation :: FirebaseAuth -> Event (Maybe User)
-authStateChangedEventWithAnonymousAccountCreation = authStateChangedEvent' true

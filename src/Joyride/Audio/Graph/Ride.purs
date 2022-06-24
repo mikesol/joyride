@@ -1,4 +1,4 @@
-module Joyride.Audio.Graph where
+module Joyride.Audio.Graph.Ride where
 
 import Prelude
 
@@ -13,12 +13,12 @@ import FRP.Event (Event)
 import FRP.Event.Class (bang)
 import Foreign.Object as Object
 import Joyride.FRP.Schedule (oneOff)
-import Joyride.Wags (AudibleChildEnd(..))
+import Joyride.Ocarina (AudibleChildEnd(..))
 import Types (Beats(..), RateInfo, beatToTime)
-import WAGS.Control (gain_, playBuf)
-import WAGS.Core (Audible, AudioOnOff(..), _on, dyn)
-import WAGS.Properties (buffer, onOff)
-import WAGS.WebAPI (BrowserAudioBuffer)
+import Ocarina.Control (gain_, playBuf)
+import Ocarina.Core (Audible, AudioOnOff(..), _on, dyn)
+import Ocarina.Properties (buffer, onOff)
+import Ocarina.WebAPI (BrowserAudioBuffer)
 
 twoPi = 2.0 * pi :: Number
 

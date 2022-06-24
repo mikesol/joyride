@@ -1,4 +1,4 @@
-module Joyride.Wags where
+module Joyride.Ocarina where
 
 import Prelude
 
@@ -6,8 +6,8 @@ import Data.Newtype (class Newtype)
 import Data.Typelevel.Num (D2)
 import Data.Variant (Variant)
 import FRP.Event (Event)
-import WAGS.Core (AudioOnOff(..), Audible, AudibleChild, _off, _on)
-import WAGS.Properties as P
+import Ocarina.Core (AudioOnOff(..), Audible, AudibleChild, _off, _on)
+import Ocarina.Properties as P
 
 onAt
   :: forall nt v

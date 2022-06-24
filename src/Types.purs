@@ -5,6 +5,7 @@ module Types
   , Shader
   , GalaxyAttributes
   , RenderingInfo
+  , ChannelChooser(..)
   , Ride(..)
   , RideV0'
   , Version
@@ -24,6 +25,7 @@ module Types
   , touchPointZ
   , Column(..)
   , Success'
+  , WantsTutorial'
   , normalizedColumn
   , Orientation
   , Claim(..)
@@ -101,7 +103,7 @@ import FRP.Behavior (Behavior)
 import FRP.Event (EventIO, Event)
 import Foreign (ForeignError(..), fail)
 import Foreign.Object as Object
-import Joyride.Wags (AudibleChildEnd, AudibleEnd)
+import Joyride.Ocarina (AudibleChildEnd, AudibleEnd)
 import Record (union)
 import Rito.Color (Color, RGB)
 import Rito.CubeTexture as CTL
@@ -113,8 +115,8 @@ import Rito.Vector3 (Vector3')
 import Simple.JSON (undefined, writeJSON)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
-import WAGS.Math (calcSlope)
-import WAGS.WebAPI (BrowserAudioBuffer)
+import Ocarina.Math (calcSlope)
+import Ocarina.WebAPI (BrowserAudioBuffer)
 
 type CanvasInfo = { x :: Number, y :: Number } /\ Number
 
@@ -461,6 +463,7 @@ derive instance Newtype (CubeTexture a) _
 
 newtype CubeTextures a = CubeTextures
   { skybox :: a
+  , skybox2 :: a
   }
 
 derive instance Newtype (CubeTextures a) _
@@ -826,6 +829,7 @@ data Negotiation
       , threeDI :: ThreeDI
       , cNow :: Effect Milliseconds
       }
+  | WantsTutorial WantsTutorial'
   | StartingNegotiation
   | RoomIsFull
   | GameHasStarted
@@ -860,6 +864,18 @@ type Success' =
   , textures :: Textures Texture
   , cubeTextures :: CubeTextures CTL.CubeTexture
   , optMeIn :: JMilliseconds -> Maybe String -> Effect Unit
+  , playerStatus :: Event KnownPlayers
+  }
+
+type WantsTutorial' =
+  { player :: Player
+  , shaders :: Shaders
+  , galaxyAttributes :: GalaxyAttributes
+  , cNow :: Effect Milliseconds
+  , threeDI :: ThreeDI
+  , textures :: Textures Texture
+  , cubeTextures :: CubeTextures CTL.CubeTexture
+  , optMeIn :: JMilliseconds -> Effect Unit
   , playerStatus :: Event KnownPlayers
   }
 
@@ -1077,3 +1093,8 @@ instance JSON.ReadForeign Ride where
 
 instance JSON.WriteForeign Ride where
   writeImpl (RideV0 i) = JSON.writeImpl i
+
+data ChannelChooser = NoChannel | RideChannel String | TutorialChannel
+derive instance Generic ChannelChooser _
+instance Show ChannelChooser where
+  show = genericShow
