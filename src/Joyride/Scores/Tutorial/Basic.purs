@@ -11,8 +11,11 @@ import Data.FastVect.FastVect (Vect, cons)
 import Data.FastVect.FastVect as V
 import Data.Foldable (oneOfMap)
 import Data.FunctorWithIndex (mapWithIndex)
+import Data.Lens (over, traversed)
+import Data.Lens.Record (prop)
 import Data.List (List(..), span, (:))
 import Data.Maybe (Maybe(..))
+import Data.Newtype (unwrap)
 import Data.Time.Duration (Milliseconds(..), Seconds(..))
 import Effect (Effect)
 import FRP.Behavior (Behavior, sample_)
@@ -20,6 +23,7 @@ import FRP.Event (Event, keepLatest, memoize)
 import FRP.Event.Class (bang)
 import FRP.Event.Time as LocalTime
 import Joyride.Audio.Basic as BasicA
+import Joyride.Constants.Tutorial (tutorialStartOffset)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Schedule (oneOff, scheduleCf)
 import Joyride.Ocarina (AudibleEnd(..))
@@ -34,6 +38,7 @@ import Rito.Geometries.Box (box)
 import Rito.Materials.MeshPhongMaterial (meshPhongMaterial)
 import Rito.RoundRobin (InstanceId, Semaphore(..), roundRobinInstancedMesh)
 import Safe.Coerce (coerce)
+import Type.Proxy (Proxy(..))
 import Types (Beats(..), Column(..), HitBasicMe, JMilliseconds(..), MakeBasics, RateInfo, beatToTime)
 
 type ACU =
@@ -257,7 +262,7 @@ succC C14 = C15
 succC C15 = C0
 
 fromBase :: List Base.BeatInstruction -> List ScoreMorcel
-fromBase = go true C8
+fromBase = addStartOffset >>> go true C8
   where
   go tf col (a : b : c : d : e) =
     { appearsAt: Beats (a.t - 1.0)
@@ -279,3 +284,4 @@ fromBase = go true C8
       )
       (b : c : d : e)
   go _ _ _ = Nil
+  addStartOffset = over (traversed <<< prop (Proxy :: _ "t")) (add (unwrap tutorialStartOffset))

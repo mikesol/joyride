@@ -12,13 +12,14 @@ import FRP.Behavior (Behavior, sample_)
 import FRP.Event (Event)
 import FRP.Event.Class (bang)
 import Foreign.Object as Object
+import Joyride.Constants.Tutorial (tutorialStartOffset)
 import Joyride.FRP.Schedule (oneOff)
 import Joyride.Ocarina (AudibleChildEnd(..))
-import Types (Beats(..), RateInfo, beatToTime)
 import Ocarina.Control (gain_, playBuf)
 import Ocarina.Core (Audible, AudioOnOff(..), _on, dyn)
 import Ocarina.Properties (buffer, onOff)
 import Ocarina.WebAPI (BrowserAudioBuffer)
+import Types (Beats(..), RateInfo, beatToTime)
 
 twoPi = 2.0 * pi :: Number
 
@@ -51,7 +52,7 @@ graph { basics, leaps, rateInfo, silence, buffers } =
                   ( \i@{ beats: Beats beats } ->
                       if beats > 0.94 then Just i else Nothing
                   )
-                  rateInfo <#> (\ri -> onOff $ AudioOnOff { o: unwrap $ beatToTime ri (Beats 1.0), x: _on })
+                  rateInfo <#> (\ri -> onOff $ AudioOnOff { o: unwrap $ beatToTime ri tutorialStartOffset, x: _on })
               ]
 
           )
