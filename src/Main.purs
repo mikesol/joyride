@@ -21,13 +21,13 @@ import Data.Tuple.Nested (type (/\), (/\))
 import Data.Unfoldable (replicate)
 import Deku.Toplevel (runInBody)
 import Effect (Effect)
-import Effect.Aff (ParAff, forkAff, joinFiber, launchAff_, never, try)
+import Effect.Aff (Milliseconds, ParAff, forkAff, joinFiber, launchAff_, never, try)
 import Effect.Class (liftEffect)
 import Effect.Class.Console as Log
 import Effect.Random as Random
 import Effect.Ref (new)
 import Effect.Ref as Ref
-import FRP.Behavior (sample_)
+import FRP.Behavior (Behavior, sample_)
 import FRP.Event (Event, bang, filterMap, folded, subscribe)
 import FRP.Event as Event
 import FRP.Event.AnimationFrame (animationFrame)
@@ -54,6 +54,7 @@ import Joyride.Random (randId', randId)
 import Joyride.Shaders.Galaxy (makeGalaxyAttributes)
 import Joyride.Timing.CoordinatedNow (cnow)
 import Joyride.Transport.PubNub as PN
+import Ocarina.Interpret (AudioBuffer(..), context, makeAudioBuffer)
 import Rito.CubeTexture as CubeTextureLoader
 import Rito.THREE as THREE
 import Rito.Texture (loadAff, loader)
@@ -61,8 +62,7 @@ import Route (Route(..), route)
 import Routing.Duplex (parse)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
-import Types (BufferName(..), Channel(..), ChannelChooser(..), CubeTexture, CubeTextures(..), HitBasicMe(..), HitBasicOverTheWire(..), HitLeapMe(..), HitLeapOverTheWire(..), HitLongMe(..), HitLongOverTheWire(..), IAm(..), InFlightGameInfo(..), InFlightGameInfo', JMilliseconds(..), KnownPlayers(..), Negotiation(..), Penalty(..), Player(..), PlayerAction(..), PointOutcome, Points(..), Position, ReleaseLongMe(..), ReleaseLongOverTheWire(..), RenderingInfo', Ride(..), Shaders, StartStatus(..), Textures(..), ThreeDI, initialPositions, touchPointZ)
-import Ocarina.Interpret (AudioBuffer(..), context, makeAudioBuffer)
+import Types (BufferName(..), Channel(..), ChannelChooser(..), CubeTexture, CubeTextures(..), HitBasicMe(..), HitBasicOverTheWire(..), HitLeapMe(..), HitLeapOverTheWire(..), HitLongMe(..), HitLongOverTheWire(..), IAm(..), InFlightGameInfo(..), InFlightGameInfo', JMilliseconds(..), KnownPlayers(..), Negotiation(..), Penalty(..), Player(..), PlayerAction(..), PlayerPositionsF, PointOutcome, Points(..), Position, ReleaseLongMe(..), ReleaseLongOverTheWire(..), RenderingInfo, RenderingInfo', Ride(..), Shaders, StartStatus(..), Textures(..), ThreeDI, initialPositions, touchPointZ)
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
 import Web.HTML (window)
@@ -314,6 +314,25 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
             myTextures <- joinFiber downloadedTextures
             knownPlayers :: Ref.Ref KnownPlayers <- liftEffect $ Ref.new $ KnownPlayers Map.empty
             knownPlayersBus <- liftEffect Event.create
+            ---- TODO: this is a copy/paste from below with the pubnub taken out
+            ---- refactor to combine!!!
+            xPosE <- liftEffect $ if isMobile then xForTouch mappedCNow w Player4 mempty else xForKeyboard mappedCNow w Player4 mempty
+            -- ignore subscription
+            _ <- liftEffect $ subscribe xPosE \xp -> writeToRecord (Proxy :: _ "p4x") xp playerPositions
+            -- deal with incoming basics
+            _ <- liftEffect $ subscribe pushBasic.event \(HitBasicMe bt) -> do
+              let outcome = basicOutcomeToPointOutcome $ beatsToBasicOutcome bt.deltaBeats
+              kp <- updateKnownPlayerPoints Player4 outcome knownPlayers
+              knownPlayersBus.push kp
+            _ <- liftEffect $ subscribe pushReleaseLong.event \(ReleaseLongMe rl) -> do
+              let outcome = longToPointOutcome rl.distance rl.pctConsumed
+              kp <- updateKnownPlayerPoints Player4 outcome knownPlayers
+              knownPlayersBus.push kp
+            -- deal with incoming leaps
+            leapUnsubscribesRef <- liftEffect $ Ref.new (mempty :: LeapUnsubscribes)
+            _ <- liftEffect $ subscribe pushLeap.event \(HitLeapMe bt) -> do
+              magicLeaps leapUnsubscribesRef mappedCNow playerPositions renderingInfoBehavior { player: Player4, newPosition: bt.newPosition }
+            ---- end TODO
             let
               bufferNames :: List (BufferName /\ String)
               bufferNames = (BufferName "butterflies" /\ "butterflies")
@@ -380,94 +399,6 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
                     event
                 }
             leapUnsubscribesRef <- liftEffect $ Ref.new (mempty :: LeapUnsubscribes)
-            let
-              magicLeaps :: forall r. { player :: Player, newPosition :: Position | r } -> Effect Unit
-              magicLeaps pnp = do
-                wholeRec <- Ref.read playerPositions
-                oldPosition <- case pnp.player of
-                  Player1 -> readFromRecord (Proxy :: _ "p1p") playerPositions
-                  Player2 -> readFromRecord (Proxy :: _ "p2p") playerPositions
-                  Player3 -> readFromRecord (Proxy :: _ "p3p") playerPositions
-                  Player4 -> readFromRecord (Proxy :: _ "p4p") playerPositions
-                -- should never be nothing. make safer?
-                let movedPlayer = if wholeRec.p1p == pnp.newPosition then Just Player1 else if wholeRec.p2p == pnp.newPosition then Just Player2 else if wholeRec.p3p == pnp.newPosition then Just Player3 else if wholeRec.p4p == pnp.newPosition then Just Player4 else Nothing
-                magicLeap pnp
-                for_ movedPlayer \player -> magicLeap { player, newPosition: oldPosition }
-
-              magicLeap :: forall r. { player :: Player, newPosition :: Position | r } -> Effect Unit
-              magicLeap hl = do
-                leapUnsubscribes <- Ref.read leapUnsubscribesRef
-                case hl.player of
-                  Player1 -> leapUnsubscribes.p1
-                  Player2 -> leapUnsubscribes.p2
-                  Player3 -> leapUnsubscribes.p3
-                  Player4 -> leapUnsubscribes.p4
-                startsAt <- unwrap <$> mappedCNow
-                case hl.player of
-                  Player1 -> writeToRecord (Proxy :: _ "p1p") hl.newPosition playerPositions
-                  Player2 -> writeToRecord (Proxy :: _ "p2p") hl.newPosition playerPositions
-                  Player3 -> writeToRecord (Proxy :: _ "p3p") hl.newPosition playerPositions
-                  Player4 -> writeToRecord (Proxy :: _ "p4p") hl.newPosition playerPositions
-                startY <- case hl.player of
-                  Player1 -> readFromRecord (Proxy :: _ "p1y") playerPositions
-                  Player2 -> readFromRecord (Proxy :: _ "p2y") playerPositions
-                  Player3 -> readFromRecord (Proxy :: _ "p3y") playerPositions
-                  Player4 -> readFromRecord (Proxy :: _ "p4y") playerPositions
-                startZ <- case hl.player of
-                  Player1 -> readFromRecord (Proxy :: _ "p1z") playerPositions
-                  Player2 -> readFromRecord (Proxy :: _ "p2z") playerPositions
-                  Player3 -> readFromRecord (Proxy :: _ "p3z") playerPositions
-                  Player4 -> readFromRecord (Proxy :: _ "p4z") playerPositions
-                let endY = 0.0
-                newSub <- subscribe (sample_ renderingInfoBehavior animationFrame) \ri -> do
-                  let endZ = touchPointZ ri hl.newPosition
-                  n <- unwrap <$> mappedCNow
-                  let distance = sqrt (((endZ - startZ) `pow` 2.0) + ((endY - startY) `pow` 2.0))
-                  let midZ = (endZ + startZ) / 2.0
-                  let midY = ((endY + startY) / 2.0) + 0.5
-                  let curve t p0 p1 p2 = (((1.0 - t) `pow` 2.0) * p0) + (2.0 * (1.0 - t) * t * p1) + (t `pow` 2.0) * p2
-                  -- arbitrary, experiment with the 0.2 constant
-                  let trajectoryTime = 0.4 * distance
-                  let t = min 1.0 $ max 0.0 (((n - startsAt) / 1000.0) / trajectoryTime)
-                  let cy = curve t startY midY endY
-                  let cz = curve t startZ midZ endZ
-                  case hl.player of
-                    Player1 -> writeToRecord (Proxy :: _ "p1z") cz playerPositions
-                    Player2 -> writeToRecord (Proxy :: _ "p2z") cz playerPositions
-                    Player3 -> writeToRecord (Proxy :: _ "p3z") cz playerPositions
-                    Player4 -> writeToRecord (Proxy :: _ "p4z") cz playerPositions
-                  case hl.player of
-                    Player1 -> writeToRecord (Proxy :: _ "p1y") cy playerPositions
-                    Player2 -> writeToRecord (Proxy :: _ "p2y") cy playerPositions
-                    Player3 -> writeToRecord (Proxy :: _ "p3y") cy playerPositions
-                    Player4 -> writeToRecord (Proxy :: _ "p4y") cy playerPositions
-                  when (t >= 1.0) do
-                    join $ Ref.read leapUnsubscribesRef <#>
-                      ( case hl.player of
-                          Player1 -> _.p1
-                          Player2 -> _.p2
-                          Player3 -> _.p3
-                          Player4 -> _.p4
-                      )
-                    Ref.modify_
-                      ( let
-                          eu = mempty :: Effect Unit
-                        in
-                          case hl.player of
-                            Player1 -> _ { p1 = eu }
-                            Player2 -> _ { p2 = eu }
-                            Player3 -> _ { p3 = eu }
-                            Player4 -> _ { p4 = eu }
-                      )
-                      leapUnsubscribesRef
-                Ref.modify_
-                  ( case hl.player of
-                      Player1 -> _ { p1 = newSub }
-                      Player2 -> _ { p2 = newSub }
-                      Player3 -> _ { p3 = newSub }
-                      Player4 -> _ { p4 = newSub }
-                  )
-                  leapUnsubscribesRef
             -- we immediately issue a subscription for all the stuff we can always listen to
             _ <- liftEffect $ subscribe pubNub.event \pevt -> do
               -- todo: make lazy?
@@ -480,7 +411,7 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
                 notRelevant = pure unit
               case pevt of
                 -- if we get a hit leap, we need to generate an event that will change the position
-                HitLeap (HitLeapOverTheWire hl) -> magicLeaps hl
+                HitLeap (HitLeapOverTheWire hl) -> magicLeaps leapUnsubscribesRef mappedCNow playerPositions renderingInfoBehavior hl
                 -- if we hear a hit basic, we update the known players
                 HitBasic (HitBasicOverTheWire { player, outcome }) -> do
                   kp <- updateKnownPlayerPoints player outcome knownPlayers
@@ -587,7 +518,7 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
                         )
                 -- deal with incoming leaps
                 _ <- liftEffect $ subscribe pushLeap.event \(HitLeapMe bt) -> do
-                  magicLeaps { player: myPlayer, newPosition: bt.newPosition }
+                  magicLeaps leapUnsubscribesRef mappedCNow playerPositions renderingInfoBehavior { player: myPlayer, newPosition: bt.newPosition }
                   pubNub.publish
                     $ HitLeap
                         ( HitLeapOverTheWire
@@ -687,3 +618,91 @@ updateKnownPlayerPoints player outcome knownPlayers = do
         )
     )
     knownPlayers
+
+magicLeaps :: Ref.Ref LeapUnsubscribes -> Effect Milliseconds -> Ref.Ref PlayerPositionsF -> Behavior RenderingInfo -> forall r. { player :: Player, newPosition :: Position | r } -> Effect Unit
+magicLeaps leapUnsubscribesRef mappedCNow playerPositions renderingInfoBehavior pnp = do
+  wholeRec <- Ref.read playerPositions
+  oldPosition <- case pnp.player of
+    Player1 -> readFromRecord (Proxy :: _ "p1p") playerPositions
+    Player2 -> readFromRecord (Proxy :: _ "p2p") playerPositions
+    Player3 -> readFromRecord (Proxy :: _ "p3p") playerPositions
+    Player4 -> readFromRecord (Proxy :: _ "p4p") playerPositions
+  -- should never be nothing. make safer?
+  let movedPlayer = if wholeRec.p1p == pnp.newPosition then Just Player1 else if wholeRec.p2p == pnp.newPosition then Just Player2 else if wholeRec.p3p == pnp.newPosition then Just Player3 else if wholeRec.p4p == pnp.newPosition then Just Player4 else Nothing
+  magicLeap leapUnsubscribesRef mappedCNow playerPositions renderingInfoBehavior pnp
+  for_ movedPlayer \player -> magicLeap leapUnsubscribesRef mappedCNow playerPositions renderingInfoBehavior { player, newPosition: oldPosition }
+
+magicLeap :: Ref.Ref LeapUnsubscribes -> Effect Milliseconds -> Ref.Ref PlayerPositionsF -> Behavior RenderingInfo -> forall r. { player :: Player, newPosition :: Position | r } -> Effect Unit
+magicLeap leapUnsubscribesRef mappedCNow playerPositions renderingInfoBehavior hl = do
+  leapUnsubscribes <- Ref.read leapUnsubscribesRef
+  case hl.player of
+    Player1 -> leapUnsubscribes.p1
+    Player2 -> leapUnsubscribes.p2
+    Player3 -> leapUnsubscribes.p3
+    Player4 -> leapUnsubscribes.p4
+  startsAt <- unwrap <$> mappedCNow
+  case hl.player of
+    Player1 -> writeToRecord (Proxy :: _ "p1p") hl.newPosition playerPositions
+    Player2 -> writeToRecord (Proxy :: _ "p2p") hl.newPosition playerPositions
+    Player3 -> writeToRecord (Proxy :: _ "p3p") hl.newPosition playerPositions
+    Player4 -> writeToRecord (Proxy :: _ "p4p") hl.newPosition playerPositions
+  startY <- case hl.player of
+    Player1 -> readFromRecord (Proxy :: _ "p1y") playerPositions
+    Player2 -> readFromRecord (Proxy :: _ "p2y") playerPositions
+    Player3 -> readFromRecord (Proxy :: _ "p3y") playerPositions
+    Player4 -> readFromRecord (Proxy :: _ "p4y") playerPositions
+  startZ <- case hl.player of
+    Player1 -> readFromRecord (Proxy :: _ "p1z") playerPositions
+    Player2 -> readFromRecord (Proxy :: _ "p2z") playerPositions
+    Player3 -> readFromRecord (Proxy :: _ "p3z") playerPositions
+    Player4 -> readFromRecord (Proxy :: _ "p4z") playerPositions
+  let endY = 0.0
+  newSub <- subscribe (sample_ renderingInfoBehavior animationFrame) \ri -> do
+    let endZ = touchPointZ ri hl.newPosition
+    n <- unwrap <$> mappedCNow
+    let distance = sqrt (((endZ - startZ) `pow` 2.0) + ((endY - startY) `pow` 2.0))
+    let midZ = (endZ + startZ) / 2.0
+    let midY = ((endY + startY) / 2.0) + 0.5
+    let curve t p0 p1 p2 = (((1.0 - t) `pow` 2.0) * p0) + (2.0 * (1.0 - t) * t * p1) + (t `pow` 2.0) * p2
+    -- arbitrary, experiment with the 0.2 constant
+    let trajectoryTime = 0.4 * distance
+    let t = min 1.0 $ max 0.0 (((n - startsAt) / 1000.0) / trajectoryTime)
+    let cy = curve t startY midY endY
+    let cz = curve t startZ midZ endZ
+    case hl.player of
+      Player1 -> writeToRecord (Proxy :: _ "p1z") cz playerPositions
+      Player2 -> writeToRecord (Proxy :: _ "p2z") cz playerPositions
+      Player3 -> writeToRecord (Proxy :: _ "p3z") cz playerPositions
+      Player4 -> writeToRecord (Proxy :: _ "p4z") cz playerPositions
+    case hl.player of
+      Player1 -> writeToRecord (Proxy :: _ "p1y") cy playerPositions
+      Player2 -> writeToRecord (Proxy :: _ "p2y") cy playerPositions
+      Player3 -> writeToRecord (Proxy :: _ "p3y") cy playerPositions
+      Player4 -> writeToRecord (Proxy :: _ "p4y") cy playerPositions
+    when (t >= 1.0) do
+      join $ Ref.read leapUnsubscribesRef <#>
+        ( case hl.player of
+            Player1 -> _.p1
+            Player2 -> _.p2
+            Player3 -> _.p3
+            Player4 -> _.p4
+        )
+      Ref.modify_
+        ( let
+            eu = mempty :: Effect Unit
+          in
+            case hl.player of
+              Player1 -> _ { p1 = eu }
+              Player2 -> _ { p2 = eu }
+              Player3 -> _ { p3 = eu }
+              Player4 -> _ { p4 = eu }
+        )
+        leapUnsubscribesRef
+  Ref.modify_
+    ( case hl.player of
+        Player1 -> _ { p1 = newSub }
+        Player2 -> _ { p2 = newSub }
+        Player3 -> _ { p3 = newSub }
+        Player4 -> _ { p4 = newSub }
+    )
+    leapUnsubscribesRef

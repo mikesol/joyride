@@ -175,7 +175,7 @@ ride
           startButton aStuff = do
             let
               callback toSample = oneOf
-                [ bang $ D.Class := buttonCls
+                [ bang $ D.Class := buttonCls <> " pointer-events-auto"
 
                 ----- IMPORTANT -----
                 ----- IMPORTANT -----
