@@ -77,9 +77,6 @@ type RideInfo r =
   , lpsCallback :: JMilliseconds -> Effect Unit -> Effect Unit
   , playerPositions :: Behavior PlayerPositionsF
   , resizeE :: Event WindowDims
-  , basicE :: forall lock payload. { | MakeBasics () } -> ASceneful lock payload
-  , leapE :: forall lock payload. { | MakeLeaps () } -> ASceneful lock payload
-  , longE :: forall lock payload. { | MakeLongs () } -> ASceneful lock payload
   , renderingInfo :: Behavior RenderingInfo
   , initialDims :: WindowDims
   , goHome :: Effect Unit
@@ -94,6 +91,12 @@ type RideInfo r =
   , unschedule :: Ref.Ref (Map.Map JMilliseconds (Effect Unit))
   , soundObj :: Ref.Ref (Object.Object BrowserAudioBuffer)
   | r
+  }
+
+type RideScore =
+  { basicE :: forall lock payload. { | MakeBasics () } -> ASceneful lock payload
+  , leapE :: forall lock payload. { | MakeLeaps () } -> ASceneful lock payload
+  , longE :: forall lock payload. { | MakeLongs () } -> ASceneful lock payload
   }
 
 -- effect unit is unsub
@@ -124,10 +127,12 @@ ride
   :: forall r s m lock payload
    . Korok s m
   => RideInfo r
+  -> RideScore
   -> Success'
   -> Domable m lock payload
 ride
   tli
+  tscore
   { player: myPlayer
   , textures
   , cubeTextures
@@ -421,7 +426,7 @@ ride
                                 , textures
                                 , cubeTextures
                                 , pushBasic: tli.pushBasic
-                                , basicE: \pushBasicVisualForLabel -> tli.basicE
+                                , basicE: \pushBasicVisualForLabel -> tscore.basicE
                                     { initialDims: tli.initialDims
                                     , renderingInfo: tli.renderingInfo
                                     , textures
@@ -455,7 +460,7 @@ ride
                                     , pushBasic: tli.pushBasic
                                     , pushBasicVisualForLabel
                                     }
-                                , leapE: \pushLeapVisualForLabel -> tli.leapE
+                                , leapE: \pushLeapVisualForLabel -> tscore.leapE
                                     { initialDims: tli.initialDims
                                     , renderingInfo: tli.renderingInfo
                                     , textures
@@ -489,7 +494,7 @@ ride
                                     , pushLeap: tli.pushLeap
                                     , pushLeapVisualForLabel
                                     }
-                                , longE: \pushHitLongVisualForLabel pushReleaseLongVisualForLabel -> tli.longE
+                                , longE: \pushHitLongVisualForLabel pushReleaseLongVisualForLabel -> tscore.longE
                                     { initialDims: tli.initialDims
                                     , renderingInfo: tli.renderingInfo
                                     , textures

@@ -25,11 +25,16 @@ import Joyride.App.SorryNeedPermission (sorryNeedPermissionPage)
 import Joyride.App.Tutorial (tutorial)
 import Joyride.FRP.Dedup (dedup)
 import Joyride.FRP.StartingWith (startingWith)
+import Joyride.Mocks.Basic (mockBasics)
+import Joyride.Mocks.Leap (mockLeaps)
+import Joyride.Mocks.Long (mockLongs)
 import Joyride.Ocarina (AudibleChildEnd)
-import Rito.Core (ASceneful)
-import Rito.CubeTexture as CTL
-import Types (CubeTextures, HitBasicMe, HitLeapMe, HitLongMe, JMilliseconds, MakeBasics, MakeLeaps, MakeLongs, Negotiation(..), PlayerPositionsF, RateInfo, ReleaseLongMe, RenderingInfo, Success', ThreeDI, WantsTutorial', WindowDims)
+import Joyride.Scores.Tutorial.Basic (tutorialBasics)
+import Joyride.Scores.Tutorial.Leap (tutorialLeaps)
+import Joyride.Scores.Tutorial.Long (tutorialLongs)
 import Ocarina.WebAPI (BrowserAudioBuffer)
+import Rito.CubeTexture as CTL
+import Types (CubeTextures, HitBasicMe, HitLeapMe, HitLongMe, JMilliseconds, Negotiation(..), PlayerPositionsF, RateInfo, ReleaseLongMe, RenderingInfo, Success', ThreeDI, WantsTutorial', WindowDims)
 import Web.DOM as Web.DOM
 import Web.HTML.Window (RequestIdleCallbackId, Window)
 
@@ -47,6 +52,10 @@ type UIEvents = V
   , copiedToClipboard :: Boolean
   )
 
+-- , basicE :: forall lock payload. { | MakeBasics () } -> ASceneful lock payload
+-- , leapE :: forall lock payload. { | MakeLeaps () } -> ASceneful lock payload
+-- , longE :: forall lock payload. { | MakeLongs () } -> ASceneful lock payload
+
 type ToplevelInfo =
   { loaded :: Event Boolean
   , negotiation :: Event Negotiation
@@ -56,9 +65,6 @@ type ToplevelInfo =
   , lpsCallback :: JMilliseconds -> Effect Unit -> Effect Unit
   , playerPositions :: Behavior PlayerPositionsF
   , resizeE :: Event WindowDims
-  , basicE :: forall lock payload. { | MakeBasics () } -> ASceneful lock payload
-  , leapE :: forall lock payload. { | MakeLeaps () } -> ASceneful lock payload
-  , longE :: forall lock payload. { | MakeLongs () } -> ASceneful lock payload
   , renderingInfo :: Behavior RenderingInfo
   , initialDims :: WindowDims
   , goHome :: Effect Unit
@@ -120,21 +126,21 @@ toplevel tli =
   ( dedup
       ( map
           ( \{ loaded, negotiation } ->
-                case loaded, negotiation of
-                  _, NeedsOrientation -> TLNeedsOrientation
-                  _, WillNotWorkWithoutOrientation -> TLWillNotWorkWithoutOrientation
-                  _, GetRulesOfGame s -> TLExplainer s
-                  false, _ -> TLLoading
-                  -- should never reach
-                  _, PageLoad -> TLLoading
-                  _, StartingNegotiation -> TLLoading
-                  _, RoomIsFull -> TLRoomIsFull
-                  _, GameHasStarted -> TLGameHasStarted
-                  _, RequestingPlayer -> TLLoading
-                  _, ReceivedPossibilities -> TLLoading
-                  _, ClaimFail -> TLRoomIsFull
-                  true, Success s -> TLSuccess s
-                  true, WantsTutorial s -> TLWantsTutorial s
+              case loaded, negotiation of
+                _, NeedsOrientation -> TLNeedsOrientation
+                _, WillNotWorkWithoutOrientation -> TLWillNotWorkWithoutOrientation
+                _, GetRulesOfGame s -> TLExplainer s
+                false, _ -> TLLoading
+                -- should never reach
+                _, PageLoad -> TLLoading
+                _, StartingNegotiation -> TLLoading
+                _, RoomIsFull -> TLRoomIsFull
+                _, GameHasStarted -> TLGameHasStarted
+                _, RequestingPlayer -> TLLoading
+                _, ReceivedPossibilities -> TLLoading
+                _, ClaimFail -> TLRoomIsFull
+                true, Success s -> TLSuccess s
+                true, WantsTutorial s -> TLWantsTutorial s
           )
           ( biSampleOn
               (startingWith PageLoad $ fromEvent tli.negotiation)
@@ -159,5 +165,18 @@ toplevel tli =
     TLLoading -> loadingPage
     TLRoomIsFull -> roomIsFull
     TLGameHasStarted -> gameHasStarted
-    TLWantsTutorial wantsTutorial -> tutorial tli wantsTutorial
-    TLSuccess successful -> ride tli successful
+    TLWantsTutorial wantsTutorial -> tutorial
+       tli
+      { basicE: tutorialBasics
+          , leapE: tutorialLeaps
+          , longE: tutorialLongs
+          }
+
+      wantsTutorial
+    TLSuccess successful -> ride
+      tli
+      { basicE: mockBasics
+          , leapE: mockLeaps
+          , longE: mockLongs
+          }
+      successful

@@ -49,9 +49,6 @@ import Joyride.Ledger.Basic (basicOutcomeToPointOutcome, beatsToBasicOutcome)
 import Joyride.Ledger.Long (longToPointOutcome)
 import Joyride.LilGui (Slider(..), gui, noGui)
 import Joyride.LocalStorage as LocalStorage
-import Joyride.Mocks.Basic (mockBasics)
-import Joyride.Mocks.Leap (mockLeaps)
-import Joyride.Mocks.Long (mockLongs)
 import Joyride.Network.Download (dlInChunks)
 import Joyride.Random (randId', randId)
 import Joyride.Shaders.Galaxy (makeGalaxyAttributes)
@@ -255,9 +252,6 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
           , playerPositions: refToBehavior playerPositions
           , renderingInfo: renderingInfoBehavior
           , debug
-          , basicE: mockBasics
-          , leapE: mockLeaps
-          , longE: mockLongs
           , silence
           , initialDims
           , icid: idleCallbackId
@@ -323,6 +317,7 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
             let
               bufferNames :: List (BufferName /\ String)
               bufferNames = (BufferName "butterflies" /\ "butterflies")
+                : (BufferName "tutorial" /\ "tutorial")
                 : Nil
             let n2oh = take 300 bufferNames
             let n2ot = drop 300 bufferNames

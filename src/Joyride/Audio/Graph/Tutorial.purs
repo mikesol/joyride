@@ -44,7 +44,7 @@ graph { basics, leaps, rateInfo, silence, buffers } =
   , gain_ 1.0
       [ playBuf { buffer: silence }
           ( oneOf
-              [ sample_ buffers (bang unit) <#> Object.lookup "butterflies" >>> case _ of
+              [ sample_ buffers (bang unit) <#> Object.lookup "tutorial" >>> case _ of
                   Just b -> buffer b
                   Nothing -> buffer silence
               , oneOff
