@@ -62,7 +62,7 @@ twoPi = 2.0 * pi :: Number
 
 data FadeInstruction = FadeIn | FadeOut | FadeInOut | NoFade
 
-data CenterState = Intro | Tiles | Leap | Long | End | Empty
+data CenterState = Intro | Tiles | Tilt | Leap | Long | End | Empty
 
 newtype Unsubscribe = Unsubscribe (Effect Unit)
 
@@ -88,10 +88,11 @@ type TutorialInfo r =
   | r
   }
 
-type TutorialScore = {  basicE :: forall lock payload. { | MakeBasics () } -> ASceneful lock payload
+type TutorialScore =
+  { basicE :: forall lock payload. { | MakeBasics () } -> ASceneful lock payload
   , leapE :: forall lock payload. { | MakeLeaps () } -> ASceneful lock payload
   , longE :: forall lock payload. { | MakeLongs () } -> ASceneful lock payload
-}
+  }
 
 -- effect unit is unsub
 data StartState
@@ -159,7 +160,7 @@ tutorial
                         off
                     ]
                 )
-                [ text_ "Exit game" ]
+                [ text_ "Exit tutorial" ]
             ]
           startButton aStuff = do
             let
@@ -279,8 +280,8 @@ tutorial
                             )
                         ]
                     ]
-                , startButton animatedStuff
                 ]
+            , startButton animatedStuff
             , D.div
                 (bang (D.Class := "absolute"))
                 [ D.canvas
@@ -437,30 +438,69 @@ tutorial
           )
       )
       pushCurrentState
-    Tiles -> tutorialCenterMatterFrame "Tiles!" (Just "Something about tiles") "Next >" FadeInOut
+    Tiles -> tutorialCenterMatterFrame "Points"
+      ( Just $ D.p_
+          [ D.span_ [ text_ "Earn points by touching the " ]
+          , D.span (bang $ D.Class := "italic") [ text_ "gray" ]
+          , D.span_ [ text_ " tiles when they reach the " ]
+          , D.span (bang $ D.Class := "italic") [ text_ "green" ]
+          , D.span_ [ text_ " line. You'll lose points if you're too early or late." ]
+          ]
+      )
+      "Next >"
+      FadeInOut
+      ( launchAff_
+          ( delay (Milliseconds 10000.0)
+              *> liftEffect (pushCurrentState Tilt)
+          )
+      )
+      pushCurrentState
+    Tilt -> tutorialCenterMatterFrame "Tilt"
+      ( Just $ D.p_
+          [ D.span_ [ text_ "Tilt your phone left or right to move sideways and reach far-off tiles." ]
+          ]
+      )
+      "Next >"
+      FadeInOut
       ( launchAff_
           ( delay (Milliseconds 10000.0)
               *> liftEffect (pushCurrentState Leap)
           )
       )
       pushCurrentState
-    Leap -> tutorialCenterMatterFrame "Leap" (Just "Something about leap") "Next >" FadeInOut
+    Leap -> tutorialCenterMatterFrame "Leaps"
+      ( Just $ D.p_
+          [ D.span_ [ text_ "Leap to a new baseline by touching a " ]
+          , D.span (bang $ D.Class := "italic") [ text_ "red" ]
+          , D.span_ [ text_ " tile." ]
+          ]
+      )
+      "Next >"
+      FadeInOut
       ( launchAff_
           ( delay (Milliseconds 10000.0)
               *> liftEffect (pushCurrentState Long)
           )
       )
       pushCurrentState
-    Long -> tutorialCenterMatterFrame "Looonngg" (Just "Something about long") "Next >" FadeInOut
+    Long -> tutorialCenterMatterFrame "Press"
+      ( Just $ D.p_
+          [ D.span_ [ text_ "Long-press the " ]
+          , D.span (bang $ D.Class := "italic") [ text_ "green" ]
+          , D.span_ [ text_ " tiles to earn points. The closer the tile is, the higher the points." ]
+          ]
+      )
+      "Next >"
+      FadeInOut
       ( launchAff_
           ( delay (Milliseconds 10000.0)
               *> liftEffect (pushCurrentState End)
           )
       )
       pushCurrentState
-    End -> tutorialCenterMatterFrame "That's it!" (Just "You rock.") "Home >" FadeInOut
-      (mempty)
-      pushCurrentState
+    End -> tutorialCenterMatterFrame "That's it!" (Just $ D.p_ [ text_ "Play against up to four people! The ride is more fun when shared with friends 🤗" ]) "Home >" FadeIn
+      tli.goHome
+      mempty
     Empty -> envy empty
 
   tutorialFadeInAnimation = "tutorial-fade-in-animation"
@@ -478,46 +518,50 @@ tutorial
                 ( case fade of
                     FadeIn -> tutorialFadeInAnimation <> space
                     FadeInOut -> tutorialFadeInAnimation <> space
-                    _ -> ""
-                ) <> "select-auto justify-self-center self-center row-start-2 row-end-4 col-start-3 col-end-5"
+                    _ -> "opacity-80 "
+                ) <> "z-10 pointer-events-none absolute w-screen h-screen grid grid-rows-6 grid-cols-6 bg-zinc-900"
             )
       )
-      ( [ D.div
-            (bang $ D.Class := "pointer-events-auto text-center p-4 " <> headerCls)
-            [ D.p_ [ text_ hd ]
+      [ D.div
+          (bang $ D.Class := "select-auto justify-self-center self-center row-start-3 row-end-5 col-start-3 col-end-5")
+          ( [ D.div
+                (bang $ D.Class := "pointer-events-auto text-center p-4 " <> headerCls)
+                [ D.p_ [ text_ hd ]
+                ]
             ]
-        ]
-          <>
-            ( case txt of
-                Just x ->
-                  [ D.div
-                      (bang $ D.Class := "pointer-events-auto text-center text-white p-4")
-                      [ D.p_ [ text_ x ]
+              <>
+                ( case txt of
+                    Just x ->
+                      [ D.div
+                          (bang $ D.Class := "pointer-events-auto text-center text-white p-4")
+                          [ x ]
                       ]
-                  ]
-                Nothing -> []
-            )
-          <>
-            [ D.div (bang $ D.Class := "flex w-full justify-center items-center") [D.button
-                ( oneOf
-                    [ bang $ D.Class := buttonCls <> " pointer-events-auto"
-                    , bang $
-                        D.OnClick :=
-                          let
-                            goodbye = pcenter Empty
-                            fout = setFadeOut replaceFadeInWithFadeOut *> launchAff_ (delay (Milliseconds 1500.0) *> liftEffect goodbye)
-                          in
-                            ( ( case fade of
-                                  FadeOut -> fout
-                                  FadeInOut -> fout
-                                  _ -> goodbye
-                              ) *> cb
-                            )
-                    ]
+                    Nothing -> []
                 )
-                [ text_ action ]]
-            ]
-      )
+              <>
+                [ D.div (bang $ D.Class := "flex w-full justify-center items-center")
+                    [ D.button
+                        ( oneOf
+                            [ bang $ D.Class := buttonCls <> " pointer-events-auto"
+                            , bang $
+                                D.OnClick :=
+                                  let
+                                    goodbye = pcenter Empty
+                                    fout = setFadeOut replaceFadeInWithFadeOut *> launchAff_ (delay (Milliseconds 1500.0) *> liftEffect goodbye)
+                                  in
+                                    ( ( case fade of
+                                          FadeOut -> fout
+                                          FadeInOut -> fout
+                                          _ -> goodbye
+                                      ) *> cb
+                                    )
+                            ]
+                        )
+                        [ text_ action ]
+                    ]
+                ]
+          )
+      ]
 
   makeJoined :: Player -> KnownPlayers -> Nut
   makeJoined mp (KnownPlayers m) = D.ul_
