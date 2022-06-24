@@ -335,8 +335,12 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
             ---- end TODO
             let
               bufferNames :: List (BufferName /\ String)
-              bufferNames = (BufferName "butterflies" /\ "butterflies")
-                : (BufferName "tutorial" /\ "tutorial")
+              bufferNames = (BufferName "tutorial" /\ "tutorial")
+                : (BufferName "shakuhachi0" /\ "shakuhachi0")
+                : (BufferName "shakuhachi1" /\ "shakuhachi1")
+                : (BufferName "shakuhachi2" /\ "shakuhachi2")
+                : (BufferName "shakuhachi3" /\ "shakuhachi3")
+                : (BufferName "bell" /\ "bell")
                 : Nil
             let n2oh = take 300 bufferNames
             let n2ot = drop 300 bufferNames

@@ -91,7 +91,7 @@ tutorialLongs makeLongs = toScene
                 { sound: singleBeat
                     { myBeat: input.appearsAt + Beats 1.0
                     , silence: makeLongs.silence
-                    , buffer: misbehavior (Object.lookup "kick") makeLongs.buffers
+                    , buffer: misbehavior (Object.lookup input.tag) makeLongs.buffers
                     }
                 , uniqueId: input.uniqueId
                 }
@@ -107,23 +107,24 @@ tutorialLongs makeLongs = toScene
     let
       { init, rest } = span (\{ appearsAt } -> appearsAt <= beats + lookAhead) l
     (transform <$> init) :< go rest
-  score = mapWithIndex (\uniqueId x -> union { uniqueId } x) $ tmpScore0
+  score = mapWithIndex (\uniqueId x -> union { uniqueId } x) $ tmpScore
 
 type ScoreMorcel =
   { appearsAt :: Beats
   , column :: Column
   , length :: Number
+  , tag :: String
   }
 
 tmpScore0 :: List ScoreMorcel
 tmpScore0 = Nil
 
 tmpScore :: List ScoreMorcel
-tmpScore = { column: C10, appearsAt: Beats 0.0, length: 1.25 }
-  : { column: C10, appearsAt: Beats 3.0, length: 1.0 }
-  : { column: C10, appearsAt: Beats 8.0, length: 1.25 }
-  : { column: C10, appearsAt: Beats 12.0, length: 1.0 }
-  : { column: C2, appearsAt: Beats 14.0, length: 1.0 }
-  : { column: C2, appearsAt: Beats 21.0, length: 1.5 }
-  : { column: C2, appearsAt: Beats 26.0, length: 1.25 }
+tmpScore = { column: C10, appearsAt: Beats 0.0, length: 1.25, tag: "shakuhachi0" }
+  : { column: C10, appearsAt: Beats 3.0, length: 1.0, tag: "shakuhachi1"  }
+  : { column: C10, appearsAt: Beats 8.0, length: 1.25, tag: "shakuhachi2"  }
+  : { column: C10, appearsAt: Beats 12.0, length: 1.0, tag: "shakuhachi3"  }
+  : { column: C2, appearsAt: Beats 14.0, length: 1.0, tag: "shakuhachi0"  }
+  : { column: C2, appearsAt: Beats 21.0, length: 1.5, tag: "shakuhachi1"  }
+  : { column: C2, appearsAt: Beats 26.0, length: 1.25, tag: "shakuhachi2"  }
   : Nil

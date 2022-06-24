@@ -99,7 +99,7 @@ tutorialLeaps makeLeaps = toScene
                 { sound: singleBeat
                     { myBeat: input.appearsAt + Beats 1.0
                     , silence: makeLeaps.silence
-                    , buffer: misbehavior (Object.lookup "kick") makeLeaps.buffers
+                    , buffer: misbehavior (Object.lookup "bell") makeLeaps.buffers
                     }
                 , uniqueId: input.uniqueId
                 , newPosition: input.position
@@ -116,7 +116,7 @@ tutorialLeaps makeLeaps = toScene
     let
       { init, rest } = span (\{ appearsAt } -> appearsAt <= beats + lookAhead) l
     (transform <$> init) :< go rest
-  score = mapWithIndex (\uniqueId x -> union { uniqueId } x) $ tmpScore0
+  score = mapWithIndex (\uniqueId x -> union { uniqueId } x) $ tmpScore
 
 type ScoreMorcel = { appearsAt :: Beats
   , column :: Column

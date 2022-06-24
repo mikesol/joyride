@@ -6,8 +6,8 @@ import Control.Alt ((<|>))
 import Data.Typelevel.Num (D2)
 import FRP.Event (Event)
 import Joyride.Ocarina (offAt, onAt)
-import Ocarina.Control (gain_, playBuf)
-import Ocarina.Core (Audible)
+import Ocarina.Control (gain, playBuf)
+import Ocarina.Core (Audible, AudioEnvelope(..), AudioEnvelope')
 import Ocarina.Properties as P
 import Ocarina.WebAPI (BrowserAudioBuffer)
 
@@ -19,7 +19,13 @@ long
      , onAt :: Event Number
      }
   -> Audible D2 lock payload
-long x = gain_ 1.0
+long x = gain 1.0
+  ( x.offAt <#> \oa -> P.gain $ AudioEnvelope
+      { d: 1.0
+      , o: oa
+      , p: [ 1.0, 0.5, 0.0 ]
+      }
+  )
   [ playBuf { buffer: x.silence }
-      ((P.buffer <$> x.buffer) <|> onAt x.onAt <|> offAt x.offAt)
+      ((P.buffer <$> x.buffer) <|> onAt x.onAt <|> offAt (map (add 1.0) x.offAt))
   ]
