@@ -36,9 +36,6 @@ basicWord
   -> ACSS3DObject lock payload
 basicWord makeBasic = do
   let
-    -- this is the event that we listen to to know when to stop playing audio
-    -- we stop _eitehr_ when we get an internal played _or_ when one is reported
-    -- over the wire
     played :: Event Beats
     played = oneOf
       [ map (unwrap >>> _.logicalBeat) makeBasic.someonePlayedMe
@@ -71,7 +68,6 @@ basicWord makeBasic = do
     drawingMatrix' = forRendering <#>
       \{ rateInfo
        , ratio
-       , endTime
        , renderingInfo
        } ->
         { n14: ((renderingInfo.halfAmbitus * (2.0 * (normalizedColumn makeBasic.column) - 1.0)) * ratio.r)
@@ -102,7 +98,7 @@ basicWord makeBasic = do
         }
   envy $ memoize drawingMatrix' \drawingMatrix ->
     ( ( css3DObject { css3DObject: makeBasic.threeDI.css3DObject
-          , nut: ANut (D.span (bang $ D.Class := "text-white pointer-events-none") [ text_ "foo" ]) }
+          , nut: ANut (D.span (bang $ D.Class := "text-white pointer-events-none") [ text_ makeBasic.text ]) }
           ( oneOf
               [ --bang $ P.matrix4 $ makeBasic.mkMatrix4 emptyMatrix
                 --, P.matrix4 <<< makeBasic.mkMatrix4 <$> drawingMatrix
@@ -113,66 +109,6 @@ basicWord makeBasic = do
               , (bang $ P.scaleY 0.00) <|> fireAndForget (drawingMatrix $> P.scaleY 0.006)
               , (bang $ P.scaleZ 0.00) <|> fireAndForget (drawingMatrix $> P.scaleZ 0.006)
               , bang $ P.rotateX (pi * -0.5)
-              -- , let
-              --     f = oneOf
-              --       [ -- if I touched this, turn off the listener
-              --         iWasPlayed $> (\_ -> pure (pure unit))
-              --       ,
-              --         -- if someone else has touched this, turn off the listener
-              --         fireAndForget $ keepLatest $ hitBasicOtherPlayer <#> \(HitBasicOtherPlayer _) ->
-              --             (bang (\_ -> pure (pure unit)))
-              --       -- otherwise keep alive
-              --       -- no need for an unsub, so just pure (pure unit)
-              --       , sampleJIT makeBasic.animatedStuff $ bang \av _ -> pure (pure unit) <* launchAff_ do
-              --           n <- liftEffect $ makeBasic.cnow
-              --           { rateInfo, playerPositions } <- AVar.read av
-              --           let
-              --             pos = playerPosition' makeBasic.myPlayer playerPositions
-              --             rightBeat = case pos of
-              --               Position1 -> p1
-              --               Position2 -> p2
-              --               Position3 -> p3
-              --               Position4 -> p4
-              --           let
-              --             broadcastInfo =
-              --               { uniqueId: makeBasic.uniqueId
-              --               , position: pos
-              --               , hitAt: rateInfo.beats
-              --               , issuedAt: coerce n
-              --               , logicalBeat: rightBeat.startsAt
-              --               , deltaBeats: rateInfo.beats - rightBeat.startsAt
-              --               }
-              --           let
-              --             hitBasicMe = HitBasicMe
-              --               { uniqueId: broadcastInfo.uniqueId
-              --               , logicalBeat: broadcastInfo.logicalBeat
-              --               , deltaBeats: broadcastInfo.deltaBeats
-              --               , hitAt: broadcastInfo.hitAt
-              --               , issuedAt: broadcastInfo.issuedAt
-              --               }
-              --           liftEffect $ setPlayed hitBasicMe
-              --       ]
-              --   in
-              --     if makeBasic.isMobile then P.onTouchStart <$> map
-              --       ( dimap
-              --           ( \e ->
-              --               { cx: Touch.clientX e
-              --               , cy: Touch.clientY e
-              --               }
-              --           )
-              --           (map \i -> { end: \_ -> i, cancel: \_ -> i })
-              --       )
-              --       f
-              --     else P.onMouseDown <$> map
-              --       ( dimap
-              --           ( \e ->
-              --               { cx: MouseEvent.clientX e
-              --               , cy: MouseEvent.clientY e
-              --               }
-              --           )
-              --           (map const)
-              --       )
-              --       f
               ]
           )
       )
@@ -191,11 +127,5 @@ basicWord makeBasic = do
   p3bar ri = touchPointZ ri Position3
   p4bar ri = touchPointZ ri Position4
   appearancePoint ri = entryZ ri
-  oneEighth = 1.0 / 8.0
   ratioEvent = map (\{ iw, ih } -> { iw, ih, r: iw / ih }) (bang makeBasic.initialDims <|> makeBasic.resizeEvent)
-  shrinkRate = 3.0
-  basicYThickness = 0.04
   basicZThickness = 0.2
-  shrinkMe endTime basicThickness ri = case endTime of
-    Nothing -> basicThickness
-    Just (JMilliseconds startTime) -> let (JMilliseconds currentTime) = ri.epochTime in max 0.0 (basicThickness - (basicThickness * shrinkRate * (currentTime - startTime) / 1000.0))

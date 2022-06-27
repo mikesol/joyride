@@ -113,11 +113,11 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
               o - (basicZThickness / 2.0)
         , n11:
             let
-              oneEightRatio = oneEighth * ratio.r
+              baseWidth = 0.2 * ratio.r
             in
               case endTime of
-                Nothing -> oneEightRatio
-                Just (JMilliseconds startTime) -> let (JMilliseconds currentTime) = rateInfo.epochTime in max 0.0 (oneEightRatio - (oneEightRatio * shrinkRate * (currentTime - startTime) / 1000.0))
+                Nothing -> baseWidth
+                Just (JMilliseconds startTime) -> let (JMilliseconds currentTime) = rateInfo.epochTime in max 0.0 (baseWidth - (baseWidth * shrinkRate * (currentTime - startTime) / 1000.0))
         -- we use `fireAndForget` because we don't need the full rate info, only the first one to grab the initial value
         , n22: shrinkMe endTime basicYThickness rateInfo
         , n33: shrinkMe endTime basicZThickness rateInfo
@@ -263,11 +263,10 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
   p3bar ri = touchPointZ ri Position3
   p4bar ri = touchPointZ ri Position4
   appearancePoint ri = entryZ ri
-  oneEighth = 1.0 / 8.0
   ratioEvent = map (\{ iw, ih } -> { iw, ih, r: iw / ih }) (bang makeBasic.initialDims <|> makeBasic.resizeEvent)
   shrinkRate = 3.0
   basicYThickness = 0.04
-  basicZThickness = 0.2
+  basicZThickness = 0.23
   shrinkMe endTime basicThickness ri = case endTime of
     Nothing -> basicThickness
     Just (JMilliseconds startTime) -> let (JMilliseconds currentTime) = ri.epochTime in max 0.0 (basicThickness - (basicThickness * shrinkRate * (currentTime - startTime) / 1000.0))

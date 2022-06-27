@@ -182,6 +182,7 @@ mockBasics makeBasics =
                     , buffers: makeBasics.buffers
                     }
                 , uniqueId: input.uniqueId
+                , text: "foo"
                 -- empty for now, fill this in later
                 , someonePlayedMe: (empty :: Event HitBasicMe)
                 }

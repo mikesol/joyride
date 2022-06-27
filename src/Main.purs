@@ -4,7 +4,6 @@ import Prelude
 
 import Control.Alt ((<|>))
 import Control.Parallel (parTraverse, sequential)
-import Control.Promise (toAffE)
 import Data.Either (Either(..), hush)
 import Data.Filterable (filter)
 import Data.Homogeneous.Record (fromHomogeneous, homogeneous)
@@ -21,7 +20,7 @@ import Data.Tuple.Nested (type (/\), (/\))
 import Data.Unfoldable (replicate)
 import Deku.Toplevel (runInBody)
 import Effect (Effect)
-import Effect.Aff (Milliseconds, ParAff, forkAff, joinFiber, launchAff_, never, try)
+import Effect.Aff (Milliseconds, ParAff, forkAff, joinFiber, launchAff_, never)
 import Effect.Class (liftEffect)
 import Effect.Class.Console as Log
 import Effect.Random as Random
@@ -38,7 +37,7 @@ import Joyride.App.Toplevel (toplevel)
 import Joyride.Effect.Ref (readFromRecord, writeToRecord)
 import Joyride.FRP.Behavior (refToBehavior)
 import Joyride.FRP.Keypress (posFromKeypress, xForKeyboard)
-import Joyride.FRP.Orientation (hasOrientationPermission, orientationPermission, posFromOrientation, xForTouch)
+import Joyride.FRP.Orientation (hasOrientationPermission, posFromOrientation, xForTouch)
 import Joyride.FRP.SampleOnSubscribe (sampleOnSubscribe)
 import Joyride.Firebase.Analytics (firebaseAnalyticsAff)
 import Joyride.Firebase.Auth (authStateChangedEventWithAnonymousAccountCreation, firebaseAuthAff)
@@ -81,7 +80,7 @@ foreign import force4 :: Effect Boolean
 
 renderingInfo' :: RenderingInfo' Slider
 renderingInfo' =
-  { halfAmbitus: Slider { default: 2.3, min: 0.1, max: 4.2, step: 0.1 }
+  { halfAmbitus: Slider { default: 2.9, min: 0.1, max: 4.2, step: 0.1 }
   , barZSpacing: Slider { default: 1.0, min: 0.1, max: 3.0, step: 0.1 }
   , cameraOffsetY: Slider { default: 0.6, min: 0.1, max: 3.0, step: 0.05 }
   , cameraLookAtOffsetY: Slider { default: 0.0, min: -2.0, max: 2.0, step: 0.05 }

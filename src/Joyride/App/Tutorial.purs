@@ -447,7 +447,7 @@ tutorial
       ( Just $ D.p_
           [ D.span_ [ text_ "Earn points by touching the " ]
           , D.span (bang $ D.Class := "italic") [ text_ "gray" ]
-          , D.span_ [ text_ " tiles when they reach the " ]
+          , D.span_ [ text_ " tiles as soon as the edge touches the " ]
           , D.span (bang $ D.Class := "italic") [ text_ "green" ]
           , D.span_ [ text_ " line. You'll lose points if you're too early or late." ]
           ]

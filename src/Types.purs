@@ -46,6 +46,7 @@ module Types
   , allPositions
   , allAxes
   , MakeBasicWord
+  , MakeLeapWord
   , MakeBasic
   , MakeBasics
   , MakeLong
@@ -489,6 +490,7 @@ instance JSON.WriteForeign PointOutcome where
 -- hits
 type MakeBasicWord r =
   ( someonePlayedMe :: Event HitBasicMe
+  , text :: String
   | MakeBasic r
   )
 
@@ -737,6 +739,12 @@ type MakeLeap r =
   , sound :: Event RateInfo -> AudibleEnd
   , newPosition :: Position
   | MakeLeaps r
+  )
+
+type MakeLeapWord r =
+  ( someonePlayedMe :: Event HitLeapMe
+  , text :: String
+  | MakeLeap r
   )
 
 type MakeLeaps r =
