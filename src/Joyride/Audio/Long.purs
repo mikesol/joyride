@@ -21,11 +21,11 @@ long
   -> Audible D2 lock payload
 long x = gain 1.0
   ( x.offAt <#> \oa -> P.gain $ AudioEnvelope
-      { d: 1.0
+      { d: 1.5
       , o: oa
-      , p: [ 1.0, 0.5, 0.0 ]
+      , p: [ 1.0, 0.8, 0.2, 0.0 ]
       }
   )
   [ playBuf { buffer: x.silence }
-      ((P.buffer <$> x.buffer) <|> onAt x.onAt <|> offAt (map (add 1.0) x.offAt))
+      ((P.buffer <$> x.buffer) <|> onAt x.onAt) -- <|> offAt (map (add 3.0) x.offAt))
   ]

@@ -949,7 +949,6 @@ beats2 =
   , C11 /\ M58B1 /\ M58B2 /\ M58B3 /\ M58B4
   , C6 /\ M59B1 /\ M59B2 /\ M59B3 /\ M59B4
   , C4 /\ M59B1 /\ M59B2 /\ M59B3 /\ M59B4
-
   ]
 
 beats :: List BeatInstruction

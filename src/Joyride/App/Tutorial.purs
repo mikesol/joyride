@@ -502,7 +502,7 @@ tutorial
       "Next >"
       FadeInOut
       ( launchAff_
-          ( delay (Milliseconds 15000.0)
+          ( delay (Milliseconds 25000.0)
               *> liftEffect (pushCurrentState End)
           )
       )
