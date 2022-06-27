@@ -263,6 +263,7 @@
 /* pretty extreme, the problem is that there's so much crap that it's tough to disable this any other way */
 body {
 	user-select: none;
+	-webkit-touch-callout: none;
 }
 
 .tutorial-fade-in-animation { animation: tutorialFadeIn 0.35s; animation-fill-mode: forwards; }
