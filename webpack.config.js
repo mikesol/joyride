@@ -44,6 +44,10 @@ module.exports = {
 				type: "asset/resource",
 			},
 			{
+				test: /\.m4a/,
+				type: "asset/resource",
+			},
+			{
 				test: /\.jpg/,
 				type: "asset/resource",
 			},

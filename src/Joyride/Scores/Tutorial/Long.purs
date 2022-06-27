@@ -17,11 +17,14 @@ import FRP.Event.Class (bang)
 import FRP.Event.Time as LocalTime
 import Foreign.Object as Object
 import Joyride.Audio.Long as LongA
+import Joyride.Constants.Tutorial (tutorialStartOffset)
 import Joyride.FRP.Behavior (misbehavior)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Schedule (oneOff, scheduleCf)
-import Joyride.Visual.Long as LongV
 import Joyride.Ocarina (AudibleEnd(..))
+import Joyride.Scores.Tutorial.Base (MeasureNumberBeatNumber(..), mb2info)
+import Joyride.Visual.Long as LongV
+import Ocarina.WebAPI (BrowserAudioBuffer)
 import Record (union)
 import Rito.Color (RGB(..))
 import Rito.Core (ASceneful, Instance, toScene)
@@ -30,7 +33,6 @@ import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.RoundRobin (InstanceId, Semaphore(..), roundRobinInstancedMesh)
 import Safe.Coerce (coerce)
 import Types (Beats(..), Column(..), JMilliseconds(..), MakeLongs, RateInfo, beatToTime)
-import Ocarina.WebAPI (BrowserAudioBuffer)
 
 lookAhead :: Beats
 lookAhead = Beats 0.1
@@ -120,11 +122,12 @@ tmpScore0 :: List ScoreMorcel
 tmpScore0 = Nil
 
 tmpScore :: List ScoreMorcel
-tmpScore = { column: C10, appearsAt: Beats 0.0, length: 1.25, tag: "shakuhachi0" }
-  : { column: C10, appearsAt: Beats 3.0, length: 1.0, tag: "shakuhachi1"  }
-  : { column: C10, appearsAt: Beats 8.0, length: 1.25, tag: "shakuhachi2"  }
-  : { column: C10, appearsAt: Beats 12.0, length: 1.0, tag: "shakuhachi3"  }
-  : { column: C2, appearsAt: Beats 14.0, length: 1.0, tag: "shakuhachi0"  }
-  : { column: C2, appearsAt: Beats 21.0, length: 1.5, tag: "shakuhachi1"  }
-  : { column: C2, appearsAt: Beats 26.0, length: 1.25, tag: "shakuhachi2"  }
+tmpScore = { column: C10, appearsAt: (Beats (mb2info M29B1).t) + tutorialStartOffset, length: 1.25, tag: "shakuhachi0" }
+  : { column: C2, appearsAt: (Beats (mb2info M33B1).t) + tutorialStartOffset, length: 1.0, tag: "shakuhachi1"  }
+  : { column: C10, appearsAt: (Beats (mb2info M36B1).t) + tutorialStartOffset, length: 1.25, tag: "shakuhachi2"  }
+  : { column: C2, appearsAt: (Beats (mb2info M39B1).t) + tutorialStartOffset, length: 1.5, tag: "shakuhachi3"  }
+  : { column: C10, appearsAt: (Beats (mb2info M42B1).t) + tutorialStartOffset, length: 1.75, tag: "shakuhachi0"  }
+  : { column: C2, appearsAt: (Beats (mb2info M45B1).t) + tutorialStartOffset, length: 1.5, tag: "shakuhachi1"  }
+  : { column: C10, appearsAt: (Beats (mb2info M48B1).t) + tutorialStartOffset, length: 1.25, tag: "shakuhachi2"  }
+  : { column: C2, appearsAt: (Beats (mb2info M51B1).t) + tutorialStartOffset, length: 1.0, tag: "shakuhachi1"  }
   : Nil

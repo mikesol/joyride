@@ -12,6 +12,7 @@ import Data.Foldable (foldl, oneOf, oneOfMap, traverse_)
 import Data.Int (round)
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
+import Data.Monoid (guard)
 import Data.Newtype (over, unwrap)
 import Data.Number (pi)
 import Data.String as String
@@ -113,6 +114,7 @@ type TutorialEvents = V
   , rateInfo :: RateInfo
   , basicAudio :: Event AudibleChildEnd
   , leapAudio :: Event AudibleChildEnd
+  , longAudio :: Event AudibleChildEnd
   , render2DElement :: Web.DOM.Element
   , render3DElement :: Web.DOM.Element
   , tutorialCenterState :: CenterState
@@ -133,6 +135,7 @@ tutorial
   , cubeTextures
   , cNow
   , galaxyAttributes
+  , longVerb
   , shaders
   , threeDI
   , playerStatus
@@ -216,9 +219,11 @@ tutorial
                     ( graph
                         { basics: event.basicAudio
                         , leaps: event.leapAudio
+                        , longs: event.longAudio
                         , rateInfo: _.rateInfo <$> aStuff
                         , buffers: refToBehavior tli.soundObj
                         , silence: tli.silence
+                        , longVerb: longVerb
                         }
                     )
                   push.iAmReady
@@ -361,7 +366,7 @@ tutorial
                                     , resizeEvent: tli.resizeE
                                     , isMobile: tli.isMobile
                                     , lpsCallback: tli.lpsCallback
-                                    , pushAudio: push.leapAudio
+                                    , pushAudio: push.longAudio
                                     , mkColor: color threeDI.color
                                     , mkMatrix4: M4.set threeDI.matrix4
                                     , threeDI
@@ -431,7 +436,7 @@ tutorial
       }
 
   tutorialCenterMatter currentState pushCurrentState { startCallback } = currentState # switcher \cs -> case cs of
-    Intro -> tutorialCenterMatterFrame "Welcome to Joyride!" Nothing "Start Tutorial" FadeOut
+    Intro -> tutorialCenterMatterFrame "Welcome to Joyride!" Nothing false "Start Tutorial" FadeOut
       ( startCallback *> launchAff_
           ( delay (Milliseconds 4000.0)
               *> liftEffect (pushCurrentState Tiles)
@@ -447,10 +452,11 @@ tutorial
           , D.span_ [ text_ " line. You'll lose points if you're too early or late." ]
           ]
       )
+      false
       "Next >"
       FadeInOut
       ( launchAff_
-          ( delay (Milliseconds 10000.0)
+          ( delay (Milliseconds 12000.0)
               *> liftEffect (pushCurrentState Tilt)
           )
       )
@@ -460,21 +466,23 @@ tutorial
           [ D.span_ [ text_ "Tilt your phone left or right to move sideways and reach far-off tiles." ]
           ]
       )
+      false
       "Next >"
       FadeInOut
       ( launchAff_
-          ( delay (Milliseconds 10000.0)
+          ( delay (Milliseconds 9500.0)
               *> liftEffect (pushCurrentState Leap)
           )
       )
       pushCurrentState
     Leap -> tutorialCenterMatterFrame "Leaps"
       ( Just $ D.p_
-          [ D.span_ [ text_ "Leap to a new baseline by touching a " ]
+          [ D.span_ [ text_ "Leap to a new line by touching a " ]
           , D.span (bang $ D.Class := "italic") [ text_ "red" ]
           , D.span_ [ text_ " tile." ]
           ]
       )
+      false
       "Next >"
       FadeInOut
       ( launchAff_
@@ -487,18 +495,19 @@ tutorial
       ( Just $ D.p_
           [ D.span_ [ text_ "Long-press the " ]
           , D.span (bang $ D.Class := "italic") [ text_ "green" ]
-          , D.span_ [ text_ " tiles to earn points. The closer the tile is, the higher the points." ]
+          , D.span_ [ text_ " tiles to earn points. The closer the tile is, the higher the points!" ]
           ]
       )
+      false
       "Next >"
       FadeInOut
       ( launchAff_
-          ( delay (Milliseconds 10000.0)
+          ( delay (Milliseconds 15000.0)
               *> liftEffect (pushCurrentState End)
           )
       )
       pushCurrentState
-    End -> tutorialCenterMatterFrame "That's it!" (Just $ D.p_ [ text_ "Play against up to four people! The ride is more fun when shared with friends 🤗" ]) "Home >" FadeIn
+    End -> tutorialCenterMatterFrame "That's it!" (Just $ D.p_ [ text_ "Play against up to four people! The ride is more fun when shared with friends 🤗" ]) true "Home >" FadeIn
       tli.goHome
       mempty
     Empty -> envy empty
@@ -508,7 +517,7 @@ tutorial
   replaceFadeInWithFadeOut = ((if _ then _ else _) <$> String.contains (String.Pattern tutorialFadeInAnimation) <*> String.replace (String.Pattern tutorialFadeInAnimation) (String.Replacement (tutorialFadeOutAnimation <> space <> "opacity-0 ")) <*> append (tutorialFadeOutAnimation <> space <> "opacity-0 "))
   space = " "
 
-  tutorialCenterMatterFrame hd txt action fade cb pcenter = bussed \setFadeOut fadeOut' -> do
+  tutorialCenterMatterFrame hd txt endBtnHack action fade cb pcenter = bussed \setFadeOut fadeOut' -> do
     let
       fadeOut = bang identity <|> fadeOut'
     D.div
@@ -540,25 +549,40 @@ tutorial
                 )
               <>
                 [ D.div (bang $ D.Class := "flex w-full justify-center items-center")
-                    [ D.button
-                        ( oneOf
-                            [ bang $ D.Class := buttonCls <> " pointer-events-auto"
-                            , bang $
-                                D.OnClick :=
-                                  let
-                                    goodbye = pcenter Empty
-                                    fout = setFadeOut replaceFadeInWithFadeOut *> launchAff_ (delay (Milliseconds 1500.0) *> liftEffect goodbye)
-                                  in
-                                    ( ( case fade of
-                                          FadeOut -> fout
-                                          FadeInOut -> fout
-                                          _ -> goodbye
-                                      ) *> cb
-                                    )
-                            ]
-                        )
-                        [ text_ action ]
-                    ]
+                    ( guard endBtnHack [ D.button
+                          ( oneOf
+                              [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                              , bang $
+                                  D.OnClick :=
+                                    let
+                                      goodbye = pcenter Empty
+                                      fout = setFadeOut replaceFadeInWithFadeOut *> launchAff_ (delay (Milliseconds 1500.0) *> liftEffect goodbye)
+                                    in
+                                      fout
+                              ]
+                          )
+                          [ text_ "Keep playing" ]
+                      ] <>
+                        [ D.button
+                            ( oneOf
+                                [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                                , bang $
+                                    D.OnClick :=
+                                      let
+                                        goodbye = pcenter Empty
+                                        fout = setFadeOut replaceFadeInWithFadeOut *> launchAff_ (delay (Milliseconds 1500.0) *> liftEffect goodbye)
+                                      in
+                                        ( ( case fade of
+                                              FadeOut -> fout
+                                              FadeInOut -> fout
+                                              _ -> goodbye
+                                          ) *> cb
+                                        )
+                                ]
+                            )
+                            [ text_ action ]
+                        ]
+                    )
                 ]
           )
       ]

@@ -3,13 +3,17 @@ module Test.Main where
 import Prelude
 
 import Control.Monad.Except (runExcept)
+import Data.Array (sort, nub, zip, drop, dropEnd)
+import Data.Foldable (for_)
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
+import Data.Tuple.Nested ((/\))
 import Effect (Effect)
 import Effect.Aff (launchAff_)
 import Effect.Class (liftEffect)
 import Effect.Random (randomInt)
+import Joyride.Scores.Tutorial.Base (beats2)
 import Simple.JSON as JSON
 import Test.PlayerAction (TestPlayerAction)
 import Test.QuickCheck (mkSeed, (===))
@@ -24,6 +28,16 @@ main :: Effect Unit
 main = do
   launchAff_
     $ runSpec [ consoleReporter ] do
+        describe "Tutorial" do
+          it "Presents the beats in the right order" do
+            for_ beats2 \(c /\ x /\ y /\ z /\ w) ->
+              sort [x,y,z,w] `shouldEqual` [x,y,z,w]
+          it "Does not duplicate beats" do
+            for_ beats2 \(c /\ x /\ y /\ z /\ w) ->
+              nub [x,y,z,w] `shouldEqual` [x,y,z,w]
+          it "Presents increasing beats" do
+            for_ (zip (dropEnd 1 beats2) (drop 1 beats2)) \((c /\ x /\ y /\ z /\ w) /\ (c' /\ x' /\ y' /\ z' /\ w')) ->
+              (x /\ x' /\ (x <= x')) `shouldEqual` (x /\ x' /\ true)
         describe "Simple.JSON" do
           it "encodes and decodes PlayerAction correctly" do
             i <- liftEffect $ randomInt 0 10000

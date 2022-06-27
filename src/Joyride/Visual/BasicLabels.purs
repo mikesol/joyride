@@ -49,20 +49,22 @@ basicLabels mbl = dyn
                   ]
               )
           }
-          ( keepLatest $ map
-              ( \{ x, y, z } -> oneOfMap bang
-                  [ P.positionX x
-                  , P.positionY y
-                  , P.positionZ z
-                  ]
-              )
-              ( mapAccum
-                  ( \a b -> case b of
-                      Nothing -> Tuple (Just a) a
-                      Just i -> Tuple (Just i) (a { z = i.z })
+          ( bang (P.positionZ 100.0) <|> keepLatest
+              ( map
+                  ( \{ x, y, z } -> oneOfMap bang
+                      [ P.positionX x
+                      , P.positionY y
+                      , P.positionZ z
+                      ]
                   )
-                  e.translation
-                  Nothing
+                  ( mapAccum
+                      ( \a b -> case b of
+                          Nothing -> Tuple (Just a) a
+                          Just i -> Tuple (Just i) (a { z = i.z })
+                      )
+                      e.translation
+                      Nothing
+                  )
               )
           )
       ) <|>

@@ -7,7 +7,7 @@ import Data.Typelevel.Num (D2)
 import FRP.Event (Event)
 import Joyride.Ocarina (offAt, onAt)
 import Ocarina.Control (gain, playBuf)
-import Ocarina.Core (Audible, AudioEnvelope(..), AudioEnvelope')
+import Ocarina.Core (Audible, AudioEnvelope(..))
 import Ocarina.Properties as P
 import Ocarina.WebAPI (BrowserAudioBuffer)
 

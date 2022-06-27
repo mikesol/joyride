@@ -166,17 +166,16 @@ toplevel tli =
     TLRoomIsFull -> roomIsFull
     TLGameHasStarted -> gameHasStarted
     TLWantsTutorial wantsTutorial -> tutorial
-       tli
+      tli
       { basicE: tutorialBasics
-          , leapE: tutorialLeaps
-          , longE: tutorialLongs
-          }
-
+      , leapE: tutorialLeaps
+      , longE: tutorialLongs
+      }
       wantsTutorial
     TLSuccess successful -> ride
       tli
       { basicE: mockBasics
-          , leapE: mockLeaps
-          , longE: mockLongs
-          }
+      , leapE: mockLeaps
+      , longE: mockLongs
+      }
       successful

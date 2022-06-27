@@ -265,7 +265,7 @@ body {
 	user-select: none;
 }
 
-.tutorial-fade-in-animation { animation: tutorialFadeIn 1s; animation-fill-mode: forwards; }
+.tutorial-fade-in-animation { animation: tutorialFadeIn 0.35s; animation-fill-mode: forwards; }
 
 @keyframes tutorialFadeIn {
   0% { opacity: 0; }

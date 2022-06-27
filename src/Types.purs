@@ -870,6 +870,7 @@ type Success' =
 type WantsTutorial' =
   { player :: Player
   , shaders :: Shaders
+  , longVerb :: BrowserAudioBuffer
   , galaxyAttributes :: GalaxyAttributes
   , cNow :: Effect Milliseconds
   , threeDI :: ThreeDI

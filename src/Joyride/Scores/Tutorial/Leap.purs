@@ -18,11 +18,14 @@ import FRP.Event.Class (bang)
 import FRP.Event.Time as LocalTime
 import Foreign.Object as Object
 import Joyride.Audio.Leap as LeapA
+import Joyride.Constants.Tutorial (tutorialStartOffset)
 import Joyride.FRP.Behavior (misbehavior)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Schedule (oneOff, scheduleCf)
-import Joyride.Visual.Leap as LeapV
 import Joyride.Ocarina (AudibleEnd(..))
+import Joyride.Scores.Tutorial.Base (MeasureNumberBeatNumber(..), mb2info)
+import Joyride.Visual.Leap as LeapV
+import Ocarina.WebAPI (BrowserAudioBuffer)
 import Record (union)
 import Rito.Color (RGB(..))
 import Rito.Core (ASceneful, Instance, toScene)
@@ -31,7 +34,6 @@ import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.RoundRobin (InstanceId, Semaphore(..), roundRobinInstancedMesh)
 import Safe.Coerce (coerce)
 import Types (Beats(..), Column(..), JMilliseconds(..), MakeLeaps, Position(..), RateInfo, beatToTime)
-import Ocarina.WebAPI (BrowserAudioBuffer)
 
 lookAhead :: Beats
 lookAhead = Beats 0.1
@@ -99,7 +101,7 @@ tutorialLeaps makeLeaps = toScene
                 { sound: singleBeat
                     { myBeat: input.appearsAt + Beats 1.0
                     , silence: makeLeaps.silence
-                    , buffer: misbehavior (Object.lookup "bell") makeLeaps.buffers
+                    , buffer: misbehavior (Object.lookup "floorTom") makeLeaps.buffers
                     }
                 , uniqueId: input.uniqueId
                 , newPosition: input.position
@@ -118,7 +120,8 @@ tutorialLeaps makeLeaps = toScene
     (transform <$> init) :< go rest
   score = mapWithIndex (\uniqueId x -> union { uniqueId } x) $ tmpScore
 
-type ScoreMorcel = { appearsAt :: Beats
+type ScoreMorcel =
+  { appearsAt :: Beats
   , column :: Column
   , position :: Position
   }
@@ -126,25 +129,43 @@ type ScoreMorcel = { appearsAt :: Beats
 tmpScore0 :: List ScoreMorcel
 tmpScore0 = Nil
 
+-- 3 7 8 12
 tmpScore :: List ScoreMorcel
-tmpScore = { column: C4, appearsAt: Beats 0.0, position: Position2 }
-    : { column: C8, appearsAt: Beats 2.0, position: Position3 }
-    : { column: C8, appearsAt: Beats 3.0, position: Position1 }
-    : { column: C8, appearsAt: Beats 5.0, position: Position3 }
-    : { column: C8, appearsAt: Beats 6.0, position: Position2 }
-    : { column: C8, appearsAt: Beats 8.0, position: Position1 }
-    : { column: C8, appearsAt: Beats 9.0, position: Position4 }
-    : { column: C8, appearsAt: Beats 11.0, position: Position3 }
-    : { column: C8, appearsAt: Beats 12.0, position: Position1 }
-    : { column: C3, appearsAt: Beats 14.0, position: Position1 }
-    : { column: C3, appearsAt: Beats 15.0, position: Position4 }
-    : { column: C3, appearsAt: Beats 17.0, position: Position2 }
-    : { column: C3, appearsAt: Beats 18.0, position: Position4 }
-    : { column: C3, appearsAt: Beats 20.0, position: Position3 }
-    : { column: C3, appearsAt: Beats 21.0, position: Position1 }
-    : { column: C3, appearsAt: Beats 23.0, position: Position2 }
-    : { column: C3, appearsAt: Beats 24.0, position: Position1 }
-    : { column: C3, appearsAt: Beats 26.0, position: Position2 }
-    : { column: C3, appearsAt: Beats 27.0, position: Position3 }
-    : { column: C3, appearsAt: Beats 29.0, position: Position4 }
-    : Nil
+tmpScore = { column: C7, appearsAt: (Beats (mb2info M16B1).t) + tutorialStartOffset, position: Position2 }
+  : { column: C8, appearsAt: (Beats (mb2info M18B1).t) + tutorialStartOffset, position: Position3 }
+  : { column: C7, appearsAt: (Beats (mb2info M20B1).t) + tutorialStartOffset, position: Position1 }
+  : { column: C8, appearsAt: (Beats (mb2info M21B1).t) + tutorialStartOffset, position: Position4 }
+  : { column: C7, appearsAt: (Beats (mb2info M22B1).t) + tutorialStartOffset, position: Position2 }
+  : { column: C8, appearsAt: (Beats (mb2info M23B1).t) + tutorialStartOffset, position: Position3 }
+  : { column: C7, appearsAt: (Beats (mb2info M24B1).t) + tutorialStartOffset, position: Position1 }
+  : { column: C8, appearsAt: (Beats (mb2info M25B1).t) + tutorialStartOffset, position: Position4 }
+  : { column: C3, appearsAt: (Beats (mb2info M26B1).t) + tutorialStartOffset, position: Position2 }
+  : { column: C7, appearsAt: (Beats (mb2info M26B3).t) + tutorialStartOffset, position: Position3 }
+  : { column: C12, appearsAt: (Beats (mb2info M27B1).t) + tutorialStartOffset, position: Position1 }
+  : { column: C8, appearsAt: (Beats (mb2info M27B3).t) + tutorialStartOffset, position: Position4 }
+  : { column: C3, appearsAt: (Beats (mb2info M29B1).t) + tutorialStartOffset, position: Position2 }
+  : { column: C7, appearsAt: (Beats (mb2info M29B3).t) + tutorialStartOffset, position: Position3 }
+  : { column: C12, appearsAt: (Beats (mb2info M30B1).t) + tutorialStartOffset, position: Position1 }
+  : { column: C8, appearsAt: (Beats (mb2info M30B3).t) + tutorialStartOffset, position: Position4 }
+  : { column: C3, appearsAt: (Beats (mb2info M31B1).t) + tutorialStartOffset, position: Position2 }
+  : { column: C7, appearsAt: (Beats (mb2info M32B3).t) + tutorialStartOffset, position: Position3 }
+  : { column: C12, appearsAt: (Beats (mb2info M33B1).t) + tutorialStartOffset, position: Position1 }
+  : { column: C8, appearsAt: (Beats (mb2info M34B3).t) + tutorialStartOffset, position: Position4 }
+  : { column: C3, appearsAt: (Beats (mb2info M35B1).t) + tutorialStartOffset, position: Position2 }
+  : { column: C7, appearsAt: (Beats (mb2info M36B3).t) + tutorialStartOffset, position: Position3 }
+  : { column: C12, appearsAt: (Beats (mb2info M37B1).t) + tutorialStartOffset, position: Position1 }
+  : { column: C8, appearsAt: (Beats (mb2info M38B3).t) + tutorialStartOffset, position: Position4 }
+  : { column: C3, appearsAt: (Beats (mb2info M39B1).t) + tutorialStartOffset, position: Position2 }
+  : { column: C7, appearsAt: (Beats (mb2info M40B3).t) + tutorialStartOffset, position: Position3 }
+  : { column: C12, appearsAt: (Beats (mb2info M41B1).t) + tutorialStartOffset, position: Position1 }
+  : { column: C8, appearsAt: (Beats (mb2info M42B3).t) + tutorialStartOffset, position: Position4 }
+  : { column: C3, appearsAt: (Beats (mb2info M43B1).t) + tutorialStartOffset, position: Position2 }
+  : { column: C7, appearsAt: (Beats (mb2info M44B3).t) + tutorialStartOffset, position: Position3 }
+  : { column: C12, appearsAt: (Beats (mb2info M45B1).t) + tutorialStartOffset, position: Position1 }
+  : { column: C8, appearsAt: (Beats (mb2info M46B3).t) + tutorialStartOffset, position: Position4 }
+  : { column: C3, appearsAt: (Beats (mb2info M47B1).t) + tutorialStartOffset, position: Position2 }
+  : { column: C7, appearsAt: (Beats (mb2info M48B3).t) + tutorialStartOffset, position: Position3 }
+  : { column: C12, appearsAt: (Beats (mb2info M49B1).t) + tutorialStartOffset, position: Position1 }
+  : { column: C8, appearsAt: (Beats (mb2info M50B3).t) + tutorialStartOffset, position: Position4 }
+
+  : Nil

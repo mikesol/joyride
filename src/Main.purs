@@ -11,7 +11,7 @@ import Data.Homogeneous.Record (fromHomogeneous, homogeneous)
 import Data.Int as Int
 import Data.List (List(..), drop, take, (:))
 import Data.Map as Map
-import Data.Maybe (Maybe(..), maybe)
+import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.Newtype (unwrap)
 import Data.Number (pi, pow, sqrt)
 import Data.Profunctor (lcmap)
@@ -340,35 +340,40 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
                 : (BufferName "shakuhachi1" /\ "shakuhachi1")
                 : (BufferName "shakuhachi2" /\ "shakuhachi2")
                 : (BufferName "shakuhachi3" /\ "shakuhachi3")
-                : (BufferName "bell" /\ "bell")
+                : (BufferName "floorTom" /\ "floorTom")
+                : (BufferName "floorTom" /\ "floorTom")
+                : (BufferName "elvedenHallLordsCloakroom" /\ "elvedenHallLordsCloakroom")
                 : Nil
             let n2oh = take 300 bufferNames
             let n2ot = drop 300 bufferNames
             dlInChunks audio 100 n2oh ctx' soundObj
             liftEffect $ loaded.push true
             dlInChunks audio 100 n2ot ctx' soundObj
-            liftEffect $ negotiation.push $ WantsTutorial
-              { player: Player4
-              , threeDI
-              , shaders
-              , galaxyAttributes
-              , cNow: mappedCNow
-              , textures: Textures myTextures
-              , cubeTextures: CubeTextures myCubeTextures
-              , playerStatus:
-                  let
-                    e :: Event KnownPlayers
-                    e = sampleOnSubscribe (refToBehavior knownPlayers) <|> knownPlayersBus.event
-                  in
-                    -- folded because, by design, we always know which value "wins"
-                    -- in player status
-                    -- so we can always fold with the previous one in case there's a
-                    -- regression in the incoming value (ie packets out of order)
-                    folded e
-              , optMeIn: \ms -> do
-                  players <- Ref.modify (KnownPlayers (Map.singleton Player4 (HasStarted $ InFlightGameInfo { startedAt: ms, points: Points 0.0, penalties: Penalty 0.0, name: Nothing })) <> _) knownPlayers
-                  knownPlayersBus.push players
-              }
+            liftEffect do
+              longVerb <- fromMaybe silence <<< Object.lookup "elvedenHallLordsCloakroom" <$> Ref.read soundObj
+              negotiation.push $ WantsTutorial
+                { player: Player4
+                , threeDI
+                , shaders
+                , galaxyAttributes
+                , cNow: mappedCNow
+                , textures: Textures myTextures
+                , cubeTextures: CubeTextures myCubeTextures
+                , longVerb
+                , playerStatus:
+                    let
+                      e :: Event KnownPlayers
+                      e = sampleOnSubscribe (refToBehavior knownPlayers) <|> knownPlayersBus.event
+                    in
+                      -- folded because, by design, we always know which value "wins"
+                      -- in player status
+                      -- so we can always fold with the previous one in case there's a
+                      -- regression in the incoming value (ie packets out of order)
+                      folded e
+                , optMeIn: \ms -> do
+                    players <- Ref.modify (KnownPlayers (Map.singleton Player4 (HasStarted $ InFlightGameInfo { startedAt: ms, points: Points 0.0, penalties: Penalty 0.0, name: Nothing })) <> _) knownPlayers
+                    knownPlayersBus.push players
+                }
           NoChannel -> liftEffect $ negotiation.push
             ( GetRulesOfGame
                 { threeDI

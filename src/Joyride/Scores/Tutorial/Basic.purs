@@ -14,9 +14,11 @@ import Data.FunctorWithIndex (mapWithIndex)
 import Data.Lens (over, traversed)
 import Data.Lens.Record (prop)
 import Data.List (List(..), span, (:))
+import Data.List as List
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.Time.Duration (Milliseconds(..), Seconds(..))
+import Data.Tuple.Nested ((/\))
 import FRP.Behavior (Behavior, sample_)
 import FRP.Event (Event, keepLatest, memoize)
 import FRP.Event.Class (bang)
@@ -26,6 +28,7 @@ import Joyride.Constants.Tutorial (tutorialStartOffset)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Schedule (oneOff, scheduleCf)
 import Joyride.Ocarina (AudibleEnd(..))
+import Joyride.Scores.Tutorial.Base (mb2info)
 import Joyride.Scores.Tutorial.Base as Base
 import Joyride.Visual.Basic as BasicV
 import Ocarina.WebAPI (BrowserAudioBuffer)
@@ -184,7 +187,7 @@ tutorialBasics makeBasics =
     let
       { init, rest } = span (\{ appearsAt } -> appearsAt <= beats + lookAhead) l
     (f <$> init) :< go f rest
-  score = mapWithIndex (\uniqueId x -> union { uniqueId } x) $ fromBase Base.beats
+  score = mapWithIndex (\uniqueId x -> union { uniqueId } x) $ fromBase2 Base.beats2
 
 type ScoreMorcel =
   { appearsAt :: Beats
@@ -233,6 +236,17 @@ succC C12 = C13
 succC C13 = C14
 succC C14 = C15
 succC C15 = C0
+
+fromBase2 :: Array Base.BeatInstruction2 -> List ScoreMorcel
+fromBase2 = List.fromFoldable <<< map (\(c /\ x /\ y /\ z /\ w) -> { appearsAt: Beats ((mb2info x).t + tso - 1.0)
+    , b0: Beats ((mb2info x).t + tso)
+    , b1: Beats ((mb2info y).t + tso)
+    , b2: Beats ((mb2info z).t + tso)
+    , b3: Beats ((mb2info w).t + tso)
+    , column: c
+    } )
+  where
+  tso = unwrap tutorialStartOffset
 
 fromBase :: List Base.BeatInstruction -> List ScoreMorcel
 fromBase = addStartOffset >>> go true C8

@@ -15,7 +15,7 @@ import Foreign.Object as Object
 import Joyride.Constants.Tutorial (tutorialStartOffset)
 import Joyride.FRP.Schedule (oneOff)
 import Joyride.Ocarina (AudibleChildEnd(..))
-import Ocarina.Control (gain_, playBuf)
+import Ocarina.Control (gain_, playBuf, convolver)
 import Ocarina.Core (Audible, AudioOnOff(..), _on, dyn)
 import Ocarina.Properties (buffer, onOff)
 import Ocarina.WebAPI (BrowserAudioBuffer)
@@ -30,17 +30,22 @@ graph
   :: forall lock payload
    . { basics :: Event (Event AudibleChildEnd)
      , leaps :: Event (Event AudibleChildEnd)
+     , longs :: Event (Event AudibleChildEnd)
      , rateInfo :: Event RateInfo
      , buffers :: Behavior (Object.Object BrowserAudioBuffer)
+     , longVerb :: BrowserAudioBuffer
      , silence :: BrowserAudioBuffer
      }
   -> Array (Audible D2 lock payload)
-graph { basics, leaps, rateInfo, silence, buffers } =
+graph { basics, leaps, longs, longVerb, rateInfo, silence, buffers } =
   [ gain_ 1.0
       [ dyn ((map <<< map) (\(AudibleChildEnd e) -> e) basics)
       ]
   , gain_ 1.0
       [ dyn ((map <<< map) (\(AudibleChildEnd e) -> e) leaps)
+      ]
+  , convolver longVerb
+      [ dyn ((map <<< map) (\(AudibleChildEnd e) -> e) longs)
       ]
   , gain_ 1.0
       [ playBuf { buffer: silence }

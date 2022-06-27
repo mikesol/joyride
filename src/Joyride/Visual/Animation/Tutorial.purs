@@ -20,6 +20,9 @@ import FRP.Event.VBus (V, vbus)
 import Joyride.Effect.Lowpass (lpf)
 import Joyride.FRP.Dedup (dedup)
 import Joyride.Visual.Bar (makeBar)
+import Joyride.Visual.BasicLabels (basicLabels)
+import Joyride.Visual.LeapLabels (leapLabels)
+import Joyride.Visual.LongLabels (longLabels)
 import Rito.Cameras.PerspectiveCamera (perspectiveCamera)
 import Rito.Color (RGB(..), color)
 import Rito.Core (ASceneful, Renderer(..), cameraToGroup, toGroup, toScene)
@@ -280,12 +283,37 @@ runThree opts = do
                           [ toGroup $ opts.basicE scenePush.hitBasicVisualForLabel
                           ]
                         <>
+                          -- basic labels
+                          [ toGroup $ basicLabels
+                              { threeDI: opts.threeDI
+                              , basicTap: sceneEvent.hitBasicVisualForLabel
+                              , lpsCallback: opts.lowPriorityCb
+                              }
+                          ]
+                        <>
                           -- leap notes
                           [ toGroup $ opts.leapE scenePush.hitLeapVisualForLabel
                           ]
                         <>
                           -- long notes
                           [ toGroup $ opts.longE scenePush.hitLongVisualForLabel scenePush.releaseLongVisualForLabel
+                          ]
+                        <>
+                          -- leap labels
+                          [ toGroup $ leapLabels
+                              { threeDI: opts.threeDI
+                              , leapTap: sceneEvent.hitLeapVisualForLabel
+                              , lpsCallback: opts.lowPriorityCb
+                              }
+                          ]
+                        <>
+                          -- leap labels
+                          [ toGroup $ longLabels
+                              { threeDI: opts.threeDI
+                              , longTap: sceneEvent.hitLongVisualForLabel
+                              , longRelease: sceneEvent.releaseLongVisualForLabel
+                              , lpsCallback: opts.lowPriorityCb
+                              }
                           ]
                         <>
                           -- camera
