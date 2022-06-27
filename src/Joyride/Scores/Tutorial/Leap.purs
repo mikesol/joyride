@@ -33,7 +33,7 @@ import Rito.Geometries.Box (box)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.RoundRobin (InstanceId, Semaphore(..), roundRobinInstancedMesh)
 import Safe.Coerce (coerce)
-import Types (Beats(..), Column(..), JMilliseconds(..), MakeLeaps, Position(..), RateInfo, beatToTime)
+import Types (Beats(..), Column(..), JMilliseconds(..), MakeLeaps, Position(..), RateInfo)
 
 lookAhead :: Beats
 lookAhead = Beats 0.1
@@ -45,13 +45,11 @@ singleBeat
      }
   -> Event RateInfo
   -> AudibleEnd
-singleBeat { buffer, silence, myBeat } riE = AudibleEnd
+singleBeat { buffer, silence, myBeat: _ } riE = AudibleEnd
   ( envy
       ( memoize
           ( oneOff identity
-              ( riE <#> \ri ->
-                  if ri.beats + lookAhead >= myBeat then Just (beatToTime ri myBeat)
-                  else Nothing
+              ( riE <#> (const $ Just $ Seconds 0.0) -- \ri ->    if ri.beats + lookAhead >= myBeat then Just (beatToTime ri myBeat)  else Nothing
               )
           )
           \oa -> LeapA.leap
@@ -167,5 +165,55 @@ tmpScore = { column: C7, appearsAt: (Beats (mb2info M16B1).t) + tutorialStartOff
   : { column: C7, appearsAt: (Beats (mb2info M48B3).t) + tutorialStartOffset, position: Position3 }
   : { column: C12, appearsAt: (Beats (mb2info M49B1).t) + tutorialStartOffset, position: Position1 }
   : { column: C8, appearsAt: (Beats (mb2info M50B3).t) + tutorialStartOffset, position: Position4 }
+  --
+  --
+  : { column: C3, appearsAt: (Beats (mb2info M51B1).t) + tutorialStartOffset, position: Position2 }
+  : { column: C7, appearsAt: (Beats (mb2info M51B1).t) + tutorialStartOffset, position: Position3 }
+  : { column: C12, appearsAt: (Beats (mb2info M51B1).t) + tutorialStartOffset, position: Position1 }
+  : { column: C8, appearsAt: (Beats (mb2info M51B1).t) + tutorialStartOffset, position: Position4 }
+
+  --
+  : { column: C3, appearsAt: (Beats (mb2info M55B1).t) + tutorialStartOffset, position: Position2 }
+  : { column: C7, appearsAt: (Beats (mb2info M55B1).t) + tutorialStartOffset, position: Position3 }
+  : { column: C12, appearsAt: (Beats (mb2info M55B1).t) + tutorialStartOffset, position: Position1 }
+  : { column: C8, appearsAt: (Beats (mb2info M55B1).t) + tutorialStartOffset, position: Position4 }
+
+  --
+  : { column: C3, appearsAt: (Beats (mb2info M59B1).t) + tutorialStartOffset, position: Position2 }
+  : { column: C7, appearsAt: (Beats (mb2info M59B1).t) + tutorialStartOffset, position: Position3 }
+  : { column: C12, appearsAt: (Beats (mb2info M59B1).t) + tutorialStartOffset, position: Position1 }
+  : { column: C8, appearsAt: (Beats (mb2info M59B1).t) + tutorialStartOffset, position: Position4 }
+
+  --
+  : { column: C3, appearsAt: (Beats (mb2info M63B1).t) + tutorialStartOffset, position: Position2 }
+  : { column: C7, appearsAt: (Beats (mb2info M63B1).t) + tutorialStartOffset, position: Position3 }
+  : { column: C12, appearsAt: (Beats (mb2info M63B1).t) + tutorialStartOffset, position: Position1 }
+  : { column: C8, appearsAt: (Beats (mb2info M63B1).t) + tutorialStartOffset, position: Position4 }
+
+  --
+  : { column: C3, appearsAt: (Beats (mb2info M67B1).t) + tutorialStartOffset, position: Position2 }
+  : { column: C7, appearsAt: (Beats (mb2info M67B1).t) + tutorialStartOffset, position: Position3 }
+  : { column: C12, appearsAt: (Beats (mb2info M67B1).t) + tutorialStartOffset, position: Position1 }
+  : { column: C8, appearsAt: (Beats (mb2info M67B1).t) + tutorialStartOffset, position: Position4 }
+
+  --
+  : { column: C3, appearsAt: (Beats (mb2info M71B1).t) + tutorialStartOffset, position: Position2 }
+  : { column: C7, appearsAt: (Beats (mb2info M71B1).t) + tutorialStartOffset, position: Position3 }
+  : { column: C12, appearsAt: (Beats (mb2info M71B1).t) + tutorialStartOffset, position: Position1 }
+  : { column: C8, appearsAt: (Beats (mb2info M71B1).t) + tutorialStartOffset, position: Position4 }
+
+  --
+  : { column: C3, appearsAt: (Beats (mb2info M75B1).t) + tutorialStartOffset, position: Position2 }
+  : { column: C7, appearsAt: (Beats (mb2info M75B1).t) + tutorialStartOffset, position: Position3 }
+  : { column: C12, appearsAt: (Beats (mb2info M75B1).t) + tutorialStartOffset, position: Position1 }
+  : { column: C8, appearsAt: (Beats (mb2info M75B1).t) + tutorialStartOffset, position: Position4 }
+
+  --
+  : { column: C3, appearsAt: (Beats (mb2info M79B1).t) + tutorialStartOffset, position: Position2 }
+  : { column: C12, appearsAt: (Beats (mb2info M79B1).t) + tutorialStartOffset, position: Position1 }
+
+  --
+  : { column: C3, appearsAt: (Beats (mb2info M83B1).t) + tutorialStartOffset, position: Position2 }
+  : { column: C12, appearsAt: (Beats (mb2info M83B1).t) + tutorialStartOffset, position: Position1 }
 
   : Nil

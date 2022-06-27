@@ -532,7 +532,7 @@ tutorial
             )
       )
       [ D.div
-          (bang $ D.Class := "select-auto justify-self-center self-center row-start-3 row-end-5 col-start-3 col-end-5")
+          (bang $ D.Class := "select-auto justify-self-center self-center row-start-3 row-end-5 col-start-2 col-end-6 md:col-start-3 md:col-end-5")
           ( [ D.div
                 (bang $ D.Class := "pointer-events-auto text-center p-4 " <> headerCls)
                 [ D.p_ [ text_ hd ]

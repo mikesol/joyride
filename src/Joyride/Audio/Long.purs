@@ -5,7 +5,7 @@ import Prelude
 import Control.Alt ((<|>))
 import Data.Typelevel.Num (D2)
 import FRP.Event (Event)
-import Joyride.Ocarina (offAt, onAt)
+import Joyride.Ocarina (onAt)
 import Ocarina.Control (gain, playBuf)
 import Ocarina.Core (Audible, AudioEnvelope(..))
 import Ocarina.Properties as P
@@ -21,9 +21,9 @@ long
   -> Audible D2 lock payload
 long x = gain 1.0
   ( x.offAt <#> \oa -> P.gain $ AudioEnvelope
-      { d: 1.5
+      { d: 1.0
       , o: oa
-      , p: [ 1.0, 0.8, 0.2, 0.0 ]
+      , p: [ 1.0, 0.0 ]
       }
   )
   [ playBuf { buffer: x.silence }
