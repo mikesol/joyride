@@ -171,9 +171,7 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
   -- has orientation permission
   -- see if this helps get rid of the screen on iOS for successive plays
   -- if not, get rid of it and just use hasOrientationPermission
-  hop <- (try $ toAffE orientationPermission) >>= case _ of
-    Right _ -> pure false
-    Left _ -> liftEffect hasOrientationPermission
+  hop <- liftEffect hasOrientationPermission
   liftEffect do
     -- auth
     -- ONLY CALL THIS LISTENER ONCE, AT THE TOP LEVEL
