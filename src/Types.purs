@@ -744,7 +744,11 @@ type MakeLeap r =
 type MakeLeapWord r =
   ( someonePlayedMe :: Event HitLeapMe
   , text :: String
-  | MakeLeap r
+  , column :: Column
+  , appearsAt :: Beats
+  , uniqueId :: Int
+  , newPosition :: Position
+  | MakeLeaps r
   )
 
 type MakeLeaps r =

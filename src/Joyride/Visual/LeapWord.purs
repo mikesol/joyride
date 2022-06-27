@@ -3,7 +3,6 @@ module Joyride.Visual.LeapWord where
 import Prelude
 
 import Control.Alt ((<|>))
-import Data.Filterable (filter)
 import Data.Foldable (oneOf)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
@@ -23,13 +22,13 @@ import Rito.CSS.CSS3DObject (css3DObject)
 import Rito.Core (ACSS3DObject)
 import Rito.Properties as P
 import Safe.Coerce (coerce)
-import Types (HitLeapOtherPlayer(..), JMilliseconds(..), MakeLeapWord, Position(..), entryZ, normalizedColumn, touchPointZ)
+import Types (JMilliseconds(..), MakeLeapWord, Position(..), entryZ, normalizedColumn, touchPointZ)
 
-leap
+leapWord
   :: forall r lock payload
    . { | MakeLeapWord r }
   -> ACSS3DObject lock payload
-leap makeLeap = do
+leapWord makeLeap = do
   let
     played = makeLeap.someonePlayedMe
     forRendering = sampleBy (#) makeLeap.renderingInfo

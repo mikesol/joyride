@@ -2,9 +2,9 @@ module Joyride.Scores.Tutorial.Leap where
 
 import Prelude
 
-import Bolson.Core (envy)
+import Bolson.Core (Child(..), dyn, envy, fixed)
 import Control.Alt ((<|>))
-import Control.Comonad.Cofree ((:<))
+import Control.Comonad.Cofree (Cofree, (:<))
 import Control.Plus (empty)
 import Data.DateTime.Instant (unInstant)
 import Data.Foldable (oneOfMap)
@@ -12,6 +12,7 @@ import Data.FunctorWithIndex (mapWithIndex)
 import Data.List (List(..), span, (:))
 import Data.Maybe (Maybe(..))
 import Data.Time.Duration (Milliseconds(..), Seconds(..))
+import Effect (Effect)
 import FRP.Behavior (Behavior, sample_)
 import FRP.Event (Event, keepLatest, memoize)
 import FRP.Event.Class (bang)
@@ -25,15 +26,16 @@ import Joyride.FRP.Schedule (oneOff, scheduleCf)
 import Joyride.Ocarina (AudibleEnd(..))
 import Joyride.Scores.Tutorial.Base (MeasureNumberBeatNumber(..), mb2info)
 import Joyride.Visual.Leap as LeapV
+import Joyride.Visual.LeapWord as LeapW
 import Ocarina.WebAPI (BrowserAudioBuffer)
 import Record (union)
 import Rito.Color (RGB(..))
-import Rito.Core (ASceneful, Instance, toScene)
+import Rito.Core (ASceneful, CSS3DObject, Instance, toScene)
 import Rito.Geometries.Box (box)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.RoundRobin (InstanceId, Semaphore(..), roundRobinInstancedMesh)
 import Safe.Coerce (coerce)
-import Types (Beats(..), Column(..), JMilliseconds(..), MakeLeaps, Position(..), RateInfo)
+import Types (Beats(..), Column(..), HitLeapMe, JMilliseconds(..), MakeLeaps, Position(..), RateInfo)
 
 lookAhead :: Beats
 lookAhead = Beats 0.1
@@ -63,35 +65,69 @@ singleBeat { buffer, silence, myBeat: _ } riE = AudibleEnd
   )
 
 tutorialLeaps :: forall lock payload. { | MakeLeaps () } -> ASceneful lock payload
-tutorialLeaps makeLeaps = toScene
-  ( roundRobinInstancedMesh
-      { instancedMesh: makeLeaps.threeDI.instancedMesh
-      , matrix4: makeLeaps.threeDI.matrix4
-      , mesh: makeLeaps.threeDI.mesh
-      }
-      100
-      (box { box: makeLeaps.threeDI.boxGeometry })
-      ( meshStandardMaterial
-          -- { map: textures.tilesZelligeHexCOL
-          -- , aoMap: textures.tilesZelligeHexAO
-          -- , displacementMap: textures.tilesZelligeHexDISP
-          -- , displacementScale: 0.1
-          -- , roughnessMap: textures.tilesZelligeHexGLOSS
-          -- }
-          { meshStandardMaterial: makeLeaps.threeDI.meshStandardMaterial
-          , color: makeLeaps.mkColor (RGB 0.91 0.387 0.432)
-          , roughness: 0.4
+tutorialLeaps makeLeaps = fixed
+  [ toScene
+      ( roundRobinInstancedMesh
+          { instancedMesh: makeLeaps.threeDI.instancedMesh
+          , matrix4: makeLeaps.threeDI.matrix4
+          , mesh: makeLeaps.threeDI.mesh
           }
-          empty
+          100
+          (box { box: makeLeaps.threeDI.boxGeometry })
+          ( meshStandardMaterial
+              -- { map: textures.tilesZelligeHexCOL
+              -- , aoMap: textures.tilesZelligeHexAO
+              -- , displacementMap: textures.tilesZelligeHexDISP
+              -- , displacementScale: 0.1
+              -- , roughnessMap: textures.tilesZelligeHexGLOSS
+              -- }
+              { meshStandardMaterial: makeLeaps.threeDI.meshStandardMaterial
+              , color: makeLeaps.mkColor (RGB 0.91 0.387 0.432)
+              , roughness: 0.4
+              }
+              empty
+          )
+          (children transform)
       )
-      children
-  )
+   , toScene $ dyn (children transformLeapWord)
+
+  ]
 
   where
-  children = keepLatest $ map (oneOfMap bang) eventList
-  eventList = scheduleCf (go score) (_.rateInfo <$> makeLeaps.animatedStuff)
+  children :: forall a. (ScoreMorcelId -> Event a) -> Event (Event a)
+  children f = keepLatest $ map (oneOfMap bang) (eventList f)
+  eventList :: forall a. (ScoreMorcelId -> Event a) -> Event (List (Event a))
+  eventList f = scheduleCf (go f score) (_.rateInfo <$> makeLeaps.animatedStuff)
 
-  transform :: _ -> Event (Semaphore (InstanceId -> Instance lock payload))
+  transformLeapWord :: ScoreMorcelId -> Event (Child Void (CSS3DObject lock payload) Effect lock)
+  transformLeapWord input =
+    ( bang $ Insert
+        ( LeapW.leapWord
+            ( makeLeaps `union` input `union`
+                { sound: singleBeat
+                    { myBeat: input.appearsAt + Beats 1.0
+                    , silence: makeLeaps.silence
+                    , buffer: misbehavior (Object.lookup "floorTom") makeLeaps.buffers
+                    }
+                , uniqueId: input.uniqueId
+                , newPosition: input.position
+                , text: case input.position of
+                  Position1 -> "1"
+                  Position2 -> "2"
+                  Position3 -> "3"
+                  Position4 -> "4"
+                -- empty for now, fill this in later
+                , someonePlayedMe: (empty :: Event HitLeapMe)
+                }
+            )
+        )
+    ) <|>
+      ( keepLatest $ (LocalTime.withTime (bang unit)) <#> \{ time } -> lowPrioritySchedule makeLeaps.lpsCallback
+          (JMilliseconds 10000.0 + (coerce $ unInstant time))
+          (bang $ Remove)
+      )
+
+  transform :: ScoreMorcelId -> Event (Semaphore (InstanceId -> Instance lock payload))
   transform input =
     ( map Acquire
         ( LeapV.leap
@@ -111,18 +147,23 @@ tutorialLeaps makeLeaps = toScene
           (JMilliseconds 10000.0 + (coerce $ unInstant time))
           (bang $ Release)
       )
-  go Nil _ = Nil :< go Nil
-  go l { beats } = do
+  go :: forall a. (ScoreMorcelId -> Event a) -> List ScoreMorcelId -> RateInfo -> Cofree ((->) RateInfo) (List (Event a))
+  go f Nil _ = Nil :< go f Nil
+  go f l { beats } = do
     let
       { init, rest } = span (\{ appearsAt } -> appearsAt <= beats + lookAhead) l
-    (transform <$> init) :< go rest
+    (f <$> init) :< go f rest
   score = mapWithIndex (\uniqueId x -> union { uniqueId } x) $ tmpScore
 
-type ScoreMorcel =
+type ScoreMorcel' r =
   { appearsAt :: Beats
   , column :: Column
   , position :: Position
+  | r
   }
+
+type ScoreMorcel = ScoreMorcel' ()
+type ScoreMorcelId = ScoreMorcel' (uniqueId :: Int)
 
 tmpScore0 :: List ScoreMorcel
 tmpScore0 = Nil
