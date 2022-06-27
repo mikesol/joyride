@@ -267,6 +267,7 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
       threeDI :: ThreeDI <- sequential $ hfoldlWithIndex ParFold (pure {} :: ParAff {})
         { scene: THREE.sceneAff
         , vector3: THREE.vector3Aff
+        , meshBasicMaterial: THREE.meshBasicMaterialAff
         , meshStandardMaterial: THREE.meshStandardMaterialAff
         , bufferGeometry: THREE.bufferGeometryAff
         , points: THREE.pointsAff

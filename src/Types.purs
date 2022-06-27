@@ -5,6 +5,7 @@ module Types
   , Shader
   , GalaxyAttributes
   , RenderingInfo
+  , BasicAttributes
   , ChannelChooser(..)
   , Ride(..)
   , RideV0'
@@ -104,6 +105,8 @@ import FRP.Event (EventIO, Event)
 import Foreign (ForeignError(..), fail)
 import Foreign.Object as Object
 import Joyride.Ocarina (AudibleChildEnd, AudibleEnd)
+import Ocarina.Math (calcSlope)
+import Ocarina.WebAPI (BrowserAudioBuffer)
 import Record (union)
 import Rito.Color (Color, RGB)
 import Rito.CubeTexture as CTL
@@ -115,8 +118,6 @@ import Rito.Vector3 (Vector3')
 import Simple.JSON (undefined, writeJSON)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
-import Ocarina.Math (calcSlope)
-import Ocarina.WebAPI (BrowserAudioBuffer)
 
 type CanvasInfo = { x :: Number, y :: Number } /\ Number
 
@@ -993,6 +994,7 @@ type ThreeDI =
   , bufferGeometry :: THREE.TBufferGeometry
   , textureLoader :: THREE.TTextureLoader
   , cubeTextureLoader :: THREE.TCubeTextureLoader
+  , meshBasicMaterial :: THREE.TMeshBasicMaterial
   , meshPhongMaterial :: THREE.TMeshPhongMaterial
   , meshStandardMaterial :: THREE.TMeshStandardMaterial
   , bufferAttribute :: THREE.TBufferAttribute
@@ -1022,6 +1024,10 @@ type GalaxyAttributes =
   , aPosition2 :: InstancedBufferAttribute
   , aColor :: InstancedBufferAttribute
   , aColor2 :: InstancedBufferAttribute
+  }
+
+type BasicAttributes =
+  { instanceColor :: InstancedBufferAttribute
   }
 
 data Version (i :: Int) = Version Int

@@ -12,6 +12,8 @@ import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.Profunctor (dimap)
 import Data.Time.Duration (Milliseconds(..))
+import Data.Tuple (fst, snd)
+import Data.Tuple.Nested (type (/\), (/\))
 import Effect.Aff (launchAff_)
 import Effect.Aff.AVar as AVar
 import Effect.Class (liftEffect)
@@ -19,13 +21,17 @@ import FRP.Behavior (sampleBy, sample_)
 import FRP.Event (Event, bus, keepLatest, memoize, sampleOn)
 import FRP.Event.Class (bang)
 import FRP.Event.Time as LocalTime
+import Joyride.Color (lerp)
+import Joyride.Constants.Tutorial (basicBeatColor, basicDefaultColor)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Rider (rider, toRide)
 import Joyride.FRP.SampleJIT (sampleJIT)
 import Joyride.FRP.Schedule (fireAndForget)
+import Joyride.Ocarina (AudibleChildEnd(..), AudibleEnd(..))
 import Joyride.Timing.CoordinatedNow (cInstant)
 import Joyride.Visual.EmptyMatrix (emptyMatrix)
-import Joyride.Ocarina (AudibleChildEnd(..), AudibleEnd(..))
+import Ocarina.Core (silence, sound)
+import Ocarina.Math (calcSlope)
 import Rito.Core (Instance)
 import Rito.Matrix4 (Matrix4')
 import Rito.Properties as P
@@ -33,8 +39,6 @@ import Rito.RoundRobin (InstanceId, singleInstance)
 import Safe.Coerce (coerce)
 import Type.Proxy (Proxy(..))
 import Types (Beats, HitBasicMe(..), HitBasicOtherPlayer(..), HitBasicVisualForLabel(..), JMilliseconds(..), MakeBasic, Position(..), RateInfo, RenderingInfo, entryZ, normalizedColumn, playerPosition', touchPointZ)
-import Ocarina.Core (silence, sound)
-import Ocarina.Math (calcSlope)
 import Web.TouchEvent.Touch as Touch
 import Web.UIEvent.MouseEvent as MouseEvent
 
@@ -78,7 +82,7 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
            , renderingInfo :: RenderingInfo
            }
     forRendering = sampleBy (#) makeBasic.renderingInfo
-      ( sampleOn (bang Nothing <|> fireAndForget (sample_ ( coerce >>> Just <$> cInstant makeBasic.cnow) played))
+      ( sampleOn (bang Nothing <|> fireAndForget (sample_ (coerce >>> Just <$> cInstant makeBasic.cnow) played))
           ( sampleOn ratioEvent
               ( map
                   { rateInfo: _
@@ -92,25 +96,22 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
       )
 
     -- the matrix we'll need to draw a tile
-    drawingMatrix' :: Event Matrix4'
+    drawingMatrix' :: Event (Number /\ Matrix4')
     drawingMatrix' = forRendering <#>
       \{ rateInfo
        , ratio
        , endTime
        , renderingInfo
-       } ->
-        { n14: ((renderingInfo.halfAmbitus * (2.0 * (normalizedColumn makeBasic.column) - 1.0)) * ratio.r)
+       } -> do
+        let
+          o
+            | rateInfo.beats < p1.startsAt = calcSlope (unwrap makeBasic.appearsAt) (appearancePoint renderingInfo) (unwrap p1.startsAt) (p1bar renderingInfo) (unwrap rateInfo.beats) /\ (unwrap p1.startsAt - unwrap rateInfo.beats)
+            | rateInfo.beats < p2.startsAt = calcSlope (unwrap p1.startsAt) (p1bar renderingInfo) (unwrap p2.startsAt) (p2bar renderingInfo) (unwrap rateInfo.beats) /\ (unwrap p2.startsAt - unwrap rateInfo.beats)
+            | rateInfo.beats < p3.startsAt = calcSlope (unwrap p2.startsAt) (p2bar renderingInfo) (unwrap p3.startsAt) (p3bar renderingInfo) (unwrap rateInfo.beats) /\ (unwrap p3.startsAt - unwrap rateInfo.beats)
+            | otherwise = calcSlope (unwrap p3.startsAt) (p3bar renderingInfo) (unwrap p4.startsAt) (p4bar renderingInfo) (unwrap rateInfo.beats) /\ (unwrap p4.startsAt - unwrap rateInfo.beats)
+        snd o /\ { n14: ((renderingInfo.halfAmbitus * (2.0 * (normalizedColumn makeBasic.column) - 1.0)) * ratio.r)
         , n24: 0.0
-        , n34:
-            let
-              o
-                | rateInfo.beats < p1.startsAt = calcSlope (unwrap makeBasic.appearsAt) (appearancePoint renderingInfo) (unwrap p1.startsAt) (p1bar renderingInfo) (unwrap rateInfo.beats)
-                | rateInfo.beats < p2.startsAt = calcSlope (unwrap p1.startsAt) (p1bar renderingInfo) (unwrap p2.startsAt) (p2bar renderingInfo) (unwrap rateInfo.beats)
-                | rateInfo.beats < p3.startsAt = calcSlope (unwrap p2.startsAt) (p2bar renderingInfo) (unwrap p3.startsAt) (p3bar renderingInfo) (unwrap rateInfo.beats)
-                | otherwise = calcSlope (unwrap p3.startsAt) (p3bar renderingInfo) (unwrap p4.startsAt) (p4bar renderingInfo) (unwrap rateInfo.beats)
-              -- __________ = spy "myri" (rateInfo.beats)
-            in
-              o - (basicZThickness / 2.0)
+        , n34: fst o - (basicZThickness / 2.0)
         , n11:
             let
               oneEightRatio = oneEighth * ratio.r
@@ -155,7 +156,8 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
           ( ( singleInstance
                 ( oneOf
                     [ bang $ P.matrix4 $ makeBasic.mkMatrix4 emptyMatrix
-                    , P.matrix4 <<< makeBasic.mkMatrix4 <$> drawingMatrix
+                    , P.matrix4 <<< makeBasic.mkMatrix4 <<< snd <$> drawingMatrix
+                    , P.color <<< makeBasic.mkColor <<< (\x -> lerp x basicBeatColor basicDefaultColor) <<< clamp 0.0 1.0 <<< (\x -> if x < 0.0 then 1.0 else x) <<< fst <$> drawingMatrix
                     , let
                         f = oneOf
                           [ -- if I touched this, turn off the listener
@@ -173,7 +175,7 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
                                             , deltaBeats: hbop.deltaBeats
                                             , hitAt: hbop.hitAt
                                             , issuedAt
-                                            , translation: drawingMatrix <#> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
+                                            , translation: drawingMatrix <#> snd >>> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
                                             , player: hbop.player
                                             }
                                         sampleBy (#) (map coerce (cInstant makeBasic.cnow)) (bang hitBasicVisualForLabel)
@@ -216,7 +218,7 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
                                   , deltaBeats: broadcastInfo.deltaBeats
                                   , hitAt: broadcastInfo.hitAt
                                   , issuedAt: broadcastInfo.issuedAt
-                                  , translation: drawingMatrix <#> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
+                                  , translation: drawingMatrix <#> snd >>> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
                                   , player: makeBasic.myPlayer
                                   }
                               liftEffect $ makeBasic.pushBasicVisualForLabel hitBasicVisualForLabel

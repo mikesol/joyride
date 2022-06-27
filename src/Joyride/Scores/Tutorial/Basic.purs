@@ -8,6 +8,7 @@ import Control.Comonad.Cofree (Cofree, (:<))
 import Control.Plus (empty)
 import Data.DateTime.Instant (unInstant)
 import Data.FastVect.FastVect (Vect, cons)
+import Data.FastVect.FastVect as FV
 import Data.FastVect.FastVect as V
 import Data.Foldable (oneOfMap)
 import Data.FunctorWithIndex (mapWithIndex)
@@ -17,14 +18,16 @@ import Data.List (List(..), span, (:))
 import Data.List as List
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
+import Data.Reflectable (reflectType)
 import Data.Time.Duration (Milliseconds(..), Seconds(..))
 import Data.Tuple.Nested ((/\))
 import FRP.Behavior (Behavior, sample_)
 import FRP.Event (Event, keepLatest, memoize)
 import FRP.Event.Class (bang)
 import FRP.Event.Time as LocalTime
+import Foreign.Object (fromHomogeneous)
 import Joyride.Audio.Basic as BasicA
-import Joyride.Constants.Tutorial (tutorialStartOffset)
+import Joyride.Constants.Tutorial (basicDefaultColor, nInstances, tutorialStartOffset)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Schedule (oneOff, scheduleCf)
 import Joyride.Ocarina (AudibleEnd(..))
@@ -33,14 +36,15 @@ import Joyride.Scores.Tutorial.Base as Base
 import Joyride.Visual.Basic as BasicV
 import Ocarina.WebAPI (BrowserAudioBuffer)
 import Record (union)
-import Rito.Color (RGB(..))
 import Rito.Core (ASceneful, Instance, toScene)
 import Rito.Geometries.Box (box)
-import Rito.Materials.MeshPhongMaterial (meshPhongMaterial)
+import Rito.InstancedBufferAttribute (instancedBufferAttributes)
+import Rito.Materials.MeshBasicMaterial (meshBasicMaterial)
 import Rito.RoundRobin (InstanceId, Semaphore(..), roundRobinInstancedMesh)
+import Rito.THREE as THREE
 import Safe.Coerce (coerce)
 import Type.Proxy (Proxy(..))
-import Types (Beats(..), Column(..), JMilliseconds(..), MakeBasics, RateInfo, beatToTime)
+import Types (Beats(..), Column(..), JMilliseconds(..), MakeBasics, RateInfo, BasicAttributes, beatToTime)
 
 type ACU =
   { appearsAt :: Beats
@@ -118,6 +122,16 @@ severalBeats { b0, b1, b2, b3, silence } = singleBeat (f $ b0)
     , silence
     }
 
+makeInstancedColor :: THREE.TInstancedBufferAttribute -> BasicAttributes
+makeInstancedColor tba = instancedBufferAttributes
+  nInstances
+  tba
+  unit
+  \_ _ -> do
+    let
+      instanceColor = cons 0.0 $ cons 0.0 $ cons 0.0 FV.empty
+    { instanceColor } /\ unit
+
 tutorialBasics :: forall lock payload. { | MakeBasics () } -> ASceneful lock payload
 tutorialBasics makeBasics =
   ( fixed
@@ -126,8 +140,8 @@ tutorialBasics makeBasics =
           , matrix4: makeBasics.threeDI.matrix4
           , mesh: makeBasics.threeDI.mesh
           }
-          100
-          (box { box: makeBasics.threeDI.boxGeometry })
+          (reflectType nInstances)
+          (box { box: makeBasics.threeDI.boxGeometry, instancedBufferAttributes: fromHomogeneous (makeInstancedColor makeBasics.threeDI.instancedBufferAttribute) })
           -- ( meshStandardMaterial
           --     -- { map: textures.hockeyCOL
           --     -- , aoMap: textures.hockeyAO
@@ -142,9 +156,21 @@ tutorialBasics makeBasics =
           --     }
           --     empty
           -- )
-          ( meshPhongMaterial
-              { meshPhongMaterial: makeBasics.threeDI.meshPhongMaterial
-              , color: makeBasics.mkColor (RGB 0.798 0.927 0.778)
+          -- ( meshPhongMaterial
+          --     { meshPhongMaterial: makeBasics.threeDI.meshPhongMaterial
+          --     , color: makeBasics.mkColor basicDefaultColor
+          --     }
+          --     empty
+          -- )
+          -- ( meshStandardMaterial
+          --     { meshStandardMaterial: makeBasics.threeDI.meshStandardMaterial
+          --     , color: makeBasics.mkColor basicDefaultColor
+          --     }
+          --     empty
+          -- )
+          ( meshBasicMaterial
+              { meshBasicMaterial: makeBasics.threeDI.meshBasicMaterial
+              , color: makeBasics.mkColor basicDefaultColor
               }
               empty
           )
@@ -238,13 +264,16 @@ succC C14 = C15
 succC C15 = C0
 
 fromBase2 :: Array Base.BeatInstruction2 -> List ScoreMorcel
-fromBase2 = List.fromFoldable <<< map (\(c /\ x /\ y /\ z /\ w) -> { appearsAt: Beats ((mb2info x).t + tso - 1.0)
-    , b0: Beats ((mb2info x).t + tso)
-    , b1: Beats ((mb2info y).t + tso)
-    , b2: Beats ((mb2info z).t + tso)
-    , b3: Beats ((mb2info w).t + tso)
-    , column: c
-    } )
+fromBase2 = List.fromFoldable <<< map
+  ( \(c /\ x /\ y /\ z /\ w) ->
+      { appearsAt: Beats ((mb2info x).t + tso - 1.0)
+      , b0: Beats ((mb2info x).t + tso)
+      , b1: Beats ((mb2info y).t + tso)
+      , b2: Beats ((mb2info z).t + tso)
+      , b3: Beats ((mb2info w).t + tso)
+      , column: c
+      }
+  )
   where
   tso = unwrap tutorialStartOffset
 
