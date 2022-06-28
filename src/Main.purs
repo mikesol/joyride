@@ -55,13 +55,14 @@ import Joyride.Timing.CoordinatedNow (cnow)
 import Joyride.Transport.PubNub as PN
 import Ocarina.Interpret (AudioBuffer(..), context, makeAudioBuffer)
 import Rito.CubeTexture as CubeTextureLoader
+import Rito.GLTF as GLTFLoader
 import Rito.THREE as THREE
 import Rito.Texture (loadAff, loader)
 import Route (Route(..), route)
 import Routing.Duplex (parse)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
-import Types (BufferName(..), Channel(..), ChannelChooser(..), CubeTexture, CubeTextures(..), HitBasicMe(..), HitBasicOverTheWire(..), HitLeapMe(..), HitLeapOverTheWire(..), HitLongMe(..), HitLongOverTheWire(..), IAm(..), InFlightGameInfo(..), InFlightGameInfo', JMilliseconds(..), KnownPlayers(..), Negotiation(..), Penalty(..), Player(..), PlayerAction(..), PlayerPositionsF, PointOutcome, Points(..), Position, ReleaseLongMe(..), ReleaseLongOverTheWire(..), RenderingInfo, RenderingInfo', Ride(..), Shaders, StartStatus(..), Textures(..), ThreeDI, initialPositions, touchPointZ)
+import Types (BufferName(..), Channel(..), ChannelChooser(..), CubeTexture, CubeTextures(..), HitBasicMe(..), HitBasicOverTheWire(..), HitLeapMe(..), HitLeapOverTheWire(..), HitLongMe(..), HitLongOverTheWire(..), IAm(..), InFlightGameInfo(..), InFlightGameInfo', JMilliseconds(..), KnownPlayers(..), Models(..), Negotiation(..), Penalty(..), Player(..), PlayerAction(..), PlayerPositionsF, PointOutcome, Points(..), Position, ReleaseLongMe(..), ReleaseLongOverTheWire(..), RenderingInfo, RenderingInfo', Ride(..), Shaders, StartStatus(..), Textures(..), ThreeDI, initialPositions, touchPointZ)
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
 import Web.HTML (window)
@@ -82,10 +83,10 @@ renderingInfo' :: RenderingInfo' Slider
 renderingInfo' =
   { halfAmbitus: Slider { default: 2.9, min: 0.1, max: 4.2, step: 0.1 }
   , barZSpacing: Slider { default: 1.0, min: 0.1, max: 3.0, step: 0.1 }
-  , cameraOffsetY: Slider { default: 0.6, min: 0.1, max: 3.0, step: 0.05 }
-  , cameraLookAtOffsetY: Slider { default: 0.0, min: -2.0, max: 2.0, step: 0.05 }
+  , cameraOffsetY: Slider { default: 1.75, min: 0.1, max: 3.0, step: 0.05 }
+  , cameraRotationAroundX: Slider { default: -0.45, min: -1.0 * pi, max: pi, step: 0.05 }
   , cameraOffsetZ: Slider { default: 1.0, min: 0.1, max: 3.0, step: 0.05 }
-  , cameraLookAtOffsetZ: Slider { default: -1.5, min: -2.0, max: 2.0, step: 0.05 }
+  , lightOffsetY: Slider { default: 0.9, min: 0.00, max: 2.0, step: 0.05 }
   , sphereOffsetY: Slider { default: 0.2, min: 0.05, max: 0.5, step: 0.05 }
   }
 
@@ -154,12 +155,13 @@ updateKnownPlayerPointsUsingRide :: Ride -> KnownPlayers -> KnownPlayers
 updateKnownPlayerPointsUsingRide a b = (constructAppendableKnownPlayersFromRide a) <> b
 
 main
-  :: Shaders
+  :: Models String
+  -> Shaders
   -> CubeTextures (CubeTexture String)
   -> Textures String
   -> Object.Object String
   -> Effect Unit
-main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ do
+main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ do
   ----- gui
   { debug, renderingInfo } <- liftEffect useLilGui >>= (if _ then gui else noGui) >>> (_ $ renderingInfo')
   -- firebsae
@@ -275,6 +277,7 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
         , webGLRenderer: THREE.webGLRendererAff
         , color: THREE.colorAff
         , instancedMesh: THREE.instancedMeshAff
+        , euler: THREE.eulerAff
         , raycaster: THREE.raycasterAff
         , mesh: THREE.meshAff
         , perspectiveCamera: THREE.perspectiveCameraAff
@@ -283,6 +286,7 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
         , bufferAttribute: THREE.bufferAttributeAff
         , instancedBufferAttribute: THREE.instancedBufferAttributeAff
         , shaderMaterial: THREE.shaderMaterialAff
+        , gltfLoader: THREE.gltfLoaderAff
         , cubeTextureLoader: THREE.cubeTextureLoaderAff
         , sphereGeometry: THREE.sphereGeometryAff
         , css2DRenderer: THREE.css2DRendererAff
@@ -293,9 +297,11 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
         }
       ldr <- liftEffect $ loader threeDI.textureLoader
       cldr <- liftEffect $ CubeTextureLoader.loader threeDI.cubeTextureLoader
+      gldr <- liftEffect $ GLTFLoader.loader threeDI.gltfLoader
       --       , textures: Textures downloadedTextures
       downloadedTextures <- forkAff (fromHomogeneous <$> parTraverse (loadAff ldr) (homogeneous textures))
-      myCubeTextures <- (fromHomogeneous <$> parTraverse ((CubeTextureLoader.loadAffRecord cldr)) (map unwrap $ homogeneous cubeTextures))
+      downloadedGLTFs <- forkAff (fromHomogeneous <$> parTraverse (GLTFLoader.loadAff gldr) (homogeneous models))
+      downloadedCubeTextures <- forkAff (fromHomogeneous <$> parTraverse ((CubeTextureLoader.loadAffRecord cldr)) (map unwrap $ homogeneous cubeTextures))
       -- "server" via pubnub
       let
         proposedChannel' = case hush parsed >>= channelFromRoute of
@@ -308,7 +314,6 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
         case chan of
           TutorialChannel -> do
             liftEffect $ negotiation.push StartingNegotiation
-            myTextures <- joinFiber downloadedTextures
             knownPlayers :: Ref.Ref KnownPlayers <- liftEffect $ Ref.new $ KnownPlayers Map.empty
             knownPlayersBus <- liftEffect Event.create
             ---- TODO: this is a copy/paste from below with the pubnub taken out
@@ -346,6 +351,9 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
             dlInChunks audio 100 n2oh ctx' soundObj
             liftEffect $ loaded.push true
             dlInChunks audio 100 n2ot ctx' soundObj
+            myTextures <- joinFiber downloadedTextures
+            myGLTFs <- joinFiber downloadedGLTFs
+            myCubeTextures <- joinFiber downloadedCubeTextures
             liftEffect do
               longVerb <- fromMaybe silence <<< Object.lookup "elvedenHallLordsCloakroom" <$> Ref.read soundObj
               negotiation.push $ WantsTutorial
@@ -354,6 +362,7 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
                 , shaders
                 , galaxyAttributes
                 , cNow: mappedCNow
+                , models: Models myGLTFs
                 , textures: Textures myTextures
                 , cubeTextures: CubeTextures myCubeTextures
                 , longVerb
@@ -371,13 +380,17 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
                     players <- Ref.modify (KnownPlayers (Map.singleton Player4 (HasStarted $ InFlightGameInfo { startedAt: ms, points: Points 0.0, penalties: Penalty 0.0, name: Nothing })) <> _) knownPlayers
                     knownPlayersBus.push players
                 }
-          NoChannel -> liftEffect $ negotiation.push
-            ( GetRulesOfGame
-                { threeDI
-                , cubeTextures: CubeTextures myCubeTextures
-                , cNow: mappedCNow
-                }
-            )
+          NoChannel -> do
+            myGLTFs <- joinFiber downloadedGLTFs
+            myCubeTextures <- joinFiber downloadedCubeTextures
+            liftEffect $ negotiation.push
+              ( GetRulesOfGame
+                  { threeDI
+                  , models: Models myGLTFs
+                  , cubeTextures: CubeTextures myCubeTextures
+                  , cNow: mappedCNow
+                  }
+              )
           RideChannel proposedChannel -> do
             -- maybe is not ideal here
             -- what it means semantically is "player exists but has not started"
@@ -544,8 +557,10 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
                 dlInChunks audio 100 n2oh ctx' soundObj
                 liftEffect $ loaded.push true
                 dlInChunks audio 100 n2ot ctx' soundObj
-                myTextures <- joinFiber downloadedTextures
                 playerName <- liftEffect $ LS.getItem LocalStorage.playerName stor
+                myTextures <- joinFiber downloadedTextures
+                myGLTFs <- joinFiber downloadedGLTFs
+                myCubeTextures <- joinFiber downloadedCubeTextures
                 liftEffect $ negotiation.push $ Success
                   { player: myPlayer
                   , threeDI
@@ -553,6 +568,7 @@ main shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ 
                   , shaders
                   , galaxyAttributes
                   , cNow: mappedCNow
+                  , models: Models myGLTFs
                   , channelName: myChannel
                   , pubNubEvent: pubNub.event
                   , textures: Textures myTextures
