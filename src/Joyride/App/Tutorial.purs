@@ -479,7 +479,7 @@ tutorial
       ( Just $ D.p_
           [ D.span_ [ text_ "Leap to a new line by touching a " ]
           , D.span (bang $ D.Class := "italic") [ text_ "red" ]
-          , D.span_ [ text_ " tile." ]
+          , D.span_ [ text_ " tile. The number indicates the position you'll jump to." ]
           ]
       )
       false
