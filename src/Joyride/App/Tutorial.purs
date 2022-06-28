@@ -154,11 +154,10 @@ tutorial
                     HasStarted (InFlightGameInfo t) -> pure t.startedAt
                 )
           -- stopButton :: Effect Unit -> Nut
-          stopButton off = D.div
-            (bang $ D.Class := "bg-slate-50")
+          stopButton off = D.div (oneOf [ bang $ D.Class := "mx-2" ])
             [ D.button
                 ( oneOf
-                    [ bang $ D.Class := "pointer-events-auto p-1"
+                    [ bang $ D.Class := "pointer-events-auto p-1 " <> buttonCls
                     , bang $ D.OnClick := do
                         off
                     ]
@@ -265,7 +264,7 @@ tutorial
                 [ D.div (bang $ D.Class := "row-start-1 row-end-3 col-start-1 col-end-3")
                     -- fromEvent because playerStatus is effectful
 
-                    [ D.div_
+                    [ D.div (bang $ D.Class := "mx-2 mt-2 ")
                         [ fromEvent (biSampleOn (initializeWithEmpty event.iAmReady) (map Tuple playerStatus))
                             -- we theoretically don't need to dedup because
                             -- the button should never redraw once we've started
@@ -549,20 +548,21 @@ tutorial
                 )
               <>
                 [ D.div (bang $ D.Class := "flex w-full justify-center items-center")
-                    ( guard endBtnHack [ D.button
-                          ( oneOf
-                              [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
-                              , bang $
-                                  D.OnClick :=
-                                    let
-                                      goodbye = pcenter Empty
-                                      fout = setFadeOut replaceFadeInWithFadeOut *> launchAff_ (delay (Milliseconds 1500.0) *> liftEffect goodbye)
-                                    in
-                                      fout
-                              ]
-                          )
-                          [ text_ "Keep playing" ]
-                      ] <>
+                    ( guard endBtnHack
+                        [ D.button
+                            ( oneOf
+                                [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                                , bang $
+                                    D.OnClick :=
+                                      let
+                                        goodbye = pcenter Empty
+                                        fout = setFadeOut replaceFadeInWithFadeOut *> launchAff_ (delay (Milliseconds 1500.0) *> liftEffect goodbye)
+                                      in
+                                        fout
+                                ]
+                            )
+                            [ text_ "Keep playing" ]
+                        ] <>
                         [ D.button
                             ( oneOf
                                 [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
