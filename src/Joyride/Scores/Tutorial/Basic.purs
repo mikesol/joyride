@@ -238,7 +238,7 @@ succC C14 = C15
 succC C15 = C0
 
 fromBase2 :: Array Base.BeatInstruction2 -> List ScoreMorcel
-fromBase2 = List.fromFoldable <<< map (\(c /\ x /\ y /\ z /\ w) -> { appearsAt: Beats ((mb2info x).t + tso - 1.0)
+fromBase2 = List.fromFoldable <<< map (\(c /\ x /\ y /\ z /\ w) -> { appearsAt: Beats ((mb2info x).t + tso - ((mb2info y).t - (mb2info x).t))
     , b0: Beats ((mb2info x).t + tso)
     , b1: Beats ((mb2info y).t + tso)
     , b2: Beats ((mb2info z).t + tso)

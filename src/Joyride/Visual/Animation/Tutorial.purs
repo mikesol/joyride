@@ -264,11 +264,13 @@ runThree opts = do
                                     , positionZ <$> posAx AxisZ
                                     , keepLatest $ (dedup (playerPosition' player <$> mopts.playerPositions)) <#> case _ of
                                         -- only illuminate this much for the person in the front position
-                                        Position1 | opts.myPlayer == player -> oneOfMap bang
-                                          [ P.decay 0.2
-                                          , P.intensity 5.0
-                                          , P.distance 10.0
-                                          ]
+                                        -- this seems too much now that we have ambient light
+                                        -- only bring it back if absolutely needed
+                                        -- Position1 | opts.myPlayer == player -> oneOfMap bang
+                                        --   [ P.decay 0.2
+                                        --   , P.intensity 5.0
+                                        --   , P.distance 10.0
+                                        --   ]
                                         _ -> oneOfMap bang
                                           [ P.decay normalDecay
                                           , P.intensity normalIntensity
