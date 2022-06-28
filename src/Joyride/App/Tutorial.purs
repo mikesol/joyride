@@ -447,7 +447,7 @@ tutorial
       ( Just $ D.p_
           [ D.span_ [ text_ "Earn points by touching the " ]
           , D.span (bang $ D.Class := "italic") [ text_ "gray" ]
-          , D.span_ [ text_ " tiles as soon as the edge touches the " ]
+          , D.span_ [ text_ " tiles as soon as their edge touches the " ]
           , D.span (bang $ D.Class := "italic") [ text_ "green" ]
           , D.span_ [ text_ " line. You'll lose points if you're too early or late." ]
           ]
@@ -527,8 +527,8 @@ tutorial
                 ( case fade of
                     FadeIn -> tutorialFadeInAnimation <> space
                     FadeInOut -> tutorialFadeInAnimation <> space
-                    _ -> "opacity-80 "
-                ) <> "z-10 pointer-events-none absolute w-screen h-screen grid grid-rows-6 grid-cols-6 bg-zinc-900"
+                    _ -> "opacity-100 "
+                ) <> "z-10 pointer-events-auto absolute w-screen h-screen grid grid-rows-6 grid-cols-6 bg-zinc-900"
             )
       )
       [ D.div

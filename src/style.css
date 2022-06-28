@@ -270,12 +270,12 @@ body {
 
 @keyframes tutorialFadeIn {
   0% { opacity: 0; }
-  100% { opacity: 0.8; }
+  100% { opacity: 1.0; }
 }
 
 .tutorial-fade-out-animation { animation: tutorialFadeOut 1s; animation-fill-mode: forwards; }
 
 @keyframes tutorialFadeOut {
-  0% { opacity: 0.8; }
+  0% { opacity: 1.0; }
   100% { opacity: 0; }
 }
