@@ -9,6 +9,7 @@ module Types
   , Ride(..)
   , RideV0'
   , Version
+  , Models(..)
   , defaultRide
   , InFlightGameInfo'
   , RenderingInfo'
@@ -105,9 +106,12 @@ import FRP.Event (EventIO, Event)
 import Foreign (ForeignError(..), fail)
 import Foreign.Object as Object
 import Joyride.Ocarina (AudibleChildEnd, AudibleEnd)
+import Ocarina.Math (calcSlope)
+import Ocarina.WebAPI (BrowserAudioBuffer)
 import Record (union)
 import Rito.Color (Color, RGB)
 import Rito.CubeTexture as CTL
+import Rito.GLTF as GLTFLoader
 import Rito.InstancedBufferAttribute (InstancedBufferAttribute)
 import Rito.Matrix4 (Matrix4, Matrix4')
 import Rito.THREE as THREE
@@ -116,8 +120,6 @@ import Rito.Vector3 (Vector3')
 import Simple.JSON (undefined, writeJSON)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
-import Ocarina.Math (calcSlope)
-import Ocarina.WebAPI (BrowserAudioBuffer)
 
 type CanvasInfo = { x :: Number, y :: Number } /\ Number
 
@@ -330,9 +332,9 @@ type RenderingInfo' slider =
   { halfAmbitus :: slider
   , barZSpacing :: slider
   , sphereOffsetY :: slider
-  , cameraLookAtOffsetY :: slider
+  , lightOffsetY :: slider
   , cameraOffsetY :: slider
-  , cameraLookAtOffsetZ :: slider
+  , cameraRotationAroundX :: slider
   , cameraOffsetZ :: slider
   }
 
@@ -838,6 +840,7 @@ data Negotiation
   | WillNotWorkWithoutOrientation
   | GetRulesOfGame
       { cubeTextures :: CubeTextures CTL.CubeTexture
+      , models :: Models GLTFLoader.GLTF
       , threeDI :: ThreeDI
       , cNow :: Effect Milliseconds
       }
@@ -873,6 +876,7 @@ type Success' =
   , cNow :: Effect Milliseconds
   , threeDI :: ThreeDI
   , pubNubEvent :: Event PlayerAction
+  , models :: Models GLTFLoader.GLTF
   , textures :: Textures Texture
   , cubeTextures :: CubeTextures CTL.CubeTexture
   , optMeIn :: JMilliseconds -> Maybe String -> Effect Unit
@@ -887,6 +891,7 @@ type WantsTutorial' =
   , cNow :: Effect Milliseconds
   , threeDI :: ThreeDI
   , textures :: Textures Texture
+  , models :: Models GLTFLoader.GLTF
   , cubeTextures :: CubeTextures CTL.CubeTexture
   , optMeIn :: JMilliseconds -> Effect Unit
   , playerStatus :: Event KnownPlayers
@@ -995,9 +1000,11 @@ instance fromJSONPubNubPlayerAction :: JSON.WriteForeign PlayerAction where
   writeImpl (HitLong (HitLongOverTheWire j)) = JSON.writeImpl $ union { _type: "HitLong" } j
   writeImpl (ReleaseLong (ReleaseLongOverTheWire j)) = JSON.writeImpl $ union { _type: "ReleaseLong" } j
   writeImpl (PressedStart ps) = JSON.writeImpl $ union { _type: "PressedStart" } ps
+
 type ThreeDI =
   { scene :: THREE.TScene
   , group :: THREE.TGroup
+  , euler :: THREE.TEuler
   , points :: THREE.TPoints
   , vector3 :: THREE.TVector3
   , plane :: THREE.TPlaneGeometry
@@ -1005,6 +1012,7 @@ type ThreeDI =
   , bufferGeometry :: THREE.TBufferGeometry
   , textureLoader :: THREE.TTextureLoader
   , cubeTextureLoader :: THREE.TCubeTextureLoader
+  , gltfLoader :: THREE.TGLTFLoader
   , meshPhongMaterial :: THREE.TMeshPhongMaterial
   , meshStandardMaterial :: THREE.TMeshStandardMaterial
   , bufferAttribute :: THREE.TBufferAttribute
@@ -1108,6 +1116,10 @@ instance JSON.WriteForeign Ride where
   writeImpl (RideV0 i) = JSON.writeImpl i
 
 data ChannelChooser = NoChannel | RideChannel String | TutorialChannel
+
 derive instance Generic ChannelChooser _
 instance Show ChannelChooser where
   show = genericShow
+
+newtype Models s = Models { spaceship :: s }
+derive instance Newtype (Models s) _
