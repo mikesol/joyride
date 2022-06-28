@@ -32,6 +32,7 @@ import Rito.Cameras.PerspectiveCamera (perspectiveCamera)
 import Rito.Color (RGB(..), color)
 import Rito.Core (ASceneful, Renderer(..), cameraToGroup, toGroup, toScene)
 import Rito.CubeTexture (CubeTexture)
+import Rito.Euler (euler)
 import Rito.Geometries.BufferGeometry (bufferGeometry)
 import Rito.Geometries.Plane (plane)
 import Rito.Geometries.Sphere (sphere)
@@ -44,7 +45,7 @@ import Rito.Materials.ShaderMaterial (shaderMaterial)
 import Rito.Mesh (mesh)
 import Rito.Points (points)
 import Rito.Portal (globalCameraPortal1, globalScenePortal1)
-import Rito.Properties (aspect, background, decay, distance, intensity, positionZ, rotateX, rotateY, rotateZ, uniform) as P
+import Rito.Properties (aspect, background, decay, distance, intensity, positionZ, rotateX, rotateY, rotateZ, uniform, rotationFromEuler) as P
 import Rito.Properties (positionX, positionY, positionZ, render, scaleX, scaleY, scaleZ, size, widthSegments)
 import Rito.Renderers.CSS2D (css2DRenderer)
 import Rito.Renderers.CSS3D (css3DRenderer)
@@ -135,6 +136,7 @@ runThree opts = do
                           [ positionX px
                           , positionY (ri.cameraOffsetY + py)
                           , positionZ (ri.cameraOffsetZ + pz)
+                          , P.rotationFromEuler (euler opts.threeDI.euler { x: ri.cameraRotationAroundX, y: 0.0, z: 0.0 })
                           ]
                   ) <|> (opts.resizeE <#> \i -> P.aspect (i.iw / i.ih))
               )

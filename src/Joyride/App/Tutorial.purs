@@ -132,6 +132,7 @@ tutorial
   tscore
   { player: myPlayer
   , textures
+  , models
   , cubeTextures
   , cNow
   , galaxyAttributes
@@ -306,6 +307,7 @@ tutorial
                                 , lowPriorityCb: tli.lpsCallback
                                 , myPlayer
                                 , debug: tli.debug
+                                , models
                                 , textures
                                 , cubeTextures
                                 , pushBasic: tli.pushBasic

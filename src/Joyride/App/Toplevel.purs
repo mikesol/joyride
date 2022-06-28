@@ -34,7 +34,8 @@ import Joyride.Scores.Tutorial.Leap (tutorialLeaps)
 import Joyride.Scores.Tutorial.Long (tutorialLongs)
 import Ocarina.WebAPI (BrowserAudioBuffer)
 import Rito.CubeTexture as CTL
-import Types (CubeTextures, HitBasicMe, HitLeapMe, HitLongMe, JMilliseconds, Negotiation(..), PlayerPositionsF, RateInfo, ReleaseLongMe, RenderingInfo, Success', ThreeDI, WantsTutorial', WindowDims)
+import Rito.GLTF as GLTFLoader
+import Types (CubeTextures, HitBasicMe, HitLeapMe, HitLongMe, JMilliseconds, Models, Negotiation(..), PlayerPositionsF, RateInfo, ReleaseLongMe, RenderingInfo, Success', ThreeDI, WantsTutorial', WindowDims)
 import Web.DOM as Web.DOM
 import Web.HTML.Window (RequestIdleCallbackId, Window)
 
@@ -86,6 +87,7 @@ data TopLevelDisplay
   | TLWillNotWorkWithoutOrientation
   | TLExplainer
       { cubeTextures :: CubeTextures CTL.CubeTexture
+      , models :: Models GLTFLoader.GLTF
       , threeDI :: ThreeDI
       , cNow :: Effect Milliseconds
       }
