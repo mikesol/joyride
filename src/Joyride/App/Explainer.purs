@@ -21,7 +21,7 @@ import FRP.Event.VBus (V)
 import Joyride.Style (headerCls)
 import Joyride.Timing.CoordinatedNow (withCTime)
 import Rito.Cameras.PerspectiveCamera (perspectiveCamera)
-import Rito.Core (Renderer(..), cameraToGroup, toScene)
+import Rito.Core (Renderer(..), cameraToGroup, plain, toScene, webGLRendererToRenderer)
 import Rito.CubeTexture (CubeTexture)
 import Rito.Group (group)
 import Rito.Portal (globalCameraPortal1, globalScenePortal1)
@@ -100,12 +100,11 @@ threeLoader opts = do
             )
             \myScene ->
               fixed
-                [ webGLRenderer
+                [ plain $ webGLRendererToRenderer $ webGLRenderer
                     myScene
                     myCamera
                     { canvas: opts.canvas
                     , webGLRenderer: opts.threeDI.webGLRenderer
-                    , raycaster: opts.threeDI.raycaster
                     }
                     ( oneOf
                         [ bang (size { width: opts.initialDims.iw, height: opts.initialDims.ih })

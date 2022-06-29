@@ -21,7 +21,6 @@ import FRP.Event.VBus (V, vbus)
 import Foreign.Object (fromHomogeneous)
 import Joyride.Effect.Lowpass (lpf)
 import Joyride.FRP.Dedup (dedup)
-import Joyride.FRP.Schedule (fireAndForget)
 import Joyride.Shaders.Galaxy (galaxyParams)
 import Joyride.Visual.Bar (makeBar)
 import Joyride.Visual.BasicLabels (basicLabels)
@@ -30,10 +29,9 @@ import Joyride.Visual.LongLabels (longLabels)
 import Rito.Blending (Blending(..))
 import Rito.Cameras.PerspectiveCamera (perspectiveCamera)
 import Rito.Color (RGB(..), color)
-import Rito.Core (ASceneful, Renderer(..), cameraToGroup, toGroup, toScene)
+import Rito.Core (ASceneful, Renderer(..), cameraToGroup, effectComposerToRenderer, plain, toGroup, toScene)
 import Rito.CubeTexture (CubeTexture)
 import Rito.Euler (euler)
-import Rito.Geometries.BufferGeometry (bufferGeometry)
 import Rito.Geometries.Plane (plane)
 import Rito.Geometries.Sphere (sphere)
 import Rito.Group (group)
@@ -43,16 +41,20 @@ import Rito.Lights.PointLight (pointLight)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.Materials.ShaderMaterial (shaderMaterial)
 import Rito.Mesh (mesh)
-import Rito.Points (points)
-import Rito.Portal (globalCameraPortal1, globalScenePortal1)
-import Rito.Properties (aspect, background, decay, distance, intensity, positionZ, rotateX, rotateY, rotateZ, uniform, rotationFromEuler) as P
-import Rito.Properties (positionX, positionY, positionZ, render, scaleX, scaleY, scaleZ, size, widthSegments)
+import Rito.Portal (globalCameraPortal1, globalScenePortal1, globalWebGLRendererPortal1)
+import Rito.Properties (aspect, background, decay, distance, intensity, rotateX, rotateY, rotateZ, rotationFromEuler, uniform) as P
+import Rito.Properties (positionX, positionY, positionZ, render, scaleX, scaleY, scaleZ, size)
 import Rito.Renderers.CSS2D (css2DRenderer)
 import Rito.Renderers.CSS3D (css3DRenderer)
+import Rito.Renderers.Raycaster (raycaster)
 import Rito.Renderers.WebGL (webGLRenderer)
+import Rito.Renderers.WebGL.EffectComposer (effectComposer)
+import Rito.Renderers.WebGL.RenderPass (renderPass)
+import Rito.Renderers.WebGL.UnrealBloomPass (unrealBloomPass)
 import Rito.Run as Rito.Run
 import Rito.Scene (Background(..), scene)
 import Rito.Texture (Texture)
+import Rito.Vector2 (vector2)
 import Type.Proxy (Proxy(..))
 import Types (Axis(..), CubeTextures, GalaxyAttributes, HitBasicMe, HitBasicVisualForLabel, HitLeapVisualForLabel, HitLongVisualForLabel, JMilliseconds, Player(..), PlayerPositions, Position(..), RateInfo, ReleaseLongVisualForLabel, RenderingInfo, Seconds(..), Shaders, Textures, ThreeDI, WindowDims, allPlayers, allPositions, playerPosition, playerPosition')
 import Web.DOM as Web.DOM
@@ -209,12 +211,13 @@ runThree opts = do
                                 [ positionX <$> applyLPF (player == opts.myPlayer) (posAx AxisX)
                                 , positionY <$> (sampleBy (\{ sphereOffsetY } py -> sphereOffsetY + py) opts.renderingInfo (posAx AxisY))
                                 , positionZ <$> posAx AxisZ
-                               , bang $ positionZ (case player of
-                                  Player1 -> -4.0
-                                  Player2 -> -3.0
-                                  Player3 -> -2.0
-                                  Player4 -> -1.0
-                                  )
+                                , bang $ positionZ
+                                    ( case player of
+                                        Player1 -> -4.0
+                                        Player2 -> -3.0
+                                        Player3 -> -2.0
+                                        Player4 -> -1.0
+                                    )
 
                                 , bang (scaleX 0.1)
                                 , bang (scaleY 0.1)
@@ -365,22 +368,50 @@ runThree opts = do
                     )
                 ]
             )
-            \myScene ->
-              fixed
-                [ webGLRenderer
-                    myScene
-                    myCamera
-                    { canvas: opts.canvas
-                    , webGLRenderer: opts.threeDI.webGLRenderer
-                    , raycaster: opts.threeDI.raycaster
+            \myScene -> globalWebGLRendererPortal1
+              ( webGLRenderer
+                  myScene
+                  myCamera
+                  { canvas: opts.canvas
+                  , webGLRenderer: opts.threeDI.webGLRenderer
+                  }
+                  ( oneOf
+                      [ bang (size { width: opts.initialDims.iw, height: opts.initialDims.ih })
+                      , opts.resizeE <#> \i -> size { width: i.iw, height: i.ih }
+                      ]
+                  )
+              )
+              \myWebGLRenderer -> fixed
+                [ raycaster
+                    { raycaster: opts.threeDI.raycaster
+                    , canvas: opts.canvas
                     }
+                    myCamera
+                , plain $ effectComposerToRenderer $ effectComposer
+                    { effectComposer: opts.threeDI.effectComposer
+                    }
+                    myWebGLRenderer
                     ( oneOf
-                        [ bang (size { width: opts.initialDims.iw, height: opts.initialDims.ih })
-                        , bang render
+                        [ bang render
                         , mopts.rateInfo $> render
-                        , opts.resizeE <#> \i -> size { width: i.iw, height: i.ih }
                         ]
                     )
+                    [ renderPass
+                        { renderPass: opts.threeDI.renderPass
+                        }
+                        myScene
+                        myCamera
+                    -- , glitchPass { glitchPass: opts.threeDI.glitchPass }
+                    , unrealBloomPass
+                        { unrealBloomPass: opts.threeDI.unrealBloomPass
+                          , radius: 1.0
+                          , resolution: vector2 opts.threeDI.vector2 { x: 256.0, y: 256.0 }
+                          , strength: 1.5
+                          , threshold: 1.0
+                          }
+                        empty
+                    ]
+
                 , envy $ map
                     ( \element -> css2DRenderer
                         myScene
