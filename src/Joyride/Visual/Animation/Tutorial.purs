@@ -166,29 +166,7 @@ runThree opts = do
                               , P.rotateZ $ 0.001 * cos (fac * pi * 0.01)
                               ]
                     )
-                    ( ( filter (_ /= opts.myPlayer) (toArray allPlayers) <#> \player -> do
-                          let ppos = playerPosition player
-                          let posAx axis = map (ppos axis) mopts.playerPositions
-                          toGroup $ GLTF.scene (unwrap opts.models).spaceship
-                            ( oneOf
-                                [ positionX <$> applyLPF (player == opts.myPlayer) (posAx AxisX)
-                                , positionY <$> (sampleBy (\{ sphereOffsetY } py -> sphereOffsetY + py) opts.renderingInfo (posAx AxisY))
-                                , bang $ positionZ
-                                    ( case player of
-                                        Player1 -> -4.0
-                                        Player2 -> -3.0
-                                        Player3 -> -2.0
-                                        Player4 -> -1.0
-                                    )
-                                , positionZ <$> posAx AxisZ
-                                , bang $ scaleX 0.02
-                                , bang $ scaleY 0.02
-                                , bang $ scaleZ 0.02
-                                ]
-                            )
-                            []
-                      )
-                        <>
+                    (
                           map toGroup
                             ( ( \position -> makeBar $
                                   { c3
@@ -301,6 +279,91 @@ runThree opts = do
                     )
                 ]
             )
+          myShips <- globalScenePortal1
+            ( scene { scene: opts.threeDI.scene } empty
+                [ toScene $ group { group: opts.threeDI.group }
+                    ( keepLatest $
+                        ( mapAccum
+                            ( \a b -> case b of
+                                Nothing -> Just a /\ 0.0
+                                Just x -> Just a /\ (a - x)
+                            )
+                            ( map (_.rateInfo.epochTime >>> unwrap >>> (_ / 1000.0))
+                                opts.animatedStuff
+                            )
+                            Nothing
+                        ) <#> \t ->
+                          let
+                            fac = t / 1000.0
+                          in
+                            if false then empty
+                            else oneOfMap bang
+                              [ P.rotateX $ 0.001 * cos (fac * pi * 0.01)
+                              , P.rotateY $ 0.001 * cos (fac * pi * 0.01)
+                              , P.rotateZ $ 0.001 * cos (fac * pi * 0.01)
+                              ]
+                    )
+                    ( ( filter (_ /= opts.myPlayer) (toArray allPlayers) <#> \player -> do
+                          let ppos = playerPosition player
+                          let posAx axis = map (ppos axis) mopts.playerPositions
+                          toGroup $ GLTF.scene (unwrap opts.models).spaceship
+                            ( oneOf
+                                [ positionX <$> applyLPF (player == opts.myPlayer) (posAx AxisX)
+                                , positionY <$> (sampleBy (\{ sphereOffsetY } py -> sphereOffsetY + py) opts.renderingInfo (posAx AxisY))
+                                , bang $ positionZ
+                                    ( case player of
+                                        Player1 -> -4.0
+                                        Player2 -> -3.0
+                                        Player3 -> -2.0
+                                        Player4 -> -1.0
+                                    )
+                                , positionZ <$> posAx AxisZ
+                                , bang $ scaleX 0.02
+                                , bang $ scaleY 0.02
+                                , bang $ scaleZ 0.02
+                                ]
+                            )
+                            []
+                      )
+                        <>
+                          ( (toArray allPlayers) <#> \player -> do
+                              let ppos = playerPosition player
+                              let posAx axis = map (ppos axis) mopts.playerPositions
+                              let normalDistance = 4.0
+                              let normalDecay = 2.0
+                              let normalIntensity = 1.0
+                              toGroup $ pointLight
+                                { pointLight: opts.threeDI.pointLight
+                                , distance: normalDistance
+                                , decay: normalDecay
+                                , intensity: normalIntensity
+                                , color: c3 $ RGB 1.0 1.0 1.0
+                                }
+                                ( oneOf
+                                    [ positionX <$> applyLPF (player == opts.myPlayer) (posAx AxisX)
+                                    , positionY <$> (sampleBy (\{ lightOffsetY } py -> (lightOffsetY + py)) opts.renderingInfo (posAx AxisY))
+                                    , positionZ <$> posAx AxisZ
+                                    , keepLatest $ (dedup (playerPosition' player <$> mopts.playerPositions)) <#> case _ of
+                                        -- only illuminate this much for the person in the front position
+                                        -- this seems too much now that we have ambient light
+                                        -- only bring it back if absolutely needed
+                                        -- Position1 | opts.myPlayer == player -> oneOfMap bang
+                                        --   [ P.decay 0.2
+                                        --   , P.intensity 5.0
+                                        --   , P.distance 10.0
+                                        --   ]
+                                        _ -> oneOfMap bang
+                                          [ P.decay normalDecay
+                                          , P.intensity normalIntensity
+                                          , P.distance normalDistance
+                                          ]
+                                    ]
+                                )
+
+                          )
+                    )
+                ]
+            )
           myWebGLRenderer <- globalWebGLRendererPortal1
             ( webGLRenderer
                 myScene
@@ -334,17 +397,30 @@ runThree opts = do
                     }
                     myScene
                     myCamera
-                -- , glitchPass { glitchPass: opts.threeDI.glitchPass }
+                ]
+            , effectComposer
+                { effectComposer: opts.threeDI.effectComposer
+                }
+                myWebGLRenderer
+                ( oneOf
+                    [ bang render
+                    , mopts.rateInfo $> render
+                    ]
+                )
+                [ renderPass
+                    { renderPass: opts.threeDI.renderPass
+                    }
+                    myShips
+                    myCamera
                 , unrealBloomPass
                     { unrealBloomPass: opts.threeDI.unrealBloomPass
                     , radius: 1.0
                     , resolution: vector2 opts.threeDI.vector2 { x: 1000.0, y: 1000.0 }
-                    , strength: 1.5
-                    , threshold: 0.3
+                    , strength: 3.0
+                    , threshold: 0.1
                     }
                     empty
                 ]
-
             , envy $ map
                 ( \element -> css2DRenderer
                     myScene
