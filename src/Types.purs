@@ -1006,6 +1006,7 @@ type ThreeDI =
   , group :: THREE.TGroup
   , euler :: THREE.TEuler
   , points :: THREE.TPoints
+  , vector2 :: THREE.TVector2
   , vector3 :: THREE.TVector3
   , plane :: THREE.TPlaneGeometry
   , shaderMaterial :: THREE.TShaderMaterial
@@ -1022,6 +1023,10 @@ type ThreeDI =
   , css2DObject :: THREE.TCSS2DObject
   , css3DObject :: THREE.TCSS3DObject
   , webGLRenderer :: THREE.TWebGLRenderer
+  , effectComposer :: THREE.TEffectComposer
+  , unrealBloomPass :: THREE.TUnrealBloomPass
+  , glitchPass :: THREE.TGlitchPass
+  , renderPass :: THREE.TRenderPass
   , color :: THREE.TColor
   , instancedMesh :: THREE.TInstancedMesh
   , raycaster :: THREE.TRaycaster

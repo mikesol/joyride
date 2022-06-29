@@ -2,6 +2,7 @@ module Joyride.Visual.Animation.Tutorial where
 
 import Prelude
 
+import Joyride.QualifiedDo.Apply as QDA
 import Bolson.Core (Element(..), envy, fixed)
 import Control.Alt ((<|>))
 import Control.Plus (empty)
@@ -36,15 +37,21 @@ import Rito.Lights.AmbientLight (ambientLight)
 import Rito.Lights.PointLight (pointLight)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.Mesh (mesh)
-import Rito.Portal (globalCameraPortal1, globalScenePortal1)
+import Rito.Portal (globalCameraPortal1, globalScenePortal1, globalWebGLRendererPortal, globalWebGLRendererPortal1)
 import Rito.Properties (aspect, background, decay, distance, intensity, rotateX, rotateY, rotateZ, rotationFromEuler) as P
 import Rito.Properties (lookAt, positionX, positionY, positionZ, render, scaleX, scaleY, scaleZ, size)
 import Rito.Renderers.CSS2D (css2DRenderer)
 import Rito.Renderers.CSS3D (css3DRenderer)
+import Rito.Renderers.Raycaster (raycaster)
 import Rito.Renderers.WebGL (webGLRenderer)
+import Rito.Renderers.WebGL.EffectComposer (effectComposer)
+import Rito.Renderers.WebGL.GlitchPass (glitchPass)
+import Rito.Renderers.WebGL.RenderPass (renderPass)
+import Rito.Renderers.WebGL.UnrealBloomPass (unrealBloomPass)
 import Rito.Run as Rito.Run
 import Rito.Scene (Background(..), scene)
 import Rito.Texture (Texture)
+import Rito.Vector2 (vector2)
 import Rito.Vector3 (vector3)
 import Type.Proxy (Proxy(..))
 import Types (Axis(..), CubeTextures, GalaxyAttributes, HitBasicMe, HitBasicVisualForLabel, HitLeapVisualForLabel, HitLongVisualForLabel, JMilliseconds, Models, Player(..), PlayerPositions, Position(..), RateInfo, ReleaseLongVisualForLabel, RenderingInfo, Shaders, Textures, ThreeDI, WindowDims, allPlayers, allPositions, playerPosition, playerPosition')
@@ -95,7 +102,6 @@ runThree
   -> Effect Unit
 runThree opts = do
   let c3 = color opts.threeDI.color
-  let textures = unwrap opts.textures
   let mopts = { playerPositions: _.playerPositions <$> opts.animatedStuff, rateInfo: _.rateInfo <$> opts.animatedStuff }
   _ <- Rito.Run.run
     ( envy $ vbus
@@ -109,33 +115,34 @@ runThree opts = do
                      )
                  )
         )
-        \scenePush sceneEvent -> globalCameraPortal1
-          ( perspectiveCamera
-              { perspectiveCamera: opts.threeDI.perspectiveCamera
-              , fov: 75.0
-              , aspect: opts.initialDims.iw / opts.initialDims.ih
-              , near: 0.1
-              , far: 100.0
-              }
-              ( keepLatest
-                  ( sampleBy Tuple opts.renderingInfo mopts.playerPositions <#> \(Tuple ri positions) ->
-                      let
-                        ppos = playerPosition opts.myPlayer
-                        posAx axis = ppos axis positions
-                        px = posAx AxisX
-                        py = posAx AxisY
-                        pz = posAx AxisZ
-                      in
-                        oneOfMap bang
-                          [ positionX px
-                          , positionY (ri.cameraOffsetY + py)
-                          , positionZ (ri.cameraOffsetZ + pz)
-                          , P.rotationFromEuler (euler opts.threeDI.euler { x: ri.cameraRotationAroundX, y: 0.0, z: 0.0 })
-                          ]
-                  ) <|> (opts.resizeE <#> \i -> P.aspect (i.iw / i.ih))
-              )
-          )
-          \myCamera -> globalScenePortal1
+        \scenePush sceneEvent -> QDA.do
+          myCamera <- globalCameraPortal1
+            ( perspectiveCamera
+                { perspectiveCamera: opts.threeDI.perspectiveCamera
+                , fov: 75.0
+                , aspect: opts.initialDims.iw / opts.initialDims.ih
+                , near: 0.1
+                , far: 100.0
+                }
+                ( keepLatest
+                    ( sampleBy Tuple opts.renderingInfo mopts.playerPositions <#> \(Tuple ri positions) ->
+                        let
+                          ppos = playerPosition opts.myPlayer
+                          posAx axis = ppos axis positions
+                          px = posAx AxisX
+                          py = posAx AxisY
+                          pz = posAx AxisZ
+                        in
+                          oneOfMap bang
+                            [ positionX px
+                            , positionY (ri.cameraOffsetY + py)
+                            , positionZ (ri.cameraOffsetZ + pz)
+                            , P.rotationFromEuler (euler opts.threeDI.euler { x: ri.cameraRotationAroundX, y: 0.0, z: 0.0 })
+                            ]
+                    ) <|> (opts.resizeE <#> \i -> P.aspect (i.iw / i.ih))
+                )
+            )
+          myScene <- globalScenePortal1
             ( scene { scene: opts.threeDI.scene } (bang $ P.background (CubeTexture (unwrap opts.cubeTextures).skybox2))
                 [ toScene $ group { group: opts.threeDI.group }
                     ( keepLatest $
@@ -159,66 +166,7 @@ runThree opts = do
                               , P.rotateZ $ 0.001 * cos (fac * pi * 0.01)
                               ]
                     )
-                    (
-                      -- ( filter (_ /= opts.myPlayer) (toArray allPlayers) <#> \player -> do
-                      --     let ppos = playerPosition player
-                      --     let posAx axis = map (ppos axis) mopts.playerPositions
-                      --     toGroup $ mesh { mesh: opts.threeDI.mesh }
-                      --       (sphere { sphere: opts.threeDI.sphereGeometry })
-                      --       ( case player of
-                      --           Player1 ->
-                      --             meshStandardMaterial
-                      --               { meshStandardMaterial: opts.threeDI.meshStandardMaterial
-                      --               , map: textures.hockeyCOL
-                      --               , aoMap: textures.hockeyAO
-                      --               , displacementMap: textures.hockeyDISP
-                      --               , displacementScale: 0.1
-                      --               , normalMap: textures.hockeyNRM
-                      --               , roughnessMap: textures.hockeyGLOSS
-                      --               }
-                      --           Player2 ->
-                      --             meshStandardMaterial
-                      --               { meshStandardMaterial: opts.threeDI.meshStandardMaterial
-                      --               , map: textures.marble19COL
-                      --               , normalMap: textures.marble19NRM
-                      --               , roughnessMap: textures.marble19GLOSS
-                      --               }
-                      --           Player3 ->
-                      --             meshStandardMaterial
-                      --               { meshStandardMaterial: opts.threeDI.meshStandardMaterial
-                      --               , map: textures.marble21COL
-                      --               , normalMap: textures.marble21NRM
-                      --               , roughnessMap: textures.marble21GLOSS
-                      --               }
-                      --           -- todo: change to something unique
-                      --           Player4 ->
-                      --             meshStandardMaterial
-                      --               { meshStandardMaterial: opts.threeDI.meshStandardMaterial
-                      --               , map: textures.marble19COL
-                      --               , normalMap: textures.marble19NRM
-                      --               , roughnessMap: textures.marble19GLOSS
-                      --               }
-                      --         empty
-                      --       )
-                      --       ( oneOf
-                      --           [ positionX <$> applyLPF (player == opts.myPlayer) (posAx AxisX)
-                      --           , positionY <$> (sampleBy (\{ sphereOffsetY } py -> sphereOffsetY + py) opts.renderingInfo (posAx AxisY))
-                      --           , bang $ positionZ
-                      --               ( case player of
-                      --                   Player1 -> -4.0
-                      --                   Player2 -> -3.0
-                      --                   Player3 -> -2.0
-                      --                   Player4 -> -1.0
-                      --               )
-                      --           , positionZ <$> posAx AxisZ
-                      --           , bang $ scaleX 0.1
-                      --           , bang $ scaleY 0.1
-                      --           , bang $ scaleZ 0.1
-                      --           ]
-                      --       )
-                      -- )
-                      --   <>
-                      ( filter (_ /= opts.myPlayer) (toArray allPlayers) <#> \player -> do
+                    ( ( filter (_ /= opts.myPlayer) (toArray allPlayers) <#> \player -> do
                           let ppos = playerPosition player
                           let posAx axis = map (ppos axis) mopts.playerPositions
                           toGroup $ GLTF.scene (unwrap opts.models).spaceship
@@ -237,7 +185,8 @@ runThree opts = do
                                 , bang $ scaleY 0.02
                                 , bang $ scaleZ 0.02
                                 ]
-                            ) []
+                            )
+                            []
                       )
                         <>
                           map toGroup
@@ -352,49 +301,77 @@ runThree opts = do
                     )
                 ]
             )
-            \myScene ->
-              fixed
-                [ webGLRenderer
+          myWebGLRenderer <- globalWebGLRendererPortal1
+            ( webGLRenderer
+                myScene
+                myCamera
+                { canvas: opts.canvas
+                , webGLRenderer: opts.threeDI.webGLRenderer
+                }
+                ( oneOf
+                    [ bang (size { width: opts.initialDims.iw, height: opts.initialDims.ih })
+                    , opts.resizeE <#> \i -> size { width: i.iw, height: i.ih }
+                    ]
+                )
+            )
+          fixed
+            [ raycaster
+                { raycaster: opts.threeDI.raycaster
+                , canvas: opts.canvas
+                }
+                myCamera
+            , effectComposer
+                { effectComposer: opts.threeDI.effectComposer
+                }
+                myWebGLRenderer
+                ( oneOf
+                    [ bang render
+                    , mopts.rateInfo $> render
+                    ]
+                )
+                [ renderPass
+                    { renderPass: opts.threeDI.renderPass
+                    }
                     myScene
                     myCamera
-                    { canvas: opts.canvas
-                    , webGLRenderer: opts.threeDI.webGLRenderer
-                    , raycaster: opts.threeDI.raycaster
+                -- , glitchPass { glitchPass: opts.threeDI.glitchPass }
+                , unrealBloomPass
+                    { unrealBloomPass: opts.threeDI.unrealBloomPass
+                    , radius: 1.0
+                    , resolution: vector2 opts.threeDI.vector2 { x: 1000.0, y: 1000.0 }
+                    , strength: 1.5
+                    , threshold: 0.3
                     }
+                    empty
+                ]
+
+            , envy $ map
+                ( \element -> css2DRenderer
+                    myScene
+                    myCamera
+                    { canvas: opts.canvas, element, css2DRenderer: opts.threeDI.css2DRenderer }
                     ( oneOf
-                        [ bang (size { width: opts.initialDims.iw, height: opts.initialDims.ih })
+                        [ opts.resizeE <#> \i -> size { width: i.iw, height: i.ih }
                         , bang render
-                        , mopts.rateInfo $> render
-                        , opts.resizeE <#> \i -> size { width: i.iw, height: i.ih }
+                        , (mopts.rateInfo $> render)
                         ]
                     )
-                , envy $ map
-                    ( \element -> css2DRenderer
-                        myScene
-                        myCamera
-                        { canvas: opts.canvas, element, css2DRenderer: opts.threeDI.css2DRenderer }
-                        ( oneOf
-                            [ opts.resizeE <#> \i -> size { width: i.iw, height: i.ih }
-                            , bang render
-                            , (mopts.rateInfo $> render)
-                            ]
-                        )
+                )
+                opts.css2DRendererElt
+            , envy $ map
+                ( \element -> css3DRenderer
+                    myScene
+                    myCamera
+                    { canvas: opts.canvas, element, css3DRenderer: opts.threeDI.css3DRenderer }
+                    ( oneOf
+                        [ opts.resizeE <#> \i -> size { width: i.iw, height: i.ih }
+                        , bang render
+                        , (mopts.rateInfo $> render)
+                        ]
                     )
-                    opts.css2DRendererElt
-                , envy $ map
-                    ( \element -> css3DRenderer
-                        myScene
-                        myCamera
-                        { canvas: opts.canvas, element, css3DRenderer: opts.threeDI.css3DRenderer }
-                        ( oneOf
-                            [ opts.resizeE <#> \i -> size { width: i.iw, height: i.ih }
-                            , bang render
-                            , (mopts.rateInfo $> render)
-                            ]
-                        )
-                    )
-                    opts.css3DRendererElt
-                ]
+                )
+                opts.css3DRendererElt
+            ]
     )
   pure unit
   where

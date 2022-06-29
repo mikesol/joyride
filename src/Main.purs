@@ -265,6 +265,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
     launchAff_ do
       threeDI :: ThreeDI <- sequential $ hfoldlWithIndex ParFold (pure {} :: ParAff {})
         { scene: THREE.sceneAff
+        , vector2: THREE.vector2Aff
         , vector3: THREE.vector3Aff
         , meshStandardMaterial: THREE.meshStandardMaterialAff
         , bufferGeometry: THREE.bufferGeometryAff
@@ -275,6 +276,10 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
         , ambientLight: THREE.ambientLightAff
         , css2DObject: THREE.css2DObjectAff
         , webGLRenderer: THREE.webGLRendererAff
+        , effectComposer: THREE.effectComposerAff
+        , unrealBloomPass: THREE.unrealBloomPassAff
+        , glitchPass: THREE.glitchPassAff
+        , renderPass: THREE.renderPassAff
         , color: THREE.colorAff
         , instancedMesh: THREE.instancedMeshAff
         , euler: THREE.eulerAff
