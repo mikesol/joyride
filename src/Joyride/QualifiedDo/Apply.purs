@@ -1,10 +1,10 @@
 module Joyride.QualifiedDo.Apply where
 
-import Prelude
+import Data.Function (apply)
+import Prelude (Unit)
 
-bind ∷ ∀ a b. (a -> b) -> a -> b
-bind f a = f a
+bind :: forall a r. ((a -> r) -> r) -> (a -> r) -> r
+bind = apply
 
--- not quite right, but we'll never use it anyway
-discard ∷ ∀ a b. a -> (Unit → b) -> b
-discard _ f = f unit
+discard :: forall r. ((Unit -> r) -> r) -> (Unit -> r) -> r
+discard = apply
