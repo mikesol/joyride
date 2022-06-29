@@ -2,7 +2,6 @@ module Joyride.Visual.Animation.Tutorial where
 
 import Prelude
 
-import Joyride.QualifiedDo.Apply as QDA
 import Bolson.Core (Element(..), envy, fixed)
 import Control.Alt ((<|>))
 import Control.Plus (empty)
@@ -20,39 +19,36 @@ import FRP.Event (Event, EventIO, bang, keepLatest, mapAccum)
 import FRP.Event.VBus (V, vbus)
 import Joyride.Effect.Lowpass (lpf)
 import Joyride.FRP.Dedup (dedup)
+import Joyride.QualifiedDo.Apply as QDA
 import Joyride.Visual.Bar (makeBar)
 import Joyride.Visual.BasicLabels (basicLabels)
 import Joyride.Visual.LeapLabels (leapLabels)
 import Joyride.Visual.LongLabels (longLabels)
 import Rito.Cameras.PerspectiveCamera (perspectiveCamera)
 import Rito.Color (RGB(..), color)
-import Rito.Core (ASceneful, Renderer(..), cameraToGroup, toGroup, toScene)
+import Rito.Core (ASceneful, Renderer(..), cameraToGroup, effectComposerToRenderer, plain, toGroup, toScene)
 import Rito.CubeTexture (CubeTexture)
 import Rito.Euler (euler)
 import Rito.GLTF (GLTF)
 import Rito.GLTF as GLTF
-import Rito.Geometries.Sphere (sphere)
 import Rito.Group (group)
 import Rito.Lights.AmbientLight (ambientLight)
 import Rito.Lights.PointLight (pointLight)
-import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
-import Rito.Mesh (mesh)
-import Rito.Portal (globalCameraPortal1, globalScenePortal1, globalWebGLRendererPortal, globalWebGLRendererPortal1)
+import Rito.Portal (globalCameraPortal1, globalEffectComposerPortal1, globalScenePortal1, globalWebGLRendererPortal1)
 import Rito.Properties (aspect, background, decay, distance, intensity, rotateX, rotateY, rotateZ, rotationFromEuler) as P
-import Rito.Properties (lookAt, positionX, positionY, positionZ, render, scaleX, scaleY, scaleZ, size)
+import Rito.Properties (positionX, positionY, positionZ, render, scaleX, scaleY, scaleZ, size)
 import Rito.Renderers.CSS2D (css2DRenderer)
 import Rito.Renderers.CSS3D (css3DRenderer)
 import Rito.Renderers.Raycaster (raycaster)
 import Rito.Renderers.WebGL (webGLRenderer)
 import Rito.Renderers.WebGL.EffectComposer (effectComposer)
-import Rito.Renderers.WebGL.GlitchPass (glitchPass)
+import Rito.Renderers.WebGL.EffectComposerPass (effectComposerPass)
 import Rito.Renderers.WebGL.RenderPass (renderPass)
 import Rito.Renderers.WebGL.UnrealBloomPass (unrealBloomPass)
 import Rito.Run as Rito.Run
 import Rito.Scene (Background(..), scene)
 import Rito.Texture (Texture)
 import Rito.Vector2 (vector2)
-import Rito.Vector3 (vector3)
 import Type.Proxy (Proxy(..))
 import Types (Axis(..), CubeTextures, GalaxyAttributes, HitBasicMe, HitBasicVisualForLabel, HitLeapVisualForLabel, HitLongVisualForLabel, JMilliseconds, Models, Player(..), PlayerPositions, Position(..), RateInfo, ReleaseLongVisualForLabel, RenderingInfo, Shaders, Textures, ThreeDI, WindowDims, allPlayers, allPositions, playerPosition, playerPosition')
 import Web.DOM as Web.DOM
@@ -166,30 +162,29 @@ runThree opts = do
                               , P.rotateZ $ 0.001 * cos (fac * pi * 0.01)
                               ]
                     )
-                    (
-                          map toGroup
-                            ( ( \position -> makeBar $
-                                  { c3
-                                  , threeDI: opts.threeDI
-                                  , renderingInfo: opts.renderingInfo
-                                  , debug: opts.debug
-                                  , initialIsMe: opts.myPlayer == case position of
-                                      Position1 -> Player1
-                                      Position2 -> Player2
-                                      Position3 -> Player3
-                                      Position4 -> Player4
-                                  , isMe: dedup
-                                      ( opts.animatedStuff <#> \{ playerPositions } -> position == case opts.myPlayer of
-                                          Player1 -> playerPositions.p1p
-                                          Player2 -> playerPositions.p2p
-                                          Player3 -> playerPositions.p3p
-                                          Player4 -> playerPositions.p4p
-                                      )
-                                  , rateE: mopts.rateInfo
-                                  , position
-                                  }
-                              ) <$> (toArray allPositions)
-                            )
+                    ( map toGroup
+                        ( ( \position -> makeBar $
+                              { c3
+                              , threeDI: opts.threeDI
+                              , renderingInfo: opts.renderingInfo
+                              , debug: opts.debug
+                              , initialIsMe: opts.myPlayer == case position of
+                                  Position1 -> Player1
+                                  Position2 -> Player2
+                                  Position3 -> Player3
+                                  Position4 -> Player4
+                              , isMe: dedup
+                                  ( opts.animatedStuff <#> \{ playerPositions } -> position == case opts.myPlayer of
+                                      Player1 -> playerPositions.p1p
+                                      Player2 -> playerPositions.p2p
+                                      Player3 -> playerPositions.p3p
+                                      Player4 -> playerPositions.p4p
+                                  )
+                              , rateE: mopts.rateInfo
+                              , position
+                              }
+                          ) <$> (toArray allPositions)
+                        )
                         <>
                           [ toGroup $ ambientLight
                               { ambientLight: opts.threeDI.ambientLight
@@ -377,36 +372,12 @@ runThree opts = do
                     ]
                 )
             )
-          fixed
-            [ raycaster
-                { raycaster: opts.threeDI.raycaster
-                , canvas: opts.canvas
-                }
-                myCamera
-            , effectComposer
+          myShipComposer <- globalEffectComposerPortal1
+            ( effectComposer
                 { effectComposer: opts.threeDI.effectComposer
                 }
                 myWebGLRenderer
-                ( oneOf
-                    [ bang render
-                    , mopts.rateInfo $> render
-                    ]
-                )
-                [ renderPass
-                    { renderPass: opts.threeDI.renderPass
-                    }
-                    myScene
-                    myCamera
-                ]
-            , effectComposer
-                { effectComposer: opts.threeDI.effectComposer
-                }
-                myWebGLRenderer
-                ( oneOf
-                    [ bang render
-                    , mopts.rateInfo $> render
-                    ]
-                )
+                empty
                 [ renderPass
                     { renderPass: opts.threeDI.renderPass
                     }
@@ -420,6 +391,29 @@ runThree opts = do
                     , threshold: 0.1
                     }
                     empty
+                ]
+            )
+          fixed
+            [ raycaster
+                { raycaster: opts.threeDI.raycaster
+                , canvas: opts.canvas
+                }
+                myCamera
+            , plain $ effectComposerToRenderer $ effectComposer
+                { effectComposer: opts.threeDI.effectComposer
+                }
+                myWebGLRenderer
+                ( oneOf
+                    [ bang render
+                    , mopts.rateInfo $> render
+                    ]
+                )
+                [ renderPass
+                    { renderPass: opts.threeDI.renderPass
+                    }
+                    myScene
+                    myCamera
+                , effectComposerPass { effectComposerPass: opts.threeDI.effectComposerPass } myShipComposer
                 ]
             , envy $ map
                 ( \element -> css2DRenderer

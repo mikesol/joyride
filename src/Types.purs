@@ -1024,6 +1024,7 @@ type ThreeDI =
   , css3DObject :: THREE.TCSS3DObject
   , webGLRenderer :: THREE.TWebGLRenderer
   , effectComposer :: THREE.TEffectComposer
+  , effectComposerPass :: THREE.TEffectComposerPass
   , unrealBloomPass :: THREE.TUnrealBloomPass
   , glitchPass :: THREE.TGlitchPass
   , renderPass :: THREE.TRenderPass

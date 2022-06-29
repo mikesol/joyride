@@ -277,6 +277,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
         , css2DObject: THREE.css2DObjectAff
         , webGLRenderer: THREE.webGLRendererAff
         , effectComposer: THREE.effectComposerAff
+        , effectComposerPass: THREE.effectComposerPassAff
         , unrealBloomPass: THREE.unrealBloomPassAff
         , glitchPass: THREE.glitchPassAff
         , renderPass: THREE.renderPassAff

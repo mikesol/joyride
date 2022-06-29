@@ -29,7 +29,7 @@ import Joyride.Visual.LongLabels (longLabels)
 import Rito.Blending (Blending(..))
 import Rito.Cameras.PerspectiveCamera (perspectiveCamera)
 import Rito.Color (RGB(..), color)
-import Rito.Core (ASceneful, Renderer(..), cameraToGroup, toGroup, toScene)
+import Rito.Core (ASceneful, Renderer(..), cameraToGroup, effectComposerToRenderer, plain, toGroup, toScene)
 import Rito.CubeTexture (CubeTexture)
 import Rito.Euler (euler)
 import Rito.Geometries.Plane (plane)
@@ -387,7 +387,7 @@ runThree opts = do
                     , canvas: opts.canvas
                     }
                     myCamera
-                , effectComposer
+                , plain $ effectComposerToRenderer $ effectComposer
                     { effectComposer: opts.threeDI.effectComposer
                     }
                     myWebGLRenderer

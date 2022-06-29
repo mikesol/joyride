@@ -35,7 +35,7 @@ let overrides =
           , "web-uievents"
           ]
         , repo = "https://github.com/mikesol/purescript-rito.git"
-        , version = "effect-composer"
+        , version = "v0.0.2"
         }
       }
 
