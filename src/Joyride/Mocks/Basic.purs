@@ -24,19 +24,18 @@ import Joyride.Audio.Basic as BasicA
 import Joyride.FRP.Behavior (misbehavior)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Schedule (oneOff, scheduleCf)
+import Joyride.Ocarina (AudibleEnd(..))
 import Joyride.Visual.Basic as BasicV
 import Joyride.Visual.BasicWord as BasicW
-import Joyride.Ocarina (AudibleEnd(..))
+import Ocarina.WebAPI (BrowserAudioBuffer)
 import Record (union)
 import Rito.Color (RGB(..))
 import Rito.Core (ASceneful, CSS3DObject, Instance, toScene)
 import Rito.Geometries.Box (box)
 import Rito.Materials.MeshPhongMaterial (meshPhongMaterial)
-import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.RoundRobin (InstanceId, Semaphore(..), roundRobinInstancedMesh)
 import Safe.Coerce (coerce)
 import Types (Beats(..), Column(..), HitBasicMe, JMilliseconds(..), MakeBasics, RateInfo, beatToTime)
-import Ocarina.WebAPI (BrowserAudioBuffer)
 
 type ACU =
   { appearsAt :: Beats
@@ -182,7 +181,7 @@ mockBasics makeBasics =
                     , buffers: makeBasics.buffers
                     }
                 , uniqueId: input.uniqueId
-                , text: "foo"
+                , text: pure "foo"
                 -- empty for now, fill this in later
                 , someonePlayedMe: (empty :: Event HitBasicMe)
                 }

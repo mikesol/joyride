@@ -492,7 +492,7 @@ instance JSON.WriteForeign PointOutcome where
 -- hits
 type MakeBasicWord r =
   ( someonePlayedMe :: Event HitBasicMe
-  , text :: String
+  , text :: Vect 4 String
   | MakeBasic r
   )
 

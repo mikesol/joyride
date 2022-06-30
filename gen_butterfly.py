@@ -26,6 +26,11 @@ for x in range(len(D)):
 
 print('data Butterflyable = L ButterflyLyric | D ButterflyDrum')
 
+print('l2s :: ButterflyLyric -> String')
+for x in range(len(W)):
+  print(('l2s %s = "%s"' % (W[x], W[x][1:])))
+
+
 print('type TCID = { t :: Number, c :: Butterflyable, i :: Int, m :: MVal }')
 print('data MVal =')
 for x in range(len(r)):
