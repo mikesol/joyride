@@ -79,9 +79,20 @@ foreign import emitsTouchEvents :: Effect Boolean
 foreign import useLilGui :: Effect Boolean
 foreign import force4 :: Effect Boolean
 
-renderingInfo' :: RenderingInfo' Slider
-renderingInfo' =
+renderingInfoDesktop :: RenderingInfo' Slider
+renderingInfoDesktop =
   { halfAmbitus: Slider { default: 3.1, min: 0.5, max: 4.4, step: 0.1 }
+  , barZSpacing: Slider { default: 1.0, min: 0.1, max: 3.0, step: 0.1 }
+  , cameraOffsetY: Slider { default: 1.75, min: 0.1, max: 3.0, step: 0.05 }
+  , cameraRotationAroundX: Slider { default: -0.45, min: -1.0 * pi, max: pi, step: 0.05 }
+  , cameraOffsetZ: Slider { default: 1.0, min: 0.1, max: 3.0, step: 0.05 }
+  , lightOffsetY: Slider { default: 0.9, min: 0.00, max: 2.0, step: 0.05 }
+  , sphereOffsetY: Slider { default: 0.2, min: 0.05, max: 0.5, step: 0.05 }
+  }
+
+renderingInfoMobile :: RenderingInfo' Slider
+renderingInfoMobile =
+  { halfAmbitus: Slider { default: 5.0, min: 0.5, max: 4.4, step: 0.1 }
   , barZSpacing: Slider { default: 1.0, min: 0.1, max: 3.0, step: 0.1 }
   , cameraOffsetY: Slider { default: 1.75, min: 0.1, max: 3.0, step: 0.05 }
   , cameraRotationAroundX: Slider { default: -0.45, min: -1.0 * pi, max: pi, step: 0.05 }
@@ -162,8 +173,6 @@ main
   -> Object.Object String
   -> Effect Unit
 main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ do
-  ----- gui
-  { debug, renderingInfo } <- liftEffect useLilGui >>= (if _ then gui else noGui) >>> (_ $ renderingInfo')
   -- firebsae
   fbApp <- firebaseAppAff
   fbAnalytics <- firebaseAnalyticsAff fbApp
@@ -198,417 +207,421 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
     pushLeap :: Event.EventIO HitLeapMe <- Event.create
     pushHitLong :: Event.EventIO HitLongMe <- Event.create
     pushReleaseLong :: Event.EventIO ReleaseLongMe <- Event.create
-    let renderingInfoBehavior = refToBehavior renderingInfo
     -- is this mobile
     isMobile <- emitsTouchEvents
-    -- low priority event
-    unschedule <- new Map.empty
-    -- unsubscribe from previous channel
-    channelUnsub <- Ref.new (pure unit)
-    let
-      lowPriorityCb k v = do
-        n <- Random.random
-        Ref.modify_ (Map.insert (k + JMilliseconds (n * 0.25)) v) unschedule
-    idleCallbackId <- liftEffect $ new Nothing
-    ctx' <- context
-    silence <- makeAudioBuffer ctx' (AudioBuffer 44100 [ replicate 1000 0.0 ])
-    -- path parsing
-    loc <- location w
-    pn <- pathname loc
-    let parsed = parse route pn
-    -- resize
-    initialDims <- { iw: _, ih: _ }
-      <$> (Int.toNumber <$> innerWidth w)
-      <*> (Int.toNumber <$> innerHeight w)
-    resizeListener <- eventListener \_ -> do
-      ({ iw: _, ih: _ } <$> (Int.toNumber <$> innerWidth w) <*> (Int.toNumber <$> innerHeight w)) >>= resizeE.push
-    addEventListener (EventType "resize") resizeListener true (toEventTarget w)
-    -- sound stash
-    soundObj <- liftEffect $ Ref.new Object.empty
-    channelEvent <- liftEffect $ Event.create
-    -- get the html. could be even sooner if we passed more stuff in on success instead of creating it at the top level
-    ----- player positions
-    playerPositions <- Ref.read renderingInfo >>= \ri -> Ref.new (initialPositions ri)
-    runInBody
-      ( toplevel
-          { loaded: loaded.event
-          , ride: do
-              id <- randId' 6
-              channelEvent.push (RideChannel id)
-          , negotiation: negotiation.event
-          , tutorial: channelEvent.push TutorialChannel
-          , isMobile
-          , lpsCallback: lowPriorityCb
-          , givePermission: orientationPerm.push
-          , pushBasic: pushBasic
-          , pushLeap: pushLeap
-          , pushHitLong: pushHitLong
-          , pushReleaseLong: pushReleaseLong
-          , resizeE: resizeE.event
-          , goHome: do
-              -- clear the channel
-              channelEvent.push NoChannel
-          , playerPositions: refToBehavior playerPositions
-          , renderingInfo: renderingInfoBehavior
-          , debug
-          , silence
-          , initialDims
-          , icid: idleCallbackId
-          , wdw: w
-          , unschedule
-          , soundObj
-          }
-      )
-    -- i am me
-    iAm <- randId
-    -- threeeeeee
+    ----- gui
     launchAff_ do
-      threeDI :: ThreeDI <- sequential $ hfoldlWithIndex ParFold (pure {} :: ParAff {})
-        { scene: THREE.sceneAff
-        , vector2: THREE.vector2Aff
-        , vector3: THREE.vector3Aff
-        , meshStandardMaterial: THREE.meshStandardMaterialAff
-        , bufferGeometry: THREE.bufferGeometryAff
-        , points: THREE.pointsAff
-        , meshPhongMaterial: THREE.meshPhongMaterialAff
-        , boxGeometry: THREE.boxGeometryAff
-        , pointLight: THREE.pointLightAff
-        , ambientLight: THREE.ambientLightAff
-        , css2DObject: THREE.css2DObjectAff
-        , webGLRenderer: THREE.webGLRendererAff
-        , effectComposer: THREE.effectComposerAff
-        , effectComposerPass: THREE.effectComposerPassAff
-        , unrealBloomPass: THREE.unrealBloomPassAff
-        , glitchPass: THREE.glitchPassAff
-        , renderPass: THREE.renderPassAff
-        , color: THREE.colorAff
-        , instancedMesh: THREE.instancedMeshAff
-        , euler: THREE.eulerAff
-        , raycaster: THREE.raycasterAff
-        , mesh: THREE.meshAff
-        , perspectiveCamera: THREE.perspectiveCameraAff
-        , matrix4: THREE.matrix4Aff
-        , plane: THREE.planeGeometryAff
-        , bufferAttribute: THREE.bufferAttributeAff
-        , instancedBufferAttribute: THREE.instancedBufferAttributeAff
-        , shaderMaterial: THREE.shaderMaterialAff
-        , gltfLoader: THREE.gltfLoaderAff
-        , cubeTextureLoader: THREE.cubeTextureLoaderAff
-        , sphereGeometry: THREE.sphereGeometryAff
-        , css2DRenderer: THREE.css2DRendererAff
-        , css3DObject: THREE.css3DObjectAff
-        , css3DRenderer: THREE.css3DRendererAff
-        , group: THREE.groupAff
-        , textureLoader: THREE.textureLoaderAff
-        }
-      ldr <- liftEffect $ loader threeDI.textureLoader
-      cldr <- liftEffect $ CubeTextureLoader.loader threeDI.cubeTextureLoader
-      gldr <- liftEffect $ GLTFLoader.loader threeDI.gltfLoader
-      --       , textures: Textures downloadedTextures
-      downloadedTextures <- forkAff (fromHomogeneous <$> parTraverse (loadAff ldr) (homogeneous textures))
-      downloadedGLTFs <- forkAff (fromHomogeneous <$> parTraverse (GLTFLoader.loadAff gldr) (homogeneous models))
-      downloadedCubeTextures <- forkAff (fromHomogeneous <$> parTraverse ((CubeTextureLoader.loadAffRecord cldr)) (map unwrap $ homogeneous cubeTextures))
-      -- "server" via pubnub
-      let
-        proposedChannel' = case hush parsed >>= channelFromRoute of
-          Nothing -> NoChannel
-          Just x -> RideChannel x
-      let galaxyAttributes = makeGalaxyAttributes threeDI.instancedBufferAttribute
-      _ <- liftEffect $ subscribe channelEvent.event \chan -> launchAff_ $ do
-        Log.info ("received channel " <> show chan)
-        liftEffect $ join $ Ref.read channelUnsub
-        case chan of
-          TutorialChannel -> do
-            liftEffect $ negotiation.push StartingNegotiation
-            knownPlayers :: Ref.Ref KnownPlayers <- liftEffect $ Ref.new $ KnownPlayers Map.empty
-            knownPlayersBus <- liftEffect Event.create
-            ---- TODO: this is a copy/paste from below with the pubnub taken out
-            ---- refactor to combine!!!
-            xPosE <- liftEffect $ if isMobile then xForTouch mappedCNow w Player4 mempty else xForKeyboard mappedCNow w Player4 mempty
-            -- ignore subscription
-            _ <- liftEffect $ subscribe xPosE \xp -> writeToRecord (Proxy :: _ "p4x") xp playerPositions
-            -- deal with incoming basics
-            _ <- liftEffect $ subscribe pushBasic.event \(HitBasicMe bt) -> do
-              let outcome = basicOutcomeToPointOutcome $ beatsToBasicOutcome bt.deltaBeats
-              kp <- updateKnownPlayerPoints Player4 outcome knownPlayers
-              knownPlayersBus.push kp
-            _ <- liftEffect $ subscribe pushReleaseLong.event \(ReleaseLongMe rl) -> do
-              let outcome = longToPointOutcome rl.distance rl.pctConsumed
-              kp <- updateKnownPlayerPoints Player4 outcome knownPlayers
-              knownPlayersBus.push kp
-            -- deal with incoming leaps
-            leapUnsubscribesRef <- liftEffect $ Ref.new (mempty :: LeapUnsubscribes)
-            _ <- liftEffect $ subscribe pushLeap.event \(HitLeapMe bt) -> do
-              magicLeaps leapUnsubscribesRef mappedCNow playerPositions renderingInfoBehavior { player: Player4, newPosition: bt.newPosition }
-            ---- end TODO
-            let
-              bufferNames :: List (BufferName /\ String)
-              bufferNames = (BufferName "tutorial" /\ "tutorial")
-                : (BufferName "shakuhachi0" /\ "shakuhachi0")
-                : (BufferName "shakuhachi1" /\ "shakuhachi1")
-                : (BufferName "shakuhachi2" /\ "shakuhachi2")
-                : (BufferName "shakuhachi3" /\ "shakuhachi3")
-                : (BufferName "floorTom" /\ "floorTom")
-                : (BufferName "floorTom" /\ "floorTom")
-                : (BufferName "elvedenHallLordsCloakroom" /\ "elvedenHallLordsCloakroom")
-                : Nil
-            let n2oh = take 300 bufferNames
-            let n2ot = drop 300 bufferNames
-            dlInChunks audio 100 n2oh ctx' soundObj
-            liftEffect $ loaded.push true
-            dlInChunks audio 100 n2ot ctx' soundObj
-            myTextures <- joinFiber downloadedTextures
-            myGLTFs <- joinFiber downloadedGLTFs
-            myCubeTextures <- joinFiber downloadedCubeTextures
-            liftEffect do
-              longVerb <- fromMaybe silence <<< Object.lookup "elvedenHallLordsCloakroom" <$> Ref.read soundObj
-              negotiation.push $ WantsTutorial
-                { player: Player4
-                , threeDI
-                , shaders
-                , galaxyAttributes
-                , cNow: mappedCNow
-                , models: Models myGLTFs
-                , textures: Textures myTextures
-                , cubeTextures: CubeTextures myCubeTextures
-                , longVerb
-                , playerStatus:
-                    let
-                      e :: Event KnownPlayers
-                      e = sampleOnSubscribe (refToBehavior knownPlayers) <|> knownPlayersBus.event
-                    in
-                      -- folded because, by design, we always know which value "wins"
-                      -- in player status
-                      -- so we can always fold with the previous one in case there's a
-                      -- regression in the incoming value (ie packets out of order)
-                      folded e
-                , optMeIn: \ms -> do
-                    players <- Ref.modify (KnownPlayers (Map.singleton Player4 (HasStarted $ InFlightGameInfo { startedAt: ms, points: Points 0.0, penalties: Penalty 0.0, name: Nothing })) <> _) knownPlayers
-                    knownPlayersBus.push players
-                }
-          NoChannel -> do
-            myGLTFs <- joinFiber downloadedGLTFs
-            myCubeTextures <- joinFiber downloadedCubeTextures
-            liftEffect $ negotiation.push
-              ( GetRulesOfGame
-                  { threeDI
-                  , models: Models myGLTFs
-                  , cubeTextures: CubeTextures myCubeTextures
-                  , cNow: mappedCNow
-                  }
-              )
-          RideChannel proposedChannel -> do
-            -- maybe is not ideal here
-            -- what it means semantically is "player exists but has not started"
-            -- a new type for this?
-            knownPlayers :: Ref.Ref KnownPlayers <- liftEffect $ Ref.new $ KnownPlayers Map.empty
-            -- for when we need to ping _both_ pubnub and ourselves internally with the same data
-            -- this is the case, for example, with points
-            -- we want to update our own _and_ others' points
-            knownPlayersBus <- liftEffect $ Event.create
-            liftEffect $ negotiation.push StartingNegotiation
-            f4 <- liftEffect force4
-            myChannel <- createRideIfNotExistsYet firestoreDb proposedChannel
-            liftEffect do
-              usu <- subscribe (eventChannelChanges firestoreDb myChannel) \ride -> do
-                kp <- Ref.modify (updateKnownPlayerPointsUsingRide ride) knownPlayers
-                knownPlayersBus.push kp
-              Ref.write usu channelUnsub
-            pubNub <- do
-              { event, publish } <- PN.pubnub (IAm iAm) (Channel myChannel)
-              pure
-                { publish
-                , event: filterMap
-                    ( \(PN.PubNubEvent pne) -> if pne.message.iAm /= iAm then Just pne.message.action else Nothing
-                    )
-                    event
-                }
-            leapUnsubscribesRef <- liftEffect $ Ref.new (mempty :: LeapUnsubscribes)
-            -- we immediately issue a subscription for all the stuff we can always listen to
-            _ <- liftEffect $ subscribe pubNub.event \pevt -> do
-              -- todo: make lazy?
-              let
-                pfun = case _ of
-                  Player1 -> writeToRecord (Proxy :: _ "p1x")
-                  Player2 -> writeToRecord (Proxy :: _ "p2x")
-                  Player3 -> writeToRecord (Proxy :: _ "p3x")
-                  Player4 -> writeToRecord (Proxy :: _ "p4x")
-                notRelevant = pure unit
-              case pevt of
-                -- if we get a hit leap, we need to generate an event that will change the position
-                HitLeap (HitLeapOverTheWire hl) -> magicLeaps leapUnsubscribesRef mappedCNow playerPositions renderingInfoBehavior hl
-                -- if we hear a hit basic, we update the known players
-                HitBasic (HitBasicOverTheWire { player, outcome }) -> do
-                  kp <- updateKnownPlayerPoints player outcome knownPlayers
-                  knownPlayersBus.push kp
-                -- if we hear a hit basic, we do nothing, as points are only attributed on release
-                -- Pressed start
-                PressedStart { startedAt, name, player } -> do
-                  kp <- Ref.modify
-                    ( append
-                        ( KnownPlayers $ Map.singleton player
-                            ( HasStarted
-                                ( InFlightGameInfo
-                                    { name
-                                    , startedAt
-                                    , points: Points bottom
-                                    , penalties: Penalty bottom
-                                    }
-                                )
-                            )
-                        )
-                    )
-                    knownPlayers
-                  knownPlayersBus.push kp
-                HitLong _ -> notRelevant
-                -- if we hear a hit basic, we can update the points
-                ReleaseLong (ReleaseLongOverTheWire { player, outcome }) -> do
-                  kp <- updateKnownPlayerPoints player outcome knownPlayers
-                  knownPlayersBus.push kp
-                -- we update the xposition for when the behavior needs it
-                XPositionKeyboard i -> do
-                  -- Log.info $ show i.ktp
-                  -- mcn <- myCNow.cnow
-                  -- Log.info $ show mcn
-                  -- Log.info $ show ((lcmap _.epochTime $ posFromKeypress i.ktp) {epochTime: coerce mcn.time})
-                  pfun i.player (lcmap _.epochTime $ posFromKeypress i.ktp) playerPositions
-                -- we update the xposition for when the behavior needs it
-                XPositionMobile i -> pfun i.player (lcmap _.epochTime $ posFromOrientation i.gtp) playerPositions
-            let
-              myPlayerHint = case hush parsed >>= playerFromRoute of
-                Just playerAsk -> Just playerAsk
-                Nothing
-                  | f4 -> Just Player4
-                  | otherwise -> Nothing
-            -- collecting <- forkAff  $ collectEventToAff (Milliseconds 750.0) knownPlayersBus.event
-            (playerOrBust :: Maybe Player) <- getPlayerForChannel fbAuth firestoreDb myChannel myPlayerHint
-            case playerOrBust of
-              Nothing -> do
-                liftEffect $ negotiation.push GameHasStarted
-                never
-              Just myPlayer -> do
-                liftEffect $ Ref.modify_ (KnownPlayers (Map.singleton myPlayer HasNotStartedYet) <> _) knownPlayers
-                xPosE <- liftEffect $ if isMobile then xForTouch mappedCNow w myPlayer pubNub.publish else xForKeyboard mappedCNow w myPlayer pubNub.publish
+      { debug, renderingInfo } <- liftEffect useLilGui >>= (if _ then gui else noGui) >>> (_ $ (if isMobile then renderingInfoMobile else renderingInfoDesktop))
+      liftEffect do
+        let renderingInfoBehavior = refToBehavior renderingInfo
+        -- low priority event
+        unschedule <- Ref.new Map.empty
+        -- unsubscribe from previous channel
+        channelUnsub <- Ref.new (pure unit)
+        let
+          lowPriorityCb k v = do
+            n <- Random.random
+            Ref.modify_ (Map.insert (k + JMilliseconds (n * 0.25)) v) unschedule
+        idleCallbackId <- liftEffect $ new Nothing
+        ctx' <- context
+        silence <- makeAudioBuffer ctx' (AudioBuffer 44100 [ replicate 1000 0.0 ])
+        -- path parsing
+        loc <- location w
+        pn <- pathname loc
+        let parsed = parse route pn
+        -- resize
+        initialDims <- { iw: _, ih: _ }
+          <$> (Int.toNumber <$> innerWidth w)
+          <*> (Int.toNumber <$> innerHeight w)
+        resizeListener <- eventListener \_ -> do
+          ({ iw: _, ih: _ } <$> (Int.toNumber <$> innerWidth w) <*> (Int.toNumber <$> innerHeight w)) >>= resizeE.push
+        addEventListener (EventType "resize") resizeListener true (toEventTarget w)
+        -- sound stash
+        soundObj <- liftEffect $ Ref.new Object.empty
+        channelEvent <- liftEffect $ Event.create
+        -- get the html. could be even sooner if we passed more stuff in on success instead of creating it at the top level
+        ----- player positions
+        playerPositions <- Ref.read renderingInfo >>= \ri -> Ref.new (initialPositions ri)
+        runInBody
+          ( toplevel
+              { loaded: loaded.event
+              , ride: do
+                  id <- randId' 6
+                  channelEvent.push (RideChannel id)
+              , negotiation: negotiation.event
+              , tutorial: channelEvent.push TutorialChannel
+              , isMobile
+              , lpsCallback: lowPriorityCb
+              , givePermission: orientationPerm.push
+              , pushBasic: pushBasic
+              , pushLeap: pushLeap
+              , pushHitLong: pushHitLong
+              , pushReleaseLong: pushReleaseLong
+              , resizeE: resizeE.event
+              , goHome: do
+                  -- clear the channel
+                  channelEvent.push NoChannel
+              , playerPositions: refToBehavior playerPositions
+              , renderingInfo: renderingInfoBehavior
+              , debug
+              , silence
+              , initialDims
+              , icid: idleCallbackId
+              , wdw: w
+              , unschedule
+              , soundObj
+              }
+          )
+        -- i am me
+        iAm <- randId
+        -- threeeeeee
+        launchAff_ do
+          threeDI :: ThreeDI <- sequential $ hfoldlWithIndex ParFold (pure {} :: ParAff {})
+            { scene: THREE.sceneAff
+            , vector2: THREE.vector2Aff
+            , vector3: THREE.vector3Aff
+            , meshStandardMaterial: THREE.meshStandardMaterialAff
+            , bufferGeometry: THREE.bufferGeometryAff
+            , points: THREE.pointsAff
+            , meshPhongMaterial: THREE.meshPhongMaterialAff
+            , boxGeometry: THREE.boxGeometryAff
+            , pointLight: THREE.pointLightAff
+            , ambientLight: THREE.ambientLightAff
+            , css2DObject: THREE.css2DObjectAff
+            , webGLRenderer: THREE.webGLRendererAff
+            , effectComposer: THREE.effectComposerAff
+            , effectComposerPass: THREE.effectComposerPassAff
+            , unrealBloomPass: THREE.unrealBloomPassAff
+            , glitchPass: THREE.glitchPassAff
+            , renderPass: THREE.renderPassAff
+            , color: THREE.colorAff
+            , instancedMesh: THREE.instancedMeshAff
+            , euler: THREE.eulerAff
+            , raycaster: THREE.raycasterAff
+            , mesh: THREE.meshAff
+            , perspectiveCamera: THREE.perspectiveCameraAff
+            , matrix4: THREE.matrix4Aff
+            , plane: THREE.planeGeometryAff
+            , bufferAttribute: THREE.bufferAttributeAff
+            , instancedBufferAttribute: THREE.instancedBufferAttributeAff
+            , shaderMaterial: THREE.shaderMaterialAff
+            , gltfLoader: THREE.gltfLoaderAff
+            , cubeTextureLoader: THREE.cubeTextureLoaderAff
+            , sphereGeometry: THREE.sphereGeometryAff
+            , css2DRenderer: THREE.css2DRendererAff
+            , css3DObject: THREE.css3DObjectAff
+            , css3DRenderer: THREE.css3DRendererAff
+            , group: THREE.groupAff
+            , textureLoader: THREE.textureLoaderAff
+            }
+          ldr <- liftEffect $ loader threeDI.textureLoader
+          cldr <- liftEffect $ CubeTextureLoader.loader threeDI.cubeTextureLoader
+          gldr <- liftEffect $ GLTFLoader.loader threeDI.gltfLoader
+          --       , textures: Textures downloadedTextures
+          downloadedTextures <- forkAff (fromHomogeneous <$> parTraverse (loadAff ldr) (homogeneous textures))
+          downloadedGLTFs <- forkAff (fromHomogeneous <$> parTraverse (GLTFLoader.loadAff gldr) (homogeneous models))
+          downloadedCubeTextures <- forkAff (fromHomogeneous <$> parTraverse ((CubeTextureLoader.loadAffRecord cldr)) (map unwrap $ homogeneous cubeTextures))
+          -- "server" via pubnub
+          let
+            proposedChannel' = case hush parsed >>= channelFromRoute of
+              Nothing -> NoChannel
+              Just x -> RideChannel x
+          let galaxyAttributes = makeGalaxyAttributes threeDI.instancedBufferAttribute
+          _ <- liftEffect $ subscribe channelEvent.event \chan -> launchAff_ $ do
+            Log.info ("received channel " <> show chan)
+            liftEffect $ join $ Ref.read channelUnsub
+            case chan of
+              TutorialChannel -> do
+                liftEffect $ negotiation.push StartingNegotiation
+                knownPlayers :: Ref.Ref KnownPlayers <- liftEffect $ Ref.new $ KnownPlayers Map.empty
+                knownPlayersBus <- liftEffect Event.create
+                ---- TODO: this is a copy/paste from below with the pubnub taken out
+                ---- refactor to combine!!!
+                xPosE <- liftEffect $ if isMobile then xForTouch mappedCNow w Player4 mempty else xForKeyboard mappedCNow w Player4 mempty
                 -- ignore subscription
-                _ <- liftEffect $ subscribe xPosE \xp -> case myPlayer of
-                  Player1 -> writeToRecord (Proxy :: _ "p1x") xp playerPositions
-                  Player2 -> writeToRecord (Proxy :: _ "p2x") xp playerPositions
-                  Player3 -> writeToRecord (Proxy :: _ "p3x") xp playerPositions
-                  Player4 -> writeToRecord (Proxy :: _ "p4x") xp playerPositions
+                _ <- liftEffect $ subscribe xPosE \xp -> writeToRecord (Proxy :: _ "p4x") xp playerPositions
                 -- deal with incoming basics
                 _ <- liftEffect $ subscribe pushBasic.event \(HitBasicMe bt) -> do
                   let outcome = basicOutcomeToPointOutcome $ beatsToBasicOutcome bt.deltaBeats
-                  kp <- updateKnownPlayerPoints myPlayer outcome knownPlayers
+                  kp <- updateKnownPlayerPoints Player4 outcome knownPlayers
                   knownPlayersBus.push kp
-                  for_ (Map.lookup myPlayer (unwrap kp) >>= getInFlightGameInfo) \(InFlightGameInfo { penalties, points }) -> do
-                    launchAff_ $ sendMyPointsAndPenaltiesToFirebase firestoreDb fbAuth myChannel myPlayer points penalties
-                  pubNub.publish
-                    $ HitBasic
-                        ( HitBasicOverTheWire
-                            { uniqueId: bt.uniqueId
-                            , logicalBeat: bt.logicalBeat
-                            , deltaBeats: bt.deltaBeats
-                            , hitAt: bt.hitAt
-                            , player: myPlayer
-                            , outcome
-                            }
-                        )
-                _ <- liftEffect $ subscribe pushHitLong.event \(HitLongMe bt) -> do
-                  pubNub.publish
-                    $ HitLong
-                        ( HitLongOverTheWire
-                            { uniqueId: bt.uniqueId
-                            , hitAt: bt.hitAt
-                            , distance: bt.distance
-                            , player: myPlayer
-                            }
-                        )
                 _ <- liftEffect $ subscribe pushReleaseLong.event \(ReleaseLongMe rl) -> do
                   let outcome = longToPointOutcome rl.distance rl.pctConsumed
-                  kp <- updateKnownPlayerPoints myPlayer outcome knownPlayers
+                  kp <- updateKnownPlayerPoints Player4 outcome knownPlayers
                   knownPlayersBus.push kp
-                  for_ (Map.lookup myPlayer (unwrap kp) >>= getInFlightGameInfo) \(InFlightGameInfo { penalties, points }) -> do
-                    launchAff_ $ sendMyPointsAndPenaltiesToFirebase firestoreDb fbAuth myChannel myPlayer points penalties
-                  pubNub.publish
-                    $ ReleaseLong
-                        ( ReleaseLongOverTheWire
-                            { uniqueId: rl.uniqueId
-                            , hitAt: rl.hitAt
-                            , player: myPlayer
-                            , distance: rl.distance
-                            , pctConsumed: rl.pctConsumed
-                            , releasedAt: rl.releasedAt
-                            , outcome
-                            }
-                        )
                 -- deal with incoming leaps
+                leapUnsubscribesRef <- liftEffect $ Ref.new (mempty :: LeapUnsubscribes)
                 _ <- liftEffect $ subscribe pushLeap.event \(HitLeapMe bt) -> do
-                  magicLeaps leapUnsubscribesRef mappedCNow playerPositions renderingInfoBehavior { player: myPlayer, newPosition: bt.newPosition }
-                  pubNub.publish
-                    $ HitLeap
-                        ( HitLeapOverTheWire
-                            { uniqueId: bt.uniqueId
-                            , hitAt: bt.hitAt
-                            , player: myPlayer
-                            , oldPosition: bt.oldPosition
-                            , newPosition: bt.newPosition
-                            }
-                        )
+                  magicLeaps leapUnsubscribesRef mappedCNow playerPositions renderingInfoBehavior { player: Player4, newPosition: bt.newPosition }
+                ---- end TODO
                 let
                   bufferNames :: List (BufferName /\ String)
-                  bufferNames = (BufferName "butterflies" /\ "butterflies")
+                  bufferNames = (BufferName "tutorial" /\ "tutorial")
+                    : (BufferName "shakuhachi0" /\ "shakuhachi0")
+                    : (BufferName "shakuhachi1" /\ "shakuhachi1")
+                    : (BufferName "shakuhachi2" /\ "shakuhachi2")
+                    : (BufferName "shakuhachi3" /\ "shakuhachi3")
+                    : (BufferName "floorTom" /\ "floorTom")
+                    : (BufferName "floorTom" /\ "floorTom")
+                    : (BufferName "elvedenHallLordsCloakroom" /\ "elvedenHallLordsCloakroom")
                     : Nil
                 let n2oh = take 300 bufferNames
                 let n2ot = drop 300 bufferNames
                 dlInChunks audio 100 n2oh ctx' soundObj
                 liftEffect $ loaded.push true
                 dlInChunks audio 100 n2ot ctx' soundObj
-                playerName <- liftEffect $ LS.getItem LocalStorage.playerName stor
                 myTextures <- joinFiber downloadedTextures
                 myGLTFs <- joinFiber downloadedGLTFs
                 myCubeTextures <- joinFiber downloadedCubeTextures
-                liftEffect $ negotiation.push $ Success
-                  { player: myPlayer
-                  , threeDI
-                  , playerName
-                  , shaders
-                  , galaxyAttributes
-                  , cNow: mappedCNow
-                  , models: Models myGLTFs
-                  , channelName: myChannel
-                  , pubNubEvent: pubNub.event
-                  , textures: Textures myTextures
-                  , cubeTextures: CubeTextures myCubeTextures
-                  , playerStatus:
-                      let
-                        e :: Event KnownPlayers
-                        e = sampleOnSubscribe (refToBehavior knownPlayers) <|> knownPlayersBus.event
-                      in
-                        -- folded because, by design, we always know which value "wins"
-                        -- in player status
-                        -- so we can always fold with the previous one in case there's a
-                        -- regression in the incoming value (ie packets out of order)
-                        folded e
-                  , optMeIn: \ms name -> do
-                      let thisIsMyRealName = name <|> playerName
-                      for_ name \name' -> LS.setItem LocalStorage.playerName name' stor
-                      players <- Ref.modify (KnownPlayers (Map.singleton myPlayer (HasStarted $ InFlightGameInfo { startedAt: ms, points: Points 0.0, penalties: Penalty 0.0, name: thisIsMyRealName })) <> _) knownPlayers
-                      -- let others know I've opted in
-                      pubNub.publish $ PressedStart
-                        { startedAt: ms
-                        , name: thisIsMyRealName
-                        , player: myPlayer
-                        }
-                      knownPlayersBus.push players
-                  }
-      -- if we need permissions, ask for them first
-      _ <- liftEffect $
-        when hop (negotiation.push NeedsOrientation)
-      _ <- liftEffect $
-        subscribe (filter identity $ oneOf [ bang (not hop), orientationPerm.event ]) \_ -> channelEvent.push proposedChannel'
-      _ <- liftEffect $
-        subscribe (filter identity $ map not $ orientationPerm.event) \_ -> negotiation.push WillNotWorkWithoutOrientation
-      pure unit
+                liftEffect do
+                  longVerb <- fromMaybe silence <<< Object.lookup "elvedenHallLordsCloakroom" <$> Ref.read soundObj
+                  negotiation.push $ WantsTutorial
+                    { player: Player4
+                    , threeDI
+                    , shaders
+                    , galaxyAttributes
+                    , cNow: mappedCNow
+                    , models: Models myGLTFs
+                    , textures: Textures myTextures
+                    , cubeTextures: CubeTextures myCubeTextures
+                    , longVerb
+                    , playerStatus:
+                        let
+                          e :: Event KnownPlayers
+                          e = sampleOnSubscribe (refToBehavior knownPlayers) <|> knownPlayersBus.event
+                        in
+                          -- folded because, by design, we always know which value "wins"
+                          -- in player status
+                          -- so we can always fold with the previous one in case there's a
+                          -- regression in the incoming value (ie packets out of order)
+                          folded e
+                    , optMeIn: \ms -> do
+                        players <- Ref.modify (KnownPlayers (Map.singleton Player4 (HasStarted $ InFlightGameInfo { startedAt: ms, points: Points 0.0, penalties: Penalty 0.0, name: Nothing })) <> _) knownPlayers
+                        knownPlayersBus.push players
+                    }
+              NoChannel -> do
+                myGLTFs <- joinFiber downloadedGLTFs
+                myCubeTextures <- joinFiber downloadedCubeTextures
+                liftEffect $ negotiation.push
+                  ( GetRulesOfGame
+                      { threeDI
+                      , models: Models myGLTFs
+                      , cubeTextures: CubeTextures myCubeTextures
+                      , cNow: mappedCNow
+                      }
+                  )
+              RideChannel proposedChannel -> do
+                -- maybe is not ideal here
+                -- what it means semantically is "player exists but has not started"
+                -- a new type for this?
+                knownPlayers :: Ref.Ref KnownPlayers <- liftEffect $ Ref.new $ KnownPlayers Map.empty
+                -- for when we need to ping _both_ pubnub and ourselves internally with the same data
+                -- this is the case, for example, with points
+                -- we want to update our own _and_ others' points
+                knownPlayersBus <- liftEffect $ Event.create
+                liftEffect $ negotiation.push StartingNegotiation
+                f4 <- liftEffect force4
+                myChannel <- createRideIfNotExistsYet firestoreDb proposedChannel
+                liftEffect do
+                  usu <- subscribe (eventChannelChanges firestoreDb myChannel) \ride -> do
+                    kp <- Ref.modify (updateKnownPlayerPointsUsingRide ride) knownPlayers
+                    knownPlayersBus.push kp
+                  Ref.write usu channelUnsub
+                pubNub <- do
+                  { event, publish } <- PN.pubnub (IAm iAm) (Channel myChannel)
+                  pure
+                    { publish
+                    , event: filterMap
+                        ( \(PN.PubNubEvent pne) -> if pne.message.iAm /= iAm then Just pne.message.action else Nothing
+                        )
+                        event
+                    }
+                leapUnsubscribesRef <- liftEffect $ Ref.new (mempty :: LeapUnsubscribes)
+                -- we immediately issue a subscription for all the stuff we can always listen to
+                _ <- liftEffect $ subscribe pubNub.event \pevt -> do
+                  -- todo: make lazy?
+                  let
+                    pfun = case _ of
+                      Player1 -> writeToRecord (Proxy :: _ "p1x")
+                      Player2 -> writeToRecord (Proxy :: _ "p2x")
+                      Player3 -> writeToRecord (Proxy :: _ "p3x")
+                      Player4 -> writeToRecord (Proxy :: _ "p4x")
+                    notRelevant = pure unit
+                  case pevt of
+                    -- if we get a hit leap, we need to generate an event that will change the position
+                    HitLeap (HitLeapOverTheWire hl) -> magicLeaps leapUnsubscribesRef mappedCNow playerPositions renderingInfoBehavior hl
+                    -- if we hear a hit basic, we update the known players
+                    HitBasic (HitBasicOverTheWire { player, outcome }) -> do
+                      kp <- updateKnownPlayerPoints player outcome knownPlayers
+                      knownPlayersBus.push kp
+                    -- if we hear a hit basic, we do nothing, as points are only attributed on release
+                    -- Pressed start
+                    PressedStart { startedAt, name, player } -> do
+                      kp <- Ref.modify
+                        ( append
+                            ( KnownPlayers $ Map.singleton player
+                                ( HasStarted
+                                    ( InFlightGameInfo
+                                        { name
+                                        , startedAt
+                                        , points: Points bottom
+                                        , penalties: Penalty bottom
+                                        }
+                                    )
+                                )
+                            )
+                        )
+                        knownPlayers
+                      knownPlayersBus.push kp
+                    HitLong _ -> notRelevant
+                    -- if we hear a hit basic, we can update the points
+                    ReleaseLong (ReleaseLongOverTheWire { player, outcome }) -> do
+                      kp <- updateKnownPlayerPoints player outcome knownPlayers
+                      knownPlayersBus.push kp
+                    -- we update the xposition for when the behavior needs it
+                    XPositionKeyboard i -> do
+                      -- Log.info $ show i.ktp
+                      -- mcn <- myCNow.cnow
+                      -- Log.info $ show mcn
+                      -- Log.info $ show ((lcmap _.epochTime $ posFromKeypress i.ktp) {epochTime: coerce mcn.time})
+                      pfun i.player (lcmap _.epochTime $ posFromKeypress i.ktp) playerPositions
+                    -- we update the xposition for when the behavior needs it
+                    XPositionMobile i -> pfun i.player (lcmap _.epochTime $ posFromOrientation i.gtp) playerPositions
+                let
+                  myPlayerHint = case hush parsed >>= playerFromRoute of
+                    Just playerAsk -> Just playerAsk
+                    Nothing
+                      | f4 -> Just Player4
+                      | otherwise -> Nothing
+                -- collecting <- forkAff  $ collectEventToAff (Milliseconds 750.0) knownPlayersBus.event
+                (playerOrBust :: Maybe Player) <- getPlayerForChannel fbAuth firestoreDb myChannel myPlayerHint
+                case playerOrBust of
+                  Nothing -> do
+                    liftEffect $ negotiation.push GameHasStarted
+                    never
+                  Just myPlayer -> do
+                    liftEffect $ Ref.modify_ (KnownPlayers (Map.singleton myPlayer HasNotStartedYet) <> _) knownPlayers
+                    xPosE <- liftEffect $ if isMobile then xForTouch mappedCNow w myPlayer pubNub.publish else xForKeyboard mappedCNow w myPlayer pubNub.publish
+                    -- ignore subscription
+                    _ <- liftEffect $ subscribe xPosE \xp -> case myPlayer of
+                      Player1 -> writeToRecord (Proxy :: _ "p1x") xp playerPositions
+                      Player2 -> writeToRecord (Proxy :: _ "p2x") xp playerPositions
+                      Player3 -> writeToRecord (Proxy :: _ "p3x") xp playerPositions
+                      Player4 -> writeToRecord (Proxy :: _ "p4x") xp playerPositions
+                    -- deal with incoming basics
+                    _ <- liftEffect $ subscribe pushBasic.event \(HitBasicMe bt) -> do
+                      let outcome = basicOutcomeToPointOutcome $ beatsToBasicOutcome bt.deltaBeats
+                      kp <- updateKnownPlayerPoints myPlayer outcome knownPlayers
+                      knownPlayersBus.push kp
+                      for_ (Map.lookup myPlayer (unwrap kp) >>= getInFlightGameInfo) \(InFlightGameInfo { penalties, points }) -> do
+                        launchAff_ $ sendMyPointsAndPenaltiesToFirebase firestoreDb fbAuth myChannel myPlayer points penalties
+                      pubNub.publish
+                        $ HitBasic
+                            ( HitBasicOverTheWire
+                                { uniqueId: bt.uniqueId
+                                , logicalBeat: bt.logicalBeat
+                                , deltaBeats: bt.deltaBeats
+                                , hitAt: bt.hitAt
+                                , player: myPlayer
+                                , outcome
+                                }
+                            )
+                    _ <- liftEffect $ subscribe pushHitLong.event \(HitLongMe bt) -> do
+                      pubNub.publish
+                        $ HitLong
+                            ( HitLongOverTheWire
+                                { uniqueId: bt.uniqueId
+                                , hitAt: bt.hitAt
+                                , distance: bt.distance
+                                , player: myPlayer
+                                }
+                            )
+                    _ <- liftEffect $ subscribe pushReleaseLong.event \(ReleaseLongMe rl) -> do
+                      let outcome = longToPointOutcome rl.distance rl.pctConsumed
+                      kp <- updateKnownPlayerPoints myPlayer outcome knownPlayers
+                      knownPlayersBus.push kp
+                      for_ (Map.lookup myPlayer (unwrap kp) >>= getInFlightGameInfo) \(InFlightGameInfo { penalties, points }) -> do
+                        launchAff_ $ sendMyPointsAndPenaltiesToFirebase firestoreDb fbAuth myChannel myPlayer points penalties
+                      pubNub.publish
+                        $ ReleaseLong
+                            ( ReleaseLongOverTheWire
+                                { uniqueId: rl.uniqueId
+                                , hitAt: rl.hitAt
+                                , player: myPlayer
+                                , distance: rl.distance
+                                , pctConsumed: rl.pctConsumed
+                                , releasedAt: rl.releasedAt
+                                , outcome
+                                }
+                            )
+                    -- deal with incoming leaps
+                    _ <- liftEffect $ subscribe pushLeap.event \(HitLeapMe bt) -> do
+                      magicLeaps leapUnsubscribesRef mappedCNow playerPositions renderingInfoBehavior { player: myPlayer, newPosition: bt.newPosition }
+                      pubNub.publish
+                        $ HitLeap
+                            ( HitLeapOverTheWire
+                                { uniqueId: bt.uniqueId
+                                , hitAt: bt.hitAt
+                                , player: myPlayer
+                                , oldPosition: bt.oldPosition
+                                , newPosition: bt.newPosition
+                                }
+                            )
+                    let
+                      bufferNames :: List (BufferName /\ String)
+                      bufferNames = (BufferName "butterflies" /\ "butterflies")
+                        : Nil
+                    let n2oh = take 300 bufferNames
+                    let n2ot = drop 300 bufferNames
+                    dlInChunks audio 100 n2oh ctx' soundObj
+                    liftEffect $ loaded.push true
+                    dlInChunks audio 100 n2ot ctx' soundObj
+                    playerName <- liftEffect $ LS.getItem LocalStorage.playerName stor
+                    myTextures <- joinFiber downloadedTextures
+                    myGLTFs <- joinFiber downloadedGLTFs
+                    myCubeTextures <- joinFiber downloadedCubeTextures
+                    liftEffect $ negotiation.push $ Success
+                      { player: myPlayer
+                      , threeDI
+                      , playerName
+                      , shaders
+                      , galaxyAttributes
+                      , cNow: mappedCNow
+                      , models: Models myGLTFs
+                      , channelName: myChannel
+                      , pubNubEvent: pubNub.event
+                      , textures: Textures myTextures
+                      , cubeTextures: CubeTextures myCubeTextures
+                      , playerStatus:
+                          let
+                            e :: Event KnownPlayers
+                            e = sampleOnSubscribe (refToBehavior knownPlayers) <|> knownPlayersBus.event
+                          in
+                            -- folded because, by design, we always know which value "wins"
+                            -- in player status
+                            -- so we can always fold with the previous one in case there's a
+                            -- regression in the incoming value (ie packets out of order)
+                            folded e
+                      , optMeIn: \ms name -> do
+                          let thisIsMyRealName = name <|> playerName
+                          for_ name \name' -> LS.setItem LocalStorage.playerName name' stor
+                          players <- Ref.modify (KnownPlayers (Map.singleton myPlayer (HasStarted $ InFlightGameInfo { startedAt: ms, points: Points 0.0, penalties: Penalty 0.0, name: thisIsMyRealName })) <> _) knownPlayers
+                          -- let others know I've opted in
+                          pubNub.publish $ PressedStart
+                            { startedAt: ms
+                            , name: thisIsMyRealName
+                            , player: myPlayer
+                            }
+                          knownPlayersBus.push players
+                      }
+          -- if we need permissions, ask for them first
+          _ <- liftEffect $
+            when hop (negotiation.push NeedsOrientation)
+          _ <- liftEffect $
+            subscribe (filter identity $ oneOf [ bang (not hop), orientationPerm.event ]) \_ -> channelEvent.push proposedChannel'
+          _ <- liftEffect $
+            subscribe (filter identity $ map not $ orientationPerm.event) \_ -> negotiation.push WillNotWorkWithoutOrientation
+          pure unit
 
 defaultInFlightGameInfo :: InFlightGameInfo'
 defaultInFlightGameInfo =
