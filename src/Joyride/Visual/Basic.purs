@@ -13,6 +13,7 @@ import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.Profunctor (dimap)
 import Data.Time.Duration (Milliseconds(..))
+import Debug (spy)
 import Effect.Aff (launchAff_)
 import Effect.Aff.AVar as AVar
 import Effect.Class (liftEffect)
@@ -165,8 +166,14 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
                     empty
                 )
                 ( oneOf
-                    [ bang $ P.matrix4 $ makeBasic.mkMatrix4 emptyMatrix
-                    , P.matrix4 <<< makeBasic.mkMatrix4 <$> drawingMatrix
+                    [ keepLatest $ (drawingMatrix <|> bang emptyMatrix) <#> \{ n11, n22, n33, n14, n24, n34 } -> oneOfMap bang
+                        [ P.scaleX n11
+                        , P.scaleY n22
+                        , P.scaleZ n33
+                        , P.positionX n14
+                        , P.positionY n24
+                        , P.positionZ n34
+                        ]
                     , let
                         f = oneOf
                           [ -- if I touched this, turn off the listener
