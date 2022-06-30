@@ -287,7 +287,7 @@ ride
                               url = "joyride.netlify.app/" <> channelName
                             in
                               D.p_
-                                [ text_ ("Send this link to up to three people: " <> url)
+                                [ text_ ("Send this link to up to three people:")
                                 , D.button
                                     ( oneOf
                                         [ bang $ D.Class := "pointer-events-auto text-center bg-gray-800 hover:bg-gray-600 text-white mx-2 rounded"
