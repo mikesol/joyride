@@ -20,7 +20,9 @@ import FRP.Event (Event, EventIO, bang, keepLatest, mapAccum)
 import FRP.Event.VBus (V, vbus)
 import Foreign.Object (fromHomogeneous)
 import Joyride.Effect.Lowpass (lpf)
+import Joyride.FRP.BusT (vbust)
 import Joyride.FRP.Dedup (dedup)
+import Joyride.QualifiedDo.Apply as QDA
 import Joyride.Shaders.Galaxy (galaxyParams)
 import Joyride.Visual.Bar (makeBar)
 import Joyride.Visual.BasicLabels (basicLabels)
@@ -56,7 +58,7 @@ import Rito.Scene (Background(..), scene)
 import Rito.Texture (Texture)
 import Rito.Vector2 (vector2)
 import Type.Proxy (Proxy(..))
-import Types (Axis(..), CubeTextures, GalaxyAttributes, HitBasicMe, HitBasicVisualForLabel, HitLeapVisualForLabel, HitLongVisualForLabel, JMilliseconds, Player(..), PlayerPositions, Position(..), RateInfo, ReleaseLongVisualForLabel, RenderingInfo, Seconds(..), Shaders, Textures, ThreeDI, WindowDims, allPlayers, allPositions, playerPosition, playerPosition')
+import Types (Axis(..), CubeTextures, GalaxyAttributes, HitBasicMe, HitBasicVisualForLabel, HitLeapVisualForLabel, HitLongVisualForLabel, JMilliseconds, Player(..), PlayerPositions, Position(..), RateInfo, ReleaseLongVisualForLabel, RenderingInfo, Seconds(..), Shaders, Textures, ThreeDI, WindowDims, allPlayers, allPositions, playerPosition)
 import Web.DOM as Web.DOM
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 
@@ -106,18 +108,19 @@ runThree opts = do
   let textures = unwrap opts.textures
   let mopts = { playerPositions: _.playerPositions <$> opts.animatedStuff, rateInfo: _.rateInfo <$> opts.animatedStuff }
   _ <- Rito.Run.run
-    ( envy $ vbus
-        ( Proxy
-            :: _
-                 ( V
-                     ( hitBasicVisualForLabel :: HitBasicVisualForLabel
-                     , hitLeapVisualForLabel :: HitLeapVisualForLabel
-                     , hitLongVisualForLabel :: HitLongVisualForLabel
-                     , releaseLongVisualForLabel :: ReleaseLongVisualForLabel
-                     )
-                 )
-        )
-        \scenePush sceneEvent -> globalCameraPortal1
+    ( envy QDA.do
+        scenePush /\ sceneEvent <- vbust
+          ( Proxy
+              :: _
+                   ( V
+                       ( hitBasicVisualForLabel :: HitBasicVisualForLabel
+                       , hitLeapVisualForLabel :: HitLeapVisualForLabel
+                       , hitLongVisualForLabel :: HitLongVisualForLabel
+                       , releaseLongVisualForLabel :: ReleaseLongVisualForLabel
+                       )
+                   )
+          )
+        myCamera <- globalCameraPortal1
           ( perspectiveCamera
               { perspectiveCamera: opts.threeDI.perspectiveCamera
               , fov: 75.0
@@ -143,302 +146,293 @@ runThree opts = do
                   ) <|> (opts.resizeE <#> \i -> P.aspect (i.iw / i.ih))
               )
           )
-          \myCamera -> globalScenePortal1
-            ( scene { scene: opts.threeDI.scene } (bang $ P.background (CubeTexture (unwrap opts.cubeTextures).skybox))
-                [ toScene $ group { group: opts.threeDI.group }
-                    ( keepLatest $
-                        ( mapAccum
-                            ( \a b -> case b of
-                                Nothing -> Just a /\ 0.0
-                                Just x -> Just a /\ (a - x)
-                            )
-                            ( map (_.rateInfo.epochTime >>> unwrap >>> (_ / 1000.0))
-                                opts.animatedStuff
-                            )
-                            Nothing
-                        ) <#> \t ->
-                          let
-                            fac = t / 1000.0
-                          in
-                            if false then empty
-                            else oneOfMap bang
-                              [ P.rotateX $ 0.001 * cos (fac * pi * 0.01)
-                              , P.rotateY $ 0.001 * cos (fac * pi * 0.01)
-                              , P.rotateZ $ 0.001 * cos (fac * pi * 0.01)
-                              ]
-                    )
-                    ( ( filter (_ /= opts.myPlayer) (toArray allPlayers) <#> \player -> do
-                          let ppos = playerPosition player
-                          let posAx axis = map (ppos axis) mopts.playerPositions
-                          toGroup $ mesh { mesh: opts.threeDI.mesh }
-                            (sphere { sphere: opts.threeDI.sphereGeometry })
-                            ( case player of
-                                Player1 ->
-                                  meshStandardMaterial
-                                    { meshStandardMaterial: opts.threeDI.meshStandardMaterial
-                                    , map: textures.hockeyCOL
-                                    , aoMap: textures.hockeyAO
-                                    , displacementMap: textures.hockeyDISP
-                                    , displacementScale: 0.1
-                                    , normalMap: textures.hockeyNRM
-                                    , roughnessMap: textures.hockeyGLOSS
-                                    }
-                                Player2 ->
-                                  meshStandardMaterial
-                                    { meshStandardMaterial: opts.threeDI.meshStandardMaterial
-                                    , map: textures.marble19COL
-                                    , normalMap: textures.marble19NRM
-                                    , roughnessMap: textures.marble19GLOSS
-                                    }
-                                Player3 ->
-                                  meshStandardMaterial
-                                    { meshStandardMaterial: opts.threeDI.meshStandardMaterial
-                                    , map: textures.marble21COL
-                                    , normalMap: textures.marble21NRM
-                                    , roughnessMap: textures.marble21GLOSS
-                                    }
-                                -- todo: change to something unique
-                                Player4 ->
-                                  meshStandardMaterial
-                                    { meshStandardMaterial: opts.threeDI.meshStandardMaterial
-                                    , map: textures.marble19COL
-                                    , normalMap: textures.marble19NRM
-                                    , roughnessMap: textures.marble19GLOSS
-                                    }
-                              empty
-                            )
-                            ( oneOf
-                                [ positionX <$> applyLPF (player == opts.myPlayer) (posAx AxisX)
-                                , positionY <$> (sampleBy (\{ sphereOffsetY } py -> sphereOffsetY + py) opts.renderingInfo (posAx AxisY))
-                                , positionZ <$> posAx AxisZ
-                                , bang $ positionZ
-                                    ( case player of
-                                        Player1 -> -4.0
-                                        Player2 -> -3.0
-                                        Player3 -> -2.0
-                                        Player4 -> -1.0
-                                    )
-
-                                , bang (scaleX 0.1)
-                                , bang (scaleY 0.1)
-                                , bang (scaleZ 0.1)
-                                ]
-                            )
-
-                      )
-                        <>
-                          map toGroup
-                            ( ( \position -> makeBar $
-                                  { c3
-                                  , threeDI: opts.threeDI
-                                  , renderingInfo: opts.renderingInfo
-                                  , debug: opts.debug
-                                  , initialIsMe: opts.myPlayer == case position of
-                                      Position1 -> Player1
-                                      Position2 -> Player2
-                                      Position3 -> Player3
-                                      Position4 -> Player4
-                                  , isMe: dedup
-                                      ( opts.animatedStuff <#> \{ playerPositions } -> position == case opts.myPlayer of
-                                          Player1 -> playerPositions.p1p
-                                          Player2 -> playerPositions.p2p
-                                          Player3 -> playerPositions.p3p
-                                          Player4 -> playerPositions.p4p
-                                      )
-                                  , rateE: mopts.rateInfo
-                                  , position
+        myScene <- globalScenePortal1
+          ( scene { scene: opts.threeDI.scene } (bang $ P.background (CubeTexture (unwrap opts.cubeTextures).skybox))
+              [ toScene $ group { group: opts.threeDI.group }
+                  ( keepLatest $
+                      ( mapAccum
+                          ( \a b -> case b of
+                              Nothing -> Just a /\ 0.0
+                              Just x -> Just a /\ (a - x)
+                          )
+                          ( map (_.rateInfo.epochTime >>> unwrap >>> (_ / 1000.0))
+                              opts.animatedStuff
+                          )
+                          Nothing
+                      ) <#> \t ->
+                        let
+                          fac = t / 1000.0
+                        in
+                          if false then empty
+                          else oneOfMap bang
+                            [ P.rotateX $ 0.001 * cos (fac * pi * 0.01)
+                            , P.rotateY $ 0.001 * cos (fac * pi * 0.01)
+                            , P.rotateZ $ 0.001 * cos (fac * pi * 0.01)
+                            ]
+                  )
+                  ( ( filter (_ /= opts.myPlayer) (toArray allPlayers) <#> \player -> do
+                        let ppos = playerPosition player
+                        let posAx axis = map (ppos axis) mopts.playerPositions
+                        toGroup $ mesh { mesh: opts.threeDI.mesh }
+                          (sphere { sphere: opts.threeDI.sphereGeometry })
+                          ( case player of
+                              Player1 ->
+                                meshStandardMaterial
+                                  { meshStandardMaterial: opts.threeDI.meshStandardMaterial
+                                  , map: textures.hockeyCOL
+                                  , aoMap: textures.hockeyAO
+                                  , displacementMap: textures.hockeyDISP
+                                  , displacementScale: 0.1
+                                  , normalMap: textures.hockeyNRM
+                                  , roughnessMap: textures.hockeyGLOSS
                                   }
-                              ) <$> (toArray allPositions)
-                            )
-                        <>
-                          [ toGroup $ ambientLight
-                              { ambientLight: opts.threeDI.ambientLight
-                              , intensity: 0.1
+                              Player2 ->
+                                meshStandardMaterial
+                                  { meshStandardMaterial: opts.threeDI.meshStandardMaterial
+                                  , map: textures.marble19COL
+                                  , normalMap: textures.marble19NRM
+                                  , roughnessMap: textures.marble19GLOSS
+                                  }
+                              Player3 ->
+                                meshStandardMaterial
+                                  { meshStandardMaterial: opts.threeDI.meshStandardMaterial
+                                  , map: textures.marble21COL
+                                  , normalMap: textures.marble21NRM
+                                  , roughnessMap: textures.marble21GLOSS
+                                  }
+                              -- todo: change to something unique
+                              Player4 ->
+                                meshStandardMaterial
+                                  { meshStandardMaterial: opts.threeDI.meshStandardMaterial
+                                  , map: textures.marble19COL
+                                  , normalMap: textures.marble19NRM
+                                  , roughnessMap: textures.marble19GLOSS
+                                  }
+                            empty
+                          )
+                          ( oneOf
+                              [ positionX <$> applyLPF (player == opts.myPlayer) (posAx AxisX)
+                              , positionY <$> (sampleBy (\{ sphereOffsetY } py -> sphereOffsetY + py) opts.renderingInfo (posAx AxisY))
+                              , positionZ <$> posAx AxisZ
+                              , bang $ positionZ
+                                  ( case player of
+                                      Player1 -> -4.0
+                                      Player2 -> -3.0
+                                      Player3 -> -2.0
+                                      Player4 -> -1.0
+                                  )
+
+                              , bang (scaleX 0.1)
+                              , bang (scaleY 0.1)
+                              , bang (scaleZ 0.1)
+                              ]
+                          )
+
+                    )
+                      <>
+                        map toGroup
+                          ( ( \position -> makeBar $
+                                { c3
+                                , threeDI: opts.threeDI
+                                , renderingInfo: opts.renderingInfo
+                                , debug: opts.debug
+                                , initialIsMe: opts.myPlayer == case position of
+                                    Position1 -> Player1
+                                    Position2 -> Player2
+                                    Position3 -> Player3
+                                    Position4 -> Player4
+                                , isMe: dedup
+                                    ( opts.animatedStuff <#> \{ playerPositions } -> position == case opts.myPlayer of
+                                        Player1 -> playerPositions.p1p
+                                        Player2 -> playerPositions.p2p
+                                        Player3 -> playerPositions.p3p
+                                        Player4 -> playerPositions.p4p
+                                    )
+                                , rateE: mopts.rateInfo
+                                , position
+                                }
+                            ) <$> (toArray allPositions)
+                          )
+                      <>
+                        [ toGroup $ ambientLight
+                            { ambientLight: opts.threeDI.ambientLight
+                            , intensity: 0.1
+                            , color: c3 $ RGB 1.0 1.0 1.0
+                            }
+                            empty
+                        ]
+                      <>
+                        ( (toArray allPlayers) <#> \player -> do
+                            let ppos = playerPosition player
+                            let posAx axis = map (ppos axis) mopts.playerPositions
+                            let normalDistance = 4.0
+                            let normalDecay = 2.0
+                            let normalIntensity = 1.0
+                            toGroup $ pointLight
+                              { pointLight: opts.threeDI.pointLight
+                              , distance: normalDistance
+                              , decay: normalDecay
+                              , intensity: normalIntensity
                               , color: c3 $ RGB 1.0 1.0 1.0
                               }
-                              empty
-                          ]
-                        <>
-                          ( (toArray allPlayers) <#> \player -> do
-                              let ppos = playerPosition player
-                              let posAx axis = map (ppos axis) mopts.playerPositions
-                              let normalDistance = 4.0
-                              let normalDecay = 2.0
-                              let normalIntensity = 1.0
-                              toGroup $ pointLight
-                                { pointLight: opts.threeDI.pointLight
-                                , distance: normalDistance
-                                , decay: normalDecay
-                                , intensity: normalIntensity
-                                , color: c3 $ RGB 1.0 1.0 1.0
-                                }
-                                ( oneOf
-                                    [ positionX <$> applyLPF (player == opts.myPlayer) (posAx AxisX)
-                                    , positionY <$> (sampleBy (\{ sphereOffsetY } py -> (sphereOffsetY / 2.0) + py) opts.renderingInfo (posAx AxisY))
-                                    , positionZ <$> posAx AxisZ
-                                    , keepLatest $ (dedup (playerPosition' player <$> mopts.playerPositions)) <#> case _ of
-                                        -- only illuminate this much for the person in the front position
-                                        Position1 | opts.myPlayer == player -> oneOfMap bang
-                                          [ P.decay 0.2
-                                          , P.intensity 5.0
-                                          , P.distance 10.0
-                                          ]
-                                        _ -> oneOfMap bang
-                                          [ P.decay normalDecay
-                                          , P.intensity normalIntensity
-                                          , P.distance normalDistance
-                                          ]
-                                    ]
-                                )
+                              ( oneOf
+                                  [ positionX <$> applyLPF (player == opts.myPlayer) (posAx AxisX)
+                                  , positionY <$> (sampleBy (\{ sphereOffsetY } py -> (sphereOffsetY / 2.0) + py) opts.renderingInfo (posAx AxisY))
+                                  , positionZ <$> posAx AxisZ
+                                  , bang $ P.decay normalDecay
+                                  , bang $ P.intensity normalIntensity
+                                  , bang $ P.distance normalDistance
+                                  ]
+                              )
 
-                          )
-                        <>
-                          -- basic notes
-                          [ toGroup $ opts.basicE scenePush.hitBasicVisualForLabel
-                          ]
-                        <>
-                          -- leap notes
-                          [ toGroup $ opts.leapE scenePush.hitLeapVisualForLabel
-                          ]
-                        <>
-                          -- long notes
-                          [ toGroup $ opts.longE scenePush.hitLongVisualForLabel scenePush.releaseLongVisualForLabel
-                          ]
-                        <>
-                          -- basic labels
-                          [ toGroup $ basicLabels
-                              { threeDI: opts.threeDI
-                              , basicTap: sceneEvent.hitBasicVisualForLabel
-                              , lpsCallback: opts.lowPriorityCb
-                              }
-                          ]
-                        <>
-                          -- leap labels
-                          [ toGroup $ leapLabels
-                              { threeDI: opts.threeDI
-                              , leapTap: sceneEvent.hitLeapVisualForLabel
-                              , lpsCallback: opts.lowPriorityCb
-                              }
-                          ]
-                        <>
-                          -- leap labels
-                          [ toGroup $ longLabels
-                              { threeDI: opts.threeDI
-                              , longTap: sceneEvent.hitLongVisualForLabel
-                              , longRelease: sceneEvent.releaseLongVisualForLabel
-                              , lpsCallback: opts.lowPriorityCb
-                              }
-                          ]
-                        <>
-                          [ toGroup $ instancedMesh' galaxyParams.count
-                              { matrix4: opts.threeDI.matrix4
-                              , mesh: opts.threeDI.mesh
-                              , instancedMesh: opts.threeDI.instancedMesh
-                              }
-                              ( plane
-                                  { plane: opts.threeDI.plane
-                                  , instancedBufferAttributes: fromHomogeneous opts.galaxyAttributes
-                                  , widthSegments: 4
-                                  , heightSegments: 4
-                                  }
-                              )
-                              ( shaderMaterial
-                                  { uSize: 30.0
-                                  , uTime: 0.0
-                                  , uButterfly: (unwrap opts.textures).butterfly0
-                                  }
-                                  { shaderMaterial: opts.threeDI.shaderMaterial
-                                  , vertexShader: opts.shaders.galaxy.vertex
-                                  , depthWrite: false
-                                  , blending: AdditiveBlending
-                                  , vertexColors: true
-                                  , fragmentShader: opts.shaders.galaxy.fragment
-                                  }
-                                  ( opts.animatedStuff <#>
-                                      \{ rateInfo: { time: Seconds time } } -> P.uniform (inj (Proxy :: _ "uTime") time)
-                                  )
-                              )
-                              empty -- oneOf [ bang $ P.positionZ (-1.0), bang $ positionY 0.0, bang $ scaleX 3.0, bang $ scaleY 3.0, bang $ scaleZ 3.0 ]
-                          ]
-                        <>
-                          -- camera
-                          -- needs to be part of the group to rotate correctly
-                          [ cameraToGroup myCamera
-                          ]
-                    )
-                ]
-            )
-            \myScene -> globalWebGLRendererPortal1
-              ( webGLRenderer
+                        )
+                      <>
+                        -- basic notes
+                        [ toGroup $ opts.basicE scenePush.hitBasicVisualForLabel
+                        ]
+                      <>
+                        -- leap notes
+                        [ toGroup $ opts.leapE scenePush.hitLeapVisualForLabel
+                        ]
+                      <>
+                        -- long notes
+                        [ toGroup $ opts.longE scenePush.hitLongVisualForLabel scenePush.releaseLongVisualForLabel
+                        ]
+                      <>
+                        -- basic labels
+                        [ toGroup $ basicLabels
+                            { threeDI: opts.threeDI
+                            , basicTap: sceneEvent.hitBasicVisualForLabel
+                            , lpsCallback: opts.lowPriorityCb
+                            }
+                        ]
+                      <>
+                        -- leap labels
+                        [ toGroup $ leapLabels
+                            { threeDI: opts.threeDI
+                            , leapTap: sceneEvent.hitLeapVisualForLabel
+                            , lpsCallback: opts.lowPriorityCb
+                            }
+                        ]
+                      <>
+                        -- leap labels
+                        [ toGroup $ longLabels
+                            { threeDI: opts.threeDI
+                            , longTap: sceneEvent.hitLongVisualForLabel
+                            , longRelease: sceneEvent.releaseLongVisualForLabel
+                            , lpsCallback: opts.lowPriorityCb
+                            }
+                        ]
+                      <>
+                        [ toGroup $ instancedMesh' galaxyParams.count
+                            { matrix4: opts.threeDI.matrix4
+                            , mesh: opts.threeDI.mesh
+                            , instancedMesh: opts.threeDI.instancedMesh
+                            }
+                            ( plane
+                                { plane: opts.threeDI.plane
+                                , instancedBufferAttributes: fromHomogeneous opts.galaxyAttributes
+                                , widthSegments: 4
+                                , heightSegments: 4
+                                }
+                            )
+                            ( shaderMaterial
+                                { uSize: 30.0
+                                , uTime: 0.0
+                                , uButterfly: (unwrap opts.textures).butterfly0
+                                }
+                                { shaderMaterial: opts.threeDI.shaderMaterial
+                                , vertexShader: opts.shaders.galaxy.vertex
+                                , depthWrite: false
+                                , blending: AdditiveBlending
+                                , vertexColors: true
+                                , fragmentShader: opts.shaders.galaxy.fragment
+                                }
+                                ( opts.animatedStuff <#>
+                                    \{ rateInfo: { time: Seconds time } } -> P.uniform (inj (Proxy :: _ "uTime") time)
+                                )
+                            )
+                            empty -- oneOf [ bang $ P.positionZ (-1.0), bang $ positionY 0.0, bang $ scaleX 3.0, bang $ scaleY 3.0, bang $ scaleZ 3.0 ]
+                        ]
+                      <>
+                        -- camera
+                        -- needs to be part of the group to rotate correctly
+                        [ cameraToGroup myCamera
+                        ]
+                  )
+              ]
+          )
+        myWebGLRenderer <- globalWebGLRendererPortal1
+          ( webGLRenderer
+              myScene
+              myCamera
+              { canvas: opts.canvas
+              , webGLRenderer: opts.threeDI.webGLRenderer
+              }
+              ( oneOf
+                  [ bang (size { width: opts.initialDims.iw, height: opts.initialDims.ih })
+                  , opts.resizeE <#> \i -> size { width: i.iw, height: i.ih }
+                  ]
+              )
+          )
+        fixed
+          [ raycaster
+              { raycaster: opts.threeDI.raycaster
+              , canvas: opts.canvas
+              }
+              myCamera
+          , plain $ effectComposerToRenderer $ effectComposer
+              { effectComposer: opts.threeDI.effectComposer
+              }
+              myWebGLRenderer
+              ( oneOf
+                  [ bang render
+                  , mopts.rateInfo $> render
+                  ]
+              )
+              [ renderPass
+                  { renderPass: opts.threeDI.renderPass
+                  }
                   myScene
                   myCamera
-                  { canvas: opts.canvas
-                  , webGLRenderer: opts.threeDI.webGLRenderer
+              -- , glitchPass { glitchPass: opts.threeDI.glitchPass }
+              , unrealBloomPass
+                  { unrealBloomPass: opts.threeDI.unrealBloomPass
+                  , radius: 1.0
+                  , resolution: vector2 opts.threeDI.vector2 { x: 256.0, y: 256.0 }
+                  , strength: 1.5
+                  , threshold: 1.0
                   }
+                  empty
+              ]
+
+          , envy $ map
+              ( \element -> css2DRenderer
+                  myScene
+                  myCamera
+                  { canvas: opts.canvas, element, css2DRenderer: opts.threeDI.css2DRenderer }
                   ( oneOf
-                      [ bang (size { width: opts.initialDims.iw, height: opts.initialDims.ih })
-                      , opts.resizeE <#> \i -> size { width: i.iw, height: i.ih }
+                      [ opts.resizeE <#> \i -> size { width: i.iw, height: i.ih }
+                      , bang render
+                      , (mopts.rateInfo $> render)
                       ]
                   )
               )
-              \myWebGLRenderer -> fixed
-                [ raycaster
-                    { raycaster: opts.threeDI.raycaster
-                    , canvas: opts.canvas
-                    }
-                    myCamera
-                , plain $ effectComposerToRenderer $ effectComposer
-                    { effectComposer: opts.threeDI.effectComposer
-                    }
-                    myWebGLRenderer
-                    ( oneOf
-                        [ bang render
-                        , mopts.rateInfo $> render
-                        ]
-                    )
-                    [ renderPass
-                        { renderPass: opts.threeDI.renderPass
-                        }
-                        myScene
-                        myCamera
-                    -- , glitchPass { glitchPass: opts.threeDI.glitchPass }
-                    , unrealBloomPass
-                        { unrealBloomPass: opts.threeDI.unrealBloomPass
-                          , radius: 1.0
-                          , resolution: vector2 opts.threeDI.vector2 { x: 256.0, y: 256.0 }
-                          , strength: 1.5
-                          , threshold: 1.0
-                          }
-                        empty
-                    ]
-
-                , envy $ map
-                    ( \element -> css2DRenderer
-                        myScene
-                        myCamera
-                        { canvas: opts.canvas, element, css2DRenderer: opts.threeDI.css2DRenderer }
-                        ( oneOf
-                            [ opts.resizeE <#> \i -> size { width: i.iw, height: i.ih }
-                            , bang render
-                            , (mopts.rateInfo $> render)
-                            ]
-                        )
-                    )
-                    opts.css2DRendererElt
-                , envy $ map
-                    ( \element -> css3DRenderer
-                        myScene
-                        myCamera
-                        { canvas: opts.canvas, element, css3DRenderer: opts.threeDI.css3DRenderer }
-                        ( oneOf
-                            [ opts.resizeE <#> \i -> size { width: i.iw, height: i.ih }
-                            , bang render
-                            , (mopts.rateInfo $> render)
-                            ]
-                        )
-                    )
-                    opts.css3DRendererElt
-                ]
+              opts.css2DRendererElt
+          , envy $ map
+              ( \element -> css3DRenderer
+                  myScene
+                  myCamera
+                  { canvas: opts.canvas, element, css3DRenderer: opts.threeDI.css3DRenderer }
+                  ( oneOf
+                      [ opts.resizeE <#> \i -> size { width: i.iw, height: i.ih }
+                      , bang render
+                      , (mopts.rateInfo $> render)
+                      ]
+                  )
+              )
+              opts.css3DRendererElt
+          ]
     )
   pure unit
   where
