@@ -19,7 +19,7 @@ import Ocarina.Control (gain_, playBuf)
 import Ocarina.Core (Audible, AudioOnOff(..), _on, dyn)
 import Ocarina.Properties (buffer, onOff)
 import Ocarina.WebAPI (BrowserAudioBuffer)
-import Types (Beats(..), RateInfo, beatToTime)
+import Types (RateInfo, beatToTime)
 
 twoPi = 2.0 * pi :: Number
 
