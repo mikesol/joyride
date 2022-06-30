@@ -136,6 +136,7 @@ ride
   { player: myPlayer
   , textures
   , cubeTextures
+  , models
   , cNow
   , galaxyAttributes
   , shaders
@@ -162,15 +163,15 @@ ride
                     HasStarted (InFlightGameInfo t) -> pure t.startedAt
                 )
           -- stopButton :: Effect Unit -> Nut
-          stopButton (off :: Effect Unit) = D.div
-            (bang $ D.Class := "bg-slate-50")
+          stopButton (off :: Effect Unit) = D.div (oneOf [ bang $ D.Class := "mx-2" ])
             [ D.button
                 ( oneOf
-                    [ bang $ D.Class := "pointer-events-auto p-1"
-                    , bang $ D.OnClick := off
+                    [ bang $ D.Class := "pointer-events-auto p-1 " <> buttonCls
+                    , bang $ D.OnClick := do
+                        off
                     ]
                 )
-                [ text_ "Exit tutorial" ]
+                [ text_ "Exit to main menu" ]
             ]
           startButton aStuff = do
             let
@@ -280,7 +281,7 @@ ride
                           (callback (toEvent changeText))
                           [ text_ "Start" ]
                       ]
-                    false -> D.div (bang $ D.Class := "bg-slate-700 select-auto")
+                    false -> D.div (bang $ D.Class := "select-auto")
                       [ D.div (bang $ D.Class := "pointer-events-auto text-center text-white p-4")
                           [ let
                               url = "joyride.netlify.app/" <> channelName
@@ -301,34 +302,31 @@ ride
                                 ]
                           , D.p_ [ text_ "When everyone has joined, or if you're playing alone, press Start!" ]
                           ]
-                      , D.div (bang $ D.Class := "w-full flex flex-row content-between")
+                      , D.div (bang $ D.Class := "flex w-full justify-center items-center")
                           $ case playerName of
                               Just _ ->
-                                [ D.div (bang $ D.Class := "w-full")
-                                    [ D.button
-                                        (callback (toEvent changeText))
-                                        [ text_ "Start" ]
-                                    ]
+                                [ D.button
+                                    (callback (toEvent changeText))
+                                    [ text_ "Start" ]
+
                                 ]
                               Nothing ->
-                                [ D.div (bang $ D.Class := "w-6/12")
-                                    [ D.button
-                                        ( oneOf
-                                            [ bang $ D.Class := buttonCls
-                                            , callback (toEvent changeText)
-                                            ]
-                                        )
-                                        [ text_ "Start" ]
-                                    ]
-                                , D.div (bang $ D.Class := "w-6/12")
-                                    [ D.button
-                                        ( oneOf
-                                            [ bang $ D.Class := buttonCls
-                                            , click $ bang $ nPush.requestName unit
-                                            ]
-                                        )
-                                        [ text_ "Start with name" ]
-                                    ]
+                                [ D.button
+                                    ( oneOf
+                                        [ bang $ D.Class := buttonCls
+                                        , callback (toEvent changeText)
+                                        ]
+                                    )
+                                    [ text_ "Start" ]
+
+                                , D.button
+                                    ( oneOf
+                                        [ bang $ D.Class := buttonCls
+                                        , click $ bang $ nPush.requestName unit
+                                        ]
+                                    )
+                                    [ text_ "Start with name" ]
+
                                 ]
                       ]
         envy $ fromEvent $ memoize
@@ -356,7 +354,7 @@ ride
               D.div (bang $ D.Class := "z-10 pointer-events-none absolute w-screen h-screen grid grid-rows-3 grid-cols-3")
                 [ D.div (bang $ D.Class := "row-start-1 row-end-2 col-start-1 col-end-2")
                     -- fromEvent because playerStatus is effectful
-                    [ D.div_
+                    [ D.div (bang $ D.Class := "mx-2 mt-2")
                         [ fromEvent (biSampleOn (initializeWithEmpty event.iAmReady) (map Tuple playerStatus))
                             -- we theoretically don't need to dedup because
                             -- the button should never redraw once we've started
@@ -377,32 +375,28 @@ ride
                         ]
 
                     ]
-                , let
-                    frame mid = D.div (bang $ D.Class := "flex flex-row")
-                      [ D.div (bang $ D.Class := "grow") []
-                      , D.div (bang $ D.Class := "grow-0") [ mid ]
-                      , D.div (bang $ D.Class := "grow") []
-                      ]
-                  in
-                    D.div (bang $ D.Class := "justify-self-center self-center row-start-2 row-end-3 col-start-2 col-end-3")
-                      [ ( fromEvent
-                            ( dedup
-                                ( playerStatus <#>
-                                    \m -> case allAreReady m of
-                                      Just x -> Started x
-                                      Nothing
-                                        | iAmReady m -> WaitingForOthers
-                                        | otherwise -> WaitingForMe
-                                )
-                            )
-                        )
-                          # switcher case _ of
-                              WaitingForMe -> frame (startButton animatedStuff)
-                              WaitingForOthers -> frame (D.span (bang $ D.Class := "text-lg text-white") [ text_ "Waiting for others to join" ])
-                              Started _ -> envy empty
-                      ]
-                , D.div (bang $ D.Class := "grow") []
                 ]
+            , D.div_
+                [ ( fromEvent
+                      ( dedup
+                          ( playerStatus <#>
+                              \m -> case allAreReady m of
+                                Just x -> Started x
+                                Nothing
+                                  | iAmReady m -> WaitingForOthers
+                                  | otherwise -> WaitingForMe
+                          )
+                      )
+                  ) #
+                    let
+                      frame x = D.div (bang $ D.Class := "z-10 pointer-events-auto absolute w-screen h-screen grid grid-rows-6 grid-cols-6 bg-zinc-900") [ D.div (bang $ D.Class := "col-start-2 col-end-6 row-start-3 row-end-5 bg-zinc-900") [ x ] ]
+                    in
+                      switcher case _ of
+                        WaitingForMe -> frame (startButton animatedStuff)
+                        WaitingForOthers -> frame (D.span (bang $ D.Class := "text-lg text-white") [ text_ "Waiting for others to join" ])
+                        Started _ -> envy empty
+                ]
+
             , D.div
                 (bang (D.Class := "absolute"))
                 [ D.canvas
@@ -425,6 +419,7 @@ ride
                                 , debug: tli.debug
                                 , textures
                                 , cubeTextures
+                                , models
                                 , pushBasic: tli.pushBasic
                                 , basicE: \pushBasicVisualForLabel -> tscore.basicE
                                     { initialDims: tli.initialDims

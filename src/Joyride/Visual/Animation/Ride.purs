@@ -10,14 +10,14 @@ import Data.Filterable (filter)
 import Data.Foldable (oneOf, oneOfMap)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
-import Data.Number (cos, pi)
+import Data.Number (cos, pi, sin)
 import Data.Tuple (Tuple(..))
 import Data.Tuple.Nested ((/\))
 import Data.Variant (inj)
 import Effect (Effect)
 import FRP.Behavior (Behavior, sampleBy)
 import FRP.Event (Event, EventIO, bang, keepLatest, mapAccum)
-import FRP.Event.VBus (V, vbus)
+import FRP.Event.VBus (V)
 import Foreign.Object (fromHomogeneous)
 import Joyride.Effect.Lowpass (lpf)
 import Joyride.FRP.BusT (vbust)
@@ -34,16 +34,15 @@ import Rito.Color (RGB(..), color)
 import Rito.Core (ASceneful, Renderer(..), cameraToGroup, effectComposerToRenderer, plain, toGroup, toScene)
 import Rito.CubeTexture (CubeTexture)
 import Rito.Euler (euler)
+import Rito.GLTF (GLTF)
+import Rito.GLTF as GLTF
 import Rito.Geometries.Plane (plane)
-import Rito.Geometries.Sphere (sphere)
 import Rito.Group (group)
 import Rito.InstancedMesh (instancedMesh')
 import Rito.Lights.AmbientLight (ambientLight)
 import Rito.Lights.PointLight (pointLight)
-import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.Materials.ShaderMaterial (shaderMaterial)
-import Rito.Mesh (mesh)
-import Rito.Portal (globalCameraPortal1, globalScenePortal1, globalWebGLRendererPortal1)
+import Rito.Portal (globalCameraPortal1, globalEffectComposerPortal1, globalScenePortal1, globalWebGLRendererPortal1)
 import Rito.Properties (aspect, background, decay, distance, intensity, rotateX, rotateY, rotateZ, rotationFromEuler, uniform) as P
 import Rito.Properties (positionX, positionY, positionZ, render, scaleX, scaleY, scaleZ, size)
 import Rito.Renderers.CSS2D (css2DRenderer)
@@ -51,6 +50,7 @@ import Rito.Renderers.CSS3D (css3DRenderer)
 import Rito.Renderers.Raycaster (raycaster)
 import Rito.Renderers.WebGL (webGLRenderer)
 import Rito.Renderers.WebGL.EffectComposer (effectComposer)
+import Rito.Renderers.WebGL.EffectComposerPass (effectComposerPass)
 import Rito.Renderers.WebGL.RenderPass (renderPass)
 import Rito.Renderers.WebGL.UnrealBloomPass (unrealBloomPass)
 import Rito.Run as Rito.Run
@@ -58,7 +58,7 @@ import Rito.Scene (Background(..), scene)
 import Rito.Texture (Texture)
 import Rito.Vector2 (vector2)
 import Type.Proxy (Proxy(..))
-import Types (Axis(..), CubeTextures, GalaxyAttributes, HitBasicMe, HitBasicVisualForLabel, HitLeapVisualForLabel, HitLongVisualForLabel, JMilliseconds, Player(..), PlayerPositions, Position(..), RateInfo, ReleaseLongVisualForLabel, RenderingInfo, Seconds(..), Shaders, Textures, ThreeDI, WindowDims, allPlayers, allPositions, playerPosition)
+import Types (Axis(..), CubeTextures, GalaxyAttributes, HitBasicMe, HitBasicVisualForLabel, HitLeapVisualForLabel, HitLongVisualForLabel, JMilliseconds, Models, Player(..), PlayerPositions, Position(..), RateInfo, ReleaseLongVisualForLabel, RenderingInfo, Seconds(..), Shaders, Textures, ThreeDI, WindowDims, allPlayers, allPositions, playerPosition)
 import Web.DOM as Web.DOM
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 
@@ -71,6 +71,7 @@ runThree
      , debug :: Boolean
      , galaxyAttributes :: GalaxyAttributes
      , shaders :: Shaders
+     , models :: Models GLTF
      , css2DRendererElt :: Event Web.DOM.Element
      , css3DRendererElt :: Event Web.DOM.Element
      , isMobile :: Boolean
@@ -105,7 +106,6 @@ runThree
   -> Effect Unit
 runThree opts = do
   let c3 = color opts.threeDI.color
-  let textures = unwrap opts.textures
   let mopts = { playerPositions: _.playerPositions <$> opts.animatedStuff, rateInfo: _.rateInfo <$> opts.animatedStuff }
   _ <- Rito.Run.run
     ( envy QDA.do
@@ -170,89 +170,29 @@ runThree opts = do
                             , P.rotateZ $ 0.001 * cos (fac * pi * 0.01)
                             ]
                   )
-                  ( ( filter (_ /= opts.myPlayer) (toArray allPlayers) <#> \player -> do
-                        let ppos = playerPosition player
-                        let posAx axis = map (ppos axis) mopts.playerPositions
-                        toGroup $ mesh { mesh: opts.threeDI.mesh }
-                          (sphere { sphere: opts.threeDI.sphereGeometry })
-                          ( case player of
-                              Player1 ->
-                                meshStandardMaterial
-                                  { meshStandardMaterial: opts.threeDI.meshStandardMaterial
-                                  , map: textures.hockeyCOL
-                                  , aoMap: textures.hockeyAO
-                                  , displacementMap: textures.hockeyDISP
-                                  , displacementScale: 0.1
-                                  , normalMap: textures.hockeyNRM
-                                  , roughnessMap: textures.hockeyGLOSS
-                                  }
-                              Player2 ->
-                                meshStandardMaterial
-                                  { meshStandardMaterial: opts.threeDI.meshStandardMaterial
-                                  , map: textures.marble19COL
-                                  , normalMap: textures.marble19NRM
-                                  , roughnessMap: textures.marble19GLOSS
-                                  }
-                              Player3 ->
-                                meshStandardMaterial
-                                  { meshStandardMaterial: opts.threeDI.meshStandardMaterial
-                                  , map: textures.marble21COL
-                                  , normalMap: textures.marble21NRM
-                                  , roughnessMap: textures.marble21GLOSS
-                                  }
-                              -- todo: change to something unique
-                              Player4 ->
-                                meshStandardMaterial
-                                  { meshStandardMaterial: opts.threeDI.meshStandardMaterial
-                                  , map: textures.marble19COL
-                                  , normalMap: textures.marble19NRM
-                                  , roughnessMap: textures.marble19GLOSS
-                                  }
-                            empty
-                          )
-                          ( oneOf
-                              [ positionX <$> applyLPF (player == opts.myPlayer) (posAx AxisX)
-                              , positionY <$> (sampleBy (\{ sphereOffsetY } py -> sphereOffsetY + py) opts.renderingInfo (posAx AxisY))
-                              , positionZ <$> posAx AxisZ
-                              , bang $ positionZ
-                                  ( case player of
-                                      Player1 -> -4.0
-                                      Player2 -> -3.0
-                                      Player3 -> -2.0
-                                      Player4 -> -1.0
-                                  )
-
-                              , bang (scaleX 0.1)
-                              , bang (scaleY 0.1)
-                              , bang (scaleZ 0.1)
-                              ]
-                          )
-
-                    )
-                      <>
-                        map toGroup
-                          ( ( \position -> makeBar $
-                                { c3
-                                , threeDI: opts.threeDI
-                                , renderingInfo: opts.renderingInfo
-                                , debug: opts.debug
-                                , initialIsMe: opts.myPlayer == case position of
-                                    Position1 -> Player1
-                                    Position2 -> Player2
-                                    Position3 -> Player3
-                                    Position4 -> Player4
-                                , isMe: dedup
-                                    ( opts.animatedStuff <#> \{ playerPositions } -> position == case opts.myPlayer of
-                                        Player1 -> playerPositions.p1p
-                                        Player2 -> playerPositions.p2p
-                                        Player3 -> playerPositions.p3p
-                                        Player4 -> playerPositions.p4p
-                                    )
-                                , rateE: mopts.rateInfo
-                                , position
-                                }
-                            ) <$> (toArray allPositions)
-                          )
+                  ( map toGroup
+                      ( ( \position -> makeBar $
+                            { c3
+                            , threeDI: opts.threeDI
+                            , renderingInfo: opts.renderingInfo
+                            , debug: opts.debug
+                            , initialIsMe: opts.myPlayer == case position of
+                                Position1 -> Player1
+                                Position2 -> Player2
+                                Position3 -> Player3
+                                Position4 -> Player4
+                            , isMe: dedup
+                                ( opts.animatedStuff <#> \{ playerPositions } -> position == case opts.myPlayer of
+                                    Player1 -> playerPositions.p1p
+                                    Player2 -> playerPositions.p2p
+                                    Player3 -> playerPositions.p3p
+                                    Player4 -> playerPositions.p4p
+                                )
+                            , rateE: mopts.rateInfo
+                            , position
+                            }
+                        ) <$> (toArray allPositions)
+                      )
                       <>
                         [ toGroup $ ambientLight
                             { ambientLight: opts.threeDI.ambientLight
@@ -362,6 +302,85 @@ runThree opts = do
                   )
               ]
           )
+        myShips <- globalScenePortal1
+          ( scene { scene: opts.threeDI.scene } empty
+              [ toScene $ group { group: opts.threeDI.group }
+                  ( keepLatest $
+                      ( mapAccum
+                          ( \a b -> case b of
+                              Nothing -> Just a /\ 0.0
+                              Just x -> Just a /\ (a - x)
+                          )
+                          ( map (_.rateInfo.epochTime >>> unwrap >>> (_ / 1000.0))
+                              opts.animatedStuff
+                          )
+                          Nothing
+                      ) <#> \t ->
+                        let
+                          fac = t / 1000.0
+                        in
+                          if false then empty
+                          else oneOfMap bang
+                            [ P.rotateX $ 0.001 * cos (fac * pi * 0.01)
+                            , P.rotateY $ 0.001 * cos (fac * pi * 0.01)
+                            , P.rotateZ $ 0.001 * cos (fac * pi * 0.01)
+                            ]
+                  )
+                  ( ( filter (_ /= opts.myPlayer) (toArray allPlayers) <#> \player -> do
+                        let ppos = playerPosition player
+                        let posAx axis = map (ppos axis) mopts.playerPositions
+                        toGroup $ GLTF.scene (unwrap opts.models).spaceship
+                          ( oneOf
+                              [ positionX <$> applyLPF (player == opts.myPlayer) (posAx AxisX)
+                              , positionY <$> (sampleBy (\{ sphereOffsetY } py -> sphereOffsetY + py) opts.renderingInfo (posAx AxisY))
+                              , bang $ positionZ
+                                  ( case player of
+                                      Player1 -> -4.0
+                                      Player2 -> -3.0
+                                      Player3 -> -2.0
+                                      Player4 -> -1.0
+                                  )
+                              , positionZ <$> posAx AxisZ
+                              , bang $ scaleX 0.02
+                              , bang $ scaleY 0.02
+                              , bang $ scaleZ 0.02
+                              , case player of
+                                  Player1 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: sin (unwrap rate.time * pi * 0.1) * pi * 0.02, y: sin (unwrap rate.time * pi * 0.09) * pi * -0.03, z: cos (unwrap rate.time * pi * 0.07) * pi * 0.04 })
+                                  Player3 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: cos (unwrap rate.time * pi * 0.06) * pi * 0.02, y: sin (unwrap rate.time * pi * 0.11) * pi * 0.01, z: cos (unwrap rate.time * pi * 0.03) * pi * -0.03 })
+                                  Player2 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: sin (unwrap rate.time * pi * 0.02) * pi * -0.05, y: cos (unwrap rate.time * pi * 0.12) * pi * -0.02, z: sin (unwrap rate.time * pi * -0.08) * pi * 0.08 })
+                                  Player4 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: cos (unwrap rate.time * pi * 0.01) * pi * 0.04, y: cos (unwrap rate.time * pi * 0.03) * pi * -0.06, z: sin (unwrap rate.time * pi * 0.02) * pi * -0.09 })
+                              ]
+                          )
+                          []
+                    )
+                      <>
+                        ( (toArray allPlayers) <#> \player -> do
+                            let ppos = playerPosition player
+                            let posAx axis = map (ppos axis) mopts.playerPositions
+                            let normalDistance = 4.0
+                            let normalDecay = 2.0
+                            let normalIntensity = 1.0
+                            toGroup $ pointLight
+                              { pointLight: opts.threeDI.pointLight
+                              , distance: normalDistance
+                              , decay: normalDecay
+                              , intensity: normalIntensity
+                              , color: c3 $ RGB 1.0 1.0 1.0
+                              }
+                              ( oneOf
+                                  [ positionX <$> applyLPF (player == opts.myPlayer) (posAx AxisX)
+                                  , positionY <$> (sampleBy (\{ lightOffsetY } py -> (lightOffsetY + py)) opts.renderingInfo (posAx AxisY))
+                                  , positionZ <$> posAx AxisZ
+                                  , bang $ P.decay normalDecay
+                                  , bang $ P.intensity normalIntensity
+                                  , bang $ P.distance normalDistance
+                                  ]
+                              )
+
+                        )
+                  )
+              ]
+          )
         myWebGLRenderer <- globalWebGLRendererPortal1
           ( webGLRenderer
               myScene
@@ -374,6 +393,27 @@ runThree opts = do
                   , opts.resizeE <#> \i -> size { width: i.iw, height: i.ih }
                   ]
               )
+          )
+        myShipComposer <- globalEffectComposerPortal1
+          ( effectComposer
+              { effectComposer: opts.threeDI.effectComposer
+              }
+              myWebGLRenderer
+              empty
+              [ renderPass
+                  { renderPass: opts.threeDI.renderPass
+                  }
+                  myShips
+                  myCamera
+              , unrealBloomPass
+                  { unrealBloomPass: opts.threeDI.unrealBloomPass
+                  , radius: 1.0
+                  , resolution: vector2 opts.threeDI.vector2 { x: 1000.0, y: 1000.0 }
+                  , strength: 3.0
+                  , threshold: 0.1
+                  }
+                  empty
+              ]
           )
         fixed
           [ raycaster
@@ -395,17 +435,8 @@ runThree opts = do
                   }
                   myScene
                   myCamera
-              -- , glitchPass { glitchPass: opts.threeDI.glitchPass }
-              , unrealBloomPass
-                  { unrealBloomPass: opts.threeDI.unrealBloomPass
-                  , radius: 1.0
-                  , resolution: vector2 opts.threeDI.vector2 { x: 256.0, y: 256.0 }
-                  , strength: 1.5
-                  , threshold: 1.0
-                  }
-                  empty
+              , effectComposerPass { effectComposerPass: opts.threeDI.effectComposerPass } myShipComposer
               ]
-
           , envy $ map
               ( \element -> css2DRenderer
                   myScene
