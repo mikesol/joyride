@@ -29,11 +29,7 @@ import Joyride.Visual.Basic as BasicV
 import Joyride.Visual.BasicWord as BasicW
 import Ocarina.WebAPI (BrowserAudioBuffer)
 import Record (union)
-import Rito.Color (RGB(..))
-import Rito.Core (ASceneful, CSS3DObject, Instance, toScene)
-import Rito.Geometries.Box (box)
-import Rito.Materials.MeshPhongMaterial (meshPhongMaterial)
-import Rito.RoundRobin (InstanceId, Semaphore(..), roundRobinInstancedMesh)
+import Rito.Core (ASceneful, CSS3DObject, Mesh, toScene)
 import Safe.Coerce (coerce)
 import Types (Beats(..), Column(..), HitBasicMe, JMilliseconds(..), MakeBasics, RateInfo, beatToTime)
 
@@ -111,34 +107,7 @@ severalBeats { startsAt, buffers, silence } = singleBeat (f "kick" $ Beats 0.0)
 mockBasics :: forall lock payload. { | MakeBasics () } -> ASceneful lock payload
 mockBasics makeBasics =
   ( fixed
-      [ toScene $ roundRobinInstancedMesh
-          { instancedMesh: makeBasics.threeDI.instancedMesh
-          , matrix4: makeBasics.threeDI.matrix4
-          , mesh: makeBasics.threeDI.mesh
-          }
-          100
-          (box { box: makeBasics.threeDI.boxGeometry })
-          -- ( meshStandardMaterial
-          --     -- { map: textures.hockeyCOL
-          --     -- , aoMap: textures.hockeyAO
-          --     -- , displacementMap: textures.hockeyDISP
-          --     -- , displacementScale: 0.1
-          --     -- , normalMap: textures.hockeyNRM
-          --     -- , roughnessMap: textures.hockeyGLOSS
-          --     -- }
-          --     { meshStandardMaterial: makeBasics.threeDI.meshStandardMaterial
-          --     , color: makeBasics.mkColor (RGB 0.798 0.927 0.778)
-          --     , roughness: 0.0
-          --     }
-          --     empty
-          -- )
-          ( meshPhongMaterial
-              { meshPhongMaterial: makeBasics.threeDI.meshPhongMaterial
-              , color: makeBasics.mkColor (RGB 0.798 0.927 0.778)
-              }
-              empty
-          )
-          (children transformBasic)
+      [ toScene $ dyn (children transformBasic)
       , toScene $ dyn (children transformBasicWord)
       ]
   )
@@ -150,9 +119,9 @@ mockBasics makeBasics =
   eventList :: forall a. (ACU -> Event a) -> Event (List (Event a))
   eventList f = scheduleCf (go f score) (_.rateInfo <$> makeBasics.animatedStuff)
 
-  transformBasic :: ACU -> Event (Semaphore (InstanceId -> Instance lock payload))
+  transformBasic :: ACU -> Event (Child Void (Mesh lock payload) Effect lock)
   transformBasic input =
-    ( map Acquire
+    ( map Insert
         ( BasicV.basic
             ( makeBasics `union` input `union`
                 { beats: severalBeats
@@ -167,7 +136,7 @@ mockBasics makeBasics =
     ) <|>
       ( keepLatest $ (LocalTime.withTime (bang unit)) <#> \{ time } -> lowPrioritySchedule makeBasics.lpsCallback
           (JMilliseconds 10000.0 + (coerce $ unInstant time))
-          (bang $ Release)
+          (bang $ Remove)
       )
 
   transformBasicWord :: ACU -> Event (Child Void (CSS3DObject lock payload) Effect lock)

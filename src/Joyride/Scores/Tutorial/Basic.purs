@@ -2,7 +2,7 @@ module Joyride.Scores.Tutorial.Basic where
 
 import Prelude
 
-import Bolson.Core (envy, fixed)
+import Bolson.Core (Child(..), dyn, envy, fixed)
 import Control.Alt ((<|>))
 import Control.Comonad.Cofree (Cofree, (:<))
 import Control.Plus (empty)
@@ -11,14 +11,13 @@ import Data.FastVect.FastVect (Vect, cons)
 import Data.FastVect.FastVect as V
 import Data.Foldable (oneOfMap)
 import Data.FunctorWithIndex (mapWithIndex)
-import Data.Lens (over, traversed)
-import Data.Lens.Record (prop)
 import Data.List (List(..), span, (:))
 import Data.List as List
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.Time.Duration (Milliseconds(..), Seconds(..))
 import Data.Tuple.Nested ((/\))
+import Effect (Effect)
 import FRP.Behavior (Behavior, sample_)
 import FRP.Event (Event, keepLatest, memoize)
 import FRP.Event.Class (bang)
@@ -33,13 +32,8 @@ import Joyride.Scores.Tutorial.Base as Base
 import Joyride.Visual.Basic as BasicV
 import Ocarina.WebAPI (BrowserAudioBuffer)
 import Record (union)
-import Rito.Color (RGB(..))
-import Rito.Core (ASceneful, Instance, toScene)
-import Rito.Geometries.Box (box)
-import Rito.Materials.MeshPhongMaterial (meshPhongMaterial)
-import Rito.RoundRobin (InstanceId, Semaphore(..), roundRobinInstancedMesh)
+import Rito.Core (ASceneful, Mesh, toScene)
 import Safe.Coerce (coerce)
-import Type.Proxy (Proxy(..))
 import Types (Beats(..), Column(..), JMilliseconds(..), MakeBasics, RateInfo, beatToTime)
 
 type ACU =
@@ -121,34 +115,7 @@ severalBeats { b0, b1, b2, b3, silence } = singleBeat (f $ b0)
 tutorialBasics :: forall lock payload. { | MakeBasics () } -> ASceneful lock payload
 tutorialBasics makeBasics =
   ( fixed
-      [ toScene $ roundRobinInstancedMesh
-          { instancedMesh: makeBasics.threeDI.instancedMesh
-          , matrix4: makeBasics.threeDI.matrix4
-          , mesh: makeBasics.threeDI.mesh
-          }
-          100
-          (box { box: makeBasics.threeDI.boxGeometry })
-          -- ( meshStandardMaterial
-          --     -- { map: textures.hockeyCOL
-          --     -- , aoMap: textures.hockeyAO
-          --     -- , displacementMap: textures.hockeyDISP
-          --     -- , displacementScale: 0.1
-          --     -- , normalMap: textures.hockeyNRM
-          --     -- , roughnessMap: textures.hockeyGLOSS
-          --     -- }
-          --     { meshStandardMaterial: makeBasics.threeDI.meshStandardMaterial
-          --     , color: makeBasics.mkColor (RGB 0.798 0.927 0.778)
-          --     , roughness: 0.0
-          --     }
-          --     empty
-          -- )
-          ( meshPhongMaterial
-              { meshPhongMaterial: makeBasics.threeDI.meshPhongMaterial
-              , color: makeBasics.mkColor (RGB 0.798 0.927 0.778)
-              }
-              empty
-          )
-          (children transformBasic)
+      [ toScene $ dyn (children transformBasic)
       ]
   )
 
@@ -159,9 +126,9 @@ tutorialBasics makeBasics =
   eventList :: forall a. (ACU -> Event a) -> Event (List (Event a))
   eventList f = scheduleCf (go f score) (_.rateInfo <$> makeBasics.animatedStuff)
 
-  transformBasic :: ACU -> Event (Semaphore (InstanceId -> Instance lock payload))
+  transformBasic :: ACU -> Event (Child Void (Mesh lock payload) Effect lock)
   transformBasic input =
-    ( map Acquire
+    ( map Insert
         ( BasicV.basic
             ( makeBasics `union` input `union`
                 { beats: severalBeats
@@ -178,7 +145,7 @@ tutorialBasics makeBasics =
     ) <|>
       ( keepLatest $ (LocalTime.withTime (bang unit)) <#> \{ time } -> lowPrioritySchedule makeBasics.lpsCallback
           (JMilliseconds 10000.0 + (coerce $ unInstant time))
-          (bang $ Release)
+          (bang $ Remove)
       )
 
   go :: forall a. (ACU -> Event a) -> List ACU -> RateInfo -> Cofree ((->) RateInfo) (List (Event a))
@@ -202,12 +169,15 @@ tmpScore :: List ScoreMorcel
 tmpScore = { column: C4, appearsAt: Beats 0.0, b0: Beats 1.0, b1: Beats 2.0, b2: Beats 3.0, b3: Beats 4.0 } : Nil
 
 fromBase2 :: Array Base.BeatInstruction2 -> List ScoreMorcel
-fromBase2 = List.fromFoldable <<< map (\(c /\ x /\ y /\ z /\ w) -> { appearsAt: Beats ((mb2info x).t + tso - ((mb2info y).t - (mb2info x).t))
-    , b0: Beats ((mb2info x).t + tso)
-    , b1: Beats ((mb2info y).t + tso)
-    , b2: Beats ((mb2info z).t + tso)
-    , b3: Beats ((mb2info w).t + tso)
-    , column: c
-    } )
+fromBase2 = List.fromFoldable <<< map
+  ( \(c /\ x /\ y /\ z /\ w) ->
+      { appearsAt: Beats ((mb2info x).t + tso - ((mb2info y).t - (mb2info x).t))
+      , b0: Beats ((mb2info x).t + tso)
+      , b1: Beats ((mb2info y).t + tso)
+      , b2: Beats ((mb2info z).t + tso)
+      , b3: Beats ((mb2info w).t + tso)
+      , column: c
+      }
+  )
   where
   tso = unwrap tutorialStartOffset
