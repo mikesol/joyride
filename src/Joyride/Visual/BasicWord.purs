@@ -74,48 +74,53 @@ basicWord makeBasic = do
        , renderingInfo
        } -> do
         let
-              o
-                | rateInfo.beats < p1.startsAt = index (Proxy :: _ 0) makeBasic.text /\ calcSlope (unwrap makeBasic.appearsAt) (appearancePoint renderingInfo) (unwrap p1.startsAt) (p1bar renderingInfo) (unwrap rateInfo.beats)
-                | rateInfo.beats < p2.startsAt = index (Proxy :: _ 1) makeBasic.text /\calcSlope (unwrap p1.startsAt) (p1bar renderingInfo) (unwrap p2.startsAt) (p2bar renderingInfo) (unwrap rateInfo.beats)
-                | rateInfo.beats < p3.startsAt = index (Proxy :: _ 2) makeBasic.text /\calcSlope (unwrap p2.startsAt) (p2bar renderingInfo) (unwrap p3.startsAt) (p3bar renderingInfo) (unwrap rateInfo.beats)
-                | otherwise = index (Proxy :: _ 3) makeBasic.text /\ calcSlope (unwrap p3.startsAt) (p3bar renderingInfo) (unwrap p4.startsAt) (p4bar renderingInfo) (unwrap rateInfo.beats)
-        fst o /\ { n14: ((renderingInfo.halfAmbitus * (2.0 * (normalizedColumn makeBasic.column) - 1.0)) * ratio.r)
-        , n24: 0.0
-        , n34: snd o - (basicZThickness / 2.0)
-        , n11: 0.01
-        , n22: 0.01
-        , n33: 0.01
-        , n12: 0.0
-        , n13: 0.0
-        , n21: 0.0
-        , n23: 0.0
-        , n31: 0.0
-        , n32: 0.0
-        , n41: 0.0
-        , n42: 0.0
-        , n43: 0.0
-        , n44: 1.0
-        }
-  envy $ memoize drawingMatrix' \drawingMatrixAndText -> let
+          o
+            | rateInfo.beats < p1.startsAt = index (Proxy :: _ 0) makeBasic.text /\ calcSlope (unwrap makeBasic.appearsAt) (appearancePoint renderingInfo) (unwrap p1.startsAt) (p1bar renderingInfo) (unwrap rateInfo.beats)
+            | rateInfo.beats < p2.startsAt = index (Proxy :: _ 1) makeBasic.text /\ calcSlope (unwrap p1.startsAt) (p1bar renderingInfo) (unwrap p2.startsAt) (p2bar renderingInfo) (unwrap rateInfo.beats)
+            | rateInfo.beats < p3.startsAt = index (Proxy :: _ 2) makeBasic.text /\ calcSlope (unwrap p2.startsAt) (p2bar renderingInfo) (unwrap p3.startsAt) (p3bar renderingInfo) (unwrap rateInfo.beats)
+            | rateInfo.beats < p4.startsAt = index (Proxy :: _ 3) makeBasic.text /\ calcSlope (unwrap p3.startsAt) (p3bar renderingInfo) (unwrap p4.startsAt) (p4bar renderingInfo) (unwrap rateInfo.beats)
+            | otherwise = index (Proxy :: _ 3) makeBasic.text /\ calcSlope (unwrap p4.startsAt) (p4bar renderingInfo) (unwrap p4.startsAt + 0.2) (p4bar renderingInfo + 0.5) (unwrap rateInfo.beats)
+        fst o /\
+          { n14: ((renderingInfo.halfAmbitus * (2.0 * (normalizedColumn makeBasic.column) - 1.0)) * ratio.r)
+          , n24: 0.0
+          , n34: snd o - (basicZThickness / 2.0)
+          , n11: 0.01
+          , n22: 0.01
+          , n33: 0.01
+          , n12: 0.0
+          , n13: 0.0
+          , n21: 0.0
+          , n23: 0.0
+          , n31: 0.0
+          , n32: 0.0
+          , n41: 0.0
+          , n42: 0.0
+          , n43: 0.0
+          , n44: 1.0
+          }
+  envy $ memoize drawingMatrix' \drawingMatrixAndText ->
+    let
       drawingMatrix = snd <$> drawingMatrixAndText
       txt = fst <$> drawingMatrixAndText
     in
-      ( ( css3DObject { css3DObject: makeBasic.threeDI.css3DObject
-          , nut: ANut (D.span (bang $ D.Class := "text-white pointer-events-none") [ text (dedup (fromEvent txt)) ]) }
-          ( oneOf
-              [ --bang $ P.matrix4 $ makeBasic.mkMatrix4 emptyMatrix
-                --, P.matrix4 <<< makeBasic.mkMatrix4 <$> drawingMatrix
-                P.positionX <<< _.n14 <$> drawingMatrix
-              , bang $ P.positionY 0.05
-              , P.positionZ <<< _.n34 <$> drawingMatrix
-              , (bang $ P.scaleX 0.00) <|> fireAndForget (drawingMatrix $> P.scaleX 0.006)
-              , (bang $ P.scaleY 0.00) <|> fireAndForget (drawingMatrix $> P.scaleY 0.006)
-              , (bang $ P.scaleZ 0.00) <|> fireAndForget (drawingMatrix $> P.scaleZ 0.006)
-              , bang $ P.rotateX (pi * -0.5)
-              ]
-          )
+      ( ( css3DObject
+            { css3DObject: makeBasic.threeDI.css3DObject
+            , nut: ANut (D.span (bang $ D.Class := "text-white pointer-events-none") [ text (dedup (fromEvent txt)) ])
+            }
+            ( oneOf
+                [ --bang $ P.matrix4 $ makeBasic.mkMatrix4 emptyMatrix
+                  --, P.matrix4 <<< makeBasic.mkMatrix4 <$> drawingMatrix
+                  P.positionX <<< _.n14 <$> drawingMatrix
+                , bang $ P.positionY 0.05
+                , P.positionZ <<< _.n34 <$> drawingMatrix
+                , (bang $ P.scaleX 0.00) <|> fireAndForget (drawingMatrix $> P.scaleX 0.006)
+                , (bang $ P.scaleY 0.00) <|> fireAndForget (drawingMatrix $> P.scaleY 0.006)
+                , (bang $ P.scaleZ 0.00) <|> fireAndForget (drawingMatrix $> P.scaleZ 0.006)
+                , bang $ P.rotateX (pi * -0.5)
+                ]
+            )
+        )
       )
-    )
   where
   animatedStuff =
     { rateInfo: _.rateInfo <$> makeBasic.animatedStuff

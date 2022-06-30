@@ -2,13 +2,12 @@ module Joyride.App.Toplevel where
 
 import Prelude
 
-import Control.Plus (empty)
 import Data.Map as Map
 import Data.Maybe (Maybe)
 import Data.Number (pi)
 import Data.Time.Duration (Milliseconds)
 import Deku.Control (switcher)
-import Deku.Core (class Korok, Domable, envy)
+import Deku.Core (class Korok, Domable)
 import Effect (Effect)
 import Effect.Ref as Ref
 import FRP.Behavior (Behavior)
@@ -26,11 +25,10 @@ import Joyride.App.SorryNeedPermission (sorryNeedPermissionPage)
 import Joyride.App.Tutorial (tutorial)
 import Joyride.FRP.Dedup (dedup)
 import Joyride.FRP.StartingWith (startingWith)
-import Joyride.Mocks.Basic (mockBasics)
-import Joyride.Mocks.Leap (mockLeaps)
-import Joyride.Mocks.Long (mockLongs)
 import Joyride.Ocarina (AudibleChildEnd)
 import Joyride.Scores.Ride.Basic (rideBasics)
+import Joyride.Scores.Ride.Leap (rideLeaps)
+import Joyride.Scores.Ride.Long (rideLongs)
 import Joyride.Scores.Tutorial.Basic (tutorialBasics)
 import Joyride.Scores.Tutorial.Leap (tutorialLeaps)
 import Joyride.Scores.Tutorial.Long (tutorialLongs)
@@ -178,8 +176,8 @@ toplevel tli =
       wantsTutorial
     TLSuccess successful -> ride
       tli
-      { basicE: rideBasics -- mockBasics
-      , leapE: const $ envy empty -- mockLeaps
-      , longE: const $ envy empty -- mockLongs
+      { basicE: rideBasics
+      , leapE: rideLeaps
+      , longE: rideLongs
       }
       successful
