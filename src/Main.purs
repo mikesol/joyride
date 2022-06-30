@@ -81,7 +81,7 @@ foreign import force4 :: Effect Boolean
 
 renderingInfo' :: RenderingInfo' Slider
 renderingInfo' =
-  { halfAmbitus: Slider { default: 2.9, min: 0.1, max: 4.2, step: 0.1 }
+  { halfAmbitus: Slider { default: 3.1, min: 0.5, max: 4.4, step: 0.1 }
   , barZSpacing: Slider { default: 1.0, min: 0.1, max: 3.0, step: 0.1 }
   , cameraOffsetY: Slider { default: 1.75, min: 0.1, max: 3.0, step: 0.05 }
   , cameraRotationAroundX: Slider { default: -0.45, min: -1.0 * pi, max: pi, step: 0.05 }

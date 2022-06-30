@@ -113,7 +113,7 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
               o - (basicZThickness / 2.0)
         , n11:
             let
-              baseWidth = 0.2 * ratio.r
+              baseWidth = renderingInfo.halfAmbitus * ratio.r / 9.0
             in
               case endTime of
                 Nothing -> baseWidth

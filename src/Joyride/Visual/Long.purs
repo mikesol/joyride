@@ -99,7 +99,7 @@ long makeLong = keepLatest $ vbus (Proxy :: _ LongActions) \push event -> do
           { n14: (renderingInfo.halfAmbitus * (2.0 * (normalizedColumn makeLong.column) - 1.0)) * ratio.r
           , n24: 0.0
           , n34: logicalZ - (makeLong.length / 2.0) - consumedByPress
-          , n11: if n33 == 0.0 then 0.0 else oneEighth * ratio.r
+          , n11: if n33 == 0.0 then 0.0 else renderingInfo.halfAmbitus * ratio.r / 9.0
           , n22: if n33 == 0.0 then 0.0 else longYThickness
           , n33: n33
           , n12: 0.0
@@ -301,7 +301,6 @@ long makeLong = keepLatest $ vbus (Proxy :: _ LongActions) \push event -> do
     }
   p1bar ri = touchPointZ ri Position1
   appearancePoint ri = entryZ ri
-  oneEighth = 1.0 / 8.0
   ratioEvent = map (\{ iw, ih } -> { iw, ih, r: iw / ih }) (bang makeLong.initialDims <|> makeLong.resizeEvent)
   longYThickness = 0.04
   otherPlayedMe = filter (\(HitLongOtherPlayer { uniqueId }) -> makeLong.uniqueId == uniqueId) makeLong.notifications.hitLong
