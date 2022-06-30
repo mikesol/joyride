@@ -389,7 +389,7 @@ ride
                       )
                   ) #
                     let
-                      frame x = D.div (bang $ D.Class := "z-10 pointer-events-auto absolute w-screen h-screen grid grid-rows-6 grid-cols-6 bg-zinc-900") [ D.div (bang $ D.Class := "col-start-2 col-end-6 row-start-3 row-end-5 bg-zinc-900") [ x ] ]
+                      frame x = D.div (bang $ D.Class := "z-10 pointer-events-auto absolute w-screen h-screen grid grid-rows-6 grid-cols-8 bg-zinc-900") [ D.div (bang $ D.Class := "col-start-2 col-end-8 row-start-3 row-end-5 bg-zinc-900") [ x ] ]
                     in
                       switcher case _ of
                         WaitingForMe -> frame (startButton animatedStuff)
