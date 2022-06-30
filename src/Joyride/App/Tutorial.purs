@@ -19,6 +19,7 @@ import Data.String as String
 import Data.Time.Duration (Milliseconds(..))
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..), fst, snd)
+import Debug (spy)
 import Deku.Attribute ((:=))
 import Deku.Control (switcher, text_)
 import Deku.Core (class Korok, Domable, Nut, bussed, envy, vbussed)
@@ -510,7 +511,7 @@ tutorial
       pushCurrentState
     End -> tutorialCenterMatterFrame "That's it!" (Just $ D.p_ [ text_ "Play against up to four people! The ride is more fun when shared with friends 🤗" ]) true "Home >" FadeIn
       tli.goHome
-      mempty
+      pushCurrentState
     Empty -> envy empty
 
   tutorialFadeInAnimation = "tutorial-fade-in-animation"
