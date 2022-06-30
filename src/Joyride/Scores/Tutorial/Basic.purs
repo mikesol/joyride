@@ -201,42 +201,6 @@ type ScoreMorcel =
 tmpScore :: List ScoreMorcel
 tmpScore = { column: C4, appearsAt: Beats 0.0, b0: Beats 1.0, b1: Beats 2.0, b2: Beats 3.0, b3: Beats 4.0 } : Nil
 
-predC :: Column -> Column
-predC C15 = C14
-predC C14 = C13
-predC C13 = C12
-predC C12 = C11
-predC C11 = C10
-predC C10 = C9
-predC C9 = C8
-predC C8 = C7
-predC C7 = C6
-predC C6 = C5
-predC C5 = C4
-predC C4 = C3
-predC C3 = C2
-predC C2 = C1
-predC C1 = C0
-predC C0 = C15
-
-succC :: Column -> Column
-succC C0 = C1
-succC C1 = C2
-succC C2 = C3
-succC C3 = C4
-succC C4 = C5
-succC C5 = C6
-succC C6 = C7
-succC C7 = C8
-succC C8 = C9
-succC C9 = C10
-succC C10 = C11
-succC C11 = C12
-succC C12 = C13
-succC C13 = C14
-succC C14 = C15
-succC C15 = C0
-
 fromBase2 :: Array Base.BeatInstruction2 -> List ScoreMorcel
 fromBase2 = List.fromFoldable <<< map (\(c /\ x /\ y /\ z /\ w) -> { appearsAt: Beats ((mb2info x).t + tso - ((mb2info y).t - (mb2info x).t))
     , b0: Beats ((mb2info x).t + tso)
@@ -247,28 +211,3 @@ fromBase2 = List.fromFoldable <<< map (\(c /\ x /\ y /\ z /\ w) -> { appearsAt: 
     } )
   where
   tso = unwrap tutorialStartOffset
-
-fromBase :: List Base.BeatInstruction -> List ScoreMorcel
-fromBase = addStartOffset >>> go true C8
-  where
-  go tf col (a : b : c : d : e) =
-    { appearsAt: Beats (a.t - 1.0)
-    , b0: Beats a.t
-    , b1: Beats b.t
-    , b2: Beats c.t
-    , b3: Beats d.t
-    , column: col
-    } : go
-      ( case col of
-          C15 -> false
-          C0 -> true
-          _ -> tf
-      )
-      ( case col of
-          C15 -> C14
-          C0 -> C1
-          x -> (if tf then succC else predC) x
-      )
-      (b : c : d : e)
-  go _ _ _ = Nil
-  addStartOffset = over (traversed <<< prop (Proxy :: _ "t")) (add (unwrap tutorialStartOffset))

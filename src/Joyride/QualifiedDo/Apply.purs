@@ -1,10 +1,10 @@
 module Joyride.QualifiedDo.Apply where
 
+import Prelude hiding (bind, discard, apply)
 import Data.Function (apply)
-import Prelude (Unit)
 
-bind :: forall a b. (a -> b) -> a -> b
+bind :: forall a r q. ((a -> r) -> q) -> (a -> r) -> q
 bind = apply
 
-discard :: forall r. ((Unit -> r) -> r) -> (Unit -> r) -> r
-discard = apply
+discard :: forall r q. ((Unit -> r) -> q) -> (Unit -> r) -> q
+discard = bind

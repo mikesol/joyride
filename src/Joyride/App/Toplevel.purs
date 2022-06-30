@@ -2,12 +2,13 @@ module Joyride.App.Toplevel where
 
 import Prelude
 
+import Control.Plus (empty)
 import Data.Map as Map
 import Data.Maybe (Maybe)
 import Data.Number (pi)
 import Data.Time.Duration (Milliseconds)
 import Deku.Control (switcher)
-import Deku.Core (class Korok, Domable)
+import Deku.Core (class Korok, Domable, envy)
 import Effect (Effect)
 import Effect.Ref as Ref
 import FRP.Behavior (Behavior)
@@ -29,6 +30,7 @@ import Joyride.Mocks.Basic (mockBasics)
 import Joyride.Mocks.Leap (mockLeaps)
 import Joyride.Mocks.Long (mockLongs)
 import Joyride.Ocarina (AudibleChildEnd)
+import Joyride.Scores.Ride.Basic (rideBasics)
 import Joyride.Scores.Tutorial.Basic (tutorialBasics)
 import Joyride.Scores.Tutorial.Leap (tutorialLeaps)
 import Joyride.Scores.Tutorial.Long (tutorialLongs)
@@ -176,8 +178,8 @@ toplevel tli =
       wantsTutorial
     TLSuccess successful -> ride
       tli
-      { basicE: mockBasics
-      , leapE: mockLeaps
-      , longE: mockLongs
+      { basicE: rideBasics -- mockBasics
+      , leapE: const $ envy empty -- mockLeaps
+      , longE: const $ envy empty -- mockLongs
       }
       successful
