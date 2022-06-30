@@ -195,7 +195,7 @@ ride
                 -- this will put it in some sort of defered structure like a setTimeout, which means that it won't start on iOS
                 -- please move this comment if you move the bloc of code below and, if needed, copy it to other places where an audio context starts!!!!!
                 , fromEvent $ sampleJIT toSample $ bang \av -> D.OnClick := do
-                    -- ricid <- requestIdleCallbackIsDefined
+                    ricid <- requestIdleCallbackIsDefined
                     ctx <- context
                     hk <- constant0Hack ctx
                     ci <- setInterval 5000 do
@@ -213,7 +213,7 @@ ride
                             (Map.fromFoldable lr.rest)
                             tli.unschedule
                           pure unit
-                      icb -- if ricid then (requestIdleCallback { timeout: 0 } icb tli.wdw <#> Just >>= flip Ref.write tli.icid) else icb
+                      if ricid then (requestIdleCallback { timeout: 0 } icb tli.wdw <#> Just >>= flip Ref.write tli.icid) else icb
                     afE <- hot
                       ( withACTime ctx animationFrame <#>
                           _.acTime
@@ -352,7 +352,7 @@ ride
             [
               -- on/off
               D.div (bang $ D.Class := "z-10 pointer-events-none absolute w-screen h-screen grid grid-rows-3 grid-cols-3")
-                [ D.div (bang $ D.Class := "row-start-1 row-end-2 col-start-1 col-end-4")
+                [ D.div (bang $ D.Class := "row-start-1 row-end-2 col-start-1 col-end-2")
                     -- fromEvent because playerStatus is effectful
                     [ D.div (bang $ D.Class := "mx-2 mt-2")
                         [ fromEvent (biSampleOn (initializeWithEmpty event.iAmReady) (map Tuple playerStatus))

@@ -186,7 +186,7 @@ tutorial
                 -- this will put it in some sort of defered structure like a setTimeout, which means that it won't start on iOS
                 -- please move this comment if you move the bloc of code below and, if needed, copy it to other places where an audio context starts!!!!!
                 do
-                  -- ricid <- requestIdleCallbackIsDefined
+                  ricid <- requestIdleCallbackIsDefined
                   ctx <- context
                   hk <- constant0Hack ctx
                   ci <- setInterval 5000 do
@@ -204,7 +204,7 @@ tutorial
                           (Map.fromFoldable lr.rest)
                           tli.unschedule
                         pure unit
-                    icb -- if ricid then (requestIdleCallback { timeout: 0 } icb tli.wdw <#> Just >>= flip Ref.write tli.icid) else icb
+                    if ricid then (requestIdleCallback { timeout: 0 } icb tli.wdw <#> Just >>= flip Ref.write tli.icid) else icb
                   afE <- hot
                     ( withACTime ctx animationFrame <#>
                         _.acTime
