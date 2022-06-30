@@ -127,7 +127,7 @@ rideBasics makeBasics =
           , matrix4: makeBasics.threeDI.matrix4
           , mesh: makeBasics.threeDI.mesh
           }
-          100
+          1000
           (box { box: makeBasics.threeDI.boxGeometry })
           -- ( meshStandardMaterial
           --     -- { map: textures.hockeyCOL
