@@ -287,25 +287,26 @@ ride
                       ]
                     false -> D.div (bang $ D.Class := "select-auto")
                       [ D.div (bang $ D.Class := "pointer-events-auto text-center text-white p-4")
-                          [ let
-                              url = "joyride.netlify.app/" <> channelName
-                            in
-                              D.p_
-                                [ text_ ("Send this link to up to three people:")
-                                , D.button
-                                    ( oneOf
-                                        [ bang $ D.Class := "pointer-events-auto text-center bg-gray-800 hover:bg-gray-600 text-white mx-2 rounded"
-                                        , click $ bang $ launchAff_ do
-                                            liftEffect $ push.copiedToClipboard true
-                                            writeTextAff ("https://" <> url)
-                                            delay (Milliseconds 2000.0)
-                                            liftEffect $ push.copiedToClipboard false
-                                        ]
-                                    )
-                                    [ text_ "📋" ]
+                          let
+                            url = "joyride.netlify.app/" <> channelName
+                          in
+                            [ D.p_
+                                [ text_ ("Press the clipboard and get a link to this ride:")
+
                                 ]
-                          , D.p_ [ text_ "When everyone has joined, or if you're playing alone, press Start!" ]
-                          ]
+                            , D.button
+                                ( oneOf
+                                    [ bang $ D.Class := "pointer-events-auto text-center text-xl bg-gray-800 hover:bg-gray-600 text-white mx-2 rounded"
+                                    , click $ bang $ launchAff_ do
+                                        liftEffect $ push.copiedToClipboard true
+                                        writeTextAff ("https://" <> url)
+                                        delay (Milliseconds 2000.0)
+                                        liftEffect $ push.copiedToClipboard false
+                                    ]
+                                )
+                                [ text_ "👉🏽 📋 👈🏽" ]
+                            , D.p_ [ text_ "You can send the link to up to 3 people. When everyone has joined, or if you're playing alone, press Start!" ]
+                            ]
                       , D.div (bang $ D.Class := "flex w-full justify-center items-center")
                           $ case playerName of
                               Just _ ->
@@ -555,9 +556,9 @@ ride
                 ]
             , D.div
                 ( oneOf
-                    [ bang $ D.Class := "z-10 snakbar"
-                    , filter not event.copiedToClipboard $> D.Class := "z-10 snakbar"
-                    , filter identity event.copiedToClipboard $> D.Class := "z-10 snackbar show"
+                    [ bang $ D.Class := "z-1 snackbar text-white"
+                    , filter not event.copiedToClipboard $> D.Class := "z-20 snackbar text-white"
+                    , filter identity event.copiedToClipboard $> D.Class := "z-20 snackbar show text-white"
                     ]
                 )
                 [ text_ "Copied to clipboard" ]
