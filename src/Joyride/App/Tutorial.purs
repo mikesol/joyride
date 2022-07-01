@@ -42,6 +42,7 @@ import Joyride.FRP.Behavior (refToBehavior)
 import Joyride.FRP.Rate (timeFromRate)
 import Joyride.FRP.SampleOnSubscribe (initializeWithEmpty)
 import Joyride.FRP.Schedule (fireAndForget)
+import Joyride.FullScreen as FullScreen
 import Joyride.Ocarina (AudibleChildEnd)
 import Joyride.Style (buttonCls, headerCls)
 import Joyride.Visual.Animation.Tutorial (runThree)
@@ -75,7 +76,6 @@ type TutorialInfo r =
   , playerPositions :: Behavior PlayerPositionsF
   , resizeE :: Event WindowDims
   , renderingInfo :: Behavior RenderingInfo
-  , initialDims :: WindowDims
   , goHome :: Effect Unit
   , pushBasic :: EventIO HitBasicMe
   , pushLeap :: EventIO HitLeapMe
@@ -133,6 +133,7 @@ tutorial
   tscore
   { player: myPlayer
   , textures
+  , initialDims
   , models
   , cubeTextures
   , cNow
@@ -292,7 +293,7 @@ tutorial
                 (bang (D.Class := "absolute"))
                 [ D.canvas
                     ( oneOf
-                        [ bang (D.Class := "absolute")
+                        [ bang (D.Class := "absolute w-screen h-screen")
                         -- one gratuitous lookup as if all are ready then myPlayer
                         -- must be ready, but should be computationally fine
                         -- fireAndForget so that it only ever fires once
@@ -313,7 +314,7 @@ tutorial
                                 , cubeTextures
                                 , pushBasic: tli.pushBasic
                                 , basicE: \pushBasicVisualForLabel -> tscore.basicE
-                                    { initialDims: tli.initialDims
+                                    { initialDims
                                     , renderingInfo: tli.renderingInfo
                                     , textures
                                     , cnow: cNow
@@ -334,7 +335,7 @@ tutorial
                                     , pushBasicVisualForLabel
                                     }
                                 , leapE: \pushLeapVisualForLabel -> tscore.leapE
-                                    { initialDims: tli.initialDims
+                                    { initialDims
                                     , renderingInfo: tli.renderingInfo
                                     , textures
                                     , myPlayer
@@ -355,7 +356,7 @@ tutorial
                                     , pushLeapVisualForLabel
                                     }
                                 , longE: \pushHitLongVisualForLabel pushReleaseLongVisualForLabel -> tscore.longE
-                                    { initialDims: tli.initialDims
+                                    { initialDims
                                     , renderingInfo: tli.renderingInfo
                                     , textures
                                     , myPlayer
@@ -382,7 +383,7 @@ tutorial
                                     }
                                 , animatedStuff
                                 , resizeE: tli.resizeE
-                                , initialDims: tli.initialDims
+                                , initialDims
                                 , canvas: _
                                 }
                             )
@@ -439,9 +440,11 @@ tutorial
 
   tutorialCenterMatter currentState pushCurrentState { startCallback } = currentState # switcher \cs -> case cs of
     Intro -> tutorialCenterMatterFrame "Welcome to Joyride!" Nothing false "Start Tutorial" FadeOut
-      ( startCallback *> launchAff_
-          ( delay (Milliseconds 4000.0)
-              *> liftEffect (pushCurrentState Tiles)
+      ( FullScreen.fullScreenFlow
+          ( startCallback *> launchAff_
+              ( delay (Milliseconds 4000.0)
+                  *> liftEffect (pushCurrentState Tiles)
+              )
           )
       )
       pushCurrentState
