@@ -17,6 +17,7 @@
 	"devDependencies": {
 		"@babel/core": "^7.17.10",
 		"@babel/preset-env": "^7.17.10",
+		"@capacitor/cli": "^3.6.0",
 		"babel-loader": "^8.2.5",
 		"copy-webpack-plugin": "^11.0.0",
 		"css-loader": "^6.7.1",
@@ -35,6 +36,9 @@
 		"webpack-dev-server": "^4.8.1"
 	},
 	"dependencies": {
+		"@capacitor/android": "^3.6.0",
+		"@capacitor/core": "^3.6.0",
+		"@capacitor/ios": "^3.6.0",
 		"firebase": "^9.8.3",
 		"lil-gui": "^0.16.1",
 		"pubnub": "^5.0.1",

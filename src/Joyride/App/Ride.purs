@@ -288,7 +288,7 @@ ride
                     false -> D.div (bang $ D.Class := "select-auto")
                       [ D.div (bang $ D.Class := "pointer-events-auto text-center text-white p-4")
                           let
-                            url = "joyride.netlify.app/" <> channelName
+                            url = "joyride.fm/" <> channelName
                           in
                             [ D.p_
                                 [ text_ ("Press the clipboard and get a link to this ride:")
@@ -355,7 +355,7 @@ ride
           \animatedStuff -> D.div_
             [
               -- on/off
-              D.div (bang $ D.Class := "z-10 pointer-events-none absolute w-screen h-screen grid grid-rows-3 grid-cols-3")
+              D.div (bang $ D.Class := "z-20 pointer-events-none absolute w-screen h-screen grid grid-rows-3 grid-cols-3")
                 [ D.div (bang $ D.Class := "row-start-1 row-end-2 col-start-1 col-end-4")
                     -- fromEvent because playerStatus is effectful
                     [ D.div (bang $ D.Class := "mx-2 mt-2")
@@ -556,8 +556,8 @@ ride
             , D.div
                 ( oneOf
                     [ bang $ D.Class := "z-1 snackbar text-white"
-                    , filter not event.copiedToClipboard $> D.Class := "z-20 snackbar text-white"
-                    , filter identity event.copiedToClipboard $> D.Class := "z-20 snackbar show text-white"
+                    , filter not event.copiedToClipboard $> D.Class := "z-30 snackbar text-white"
+                    , filter identity event.copiedToClipboard $> D.Class := "z-30 snackbar show text-white"
                     ]
                 )
                 [ text_ "Copied to clipboard" ]
