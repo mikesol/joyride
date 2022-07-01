@@ -288,7 +288,7 @@ ride
                     false -> D.div (bang $ D.Class := "select-auto")
                       [ D.div (bang $ D.Class := "pointer-events-auto text-center text-white p-4")
                           let
-                            url = "joyride.netlify.app/" <> channelName
+                            url = "joyride.fm/" <> channelName
                           in
                             [ D.p_
                                 [ text_ ("Press the clipboard and get a link to this ride:")
