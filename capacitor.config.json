@@ -1,0 +1,6 @@
+{
+  "appId": "fm.joyride.app",
+  "appName": "Joyride",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}
