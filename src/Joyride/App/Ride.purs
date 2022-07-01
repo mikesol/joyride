@@ -45,6 +45,7 @@ import Joyride.FRP.Rate (timeFromRate)
 import Joyride.FRP.SampleJIT (sampleJIT)
 import Joyride.FRP.SampleOnSubscribe (initializeWithEmpty)
 import Joyride.FRP.Schedule (fireAndForget)
+import Joyride.FullScreen as FullScreen
 import Joyride.Ocarina (AudibleChildEnd)
 import Joyride.Style (buttonCls)
 import Joyride.Timing.CoordinatedNow (withCTime)
@@ -194,62 +195,65 @@ ride
                 -- it CANNOT be in Aff, even an Aff that is theoretically in the same tick
                 -- this will put it in some sort of defered structure like a setTimeout, which means that it won't start on iOS
                 -- please move this comment if you move the bloc of code below and, if needed, copy it to other places where an audio context starts!!!!!
-                , fromEvent $ sampleJIT toSample $ bang \av -> D.OnClick := do
-                    ricid <- requestIdleCallbackIsDefined
-                    ctx <- context
-                    hk <- constant0Hack ctx
-                    ci <- setInterval 5000 do
-                      Ref.read tli.icid >>= traverse_
-                        (flip cancelIdleCallback tli.wdw)
-                      let
-                        icb = do
-                          n <- (unInstant >>> coerce) <$> LocalNow.now
-                          mp <- Map.toUnfoldable <$>
-                            Ref.read tli.unschedule
-                          let
-                            lr = span (fst >>> (_ < n)) mp
-                          foreachE lr.init snd
-                          Ref.write
-                            (Map.fromFoldable lr.rest)
-                            tli.unschedule
-                          pure unit
-                      if ricid then (requestIdleCallback { timeout: 0 } icb tli.wdw <#> Just >>= flip Ref.write tli.icid) else icb
-                    afE <- hot
-                      ( withACTime ctx animationFrame <#>
-                          _.acTime
-                      )
-                    withRate <-
-                      hot
-                        $ timeFromRate cNow
-                            (pure { rate: 1.0 })
-                            (Seconds >>> { real: _ } <$> afE.event)
+                , fromEvent
+                    $ sampleJIT toSample
+                    $ bang
+                        \av -> D.OnClick := FullScreen.fullScreenFlow do
+                          ricid <- requestIdleCallbackIsDefined
+                          ctx <- context
+                          hk <- constant0Hack ctx
+                          ci <- setInterval 5000 do
+                            Ref.read tli.icid >>= traverse_
+                              (flip cancelIdleCallback tli.wdw)
+                            let
+                              icb = do
+                                n <- (unInstant >>> coerce) <$> LocalNow.now
+                                mp <- Map.toUnfoldable <$>
+                                  Ref.read tli.unschedule
+                                let
+                                  lr = span (fst >>> (_ < n)) mp
+                                foreachE lr.init snd
+                                Ref.write
+                                  (Map.fromFoldable lr.rest)
+                                  tli.unschedule
+                                pure unit
+                            if ricid then (requestIdleCallback { timeout: 0 } icb tli.wdw <#> Just >>= flip Ref.write tli.icid) else icb
+                          afE <- hot
+                            ( withACTime ctx animationFrame <#>
+                                _.acTime
+                            )
+                          withRate <-
+                            hot
+                              $ timeFromRate cNow
+                                  (pure { rate: 1.0 })
+                                  (Seconds >>> { real: _ } <$> afE.event)
 
-                    iu0 <- subscribe withRate.event push.rateInfo
-                    st <- run2 ctx
-                      ( graph
-                          { basics: event.basicAudio
-                          , leaps: event.leapAudio
-                          , rateInfo: _.rateInfo <$> aStuff
-                          , buffers: refToBehavior tli.soundObj
-                          , silence: tli.silence
-                          }
-                      )
-                    push.iAmReady
-                      ( Unsubscribe
-                          ( st *> hk *> clearInterval ci
-                              *> afE.unsubscribe
-                              *> iu0
-                              --  *> iu1
-                              *> withRate.unsubscribe
-                              *> close ctx
-                          )
-                      )
-                    launchAff_ do
-                      -- requestFullScreen
-                      nm <- AVar.read av
-                      liftEffect do
-                        t :: JMilliseconds <- coerce <$> cNow
-                        optMeIn t nm
+                          iu0 <- subscribe withRate.event push.rateInfo
+                          st <- run2 ctx
+                            ( graph
+                                { basics: event.basicAudio
+                                , leaps: event.leapAudio
+                                , rateInfo: _.rateInfo <$> aStuff
+                                , buffers: refToBehavior tli.soundObj
+                                , silence: tli.silence
+                                }
+                            )
+                          push.iAmReady
+                            ( Unsubscribe
+                                ( st *> hk *> clearInterval ci
+                                    *> afE.unsubscribe
+                                    *> iu0
+                                    --  *> iu1
+                                    *> withRate.unsubscribe
+                                    *> close ctx
+                                )
+                            )
+                          launchAff_ do
+                            -- requestFullScreen
+                            nm <- AVar.read av
+                            liftEffect do
+                              t :: JMilliseconds <- coerce <$> cNow
+                              optMeIn t nm
                 ]
             vbussed (Proxy :: _ (V (TextArea Unlifted)))
               \nPush (nEvent :: { | TextArea (AnEvent m) }) ->

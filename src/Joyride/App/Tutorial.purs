@@ -42,6 +42,7 @@ import Joyride.FRP.Behavior (refToBehavior)
 import Joyride.FRP.Rate (timeFromRate)
 import Joyride.FRP.SampleOnSubscribe (initializeWithEmpty)
 import Joyride.FRP.Schedule (fireAndForget)
+import Joyride.FullScreen as FullScreen
 import Joyride.Ocarina (AudibleChildEnd)
 import Joyride.Style (buttonCls, headerCls)
 import Joyride.Visual.Animation.Tutorial (runThree)
@@ -439,9 +440,11 @@ tutorial
 
   tutorialCenterMatter currentState pushCurrentState { startCallback } = currentState # switcher \cs -> case cs of
     Intro -> tutorialCenterMatterFrame "Welcome to Joyride!" Nothing false "Start Tutorial" FadeOut
-      ( startCallback *> launchAff_
-          ( delay (Milliseconds 4000.0)
-              *> liftEffect (pushCurrentState Tiles)
+      ( FullScreen.fullScreenFlow
+          ( startCallback *> launchAff_
+              ( delay (Milliseconds 4000.0)
+                  *> liftEffect (pushCurrentState Tiles)
+              )
           )
       )
       pushCurrentState
