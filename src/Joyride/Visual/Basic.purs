@@ -3,6 +3,7 @@ module Joyride.Visual.Basic where
 import Prelude
 
 import Control.Alt ((<|>))
+import Control.Plus (empty)
 import Data.Compactable (compact)
 import Data.DateTime.Instant (unInstant)
 import Data.FastVect.FastVect (index)
@@ -12,6 +13,7 @@ import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.Profunctor (dimap)
 import Data.Time.Duration (Milliseconds(..))
+import Debug (spy)
 import Effect.Aff (launchAff_)
 import Effect.Aff.AVar as AVar
 import Effect.Class (liftEffect)
@@ -23,25 +25,28 @@ import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Rider (rider, toRide)
 import Joyride.FRP.SampleJIT (sampleJIT)
 import Joyride.FRP.Schedule (fireAndForget)
+import Joyride.Ocarina (AudibleChildEnd(..), AudibleEnd(..))
 import Joyride.Timing.CoordinatedNow (cInstant)
 import Joyride.Visual.EmptyMatrix (emptyMatrix)
-import Joyride.Ocarina (AudibleChildEnd(..), AudibleEnd(..))
-import Rito.Core (Instance)
+import Ocarina.Core (silence, sound)
+import Ocarina.Math (calcSlope)
+import Rito.Color (RGB(..))
+import Rito.Core (AMesh)
+import Rito.Geometries.Box (box)
+import Rito.Materials.MeshPhongMaterial (meshPhongMaterial)
 import Rito.Matrix4 (Matrix4')
+import Rito.Mesh (mesh)
 import Rito.Properties as P
-import Rito.RoundRobin (InstanceId, singleInstance)
 import Safe.Coerce (coerce)
 import Type.Proxy (Proxy(..))
 import Types (Beats, HitBasicMe(..), HitBasicOtherPlayer(..), HitBasicVisualForLabel(..), JMilliseconds(..), MakeBasic, Position(..), RateInfo, RenderingInfo, entryZ, normalizedColumn, playerPosition', touchPointZ)
-import Ocarina.Core (silence, sound)
-import Ocarina.Math (calcSlope)
 import Web.TouchEvent.Touch as Touch
 import Web.UIEvent.MouseEvent as MouseEvent
 
 basic
   :: forall r lock payload
    . { | MakeBasic r }
-  -> Event (InstanceId -> Instance lock payload)
+  -> Event (AMesh lock payload)
 basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
   let
     -- this is the event that we listen to to know when to stop playing audio
@@ -153,10 +158,22 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
           }
       )
       ( bang
-          ( ( singleInstance
+          ( ( mesh { mesh: makeBasic.threeDI.mesh } (box { box: makeBasic.threeDI.boxGeometry })
+                ( meshPhongMaterial
+                    { meshPhongMaterial: makeBasic.threeDI.meshPhongMaterial
+                    , color: makeBasic.mkColor (RGB 0.798 0.927 0.778)
+                    }
+                    empty
+                )
                 ( oneOf
-                    [ bang $ P.matrix4 $ makeBasic.mkMatrix4 emptyMatrix
-                    , P.matrix4 <<< makeBasic.mkMatrix4 <$> drawingMatrix
+                    [ keepLatest $ (drawingMatrix <|> bang emptyMatrix) <#> \{ n11, n22, n33, n14, n24, n34 } -> oneOfMap bang
+                        [ P.scaleX n11
+                        , P.scaleY n22
+                        , P.scaleZ n33
+                        , P.positionX n14
+                        , P.positionY n24
+                        , P.positionZ n34
+                        ]
                     , let
                         f = oneOf
                           [ -- if I touched this, turn off the listener
