@@ -229,10 +229,6 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
         loc <- location w
         pn <- pathname loc
         let parsed = parse route pn
-        -- resize
-        initialDims <- { iw: _, ih: _ }
-          <$> (Int.toNumber <$> innerWidth w)
-          <*> (Int.toNumber <$> innerHeight w)
         resizeListener <- eventListener \_ -> do
           ({ iw: _, ih: _ } <$> (Int.toNumber <$> innerWidth w) <*> (Int.toNumber <$> innerHeight w)) >>= resizeE.push
         addEventListener (EventType "resize") resizeListener true (toEventTarget w)
@@ -265,7 +261,6 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
               , renderingInfo: renderingInfoBehavior
               , debug
               , silence
-              , initialDims
               , icid: idleCallbackId
               , wdw: w
               , unschedule
@@ -375,9 +370,14 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                 myCubeTextures <- joinFiber downloadedCubeTextures
                 liftEffect do
                   longVerb <- fromMaybe silence <<< Object.lookup "elvedenHallLordsCloakroom" <$> Ref.read soundObj
+                  -- resize
+                  initialDims <- { iw: _, ih: _ }
+                    <$> (Int.toNumber <$> innerWidth w)
+                    <*> (Int.toNumber <$> innerHeight w)
                   negotiation.push $ WantsTutorial
                     { player: Player4
                     , threeDI
+                    , initialDims
                     , shaders
                     , galaxyAttributes
                     , cNow: mappedCNow
@@ -402,9 +402,13 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
               NoChannel -> do
                 myGLTFs <- joinFiber downloadedGLTFs
                 myCubeTextures <- joinFiber downloadedCubeTextures
+                initialDims <- liftEffect $ { iw: _, ih: _ }
+                  <$> (Int.toNumber <$> innerWidth w)
+                  <*> (Int.toNumber <$> innerHeight w)
                 liftEffect $ negotiation.push
                   ( GetRulesOfGame
                       { threeDI
+                      , initialDims
                       , models: Models myGLTFs
                       , cubeTextures: CubeTextures myCubeTextures
                       , cNow: mappedCNow
@@ -580,8 +584,12 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                     myTextures <- joinFiber downloadedTextures
                     myGLTFs <- joinFiber downloadedGLTFs
                     myCubeTextures <- joinFiber downloadedCubeTextures
+                    initialDims <- liftEffect $ { iw: _, ih: _ }
+                      <$> (Int.toNumber <$> innerWidth w)
+                      <*> (Int.toNumber <$> innerHeight w)
                     liftEffect $ negotiation.push $ Success
                       { player: myPlayer
+                      , initialDims
                       , threeDI
                       , playerName
                       , shaders

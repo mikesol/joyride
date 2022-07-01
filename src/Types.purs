@@ -841,6 +841,7 @@ data Negotiation
   | GetRulesOfGame
       { cubeTextures :: CubeTextures CTL.CubeTexture
       , models :: Models GLTFLoader.GLTF
+      , initialDims :: WindowDims
       , threeDI :: ThreeDI
       , cNow :: Effect Milliseconds
       }
@@ -873,6 +874,7 @@ type Success' =
   , galaxyAttributes :: GalaxyAttributes
   , playerName :: Maybe String
   , channelName :: String
+  , initialDims :: WindowDims
   , cNow :: Effect Milliseconds
   , threeDI :: ThreeDI
   , pubNubEvent :: Event PlayerAction
@@ -887,6 +889,7 @@ type WantsTutorial' =
   { player :: Player
   , shaders :: Shaders
   , longVerb :: BrowserAudioBuffer
+  , initialDims :: WindowDims
   , galaxyAttributes :: GalaxyAttributes
   , cNow :: Effect Milliseconds
   , threeDI :: ThreeDI
@@ -1128,4 +1131,5 @@ instance Show ChannelChooser where
   show = genericShow
 
 newtype Models s = Models { spaceship :: s }
+
 derive instance Newtype (Models s) _

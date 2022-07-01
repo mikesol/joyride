@@ -79,7 +79,6 @@ type RideInfo r =
   , playerPositions :: Behavior PlayerPositionsF
   , resizeE :: Event WindowDims
   , renderingInfo :: Behavior RenderingInfo
-  , initialDims :: WindowDims
   , goHome :: Effect Unit
   , pushBasic :: EventIO HitBasicMe
   , pushLeap :: EventIO HitLeapMe
@@ -143,6 +142,7 @@ ride
   , shaders
   , playerName
   , channelName
+  , initialDims
   , threeDI
   , pubNubEvent
   , playerStatus
@@ -426,7 +426,7 @@ ride
                                 , models
                                 , pushBasic: tli.pushBasic
                                 , basicE: \pushBasicVisualForLabel -> tscore.basicE
-                                    { initialDims: tli.initialDims
+                                    { initialDims
                                     , renderingInfo: tli.renderingInfo
                                     , textures
                                     , cnow: cNow
@@ -460,7 +460,7 @@ ride
                                     , pushBasicVisualForLabel
                                     }
                                 , leapE: \pushLeapVisualForLabel -> tscore.leapE
-                                    { initialDims: tli.initialDims
+                                    { initialDims
                                     , renderingInfo: tli.renderingInfo
                                     , textures
                                     , myPlayer
@@ -494,7 +494,7 @@ ride
                                     , pushLeapVisualForLabel
                                     }
                                 , longE: \pushHitLongVisualForLabel pushReleaseLongVisualForLabel -> tscore.longE
-                                    { initialDims: tli.initialDims
+                                    { initialDims
                                     , renderingInfo: tli.renderingInfo
                                     , textures
                                     , myPlayer
@@ -543,7 +543,7 @@ ride
                                     }
                                 , animatedStuff
                                 , resizeE: tli.resizeE
-                                , initialDims: tli.initialDims
+                                , initialDims
                                 , canvas: _
                                 }
                             )
