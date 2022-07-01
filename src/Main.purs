@@ -3,6 +3,7 @@ module Main where
 import Prelude
 
 import Control.Alt ((<|>))
+import Joyride.EmitsTouchEvents (emitsTouchEvents)
 import Control.Parallel (parTraverse, sequential)
 import Data.Either (Either(..), hush)
 import Data.Filterable (filter)
@@ -75,7 +76,6 @@ twoPi = 2.0 * pi :: Number
 type StartStop = V (start :: Unit, stop :: Effect Unit)
 type CanvasInfo = { x :: Number, y :: Number } /\ Number
 
-foreign import emitsTouchEvents :: Effect Boolean
 foreign import useLilGui :: Effect Boolean
 foreign import force4 :: Effect Boolean
 
