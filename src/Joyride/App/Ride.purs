@@ -292,7 +292,6 @@ ride
                           in
                             [ D.p_
                                 [ text_ ("Press the clipboard and get a link to this ride:")
-
                                 ]
                             , D.button
                                 ( oneOf
@@ -357,7 +356,7 @@ ride
             [
               -- on/off
               D.div (bang $ D.Class := "z-10 pointer-events-none absolute w-screen h-screen grid grid-rows-3 grid-cols-3")
-                [ D.div (bang $ D.Class := "row-start-1 row-end-2 col-start-1 col-end-2")
+                [ D.div (bang $ D.Class := "row-start-1 row-end-2 col-start-1 col-end-4")
                     -- fromEvent because playerStatus is effectful
                     [ D.div (bang $ D.Class := "mx-2 mt-2")
                         [ fromEvent (biSampleOn (initializeWithEmpty event.iAmReady) (map Tuple playerStatus))
