@@ -184,7 +184,7 @@ rideBasics makeBasics =
     let
       { init, rest } = span (\{ appearsAt } -> appearsAt <= beats + lookAhead) l
     (f <$> init) :< go f rest
-  score = mapWithIndex (\uniqueId x -> union { uniqueId } x) $ sortBy (compare `on` _.b0) (bassDrums1 <> bassDrums2 <> bassDrums3 <> lyrics1 <> lyrics2 <> {- more stuff? -}  Nil)
+  score = mapWithIndex (\uniqueId x -> union { uniqueId } x) $ sortBy (compare `on` _.b0) (bassDrums1 <> bassDrums2 <> bassDrums3 <> lyrics1 <> lyrics2 <> lyrics3 <> lyrics4 <> {- more stuff? -}  Nil)
 
 type ScoreMorcel =
   { appearsAt :: Beats
@@ -222,10 +222,16 @@ lyricsMod c n md = lyrics' c
   )
 
 lyrics1 :: List ScoreMorcel
-lyrics1 = lyricsMod C7 0 2
+lyrics1 = lyricsMod C7 0 4
 
 lyrics2 :: List ScoreMorcel
-lyrics2 = lyricsMod C8 1 2
+lyrics2 = lyricsMod C8 1 4
+
+lyrics3 :: List ScoreMorcel
+lyrics3 = lyricsMod C2 2 4
+
+lyrics4 :: List ScoreMorcel
+lyrics4 = lyricsMod C14 3 4
 
 bassDrums' :: Column -> List TCID -> List ScoreMorcel
 bassDrums' column = go
