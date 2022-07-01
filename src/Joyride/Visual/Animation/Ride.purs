@@ -9,6 +9,7 @@ import Data.Array.NonEmpty (toArray)
 import Data.Filterable (filter)
 import Data.Foldable (oneOf, oneOfMap)
 import Data.Maybe (Maybe(..))
+import Data.Monoid (guard)
 import Data.Newtype (unwrap)
 import Data.Number (cos, pi, sin)
 import Data.Tuple (Tuple(..))
@@ -194,6 +195,34 @@ runThree opts = do
                         ) <$> (toArray allPositions)
                       )
                       <>
+                        ( filter (_ /= opts.myPlayer) (toArray allPlayers) <#> \player -> do
+                            let ppos = playerPosition player
+                            let posAx axis = map (ppos axis) mopts.playerPositions
+                            toGroup $ GLTF.scene (unwrap opts.models).spaceship
+                              ( oneOf
+                                  [ positionX <$> applyLPF (player == opts.myPlayer) (posAx AxisX)
+                                  , positionY <$> (sampleBy (\{ sphereOffsetY } py -> sphereOffsetY + py) opts.renderingInfo (posAx AxisY))
+                                  , bang $ positionZ
+                                      ( case player of
+                                          Player1 -> -4.0
+                                          Player2 -> -3.0
+                                          Player3 -> -2.0
+                                          Player4 -> -1.0
+                                      )
+                                  , positionZ <$> posAx AxisZ
+                                  , bang $ scaleX 0.02
+                                  , bang $ scaleY 0.02
+                                  , bang $ scaleZ 0.02
+                                  , case player of
+                                      Player1 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: sin (unwrap rate.time * pi * 0.1) * pi * 0.02, y: sin (unwrap rate.time * pi * 0.09) * pi * -0.03, z: cos (unwrap rate.time * pi * 0.07) * pi * 0.04 })
+                                      Player3 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: cos (unwrap rate.time * pi * 0.06) * pi * 0.02, y: sin (unwrap rate.time * pi * 0.11) * pi * 0.01, z: cos (unwrap rate.time * pi * 0.03) * pi * -0.03 })
+                                      Player2 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: sin (unwrap rate.time * pi * 0.02) * pi * -0.05, y: cos (unwrap rate.time * pi * 0.12) * pi * -0.02, z: sin (unwrap rate.time * pi * -0.08) * pi * 0.08 })
+                                      Player4 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: cos (unwrap rate.time * pi * 0.01) * pi * 0.04, y: cos (unwrap rate.time * pi * 0.03) * pi * -0.06, z: sin (unwrap rate.time * pi * 0.02) * pi * -0.09 })
+                                  ]
+                              )
+                              []
+                        )
+                      <>
                         [ toGroup $ ambientLight
                             { ambientLight: opts.threeDI.ambientLight
                             , intensity: 0.1
@@ -264,120 +293,49 @@ runThree opts = do
                             }
                         ]
                       <>
-                        [ toGroup $ instancedMesh' galaxyParams.count
-                            { matrix4: opts.threeDI.matrix4
-                            , mesh: opts.threeDI.mesh
-                            , instancedMesh: opts.threeDI.instancedMesh
-                            }
-                            ( plane
-                                { plane: opts.threeDI.plane
-                                , instancedBufferAttributes: fromHomogeneous opts.galaxyAttributes
-                                , widthSegments: 4
-                                , heightSegments: 4
-                                }
+                        ({-guard false-} [ toGroup $ group { group: opts.threeDI.group }
+                            ( oneOf
+                                [ ( opts.animatedStuff <#>
+                                      \{ rateInfo: { time: Seconds time } } -> positionZ ((sin (time * pi * 0.1) * 0.1) - 1.0)
+                                  )
+                                ]
                             )
-                            ( shaderMaterial
-                                { uSize: 30.0
-                                , uTime: 0.0
-                                , uButterfly: (unwrap opts.textures).butterfly0
+                            [ toGroup $ instancedMesh' galaxyParams.count
+                                { matrix4: opts.threeDI.matrix4
+                                , mesh: opts.threeDI.mesh
+                                , instancedMesh: opts.threeDI.instancedMesh
                                 }
-                                { shaderMaterial: opts.threeDI.shaderMaterial
-                                , vertexShader: opts.shaders.galaxy.vertex
-                                , depthWrite: false
-                                , blending: AdditiveBlending
-                                , vertexColors: true
-                                , fragmentShader: opts.shaders.galaxy.fragment
-                                }
-                                ( opts.animatedStuff <#>
-                                    \{ rateInfo: { time: Seconds time } } -> P.uniform (inj (Proxy :: _ "uTime") time)
+                                ( plane
+                                    { plane: opts.threeDI.plane
+                                    , instancedBufferAttributes: fromHomogeneous opts.galaxyAttributes
+                                    , widthSegments: 4
+                                    , heightSegments: 4
+                                    }
                                 )
-                            )
-                            empty -- oneOf [ bang $ P.positionZ (-1.0), bang $ positionY 0.0, bang $ scaleX 3.0, bang $ scaleY 3.0, bang $ scaleZ 3.0 ]
-                        ]
+                                ( shaderMaterial
+                                    { uSize: 30.0
+                                    , uTime: 0.0
+                                    , uButterfly: (unwrap opts.textures).butterfly0
+                                    }
+                                    { shaderMaterial: opts.threeDI.shaderMaterial
+                                    , vertexShader: opts.shaders.galaxy.vertex
+                                    , depthWrite: false
+                                    , blending: AdditiveBlending
+                                    , vertexColors: true
+                                    , fragmentShader: opts.shaders.galaxy.fragment
+                                    }
+                                    ( opts.animatedStuff <#>
+                                        \{ rateInfo: { time: Seconds time } } -> P.uniform (inj (Proxy :: _ "uTime") time)
+                                    )
+                                )
+                                empty
+                            ]
+                        ])
                       <>
                         -- camera
                         -- needs to be part of the group to rotate correctly
                         [ cameraToGroup myCamera
                         ]
-                  )
-              ]
-          )
-        myShips <- globalScenePortal1
-          ( scene { scene: opts.threeDI.scene } empty
-              [ toScene $ group { group: opts.threeDI.group }
-                  ( keepLatest $
-                      ( mapAccum
-                          ( \a b -> case b of
-                              Nothing -> Just a /\ 0.0
-                              Just x -> Just a /\ (a - x)
-                          )
-                          ( map (_.rateInfo.epochTime >>> unwrap >>> (_ / 1000.0))
-                              opts.animatedStuff
-                          )
-                          Nothing
-                      ) <#> \t ->
-                        let
-                          fac = t / 1000.0
-                        in
-                          if false then empty
-                          else oneOfMap bang
-                            [ P.rotateX $ 0.001 * cos (fac * pi * 0.01)
-                            , P.rotateY $ 0.001 * cos (fac * pi * 0.01)
-                            , P.rotateZ $ 0.001 * cos (fac * pi * 0.01)
-                            ]
-                  )
-                  ( ( filter (_ /= opts.myPlayer) (toArray allPlayers) <#> \player -> do
-                        let ppos = playerPosition player
-                        let posAx axis = map (ppos axis) mopts.playerPositions
-                        toGroup $ GLTF.scene (unwrap opts.models).spaceship
-                          ( oneOf
-                              [ positionX <$> applyLPF (player == opts.myPlayer) (posAx AxisX)
-                              , positionY <$> (sampleBy (\{ sphereOffsetY } py -> sphereOffsetY + py) opts.renderingInfo (posAx AxisY))
-                              , bang $ positionZ
-                                  ( case player of
-                                      Player1 -> -4.0
-                                      Player2 -> -3.0
-                                      Player3 -> -2.0
-                                      Player4 -> -1.0
-                                  )
-                              , positionZ <$> posAx AxisZ
-                              , bang $ scaleX 0.02
-                              , bang $ scaleY 0.02
-                              , bang $ scaleZ 0.02
-                              , case player of
-                                  Player1 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: sin (unwrap rate.time * pi * 0.1) * pi * 0.02, y: sin (unwrap rate.time * pi * 0.09) * pi * -0.03, z: cos (unwrap rate.time * pi * 0.07) * pi * 0.04 })
-                                  Player3 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: cos (unwrap rate.time * pi * 0.06) * pi * 0.02, y: sin (unwrap rate.time * pi * 0.11) * pi * 0.01, z: cos (unwrap rate.time * pi * 0.03) * pi * -0.03 })
-                                  Player2 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: sin (unwrap rate.time * pi * 0.02) * pi * -0.05, y: cos (unwrap rate.time * pi * 0.12) * pi * -0.02, z: sin (unwrap rate.time * pi * -0.08) * pi * 0.08 })
-                                  Player4 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: cos (unwrap rate.time * pi * 0.01) * pi * 0.04, y: cos (unwrap rate.time * pi * 0.03) * pi * -0.06, z: sin (unwrap rate.time * pi * 0.02) * pi * -0.09 })
-                              ]
-                          )
-                          []
-                    )
-                      <>
-                        ( (toArray allPlayers) <#> \player -> do
-                            let ppos = playerPosition player
-                            let posAx axis = map (ppos axis) mopts.playerPositions
-                            let normalDistance = 4.0
-                            let normalDecay = 2.0
-                            let normalIntensity = 1.0
-                            toGroup $ pointLight
-                              { pointLight: opts.threeDI.pointLight
-                              , distance: normalDistance
-                              , decay: normalDecay
-                              , intensity: normalIntensity
-                              , color: c3 $ RGB 1.0 1.0 1.0
-                              }
-                              ( oneOf
-                                  [ positionX <$> applyLPF (player == opts.myPlayer) (posAx AxisX)
-                                  , positionY <$> (sampleBy (\{ lightOffsetY } py -> (lightOffsetY + py)) opts.renderingInfo (posAx AxisY))
-                                  , positionZ <$> posAx AxisZ
-                                  , bang $ P.decay normalDecay
-                                  , bang $ P.intensity normalIntensity
-                                  , bang $ P.distance normalDistance
-                                  ]
-                              )
-
-                        )
                   )
               ]
           )
@@ -393,27 +351,6 @@ runThree opts = do
                   , opts.resizeE <#> \i -> size { width: i.iw, height: i.ih }
                   ]
               )
-          )
-        myShipComposer <- globalEffectComposerPortal1
-          ( effectComposer
-              { effectComposer: opts.threeDI.effectComposer
-              }
-              myWebGLRenderer
-              empty
-              [ renderPass
-                  { renderPass: opts.threeDI.renderPass
-                  }
-                  myShips
-                  myCamera
-              , unrealBloomPass
-                  { unrealBloomPass: opts.threeDI.unrealBloomPass
-                  , radius: 1.0
-                  , resolution: vector2 opts.threeDI.vector2 { x: 1000.0, y: 1000.0 }
-                  , strength: 3.0
-                  , threshold: 0.1
-                  }
-                  empty
-              ]
           )
         fixed
           [ raycaster
@@ -435,7 +372,6 @@ runThree opts = do
                   }
                   myScene
                   myCamera
-              , effectComposerPass { effectComposerPass: opts.threeDI.effectComposerPass } myShipComposer
               ]
           , envy $ map
               ( \element -> css2DRenderer
