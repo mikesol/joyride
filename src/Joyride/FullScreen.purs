@@ -14,8 +14,8 @@ foreign import fullscreenEnabled :: Effect Boolean
 foreign import requestFullScreen :: Effect Unit -> Effect Unit -> Effect Unit
 
 fullScreenFlow :: Effect Unit -> Effect Unit
-fullScreenFlow cont = do
-  emitsTouchEvents >>= \e ->when e do
+fullScreenFlow cont =
+  emitsTouchEvents >>= \e -> when e do
     w <- window
     -- storage
     stor <- localStorage w
