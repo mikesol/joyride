@@ -139,6 +139,35 @@ runThree opts = do
                   ) <|> (opts.resizeE <#> \i -> P.aspect (i.iw / i.ih))
               )
           )
+        let
+          shipsssss n =
+            ( filter (_ /= opts.myPlayer) (toArray allPlayers) <#> \player -> do
+                let ppos = playerPosition player
+                let posAx axis = map (ppos axis) mopts.playerPositions
+                toGroup $ GLTF.scene (unwrap opts.models).spaceship
+                  ( oneOf
+                      [ (positionX <<< add n) <$> applyLPF (player == opts.myPlayer) (posAx AxisX)
+                      , positionY <$> (sampleBy (\{ sphereOffsetY } py -> sphereOffsetY + py) opts.renderingInfo (posAx AxisY))
+                      , bang $ positionZ
+                          ( case player of
+                              Player1 -> -4.0
+                              Player2 -> -3.0
+                              Player3 -> -2.0
+                              Player4 -> -1.0
+                          )
+                      , positionZ <$> posAx AxisZ
+                      , bang $ scaleX 0.02
+                      , bang $ scaleY 0.02
+                      , bang $ scaleZ 0.02
+                      , case player of
+                          Player1 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: sin (unwrap rate.time * pi * 0.1) * pi * 0.02, y: sin (unwrap rate.time * pi * 0.09) * pi * -0.03, z: cos (unwrap rate.time * pi * 0.07) * pi * 0.04 })
+                          Player3 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: cos (unwrap rate.time * pi * 0.06) * pi * 0.02, y: sin (unwrap rate.time * pi * 0.11) * pi * 0.01, z: cos (unwrap rate.time * pi * 0.03) * pi * -0.03 })
+                          Player2 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: sin (unwrap rate.time * pi * 0.02) * pi * -0.05, y: cos (unwrap rate.time * pi * 0.12) * pi * -0.02, z: sin (unwrap rate.time * pi * -0.08) * pi * 0.08 })
+                          Player4 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: cos (unwrap rate.time * pi * 0.01) * pi * 0.04, y: cos (unwrap rate.time * pi * 0.03) * pi * -0.06, z: sin (unwrap rate.time * pi * 0.02) * pi * -0.09 })
+                      ]
+                  )
+                  []
+            )
         myScene <- globalScenePortal1
           ( scene { scene: opts.threeDI.scene } (bang $ P.background (CubeTexture (unwrap opts.cubeTextures).skybox2))
               [ toScene $ group { group: opts.threeDI.group }
@@ -163,29 +192,30 @@ runThree opts = do
                             , P.rotateZ $ 0.001 * cos (fac * pi * 0.01)
                             ]
                   )
-                  ( map toGroup
-                      ( ( \position -> makeBar $
-                            { c3
-                            , threeDI: opts.threeDI
-                            , renderingInfo: opts.renderingInfo
-                            , debug: opts.debug
-                            , initialIsMe: opts.myPlayer == case position of
-                                Position1 -> Player1
-                                Position2 -> Player2
-                                Position3 -> Player3
-                                Position4 -> Player4
-                            , isMe: dedup
-                                ( opts.animatedStuff <#> \{ playerPositions } -> position == case opts.myPlayer of
-                                    Player1 -> playerPositions.p1p
-                                    Player2 -> playerPositions.p2p
-                                    Player3 -> playerPositions.p3p
-                                    Player4 -> playerPositions.p4p
-                                )
-                            , rateE: mopts.rateInfo
-                            , position
-                            }
-                        ) <$> (toArray allPositions)
-                      )
+                  ( shipsssss 0.00
+                      <> map toGroup
+                        ( ( \position -> makeBar $
+                              { c3
+                              , threeDI: opts.threeDI
+                              , renderingInfo: opts.renderingInfo
+                              , debug: opts.debug
+                              , initialIsMe: opts.myPlayer == case position of
+                                  Position1 -> Player1
+                                  Position2 -> Player2
+                                  Position3 -> Player3
+                                  Position4 -> Player4
+                              , isMe: dedup
+                                  ( opts.animatedStuff <#> \{ playerPositions } -> position == case opts.myPlayer of
+                                      Player1 -> playerPositions.p1p
+                                      Player2 -> playerPositions.p2p
+                                      Player3 -> playerPositions.p3p
+                                      Player4 -> playerPositions.p4p
+                                  )
+                              , rateE: mopts.rateInfo
+                              , position
+                              }
+                          ) <$> (toArray allPositions)
+                        )
                       <>
                         [ toGroup $ ambientLight
                             { ambientLight: opts.threeDI.ambientLight
@@ -288,33 +318,7 @@ runThree opts = do
                             , P.rotateZ $ 0.001 * cos (fac * pi * 0.01)
                             ]
                   )
-                  ( ( filter (_ /= opts.myPlayer) (toArray allPlayers) <#> \player -> do
-                        let ppos = playerPosition player
-                        let posAx axis = map (ppos axis) mopts.playerPositions
-                        toGroup $ GLTF.scene (unwrap opts.models).spaceship
-                          ( oneOf
-                              [ positionX <$> applyLPF (player == opts.myPlayer) (posAx AxisX)
-                              , positionY <$> (sampleBy (\{ sphereOffsetY } py -> sphereOffsetY + py) opts.renderingInfo (posAx AxisY))
-                              , bang $ positionZ
-                                  ( case player of
-                                      Player1 -> -4.0
-                                      Player2 -> -3.0
-                                      Player3 -> -2.0
-                                      Player4 -> -1.0
-                                  )
-                              , positionZ <$> posAx AxisZ
-                              , bang $ scaleX 0.02
-                              , bang $ scaleY 0.02
-                              , bang $ scaleZ 0.02
-                              , case player of
-                                  Player1 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: sin (unwrap rate.time * pi * 0.1) * pi * 0.02, y: sin (unwrap rate.time * pi * 0.09) * pi * -0.03, z: cos (unwrap rate.time * pi * 0.07) * pi * 0.04 })
-                                  Player3 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: cos (unwrap rate.time * pi * 0.06) * pi * 0.02, y: sin (unwrap rate.time * pi * 0.11) * pi * 0.01, z: cos (unwrap rate.time * pi * 0.03) * pi * -0.03 })
-                                  Player2 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: sin (unwrap rate.time * pi * 0.02) * pi * -0.05, y: cos (unwrap rate.time * pi * 0.12) * pi * -0.02, z: sin (unwrap rate.time * pi * -0.08) * pi * 0.08 })
-                                  Player4 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: cos (unwrap rate.time * pi * 0.01) * pi * 0.04, y: cos (unwrap rate.time * pi * 0.03) * pi * -0.06, z: sin (unwrap rate.time * pi * 0.02) * pi * -0.09 })
-                              ]
-                          )
-                          []
-                    )
+                  ( shipsssss 0.0
                       <>
                         ( (toArray allPlayers) <#> \player -> do
                             let ppos = playerPosition player
