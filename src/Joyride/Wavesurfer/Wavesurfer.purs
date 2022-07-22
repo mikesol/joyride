@@ -14,3 +14,5 @@ foreign import makeWavesurfer
   -> Effect WaveSurfer
 
 foreign import zoom :: WaveSurfer -> Number -> Effect Unit
+
+foreign import addMarker :: WaveSurfer -> {time :: Number, label :: String, color :: String } -> Effect Unit

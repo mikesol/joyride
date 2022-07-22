@@ -151,7 +151,12 @@ export const makeWavesurfer = (success) => (container) => (url) => () => {
 			}),
 			MarkersPlugin.create({
 				markers: [
-
+					// {
+					// 	time: 0.2,
+					// 	label: "V1",
+					// 	color: "#ff990a",
+					// 	draggable: true,
+					// },
 				],
 			}),
 			CursorPlugin.create({
@@ -169,25 +174,8 @@ export const makeWavesurfer = (success) => (container) => (url) => () => {
 	});
 	ws.load(url);
 	ws.on("ready", success);
-	ws.addMarker({
-		time: 0.2,
-		label: "V1",
-		color: "#ff990a",
-		draggable: true,
-	});
-	ws.addMarker({
-		time: 1.0,
-		label: "V2",
-		color: "#00ffcc",
-		draggable: true,
-	});
-	ws.addMarker({
-		time: 2.0,
-		label: "V3",
-		color: "#12f03c",
-		draggable: true,
-	});
 	return ws;
 };
 
 export const zoom = (ws) => (z) => () => ws.zoom(z);
+export const addMarker = (ws) => (p) => () => ws.addMarker(p);

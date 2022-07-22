@@ -48,7 +48,7 @@ import Joyride.FullScreen as FullScreen
 import Joyride.Ocarina (AudibleChildEnd)
 import Joyride.Style (buttonCls, headerCls)
 import Joyride.Visual.Animation.Tutorial (runThree)
-import Joyride.Wavesurfer.Wavesurfer (WaveSurfer, makeWavesurfer)
+import Joyride.Wavesurfer.Wavesurfer (WaveSurfer, addMarker, makeWavesurfer)
 import Ocarina.Clock (withACTime)
 import Ocarina.Interpret (close, constant0Hack, context)
 import Ocarina.Run (run2)
@@ -72,28 +72,35 @@ type Events t =
   )
 
 data CAction = AddBasic | AddLeap | AddLongPress
-defaultBasic :: Int -> Landmark
-defaultBasic id = LBasic
+
+defaultBasic :: Int -> Int -> Landmark
+defaultBasic id startIx = LBasic
   { l1: Marker { at: 0.0 }
-  , l2: Marker { at: 0.0 }
-  , l3: Marker { at: 0.0 }
-  , l4: Marker { at: 0.0 }
+  , l2: Marker { at: 0.5 }
+  , l3: Marker { at: 1.0 }
+  , l4: Marker { at: 1.5 }
+  , name: Nothing
   , id
+  , startIx
   }
 
-defaultLeap :: Int -> Landmark
-defaultLeap id = LLeap
-  { start: Marker { at: 0.0 }
-  , end: Marker { at: 0.0 }
+defaultLeap :: Int -> Int -> Landmark
+defaultLeap id startIx = LLeap
+  { start: Marker { at: 0.5 }
+  , end: Marker { at: 1.25 }
+  , name: Nothing
   , id
+  , startIx
   }
 
-defaultLongPress :: Int -> Landmark
-defaultLongPress id = LLong
-  { start: Marker { at: 0.0 }
-  , end: Marker { at: 0.0 }
+defaultLongPress :: Int -> Int -> Landmark
+defaultLongPress id startIx = LLong
+  { start: Marker { at: 0.5 }
+  , end: Marker { at: 1.25 }
   , len: LongLength { len: 1.0 }
+  , name: Nothing
   , id
+  , startIx
   }
 
 type CEvents t =
@@ -135,61 +142,90 @@ editorPage _ = vbussed (Proxy :: _ (V (Events Always))) \pushed (event :: { | Ev
             )
             []
         , D.div_
-            [ vbussed (Proxy :: _ (V (CEvents Always))) \cPushed (cEvent :: { | CEvents (AnEvent m) }) -> do
-                let
-                  store :: AnEvent m (Array Landmark)
-                  store = _.landmarks <$>
-                    ( fold
-                        ( \a { landmarks, id } -> case a of
-                            AddBasic -> { landmarks: landmarks <> [defaultBasic id], id: id + 1 }
-                            AddLeap -> { landmarks: landmarks  <> [defaultLeap id], id: id + 1 }
-                            AddLongPress -> { landmarks: landmarks  <> [defaultLongPress id], id: id + 1 }
-
-                        )
-                        (oneOf [ cEvent.addBasic $> AddBasic, cEvent.addLeap $> AddLeap, cEvent.addLongPress $> AddLongPress ])
-                        { landmarks: [], id: 0 }
-                    )
-                  top =
-                    [ D.button
-                        (bang $ D.OnClick := cPushed.addBasic unit)
-                        [ text_ "Add Tile" ]
-                    , D.button
-                        (bang $ D.OnClick := cPushed.addLeap unit)
-                        [ text_ "Add Leap" ]
-                    , D.button
-                        (bang $ D.OnClick := cPushed.addLongPress unit)
-                        [ text_ "Add Long Press" ]
+            [ vbussed (Proxy :: _ (V (CEvents Always))) \cPushed (cEvent :: { | CEvents (AnEvent m) }) -> envy $ memoize
+                ( oneOf
+                    [ cEvent.addBasic $> AddBasic
+                    , cEvent.addLeap $> AddLeap
+                    , cEvent.addLongPress $> AddLongPress
                     ]
-                D.div_
-                  [ D.div_ top
-                  , D.div_
-                      [ dyn $
-                          map
-                            ( \_ -> keepLatest $ bus \p' e' ->
-                                ( bang $ insert $ D.div_
-                                    [ text_ "hello"
-                                    , D.button
-                                        ( bang
-                                            $ D.OnClick := (pure unit :: Effect Unit)
-                                        )
-                                        [ text_ "Solo" ]
-                                    , D.button
-                                        ( bang
-                                            $ D.OnClick := (pure unit :: Effect Unit)
-                                        )
-                                        [ text_ "Mute" ]
-                                    , D.button
-                                        ( bang
-                                            $ D.OnClick := p' remove
-                                        )
-                                        [ text_ "Delete" ]
-                                    ]
-                                ) <|> e'
-                            )
-                            ( cEvent.addBasic
-                            )
+                )
+                \ctrlEvent -> do
+                  let
+                    store :: AnEvent m (Array Landmark)
+                    store = bang [] <|> _.landmarks <$>
+                      ( fold
+                          ( \a { landmarks, id, startIx } -> case a of
+                              AddBasic -> { landmarks: landmarks <> [ defaultBasic id startIx ], id: id + 1, startIx: startIx + 4 }
+                              AddLeap -> { landmarks: landmarks <> [ defaultLeap id startIx ], id: id + 1, startIx: startIx + 2 }
+                              AddLongPress -> { landmarks: landmarks <> [ defaultLongPress id startIx ], id: id + 1, startIx: startIx + 2 }
+
+                          )
+                          ctrlEvent
+                          { landmarks: [], id: 0, startIx: 0 }
+                      )
+                    markerIndex = bang 0 <|> fold
+                      ( \a b -> case a of
+                          AddBasic -> b + 4
+                          AddLeap -> b + 2
+                          AddLongPress -> b + 2
+                      )
+                      ctrlEvent
+                      0
+                    top =
+                      [ D.button
+                          ( event.waveSurfer <#> \ws -> D.OnClick := do
+                              cPushed.addBasic unit
+                              addMarker ws { color: "#0f32f6", label: "B1", time: 0.0 }
+                              addMarker ws { color: "#61e2f6", label: "B2", time: 0.5 }
+                              addMarker ws { color: "#ef82f6", label: "B3", time: 1.0 }
+                              addMarker ws { color: "#9e0912", label: "B4", time: 1.5 }
+                          )
+                          [ text_ "Add Tile" ]
+                      , D.button
+                          ( event.waveSurfer <#> \ws -> D.OnClick := do
+                              cPushed.addLeap unit
+                              addMarker ws { color: "#0f32f6", label: "LSt", time: 0.5 }
+                              addMarker ws { color: "#61e2f6", label: "LEd", time: 1.25 }
+                          )
+                          [ text_ "Add Leap" ]
+                      , D.button
+                          ( event.waveSurfer <#> \ws -> D.OnClick := do
+                              cPushed.addLongPress unit
+                              addMarker ws { color: "#0f32f6", label: "P1", time: 0.5 }
+                              addMarker ws { color: "#61e2f6", label: "P2", time: 1.25 }
+                          )
+                          [ text_ "Add Long Press" ]
                       ]
-                  ]
+                  D.div_
+                    [ D.div_ top
+                    , D.div_
+                        [ dyn $
+                            map
+                              ( \_ -> keepLatest $ bus \p' e' ->
+                                  ( bang $ insert $ D.div_
+                                      [ text_ "hello"
+                                      , D.button
+                                          ( bang
+                                              $ D.OnClick := (pure unit :: Effect Unit)
+                                          )
+                                          [ text_ "Solo" ]
+                                      , D.button
+                                          ( bang
+                                              $ D.OnClick := (pure unit :: Effect Unit)
+                                          )
+                                          [ text_ "Mute" ]
+                                      , D.button
+                                          ( bang
+                                              $ D.OnClick := p' remove
+                                          )
+                                          [ text_ "Delete" ]
+                                      ]
+                                  ) <|> e'
+                              )
+                              ( cEvent.addBasic
+                              )
+                        ]
+                    ]
             ]
         ]
     , D.div
