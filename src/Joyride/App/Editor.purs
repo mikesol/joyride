@@ -22,7 +22,7 @@ import Data.Tuple (Tuple(..), fst, snd)
 import Debug (spy)
 import Deku.Attribute ((:=))
 import Deku.Control (switcher, text_)
-import Deku.Core (class Korok, Nut, Domable, bussed, envy, vbussed)
+import Deku.Core (class Korok, Domable, Nut, bus, bussed, dyn, envy, insert, remove, vbussed)
 import Deku.DOM as D
 import Effect (Effect, foreachE)
 import Effect.Aff (delay, launchAff_)
@@ -31,13 +31,14 @@ import Effect.Now as LocalNow
 import Effect.Ref as Ref
 import Effect.Timer (clearInterval, setInterval)
 import FRP.Behavior (Behavior, sampleBy)
-import FRP.Event (AnEvent, Event, EventIO, bang, filterMap, fromEvent, hot, memoize, subscribe)
+import FRP.Event (AnEvent, Event, EventIO, bang, filterMap, fold, fromEvent, hot, keepLatest, memoize, subscribe)
 import FRP.Event.AnimationFrame (animationFrame)
 import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V)
 import Foreign.Object as Object
 import Joyride.App.RequestIdleCallbackIsDefined (requestIdleCallbackIsDefined)
 import Joyride.Audio.Graph.Tutorial (graph)
+import Joyride.Editor.ADT (Landmark(..), LongLength(..), Marker(..))
 import Joyride.FRP.Behavior (refToBehavior)
 import Joyride.FRP.Rate (timeFromRate)
 import Joyride.FRP.SampleOnSubscribe (initializeWithEmpty)
@@ -68,6 +69,37 @@ type Events t =
   ( initialScreenVisible :: t Boolean
   , loadWave :: t String
   , waveSurfer :: t WaveSurfer
+  )
+
+data CAction = AddBasic | AddLeap | AddLongPress
+defaultBasic :: Int -> Landmark
+defaultBasic id = LBasic
+  { l1: Marker { at: 0.0 }
+  , l2: Marker { at: 0.0 }
+  , l3: Marker { at: 0.0 }
+  , l4: Marker { at: 0.0 }
+  , id
+  }
+
+defaultLeap :: Int -> Landmark
+defaultLeap id = LLeap
+  { start: Marker { at: 0.0 }
+  , end: Marker { at: 0.0 }
+  , id
+  }
+
+defaultLongPress :: Int -> Landmark
+defaultLongPress id = LLong
+  { start: Marker { at: 0.0 }
+  , end: Marker { at: 0.0 }
+  , len: LongLength { len: 1.0 }
+  , id
+  }
+
+type CEvents t =
+  ( addBasic :: t Unit
+  , addLeap :: t Unit
+  , addLongPress :: t Unit
   )
 
 type Always t = t
@@ -102,6 +134,63 @@ editorPage _ = vbussed (Proxy :: _ (V (Events Always))) \pushed (event :: { | Ev
                 ]
             )
             []
+        , D.div_
+            [ vbussed (Proxy :: _ (V (CEvents Always))) \cPushed (cEvent :: { | CEvents (AnEvent m) }) -> do
+                let
+                  store :: AnEvent m (Array Landmark)
+                  store = _.landmarks <$>
+                    ( fold
+                        ( \a { landmarks, id } -> case a of
+                            AddBasic -> { landmarks: landmarks <> [defaultBasic id], id: id + 1 }
+                            AddLeap -> { landmarks: landmarks  <> [defaultLeap id], id: id + 1 }
+                            AddLongPress -> { landmarks: landmarks  <> [defaultLongPress id], id: id + 1 }
+
+                        )
+                        (oneOf [ cEvent.addBasic $> AddBasic, cEvent.addLeap $> AddLeap, cEvent.addLongPress $> AddLongPress ])
+                        { landmarks: [], id: 0 }
+                    )
+                  top =
+                    [ D.button
+                        (bang $ D.OnClick := cPushed.addBasic unit)
+                        [ text_ "Add Tile" ]
+                    , D.button
+                        (bang $ D.OnClick := cPushed.addLeap unit)
+                        [ text_ "Add Leap" ]
+                    , D.button
+                        (bang $ D.OnClick := cPushed.addLongPress unit)
+                        [ text_ "Add Long Press" ]
+                    ]
+                D.div_
+                  [ D.div_ top
+                  , D.div_
+                      [ dyn $
+                          map
+                            ( \_ -> keepLatest $ bus \p' e' ->
+                                ( bang $ insert $ D.div_
+                                    [ text_ "hello"
+                                    , D.button
+                                        ( bang
+                                            $ D.OnClick := (pure unit :: Effect Unit)
+                                        )
+                                        [ text_ "Solo" ]
+                                    , D.button
+                                        ( bang
+                                            $ D.OnClick := (pure unit :: Effect Unit)
+                                        )
+                                        [ text_ "Mute" ]
+                                    , D.button
+                                        ( bang
+                                            $ D.OnClick := p' remove
+                                        )
+                                        [ text_ "Delete" ]
+                                    ]
+                                ) <|> e'
+                            )
+                            ( cEvent.addBasic
+                            )
+                      ]
+                  ]
+            ]
         ]
     , D.div
         ( isv <#> \isv -> D.Class := "absolute w-screen h-screen grid grid-rows-6 grid-cols-6 bg-zinc-900" <> if isv then "" else " hidden"
