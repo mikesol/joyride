@@ -22,7 +22,7 @@ import Data.Tuple (Tuple(..), fst, snd)
 import Debug (spy)
 import Deku.Attribute ((:=))
 import Deku.Control (switcher, text_)
-import Deku.Core (class Korok, Domable, Nut, bussed, envy, vbussed)
+import Deku.Core (class Korok, Nut, Domable, bussed, envy, vbussed)
 import Deku.DOM as D
 import Effect (Effect, foreachE)
 import Effect.Aff (delay, launchAff_)
@@ -31,13 +31,12 @@ import Effect.Now as LocalNow
 import Effect.Ref as Ref
 import Effect.Timer (clearInterval, setInterval)
 import FRP.Behavior (Behavior, sampleBy)
-import FRP.Event (Event, EventIO, bang, filterMap, fromEvent, hot, memoize, subscribe)
+import FRP.Event (AnEvent, Event, EventIO, bang, filterMap, fromEvent, hot, memoize, subscribe)
 import FRP.Event.AnimationFrame (animationFrame)
 import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V)
 import Foreign.Object as Object
 import Joyride.App.RequestIdleCallbackIsDefined (requestIdleCallbackIsDefined)
-import Joyride.Wavesurfer.Wavesurfer (makeWavesurfer)
 import Joyride.Audio.Graph.Tutorial (graph)
 import Joyride.FRP.Behavior (refToBehavior)
 import Joyride.FRP.Rate (timeFromRate)
@@ -48,6 +47,7 @@ import Joyride.FullScreen as FullScreen
 import Joyride.Ocarina (AudibleChildEnd)
 import Joyride.Style (buttonCls, headerCls)
 import Joyride.Visual.Animation.Tutorial (runThree)
+import Joyride.Wavesurfer.Wavesurfer (WaveSurfer, makeWavesurfer)
 import Ocarina.Clock (withACTime)
 import Ocarina.Interpret (close, constant0Hack, context)
 import Ocarina.Run (run2)
@@ -64,22 +64,45 @@ import Web.DOM as Web.DOM
 import Web.HTML.HTMLCanvasElement as HTMLCanvasElement
 import Web.HTML.Window (RequestIdleCallbackId, Window, cancelIdleCallback, requestIdleCallback)
 
-type Events = V (initialScreenVisible :: Boolean, loadWave :: String)
+type Events t =
+  ( initialScreenVisible :: t Boolean
+  , loadWave :: t String
+  , waveSurfer :: t WaveSurfer
+  )
 
-editorPage :: OpenEditor' -> Nut
-editorPage _ = vbussed (Proxy :: _ Events) \pushed event -> do
+type Always t = t
+
+editorPage
+  :: forall s m lock payload
+   . Korok s m
+  => OpenEditor'
+  -> Domable m lock payload
+editorPage _ = vbussed (Proxy :: _ (V (Events Always))) \pushed (event :: { | Events (AnEvent m) }) -> do
   let isv = event.initialScreenVisible <|> bang true
   D.div
     (bang $ D.Class := "absolute w-screen h-screen")
     [ D.div
         ( oneOf
             [ bang $ D.Class := "absolute w-screen h-screen"
-            , event.loadWave <#> \url -> D.Self := \s -> do
-                makeWavesurfer (pushed.initialScreenVisible false) s url
-
             ]
         )
-        []
+        [ D.div
+            ( oneOf
+                [ bang $ D.Class := ""
+                , event.loadWave <#> \url -> D.Self := \s -> do
+                    makeWavesurfer (pushed.initialScreenVisible false) s url >>= pushed.waveSurfer
+
+                ]
+            )
+            []
+        , D.div
+            ( oneOf
+                [ bang $ D.Id := "timeline"
+                , bang $ D.Class := ""
+                ]
+            )
+            []
+        ]
     , D.div
         ( isv <#> \isv -> D.Class := "absolute w-screen h-screen grid grid-rows-6 grid-cols-6 bg-zinc-900" <> if isv then "" else " hidden"
         )
@@ -87,38 +110,39 @@ editorPage _ = vbussed (Proxy :: _ Events) \pushed event -> do
         [ D.div
             (bang $ D.Class := "select-auto justify-self-center self-center row-start-3 row-end-5 col-start-2 col-end-6 md:col-start-3 md:col-end-5")
             ( [ D.div
-                    (bang $ D.Class := "pointer-events-auto text-center p-4 " <> headerCls)
-                    [ D.p_ [ text_ "Joyride editor" ]
-                    ]
-                ]
+                  (bang $ D.Class := "pointer-events-auto text-center p-4 " <> headerCls)
+                  [ D.p_ [ text_ "Joyride editor" ]
+                  ]
+              ]
                 <>
 
-                    [ D.div
-                        (bang $ D.Class := "pointer-events-auto text-center text-white p-4")
-                        [ text_ "Get started by importing a file or project." ]
-                    ]
+                  [ D.div
+                      (bang $ D.Class := "pointer-events-auto text-center text-white p-4")
+                      [ text_ "Get started by importing a file or project." ]
+                  ]
                 <>
-                    [ D.div (bang $ D.Class := "flex w-full justify-center items-center")
+                  [ D.div (bang $ D.Class := "flex w-full justify-center items-center")
 
-                        [ D.button
-                            ( oneOf
-                                [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
-                                , bang $ D.OnClick := (pure unit :: Effect Unit)
-                                ]
-                            )
-                            [ text_ "Import project" ]
-                        , D.button
-                            ( oneOf
-                                [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
-                                , bang $ D.OnClick := do
-                                    client <- init
-                                    picker (\_ -> pure unit) (\_ _ -> pure unit) (\_ _ -> pure unit) (\{ url } -> let __ = spy "url" url in pushed.loadWave url) client
-                                ]
-                            )
-                            [ text_ "Import file" ]
-                        ]
+                      [ D.button
+                          ( oneOf
+                              [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                              , bang $ D.OnClick := (pure unit :: Effect Unit)
+                              ]
+                          )
+                          [ text_ "Import project" ]
+                      , D.button
+                          ( oneOf
+                              [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                              , bang $ D.OnClick := do
+                                  -- client <- init
+                                  -- picker (\_ -> pure unit) (\_ _ -> pure unit) (\_ _ -> pure unit) (\{ url } -> let __ = spy "url" url in pushed.loadWave url) client
+                                  pushed.loadWave "https://cdn.filestackcontent.com/AOK7YpjJTnGJvDKGucuU"
+                              ]
+                          )
+                          [ text_ "Import file" ]
+                      ]
 
-                    ]
+                  ]
             )
         ]
     ]

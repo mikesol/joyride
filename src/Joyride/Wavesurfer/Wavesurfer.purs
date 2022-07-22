@@ -5,8 +5,12 @@ import Prelude
 import Effect (Effect)
 import Web.DOM as Web.DOM
 
+data WaveSurfer
+
 foreign import makeWavesurfer
   :: Effect Unit
   -> Web.DOM.Element
   -> String
-  -> Effect Unit
+  -> Effect WaveSurfer
+
+foreign import zoom :: WaveSurfer -> Number -> Effect Unit
