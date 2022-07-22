@@ -27,6 +27,7 @@ module Types
   , Column(..)
   , Success'
   , WantsTutorial'
+  , OpenEditor'
   , normalizedColumn
   , Orientation
   , Claim(..)
@@ -846,6 +847,7 @@ data Negotiation
       , cNow :: Effect Milliseconds
       }
   | WantsTutorial WantsTutorial'
+  | OpenEditor OpenEditor'
   | StartingNegotiation
   | RoomIsFull
   | GameHasStarted
@@ -884,6 +886,8 @@ type Success' =
   , optMeIn :: JMilliseconds -> Maybe String -> Effect Unit
   , playerStatus :: Event KnownPlayers
   }
+
+type OpenEditor' = { }
 
 type WantsTutorial' =
   { player :: Player

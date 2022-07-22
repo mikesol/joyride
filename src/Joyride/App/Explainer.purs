@@ -124,6 +124,7 @@ filler = D.div (bang $ D.Class := "grow") []
 explainerPage
   :: { ride :: Effect Unit
      , tutorial :: Effect Unit
+     , editor :: Effect Unit
      , isMobile :: Boolean
      , resizeE :: Event WindowDims
      , cnow :: Effect Milliseconds
@@ -160,6 +161,16 @@ explainerPage opts = vbussed (Proxy :: _ (V (unsubscriber :: Effect Unit))) \pus
                       ]
                   )
                   [ text_ "Take a ride" ]
+              , D.button
+                  ( oneOf
+                      [ bang $ D.Class := buttonCls
+                      , DL.click
+                          ( (oneOf [ bang (pure unit), event.unsubscriber ]) <#>
+                              FullScreen.fullScreenFlow <<< (opts.editor *> _)
+                          )
+                      ]
+                  )
+                  [ text_ "Editor" ]
               ]
       ]
   , filler

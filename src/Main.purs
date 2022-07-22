@@ -3,7 +3,6 @@ module Main where
 import Prelude
 
 import Control.Alt ((<|>))
-import Joyride.EmitsTouchEvents (emitsTouchEvents)
 import Control.Parallel (parTraverse, sequential)
 import Data.Either (Either(..), hush)
 import Data.Filterable (filter)
@@ -36,6 +35,7 @@ import Foreign.Object as Object
 import Heterogeneous.Folding (hfoldlWithIndex)
 import Joyride.App.Toplevel (toplevel)
 import Joyride.Effect.Ref (readFromRecord, writeToRecord)
+import Joyride.EmitsTouchEvents (emitsTouchEvents)
 import Joyride.FRP.Behavior (refToBehavior)
 import Joyride.FRP.Keypress (posFromKeypress, xForKeyboard)
 import Joyride.FRP.Orientation (hasOrientationPermission, posFromOrientation, xForTouch)
@@ -246,6 +246,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                   channelEvent.push (RideChannel id)
               , negotiation: negotiation.event
               , tutorial: channelEvent.push TutorialChannel
+              , editor: negotiation.push (OpenEditor {})
               , isMobile
               , lpsCallback: lowPriorityCb
               , givePermission: orientationPerm.push

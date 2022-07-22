@@ -7,6 +7,7 @@ import Data.Map as Map
 import Data.Maybe (Maybe)
 import Data.Number (pi)
 import Data.Time.Duration (Milliseconds)
+import Debug (spy)
 import Deku.Control (switcher)
 import Deku.Core (class Korok, Domable, envy)
 import Effect (Effect)
@@ -16,6 +17,7 @@ import FRP.Event (Event, EventIO, fromEvent)
 import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V)
 import Foreign.Object as Object
+import Joyride.App.Editor (editorPage)
 import Joyride.App.Explainer (explainerPage)
 import Joyride.App.GameHasStarted (gameHasStarted)
 import Joyride.App.Loading (loadingPage)
@@ -39,7 +41,7 @@ import Joyride.Scores.Tutorial.Long (tutorialLongs)
 import Ocarina.WebAPI (BrowserAudioBuffer)
 import Rito.CubeTexture as CTL
 import Rito.GLTF as GLTFLoader
-import Types (CubeTextures, HitBasicMe, HitLeapMe, HitLongMe, JMilliseconds, Models, Negotiation(..), PlayerPositionsF, RateInfo, ReleaseLongMe, RenderingInfo, Success', ThreeDI, WantsTutorial', WindowDims)
+import Types (CubeTextures, HitBasicMe, HitLeapMe, HitLongMe, JMilliseconds, Models, Negotiation(..), PlayerPositionsF, RateInfo, ReleaseLongMe, RenderingInfo, Success', ThreeDI, WantsTutorial', WindowDims, OpenEditor')
 import Web.DOM as Web.DOM
 import Web.HTML.Window (RequestIdleCallbackId, Window)
 
@@ -66,6 +68,7 @@ type ToplevelInfo =
   , negotiation :: Event Negotiation
   , isMobile :: Boolean
   , tutorial :: Effect Unit
+  , editor :: Effect Unit
   , ride :: Effect Unit
   , lpsCallback :: JMilliseconds -> Effect Unit -> Effect Unit
   , playerPositions :: Behavior PlayerPositionsF
@@ -99,6 +102,7 @@ data TopLevelDisplay
   | TLGameHasStarted
   | TLRoomIsFull
   | TLWantsTutorial WantsTutorial'
+  | TLOpenEditor OpenEditor'
   | TLSuccess Success'
 
 -- effect unit is unsub
@@ -131,11 +135,14 @@ toplevel
 toplevel tli =
   ( dedup
       ( map
-          ( \{ loaded, negotiation } ->
+          ( \{ loaded, negotiation } -> let __ = spy "inc" {loaded,negotiation} in
               case loaded, negotiation of
                 _, NeedsOrientation -> TLNeedsOrientation
                 _, WillNotWorkWithoutOrientation -> TLWillNotWorkWithoutOrientation
                 _, GetRulesOfGame s -> TLExplainer s
+                -- editor does not need to be loaded for now
+                -- change if that's the case
+                false, OpenEditor s -> TLOpenEditor s
                 false, _ -> TLLoading
                 -- should never reach
                 _, PageLoad -> TLLoading
@@ -147,6 +154,7 @@ toplevel tli =
                 _, ClaimFail -> TLRoomIsFull
                 true, Success s -> TLSuccess s
                 true, WantsTutorial s -> TLWantsTutorial s
+                true, OpenEditor s -> TLOpenEditor s
           )
           ( biSampleOn
               (startingWith PageLoad $ fromEvent tli.negotiation)
@@ -160,6 +168,7 @@ toplevel tli =
     TLWillNotWorkWithoutOrientation -> sorryNeedPermissionPage
     TLExplainer { cubeTextures, threeDI, cNow, initialDims } -> explainerPage
       { ride: tli.ride
+      , editor: tli.editor
       , tutorial: tli.tutorial
       , isMobile: tli.isMobile
       , cnow: cNow
@@ -168,6 +177,7 @@ toplevel tli =
       , threeDI
       , cubeTextures
       }
+    TLOpenEditor s -> editorPage s
     TLLoading -> loadingPage
     TLRoomIsFull -> roomIsFull
     TLGameHasStarted -> gameHasStarted

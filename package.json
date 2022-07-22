@@ -39,11 +39,14 @@
 		"@capacitor/android": "^3.6.0",
 		"@capacitor/core": "^3.6.0",
 		"@capacitor/ios": "^3.6.0",
+		"filestack-js": "^3.25.0",
 		"firebase": "^9.8.3",
 		"lil-gui": "^0.16.1",
 		"pubnub": "^5.0.1",
 		"screenfull": "^6.0.1",
 		"three": "^0.140.0",
-		"uuid": "^8.3.2"
+		"tone": "^14.7.77",
+		"uuid": "^8.3.2",
+		"wavesurfer.js": "^6.2.0"
 	}
 }
