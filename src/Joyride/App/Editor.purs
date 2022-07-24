@@ -120,10 +120,10 @@ editorPage
 editorPage _ = vbussed (Proxy :: _ (V (Events Always))) \pushed (event :: { | Events (AnEvent m) }) -> do
   let isv = event.initialScreenVisible <|> bang true
   D.div
-    (bang $ D.Class := "absolute w-screen h-screen")
+    (bang $ D.Class := "absolute w-screen h-screen bg-zinc-900")
     [ D.div
         ( oneOf
-            [ bang $ D.Class := "absolute w-screen h-screen bg-zinc-900"
+            [ bang $ D.Class := "absolute w-screen bg-zinc-900"
             ]
         )
         [ D.div
@@ -215,28 +215,42 @@ editorPage _ = vbussed (Proxy :: _ (V (Events Always))) \pushed (event :: { | Ev
                         [ dyn $
                             store <#>
                               ( \itm -> keepLatest $ bus \p' e' ->
-                                  ( bang $ insert $ D.div (oneOf [ bang $ D.Class := "block" ])
-                                      [ D.input
-                                          ( oneOf
-                                              [ bang $ D.Class := "bg-inherit text-white mx-2 appearance-none border rounded py-2 px-3 leading-tight focus:outline-none focus:shadow-outline"
-                                              , bang $ D.Placeholder := case itm of
-                                                  LBasic v -> "Tile " <> show v.id
-                                                  LLeap v -> "Leap " <> show v.id
-                                                  LLong v -> "Long " <> show v.id
-                                              ]
-                                          )
-                                          []
-                                      , D.input
-                                          ( oneOf
-                                              [ bang $ D.Xtype := "number"
-                                              , bang $ D.Value := "1" -- make this the column
-                                              , bang $ D.Min := "1"
-                                              , bang $ D.Max := "16"
-                                              , bang $ D.Class := "bg-inherit text-white mx-2 appearance-none border rounded py-2 px-3 leading-tight focus:outline-none focus:shadow-outline"
-                                              ]
-                                          )
-                                          []
-                                      , D.div_
+                                  ( bang $ insert $ D.div (oneOf [])
+                                      [ D.span (oneOf [ bang $ D.Class := "inline-block" ])
+                                          [ D.label
+                                              ( oneOf
+                                                  [ bang $ D.Class := "text-white ml-2" ]
+                                              )
+                                              [ text_ "Name" ]
+                                          , D.input
+                                              ( oneOf
+                                                  [ bang $ D.Class := "bg-inherit text-white mx-2 appearance-none border rounded py-2 px-2 leading-tight focus:outline-none focus:shadow-outline"
+                                                  , bang $ D.Placeholder := case itm of
+                                                      LBasic v -> "Tile " <> show v.id
+                                                      LLeap v -> "Leap " <> show v.id
+                                                      LLong v -> "Long " <> show v.id
+                                                  ]
+                                              )
+                                              []
+                                          ]
+                                      , D.span (oneOf [ bang $ D.Class := "inline-block" ])
+                                          [ D.label
+                                              ( oneOf
+                                                  [ bang $ D.Class := "text-white" ]
+                                              )
+                                              [ text_ "Column" ]
+                                          , D.input
+                                              ( oneOf
+                                                  [ bang $ D.Xtype := "number"
+                                                  , bang $ D.Value := "1" -- make this the column
+                                                  , bang $ D.Min := "1"
+                                                  , bang $ D.Max := "16"
+                                                  , bang $ D.Class := "bg-inherit text-white mx-2 appearance-none border rounded py-2 px-3 leading-tight focus:outline-none focus:shadow-outline"
+                                                  ]
+                                              )
+                                              []
+                                          ]
+                                      , D.span (oneOf [ bang $ D.Class := "inline-block" ])
                                           [ D.button
                                               ( oneOf
                                                   [ bang $ D.OnClick := (pure unit :: Effect Unit)
