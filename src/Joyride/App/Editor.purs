@@ -215,7 +215,7 @@ editorPage _ = vbussed (Proxy :: _ (V (Events Always))) \pushed (event :: { | Ev
                         [ dyn $
                             store <#>
                               ( \itm -> keepLatest $ bus \p' e' ->
-                                  ( bang $ insert $ D.div_
+                                  ( bang $ insert $ D.div (oneOf [ bang $ D.Class := "block" ])
                                       [ D.input
                                           ( oneOf
                                               [ bang $ D.Class := "bg-inherit text-white mx-2 appearance-none border rounded py-2 px-3 leading-tight focus:outline-none focus:shadow-outline"
@@ -236,27 +236,30 @@ editorPage _ = vbussed (Proxy :: _ (V (Events Always))) \pushed (event :: { | Ev
                                               ]
                                           )
                                           []
-                                      , D.button
-                                          ( oneOf
-                                              [ bang $ D.OnClick := (pure unit :: Effect Unit)
-                                              , bang $ D.Class := buttonCls <> " mr-2"
-                                              ]
-                                          )
-                                          [ D.span (oneOf [ bang $ D.Class := "md:inline-block hidden" ]) [ text_ "Solo" ], D.span (oneOf [ bang $ D.Class := "md:hidden inline-block" ]) [ text_ "S" ] ]
-                                      , D.button
-                                          ( oneOf
-                                              [ bang $ D.OnClick := (pure unit :: Effect Unit)
-                                              , bang $ D.Class := buttonCls <> " mr-2"
-                                              ]
-                                          )
-                                          [ D.span (oneOf [ bang $ D.Class := "md:inline-block hidden" ]) [ text_ "Mute" ], D.span (oneOf [ bang $ D.Class := "md:hidden inline-block" ]) [ text_ "M" ] ]
-                                      , D.button
-                                          ( oneOf
-                                              [ bang $ D.OnClick := p' remove
-                                              , bang $ D.Class := buttonCls <> " mr-2"
-                                              ]
-                                          )
-                                          [ D.span (oneOf [ bang $ D.Class := "md:inline-block hidden" ]) [ text_ "Delete" ], D.span (oneOf [ bang $ D.Class := "md:hidden inline-block" ]) [ text_ "D" ] ]
+                                      , D.div_
+                                          [ D.button
+                                              ( oneOf
+                                                  [ bang $ D.OnClick := (pure unit :: Effect Unit)
+                                                  , bang $ D.Class := buttonCls <> " mx-2"
+                                                  ]
+                                              )
+                                              [ D.span (oneOf []) [ text_ "Solo" ] ]
+                                          , D.button
+                                              ( oneOf
+                                                  [ bang $ D.OnClick := (pure unit :: Effect Unit)
+                                                  , bang $ D.Class := buttonCls <> " mr-2"
+                                                  ]
+                                              )
+                                              [ D.span (oneOf []) [ text_ "Mute" ] ]
+                                          , D.button
+                                              ( oneOf
+                                                  [ bang $ D.OnClick := p' remove
+                                                  , bang $ D.Class := buttonCls <> " mr-2"
+                                                  ]
+                                              )
+                                              -- [ D.span (oneOf [ bang $ D.Class := "md:inline-block hidden" ]) [ text_ "Delete" ], D.span (oneOf [ bang $ D.Class := "md:hidden inline-block" ]) [ text_ "D" ] ]
+                                              [ D.span (oneOf []) [ text_ "Delete" ] ]
+                                          ]
                                       ]
                                   ) <|> e'
                               )
