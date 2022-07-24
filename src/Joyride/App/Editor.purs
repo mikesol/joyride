@@ -19,6 +19,7 @@ import Data.String as String
 import Data.Time.Duration (Milliseconds(..))
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..), fst, snd)
+import Data.Tuple.Nested ((/\))
 import Debug (spy)
 import Deku.Attribute ((:=))
 import Deku.Control (switcher, text_)
@@ -31,7 +32,7 @@ import Effect.Now as LocalNow
 import Effect.Ref as Ref
 import Effect.Timer (clearInterval, setInterval)
 import FRP.Behavior (Behavior, sampleBy)
-import FRP.Event (AnEvent, Event, EventIO, bang, filterMap, fold, fromEvent, hot, keepLatest, memoize, subscribe)
+import FRP.Event (AnEvent, Event, EventIO, bang, filterMap, fold, fromEvent, hot, keepLatest, mapAccum, memoize, subscribe)
 import FRP.Event.AnimationFrame (animationFrame)
 import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V)
@@ -122,14 +123,14 @@ editorPage _ = vbussed (Proxy :: _ (V (Events Always))) \pushed (event :: { | Ev
     (bang $ D.Class := "absolute w-screen h-screen")
     [ D.div
         ( oneOf
-            [ bang $ D.Class := "absolute w-screen h-screen"
+            [ bang $ D.Class := "absolute w-screen h-screen bg-zinc-900"
             ]
         )
         [ D.div
             ( oneOf
                 [ bang $ D.Class := ""
                 , event.loadWave <#> \url -> D.Self := \s -> do
-                    makeWavesurfer [ { color: "#0f32f6", label: "B1", time: 0.0 }, { color: "#61e2f6", label: "B2", time: 0.5 }, { color: "#ef82f6", label: "B3", time: 1.0 }, { color: "#9e0912", label: "B4", time: 1.5 } ] (pushed.initialScreenVisible false) s url >>= pushed.waveSurfer
+                    makeWavesurfer [] (pushed.initialScreenVisible false) s url >>= pushed.waveSurfer
 
                 ]
             )
@@ -151,21 +152,21 @@ editorPage _ = vbussed (Proxy :: _ (V (Events Always))) \pushed (event :: { | Ev
                 )
                 \ctrlEvent -> do
                   let
-                    startsAt = [ defaultBasic 0 0 ]
+                    startsAt = []
 
-                    store :: AnEvent m (Array Landmark)
-                    store = bang startsAt <|> _.landmarks <$>
-                      ( fold
-                          ( \a { landmarks, id, startIx } -> case a of
-                              AddBasic -> { landmarks: landmarks <> [ defaultBasic id startIx ], id: id + 1, startIx: startIx + 4 }
-                              AddLeap -> { landmarks: landmarks <> [ defaultLeap id startIx ], id: id + 1, startIx: startIx + 2 }
-                              AddLongPress -> { landmarks: landmarks <> [ defaultLongPress id startIx ], id: id + 1, startIx: startIx + 2 }
+                    store :: AnEvent m Landmark
+                    store =
+                      ( mapAccum
+                          ( \a { id, startIx } -> case a of
+                              AddBasic -> { id: id + 1, startIx: startIx + 4 } /\ defaultBasic id startIx
+                              AddLeap -> { id: id + 1, startIx: startIx + 2 } /\ defaultLeap id startIx
+                              AddLongPress -> { id: id + 1, startIx: startIx + 2 } /\ defaultLongPress id startIx
 
                           )
                           ctrlEvent
-                          { landmarks: startsAt, id: 1, startIx: 4 }
+                          { id: 0, startIx: 0 }
                       )
-                    markerIndex = bang 4 <|> fold
+                    markerIndex = bang 0 <|> fold
                       ( \a b -> case a of
                           AddBasic -> b + 4
                           AddLeap -> b + 2
@@ -175,56 +176,79 @@ editorPage _ = vbussed (Proxy :: _ (V (Events Always))) \pushed (event :: { | Ev
                       0
                     top =
                       [ D.button
-                          ( event.waveSurfer <#> \ws -> D.OnClick := do
-                              cPushed.addBasic unit
-                              addMarker ws { color: "#0f32f6", label: "B1", time: 0.0 }
-                              addMarker ws { color: "#61e2f6", label: "B2", time: 0.5 }
-                              addMarker ws { color: "#ef82f6", label: "B3", time: 1.0 }
-                              addMarker ws { color: "#9e0912", label: "B4", time: 1.5 }
+                          ( oneOf
+                              [ event.waveSurfer <#> \ws -> D.OnClick := do
+                                  cPushed.addBasic unit
+                                  addMarker ws { color: "#0f32f6", label: "B1", time: 0.0 }
+                                  addMarker ws { color: "#61e2f6", label: "B2", time: 0.5 }
+                                  addMarker ws { color: "#ef82f6", label: "B3", time: 1.0 }
+                                  addMarker ws { color: "#9e0912", label: "B4", time: 1.5 }
+                              , bang $ D.Class := buttonCls
+                              ]
                           )
                           [ text_ "Add Tile" ]
                       , D.button
-                          ( event.waveSurfer <#> \ws -> D.OnClick := do
-                              cPushed.addLeap unit
-                              addMarker ws { color: "#0f32f6", label: "LSt", time: 0.5 }
-                              addMarker ws { color: "#61e2f6", label: "LEd", time: 1.25 }
+                          ( oneOf
+                              [ event.waveSurfer <#> \ws -> D.OnClick := do
+                                  cPushed.addLeap unit
+                                  addMarker ws { color: "#0f32f6", label: "LSt", time: 0.5 }
+                                  addMarker ws { color: "#61e2f6", label: "LEd", time: 1.25 }
+                              , bang $ D.Class := buttonCls
+                              ]
                           )
                           [ text_ "Add Leap" ]
                       , D.button
-                          ( event.waveSurfer <#> \ws -> D.OnClick := do
-                              cPushed.addLongPress unit
-                              addMarker ws { color: "#0f32f6", label: "P1", time: 0.5 }
-                              addMarker ws { color: "#61e2f6", label: "P2", time: 1.25 }
+                          ( oneOf
+                              [ event.waveSurfer <#> \ws -> D.OnClick := do
+                                  cPushed.addLongPress unit
+                                  addMarker ws { color: "#0f32f6", label: "P1", time: 0.5 }
+                                  addMarker ws { color: "#61e2f6", label: "P2", time: 1.25 }
+                              , bang $ D.Class := buttonCls
+
+                              ]
                           )
                           [ text_ "Add Long Press" ]
                       ]
                   D.div_
-                    [ D.div_ top
+                    [ D.div (oneOf [ bang $ D.Class := "flex flex-row justify-around" ]) top
                     , D.div_
                         [ dyn $
-                            map
-                              ( \_ -> keepLatest $ bus \p' e' ->
+                            store <#>
+                              ( \itm -> keepLatest $ bus \p' e' ->
                                   ( bang $ insert $ D.div_
-                                      [ text_ "hello"
-                                      , D.button
-                                          ( bang
-                                              $ D.OnClick := (pure unit :: Effect Unit)
+                                      [ D.input
+                                          ( oneOf
+                                              [ bang $ D.Class := "bg-inherit text-white mx-2 appearance-none border rounded py-2 px-3 leading-tight focus:outline-none focus:shadow-outline"
+                                              , bang $ D.Placeholder := case itm of
+                                                  LBasic v -> "Tile " <> show v.id
+                                                  LLeap v -> "Leap " <> show v.id
+                                                  LLong v -> "Long " <> show v.id
+                                              ]
                                           )
-                                          [ text_ "Solo" ]
+                                          [  ]
                                       , D.button
-                                          ( bang
-                                              $ D.OnClick := (pure unit :: Effect Unit)
+                                          ( oneOf
+                                              [ bang $ D.OnClick := (pure unit :: Effect Unit)
+                                              , bang $ D.Class := buttonCls <> " mr-2"
+                                              ]
                                           )
-                                          [ text_ "Mute" ]
+                                          [ D.span (oneOf [bang $ D.Class := "md:inline-block hidden"]) [text_ "Solo"], D.span (oneOf [bang $ D.Class := "md:hidden inline-block"]) [text_ "S"] ]
                                       , D.button
-                                          ( bang
-                                              $ D.OnClick := p' remove
+                                          ( oneOf
+                                              [ bang $ D.OnClick := (pure unit :: Effect Unit)
+                                              , bang $ D.Class := buttonCls <> " mr-2"
+                                              ]
                                           )
-                                          [ text_ "Delete" ]
+                                          [ D.span (oneOf [bang $ D.Class := "md:inline-block hidden"]) [text_ "Mute"], D.span (oneOf [bang $ D.Class := "md:hidden inline-block"]) [text_ "M"]]
+                                      , D.button
+                                          ( oneOf
+                                              [ bang $ D.OnClick := p' remove
+                                              , bang $ D.Class := buttonCls <> " mr-2"
+                                              ]
+                                          )
+                                          [ D.span (oneOf [bang $ D.Class := "md:inline-block hidden"]) [text_ "Delete"], D.span (oneOf [bang $ D.Class := "md:hidden inline-block"]) [text_ "D"] ]
                                       ]
                                   ) <|> e'
-                              )
-                              ( cEvent.addBasic
                               )
                         ]
                     ]

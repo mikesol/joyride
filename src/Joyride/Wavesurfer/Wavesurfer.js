@@ -1,6 +1,6 @@
 import WaveSurfer from "wavesurfer.js";
 import PlayheadPlugin from "wavesurfer.js/dist/plugin/wavesurfer.playhead.js";
-import MarkersPlugin from "wavesurfer.js/dist/plugin/wavesurfer.markers.js";
+import MarkersPlugin from "../../src/waveshaper.js/customMarkersPlugin.js";
 import CursorPlugin from "wavesurfer.js/dist/plugin/wavesurfer.cursor.js";
 import TimelinePlugin from "wavesurfer.js/dist/plugin/wavesurfer.timeline.js";
 /**
@@ -129,7 +129,7 @@ export const makeWavesurfer =
 		const ws = WaveSurfer.create({
 			backend: "MediaElement",
 			waveColor: "#A8DBA8",
-			progressColor: "#3B8686",
+			progressColor: "#3B8131",
 			container: container,
 			mediaControls: true,
 			scrollParent: true,
@@ -145,13 +145,14 @@ export const makeWavesurfer =
 					timeInterval: timeInterval,
 					primaryLabelInterval: primaryLabelInterval,
 					secondaryLabelInterval: secondaryLabelInterval,
-					primaryColor: "blue",
-					secondaryColor: "red",
-					primaryFontColor: "blue",
-					secondaryFontColor: "red",
+					primaryColor: "#0b83a7",
+					secondaryColor: "#ef0ea6",
+					primaryFontColor: "#0b83a7",
+					secondaryFontColor: "#ef0ea6",
 				}),
 				MarkersPlugin.create({
-					markers: markers.map((m) => ({ draggable: true, ...m })),
+					// hack to get draggable working. we delete the first element after
+					markers: [{time:0.0,color:"#00ffff",draggable:true}].concat(markers.map((m) => ({ draggable: true, ...m }))),
 				}),
 				CursorPlugin.create({
 					showTime: true,
@@ -168,6 +169,7 @@ export const makeWavesurfer =
 		});
 		ws.load(url);
 		ws.on("ready", success);
+		ws.markers.remove(0);
 		return ws;
 	};
 
