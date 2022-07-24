@@ -124,58 +124,53 @@ function secondaryLabelInterval(pxPerSec) {
 	return Math.floor(10 / timeInterval(pxPerSec));
 }
 
-export const makeWavesurfer = (success) => (container) => (url) => () => {
-	const ws = WaveSurfer.create({
-		backend: "MediaElement",
-		waveColor: "#A8DBA8",
-		progressColor: "#3B8686",
-		container: container,
-		mediaControls: true,
-		scrollParent: true,
-		plugins: [
-			PlayheadPlugin.create({
-				returnOnPause: true,
-				moveOnSeek: true,
-				draw: true,
-			}),
-			TimelinePlugin.create({
-				container: "#timeline",
-				formatTimeCallback: formatTimeCallback,
-				timeInterval: timeInterval,
-				primaryLabelInterval: primaryLabelInterval,
-				secondaryLabelInterval: secondaryLabelInterval,
-				primaryColor: "blue",
-				secondaryColor: "red",
-				primaryFontColor: "blue",
-				secondaryFontColor: "red",
-			}),
-			MarkersPlugin.create({
-				markers: [
-					// {
-					// 	time: 0.2,
-					// 	label: "V1",
-					// 	color: "#ff990a",
-					// 	draggable: true,
-					// },
-				],
-			}),
-			CursorPlugin.create({
-				showTime: true,
-				opacity: 1,
-				customShowTimeStyle: {
-					"background-color": "#000",
-					color: "#fff",
-					padding: "2px",
-					"font-size": "10px",
-				},
-			}),
-		],
-		//
-	});
-	ws.load(url);
-	ws.on("ready", success);
-	return ws;
-};
+export const makeWavesurfer =
+	(markers) => (success) => (container) => (url) => () => {
+		const ws = WaveSurfer.create({
+			backend: "MediaElement",
+			waveColor: "#A8DBA8",
+			progressColor: "#3B8686",
+			container: container,
+			mediaControls: true,
+			scrollParent: true,
+			plugins: [
+				PlayheadPlugin.create({
+					returnOnPause: true,
+					moveOnSeek: true,
+					draw: true,
+				}),
+				TimelinePlugin.create({
+					container: "#timeline",
+					formatTimeCallback: formatTimeCallback,
+					timeInterval: timeInterval,
+					primaryLabelInterval: primaryLabelInterval,
+					secondaryLabelInterval: secondaryLabelInterval,
+					primaryColor: "blue",
+					secondaryColor: "red",
+					primaryFontColor: "blue",
+					secondaryFontColor: "red",
+				}),
+				MarkersPlugin.create({
+					markers: markers.map((m) => ({ draggable: true, ...m })),
+				}),
+				CursorPlugin.create({
+					showTime: true,
+					opacity: 1,
+					customShowTimeStyle: {
+						"background-color": "#000",
+						color: "#fff",
+						padding: "2px",
+						"font-size": "10px",
+					},
+				}),
+			],
+			//
+		});
+		ws.load(url);
+		ws.on("ready", success);
+		return ws;
+	};
 
 export const zoom = (ws) => (z) => () => ws.zoom(z);
-export const addMarker = (ws) => (p) => () => ws.addMarker(p);
+export const addMarker = (ws) => (p) => () =>
+	ws.addMarker({ draggable: true, ...p });

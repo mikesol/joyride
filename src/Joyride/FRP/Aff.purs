@@ -4,7 +4,7 @@ import Prelude
 
 import Data.Either (Either(..))
 import Data.Int (round)
-import Effect.Aff (Aff, Canceler(..), Milliseconds(..), launchAff_, makeAff)
+import Effect.Aff (Aff, Canceler(..), Milliseconds(..), error, killFiber, launchAff, launchAff_, makeAff)
 import Effect.Class (liftEffect)
 import Effect.Ref as Ref
 import Effect.Timer (clearTimeout, setTimeout)
@@ -13,7 +13,9 @@ import FRP.Event (Event, makeEvent, subscribe)
 -- if the cancelers cancels, theoretically we don't need to unsubscribe
 -- as nothing will be firing
 affToEvent :: Aff ~> Event
-affToEvent a = makeEvent \k -> launchAff_ (a >>= liftEffect <<< k) *> pure (pure unit)
+affToEvent a = makeEvent \k -> do
+  fib <- launchAff (a >>= liftEffect <<< k)
+  pure (launchAff_ (killFiber (error "Event unsubscribed") fib))
 
 eventToAff :: Event ~> Aff
 eventToAff e = makeAff \k -> do

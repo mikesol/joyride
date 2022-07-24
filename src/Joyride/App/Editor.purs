@@ -129,7 +129,7 @@ editorPage _ = vbussed (Proxy :: _ (V (Events Always))) \pushed (event :: { | Ev
             ( oneOf
                 [ bang $ D.Class := ""
                 , event.loadWave <#> \url -> D.Self := \s -> do
-                    makeWavesurfer (pushed.initialScreenVisible false) s url >>= pushed.waveSurfer
+                    makeWavesurfer [ { color: "#0f32f6", label: "B1", time: 0.0 }, { color: "#61e2f6", label: "B2", time: 0.5 }, { color: "#ef82f6", label: "B3", time: 1.0 }, { color: "#9e0912", label: "B4", time: 1.5 } ] (pushed.initialScreenVisible false) s url >>= pushed.waveSurfer
 
                 ]
             )
@@ -151,8 +151,10 @@ editorPage _ = vbussed (Proxy :: _ (V (Events Always))) \pushed (event :: { | Ev
                 )
                 \ctrlEvent -> do
                   let
+                    startsAt = [ defaultBasic 0 0 ]
+
                     store :: AnEvent m (Array Landmark)
-                    store = bang [] <|> _.landmarks <$>
+                    store = bang startsAt <|> _.landmarks <$>
                       ( fold
                           ( \a { landmarks, id, startIx } -> case a of
                               AddBasic -> { landmarks: landmarks <> [ defaultBasic id startIx ], id: id + 1, startIx: startIx + 4 }
@@ -161,9 +163,9 @@ editorPage _ = vbussed (Proxy :: _ (V (Events Always))) \pushed (event :: { | Ev
 
                           )
                           ctrlEvent
-                          { landmarks: [], id: 0, startIx: 0 }
+                          { landmarks: startsAt, id: 1, startIx: 4 }
                       )
-                    markerIndex = bang 0 <|> fold
+                    markerIndex = bang 4 <|> fold
                       ( \a b -> case a of
                           AddBasic -> b + 4
                           AddLeap -> b + 2
