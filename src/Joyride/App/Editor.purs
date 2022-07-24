@@ -225,28 +225,38 @@ editorPage _ = vbussed (Proxy :: _ (V (Events Always))) \pushed (event :: { | Ev
                                                   LLong v -> "Long " <> show v.id
                                               ]
                                           )
-                                          [  ]
+                                          []
+                                      , D.input
+                                          ( oneOf
+                                              [ bang $ D.Xtype := "number"
+                                              , bang $ D.Value := "1" -- make this the column
+                                              , bang $ D.Min := "1"
+                                              , bang $ D.Max := "16"
+                                              , bang $ D.Class := "bg-inherit text-white mx-2 appearance-none border rounded py-2 px-3 leading-tight focus:outline-none focus:shadow-outline"
+                                              ]
+                                          )
+                                          []
                                       , D.button
                                           ( oneOf
                                               [ bang $ D.OnClick := (pure unit :: Effect Unit)
                                               , bang $ D.Class := buttonCls <> " mr-2"
                                               ]
                                           )
-                                          [ D.span (oneOf [bang $ D.Class := "md:inline-block hidden"]) [text_ "Solo"], D.span (oneOf [bang $ D.Class := "md:hidden inline-block"]) [text_ "S"] ]
+                                          [ D.span (oneOf [ bang $ D.Class := "md:inline-block hidden" ]) [ text_ "Solo" ], D.span (oneOf [ bang $ D.Class := "md:hidden inline-block" ]) [ text_ "S" ] ]
                                       , D.button
                                           ( oneOf
                                               [ bang $ D.OnClick := (pure unit :: Effect Unit)
                                               , bang $ D.Class := buttonCls <> " mr-2"
                                               ]
                                           )
-                                          [ D.span (oneOf [bang $ D.Class := "md:inline-block hidden"]) [text_ "Mute"], D.span (oneOf [bang $ D.Class := "md:hidden inline-block"]) [text_ "M"]]
+                                          [ D.span (oneOf [ bang $ D.Class := "md:inline-block hidden" ]) [ text_ "Mute" ], D.span (oneOf [ bang $ D.Class := "md:hidden inline-block" ]) [ text_ "M" ] ]
                                       , D.button
                                           ( oneOf
                                               [ bang $ D.OnClick := p' remove
                                               , bang $ D.Class := buttonCls <> " mr-2"
                                               ]
                                           )
-                                          [ D.span (oneOf [bang $ D.Class := "md:inline-block hidden"]) [text_ "Delete"], D.span (oneOf [bang $ D.Class := "md:hidden inline-block"]) [text_ "D"] ]
+                                          [ D.span (oneOf [ bang $ D.Class := "md:inline-block hidden" ]) [ text_ "Delete" ], D.span (oneOf [ bang $ D.Class := "md:hidden inline-block" ]) [ text_ "D" ] ]
                                       ]
                                   ) <|> e'
                               )
