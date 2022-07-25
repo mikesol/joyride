@@ -18,6 +18,7 @@ import Data.Traversable (for_, oneOf)
 import Data.Tuple (Tuple)
 import Data.Tuple.Nested (type (/\), (/\))
 import Data.Unfoldable (replicate)
+import Debug (spy)
 import Deku.Toplevel (runInBody)
 import Effect (Effect)
 import Effect.Aff (Milliseconds, ParAff, forkAff, joinFiber, launchAff_, never)
@@ -41,7 +42,7 @@ import Joyride.FRP.Keypress (posFromKeypress, xForKeyboard)
 import Joyride.FRP.Orientation (hasOrientationPermission, posFromOrientation, xForTouch)
 import Joyride.FRP.SampleOnSubscribe (sampleOnSubscribe)
 import Joyride.Firebase.Analytics (firebaseAnalyticsAff)
-import Joyride.Firebase.Auth (authStateChangedEventWithAnonymousAccountCreation, firebaseAuthAff)
+import Joyride.Firebase.Auth (authStateChangedEventWithAnonymousAccountCreation, initializeGoogleClient, firebaseAuthAff)
 import Joyride.Firebase.Config (firebaseAppAff)
 import Joyride.Firebase.Firestore (createRideIfNotExistsYet, eventChannelChanges, firestoreDbAff, getPlayerForChannel, sendMyPointsAndPenaltiesToFirebase)
 import Joyride.IO.ParFold (ParFold(..))
@@ -174,6 +175,9 @@ main
   -> Effect Unit
 main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ do
   -- firebsae
+  liftEffect $ initializeGoogleClient \gc -> do
+    let __ = spy "mygc" gc
+    pure unit
   fbApp <- firebaseAppAff
   fbAnalytics <- firebaseAnalyticsAff fbApp
   firestoreDb <- firestoreDbAff fbApp
@@ -189,8 +193,8 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
     -- although for a single subscription it _is_ idempotent
     -- for each thunk
     -- TODO: do we want to do something interesting with unsubscrube?
-    _ <- subscribe (authStateChangedEventWithAnonymousAccountCreation fbAuth) \maybeUser -> do
-      Log.info ("I'm a user: " <> JSON.writeJSON maybeUser)
+    _ <- subscribe (authStateChangedEventWithAnonymousAccountCreation fbAuth) \{ user, provider } -> do
+      Log.info ("I'm a user: " <> JSON.writeJSON user)
     -- timing
     myCNow <- cnow
     let mappedCNow = _.time <$> myCNow.cnow
@@ -246,7 +250,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                   channelEvent.push (RideChannel id)
               , negotiation: negotiation.event
               , tutorial: channelEvent.push TutorialChannel
-              , editor: negotiation.push (OpenEditor {})
+              , editor: negotiation.push (OpenEditor { fbAuth })
               , isMobile
               , lpsCallback: lowPriorityCb
               , givePermission: orientationPerm.push

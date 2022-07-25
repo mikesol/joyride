@@ -231,8 +231,8 @@ ride
                           iu0 <- subscribe withRate.event push.rateInfo
                           st <- run2 ctx
                             ( graph
-                                { basics: event.basicAudio
-                                , leaps: event.leapAudio
+                                { basics: toEvent event.basicAudio
+                                , leaps: toEvent event.leapAudio
                                 , rateInfo: _.rateInfo <$> aStuff
                                 , buffers: refToBehavior tli.soundObj
                                 , silence: tli.silence
@@ -349,7 +349,7 @@ ride
                               )
                       )
                   )
-                  (event.rateInfo <#> \ri { startTime, myTime } -> adjustRateInfoBasedOnActualStart myTime startTime ri)
+                  (toEvent event.rateInfo <#> \ri { startTime, myTime } -> adjustRateInfoBasedOnActualStart myTime startTime ri)
               )
           )
           \animatedStuff -> D.div_
@@ -359,7 +359,7 @@ ride
                 [ D.div (bang $ D.Class := "row-start-1 row-end-2 col-start-1 col-end-4")
                     -- fromEvent because playerStatus is effectful
                     [ D.div (bang $ D.Class := "mx-2 mt-2")
-                        [ fromEvent (biSampleOn (initializeWithEmpty event.iAmReady) (map Tuple playerStatus))
+                        [ fromEvent (biSampleOn (toEvent (initializeWithEmpty event.iAmReady)) (map Tuple playerStatus))
                             -- we theoretically don't need to dedup because
                             -- the button should never redraw once we've started
                             -- if there's flicker, dedup
@@ -369,7 +369,7 @@ ride
                         ]
                     , D.div_
                         [ envy $ map stopButton
-                            ( fromEvent
+                            (
                                 ( map
                                     ( \(Unsubscribe u) -> u *> tli.goHome
                                     )
@@ -412,8 +412,8 @@ ride
                         , bang $ D.Self := HTMLCanvasElement.fromElement >>> traverse_
                             ( runThree <<<
                                 { threeDI: threeDI
-                                , css2DRendererElt: event.render2DElement
-                                , css3DRendererElt: event.render3DElement
+                                , css2DRendererElt: toEvent event.render2DElement
+                                , css3DRendererElt: toEvent event.render3DElement
                                 , isMobile: tli.isMobile
                                 , galaxyAttributes
                                 , shaders

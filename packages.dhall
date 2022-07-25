@@ -42,7 +42,8 @@ let overrides =
           [ "arrays"
           ]
         , repo = "https://github.com/mikesol/purescript-bolson.git"
-        , version = "always-tmp"
+        -- , version = "always-tmp"
+        , version = "main"
         }
       , deku =
         { dependencies =
@@ -75,7 +76,8 @@ let overrides =
           , "web-html"
           ]
         , repo = "https://github.com/mikesol/purescript-deku.git"
-        , version = "always-tmp"
+        --, version = "always-tmp"
+        , version = "main"
         }
       }
 

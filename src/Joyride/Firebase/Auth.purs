@@ -7,6 +7,10 @@ module Joyride.Firebase.Auth
   , MultiFactorUser
   , MultiFactorInfo
   , UserInfo
+  , signInWithGoogle
+  , initializeGoogleClient
+  , GCResponse
+  , AuthProvider(..)
   ) where
 
 import Prelude
@@ -77,20 +81,33 @@ foreign import firebaseAuth :: FirebaseApp -> Effect (Promise FirebaseAuth)
 firebaseAuthAff :: FirebaseApp -> Aff FirebaseAuth
 firebaseAuthAff = toAffE <<< firebaseAuth
 
-foreign import onAuthStateChanged :: (Error -> Effect Unit) -> (Foreign -> Effect Unit) -> FirebaseAuth -> Effect (Promise (Effect Unit))
+type GCResponse =
+  { clientId :: String
+  , credential :: String
+  , select_by :: String
+  }
 
-authStateChangedEventWithAnonymousAccountCreation :: FirebaseAuth -> Event User
+foreign import initializeGoogleClient :: (GCResponse -> Effect Unit) -> Effect Unit
+foreign import signInWithGoogle :: FirebaseAuth -> Effect (Promise Unit)
+
+foreign import onAuthStateChanged :: (Error -> Effect Unit) -> (Foreign -> Effect Unit) -> (Foreign -> Effect Unit) -> FirebaseAuth -> Effect (Promise (Effect Unit))
+
+data AuthProvider = AuthAnonymous | AuthGoogle
+
+authStateChangedEventWithAnonymousAccountCreation :: FirebaseAuth -> Event { user :: User, provider :: AuthProvider }
 authStateChangedEventWithAnonymousAccountCreation auth = makeEvent \k -> do
   unsub <- Ref.new (pure unit)
+  let
+    authFlow provider u = do
+      let user' = JSON.read u
+      case user' of
+        Left e -> do
+          throwError (error $ (show (JSON.writeJSON u) <> " " <> show e))
+        Right user -> k { user, provider }
   launchAff_ do
     us <- toAffE $ onAuthStateChanged (show >>> Log.error)
-      ( \u -> do
-          let user' = JSON.read u
-          case user' of
-            Left e -> do
-              throwError (error $ (show (JSON.writeJSON u) <> " " <> show e))
-            Right user -> k user
-      )
+      (authFlow AuthAnonymous)
+      (authFlow AuthGoogle)
       auth
     liftEffect $ Ref.write us unsub
   pure $ join $ Ref.read unsub

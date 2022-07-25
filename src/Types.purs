@@ -106,6 +106,7 @@ import FRP.Behavior (Behavior)
 import FRP.Event (EventIO, Event)
 import Foreign (ForeignError(..), fail)
 import Foreign.Object as Object
+import Joyride.Firebase.Auth (FirebaseAuth)
 import Joyride.Ocarina (AudibleChildEnd, AudibleEnd)
 import Ocarina.Math (calcSlope)
 import Ocarina.WebAPI (BrowserAudioBuffer)
@@ -879,15 +880,15 @@ type Success' =
   , initialDims :: WindowDims
   , cNow :: Effect Milliseconds
   , threeDI :: ThreeDI
-  , pubNubEvent :: Event PlayerAction
   , models :: Models GLTFLoader.GLTF
   , textures :: Textures Texture
   , cubeTextures :: CubeTextures CTL.CubeTexture
   , optMeIn :: JMilliseconds -> Maybe String -> Effect Unit
+  , pubNubEvent :: Event PlayerAction
   , playerStatus :: Event KnownPlayers
   }
 
-type OpenEditor' = { }
+type OpenEditor' = { fbAuth :: FirebaseAuth }
 
 type WantsTutorial' =
   { player :: Player

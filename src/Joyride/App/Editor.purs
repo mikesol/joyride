@@ -3,77 +3,38 @@ module Joyride.App.Editor where
 import Prelude
 
 import Control.Alt ((<|>))
-import Control.Monad.Except (runExcept, throwError)
-import Control.Plus (empty)
+import Control.Promise (toAffE)
 import Data.Array ((..))
-import Data.Array (span)
-import Data.DateTime.Instant (unInstant)
-import Data.Either (Either(..), hush)
-import Data.Foldable (foldl, for_, oneOf, oneOfMap, traverse_)
-import Data.Int (floor, round)
-import Data.Map as Map
+import Data.Either (Either(..))
+import Data.Foldable (for_, oneOf)
+import Data.Int (floor)
 import Data.Maybe (Maybe(..))
-import Data.Monoid (guard)
 import Data.Monoid.Always (always)
 import Data.Monoid.Endo (Endo(..))
-import Data.Newtype (over, unwrap)
-import Data.Number (pi)
+import Data.Newtype (unwrap)
 import Data.Set as Set
-import Data.String as String
-import Data.Time.Duration (Milliseconds(..))
-import Data.Traversable (traverse)
-import Data.Tuple (Tuple(..), fst, snd)
+import Data.Tuple (Tuple(..))
 import Data.Tuple.Nested ((/\), type (/\))
-import Debug (spy)
 import Deku.Attribute (cb, xdata, (:=))
-import Deku.Control (switcher, text, text_)
-import Deku.Core (class Korok, Domable, Nut, bus, bussed, dyn, envy, insert, remove, vbussed)
+import Deku.Control (text, text_)
+import Deku.Core (class Korok, Domable, dyn, envy, insert, remove, vbussed)
 import Deku.DOM as D
 import Deku.Listeners (click)
-import Effect (Effect, foreachE)
-import Effect.Aff (delay, launchAff_)
-import Effect.Class (liftEffect)
-import Effect.Now as LocalNow
-import Effect.Ref as Ref
-import Effect.Timer (clearInterval, setInterval)
-import FRP.Behavior (Behavior, sampleBy)
-import FRP.Event (AnEvent, Event, EventIO, bang, filterMap, fold, fromEvent, hot, keepLatest, mapAccum, memoize, sampleOn, subscribe)
-import FRP.Event.AnimationFrame (animationFrame)
-import FRP.Event.Class (biSampleOn)
+import Effect (Effect)
+import Effect.Aff (launchAff_)
+import FRP.Event (AnEvent, bang, fold, keepLatest, mapAccum, memoize, sampleOn)
 import FRP.Event.VBus (V, vbus)
-import Foreign.Object as Object
-import Joyride.App.RequestIdleCallbackIsDefined (requestIdleCallbackIsDefined)
-import Joyride.Audio.Graph.Tutorial (graph)
 import Joyride.Editor.ADT (Landmark(..), LongLength(..), Marker(..))
-import Joyride.FRP.Behavior (refToBehavior)
-import Joyride.FRP.Rate (timeFromRate)
-import Joyride.FRP.Rider (Rider, rider, toRide)
-import Joyride.FRP.SampleOnSubscribe (initializeWithEmpty)
-import Joyride.FRP.Schedule (fireAndForget)
-import Joyride.Filestack.Filestack (init, picker)
-import Joyride.FullScreen as FullScreen
-import Joyride.Ocarina (AudibleChildEnd)
+import Joyride.FRP.Rider (rider, toRide)
+import Joyride.Firebase.Auth (signInWithGoogle)
 import Joyride.Style (buttonActiveCls, buttonCls, headerCls)
-import Joyride.Visual.Animation.Tutorial (runThree)
 import Joyride.Wavesurfer.Wavesurfer (WaveSurfer, addMarker, hideMarker, makeWavesurfer, muteExcept, removeMarker, showMarker)
-import Ocarina.Clock (withACTime)
-import Ocarina.Interpret (close, constant0Hack, context)
-import Ocarina.Run (run2)
-import Ocarina.WebAPI (BrowserAudioBuffer)
-import Rito.Color (color)
-import Rito.Core (ASceneful)
-import Rito.Matrix4 as M4
-import Safe.Coerce (coerce)
-import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
-import Types (Beats(..), HitBasicMe, HitLeapMe, HitLongMe, InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, MakeLongs, Player(..), PlayerPositionsF, RateInfo, ReleaseLongMe, RenderingInfo, Seconds(..), StartStatus(..), WantsTutorial', WindowDims)
 import Types (OpenEditor')
-import Web.DOM as Web.DOM
 import Web.Event.Event (target)
-import Web.HTML.HTMLCanvasElement as HTMLCanvasElement
 import Web.HTML.HTMLInputElement (fromEventTarget, value, valueAsNumber)
-import Web.HTML.Window (RequestIdleCallbackId, Window, cancelIdleCallback, requestIdleCallback)
 
+type Events :: forall k. (Type -> k) -> Row k
 type Events t =
   ( initialScreenVisible :: t Boolean
   , loadWave :: t String
@@ -82,6 +43,7 @@ type Events t =
 
 data SoMu = Solo (Int /\ Int) | Mute (Int /\ Int) | UnSolo (Int /\ Int) | UnMute (Int /\ Int)
 
+type SingleItem :: forall k. (Type -> k) -> Row k
 type SingleItem t =
   ( changeTitle :: t (Maybe String)
   , changeColumn :: t Int
@@ -90,6 +52,7 @@ type SingleItem t =
   , delete :: t Unit
   )
 
+type CEvents :: forall k. (Type -> k) -> Row k
 type CEvents t =
   ( addBasic :: t Unit
   , addLeap :: t Unit
@@ -100,6 +63,7 @@ type CEvents t =
   , unMute :: t (Int /\ Int)
   )
 
+type PlainOl :: forall k. k -> k
 type PlainOl t = t
 
 data CAction = CBasic | CLeap | CLongPress
@@ -142,7 +106,7 @@ editorPage
    . Korok s m
   => OpenEditor'
   -> Domable m lock payload
-editorPage _ = vbussed (Proxy :: _ (V (Events PlainOl))) \pushed (event :: { | Events (AnEvent m) }) -> do
+editorPage { fbAuth } = vbussed (Proxy :: _ (V (Events PlainOl))) \pushed (event :: { | Events (AnEvent m) }) -> do
   let isv = event.initialScreenVisible <|> bang true
   D.div
     (bang $ D.Class := "absolute w-screen h-screen bg-zinc-900")
@@ -265,6 +229,15 @@ editorPage _ = vbussed (Proxy :: _ (V (Events PlainOl))) \pushed (event :: { | E
                                   ]
                               )
                               [ text_ "Add Long Press" ]
+                            , D.button
+                              ( oneOf
+                                  [ bang $ D.OnClick := launchAff_ do
+                                      toAffE $ signInWithGoogle fbAuth
+                                  , bang $ D.Class := buttonCls
+
+                                  ]
+                              )
+                              [ text_ "Save" ]
                           ]
                       D.div_
                         [ D.div (oneOf [ bang $ D.Class := "flex flex-row justify-around" ]) top
