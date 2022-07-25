@@ -125,7 +125,7 @@ function secondaryLabelInterval(pxPerSec) {
 }
 
 export const makeWavesurfer =
-	(markers) => (success) => (container) => (url) => () => {
+	(markers) => (dropCb) => (success) => (container) => (url) => () => {
 		const ws = WaveSurfer.create({
 			backend: "MediaElement",
 			waveColor: "#A8DBA8",
@@ -172,15 +172,23 @@ export const makeWavesurfer =
 		ws.load(url);
 		ws.on("ready", success);
 		ws.markers.remove(0);
+		ws.on("marker-drop", function ({time, el: { $$joyrideIndex }}) {
+			dropCb($$joyrideIndex)(time)();
+		});
+		for (let i = 0; i < ws.markers.markers.length; i++) {
+			ws.markers.markers[i].el.$$joyrideIndex = i;
+		}
 		return ws;
+
 	};
 
 export const zoom = (ws) => (z) => () => ws.zoom(z);
-export const addMarker = (ws) => (p) => () =>
-	ws.addMarker({ draggable: true, ...p });
+export const addMarker = (ws) => (p) => () => {
+	const m = ws.addMarker({ draggable: true, ...p });
+	m.el.$$joyrideIndex = ws.markers.markers.length - 1;
+}
 
 export const hideMarker = (ws) => (ix) => () => {
-	console.log("removing class", ix);
 	ws.markers.markers[ix].el.classList.remove("visible");
 	ws.markers.markers[ix].el.classList.add("invisible");
 };
@@ -215,7 +223,6 @@ export const removeMarker = (ws) => (ix) => () => {
 };
 
 export const showMarker = (ws) => (ix) => () => {
-	console.log("adding class", ix);
 	ws.markers.markers[ix].el.classList.remove("invisible");
 	ws.markers.markers[ix].el.classList.add("visible");
 };

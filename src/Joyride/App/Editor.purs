@@ -155,7 +155,13 @@ editorPage _ = vbussed (Proxy :: _ (V (Events PlainOl))) \pushed (event :: { | E
             ( oneOf
                 [ bang $ D.Class := ""
                 , event.loadWave <#> \url -> D.Self := \s -> do
-                    makeWavesurfer [] (pushed.initialScreenVisible false) s url >>= pushed.waveSurfer
+                    makeWavesurfer []
+                      ( \i t -> do
+                          pure unit
+                      )
+                      (pushed.initialScreenVisible false)
+                      s
+                      url >>= pushed.waveSurfer
 
                 ]
             )

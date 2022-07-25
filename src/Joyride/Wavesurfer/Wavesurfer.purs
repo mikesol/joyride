@@ -8,7 +8,9 @@ import Web.DOM as Web.DOM
 data WaveSurfer
 
 foreign import makeWavesurfer
-  :: Array Marker -> Effect Unit
+  :: Array Marker
+  -> (Int -> Number -> Effect Unit)
+  -> Effect Unit
   -> Web.DOM.Element
   -> String
   -> Effect WaveSurfer
