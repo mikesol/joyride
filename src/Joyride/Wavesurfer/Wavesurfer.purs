@@ -17,4 +17,7 @@ foreign import zoom :: WaveSurfer -> Number -> Effect Unit
 type Marker = {time :: Number, label :: String, color :: String }
 foreign import addMarker :: WaveSurfer -> Marker -> Effect Unit
 foreign import hideMarker :: WaveSurfer -> Int -> Effect Unit
+foreign import mute :: WaveSurfer -> Int -> Effect Unit
+foreign import muteExcept :: WaveSurfer -> Array (Array Int) -> Effect Unit
+foreign import removeMarker :: WaveSurfer -> Int -> Effect Unit
 foreign import showMarker :: WaveSurfer -> Int -> Effect Unit

@@ -1,4 +1,6 @@
 import "./style.css";
+import "./style.scss";
+import "tw-elements";
 import { main } from "../output/Main";
 import { audio } from "./audio";
 import { shaders } from "./shaders";

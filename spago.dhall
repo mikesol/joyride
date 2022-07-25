@@ -31,6 +31,7 @@
   , "js-timers"
   , "lists"
   , "maybe"
+  , "monoid-extras"
   , "newtype"
   , "nonempty"
   , "now"

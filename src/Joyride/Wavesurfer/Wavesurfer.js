@@ -180,9 +180,42 @@ export const addMarker = (ws) => (p) => () =>
 	ws.addMarker({ draggable: true, ...p });
 
 export const hideMarker = (ws) => (ix) => () => {
+	console.log("removing class", ix);
+	ws.markers.markers[ix].el.classList.remove("visible");
 	ws.markers.markers[ix].el.classList.add("invisible");
 };
 
+export const mute = hideMarker;
+
+export const muteExcept = (ws) => ($ixs) => () => {
+	if ($ixs.length === 0) {
+		for (let i = 0; i < ws.markers.markers.length; i++) {
+			ws.markers.markers[i].el.classList.remove("invisible");
+			ws.markers.markers[i].el.classList.add("visible");
+		}
+	} else {
+		const ixs = [...$ixs];
+		for (let i = 0; i < ws.markers.markers.length; i++) {
+			if (ixs.length && i == ixs[0][1]) {
+				ixs.shift();
+			}
+			if (ixs.length && i >= ixs[0][0] && i < ixs[0][1]) {
+				ws.markers.markers[i].el.classList.remove("invisible");
+				ws.markers.markers[i].el.classList.add("visible");
+				continue;
+			}
+			ws.markers.markers[i].el.classList.remove("visible");
+			ws.markers.markers[i].el.classList.add("invisible");
+		}
+	}
+};
+
+export const removeMarker = (ws) => (ix) => () => {
+	ws.markers.remove(ix);
+};
+
 export const showMarker = (ws) => (ix) => () => {
+	console.log("adding class", ix);
+	ws.markers.markers[ix].el.classList.remove("invisible");
 	ws.markers.markers[ix].el.classList.add("visible");
 };

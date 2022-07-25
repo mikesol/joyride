@@ -4,17 +4,22 @@ import Prelude
 
 import Data.Exists (Exists, mkExists, runExists)
 import Data.Newtype (class Newtype, unwrap)
-import FRP.Event (Event, EventIO, makeEvent, subscribe)
+import FRP.Event (AnEvent, makeEvent, subscribe)
 
-newtype RiderF a = RiderF (EventIO a)
+-- todo: export from hyrule
+type AnEventIO m a =
+  { event :: AnEvent m a
+  , push :: a -> m Unit
+  }
+newtype RiderF m a = RiderF (AnEventIO m a)
 
-derive instance Newtype (RiderF a) _
-type Rider = Exists RiderF
+derive instance Newtype (RiderF m a) _
+type Rider m = Exists (RiderF m)
 
-toRide :: forall a. EventIO a -> Rider
+toRide :: forall m a. AnEventIO m a -> Rider m
 toRide i = mkExists (RiderF i)
 
-rider :: Rider -> Event ~> Event
+rider :: forall m. Monad m => Rider m -> AnEvent m ~> AnEvent m
 rider r e = makeEvent \k -> do
   u0 <- subscribe e k
   u1 <- runExists (unwrap >>> (subscribe <$> _.event <*> _.push)) r

@@ -1,7 +1,10 @@
 module.exports = {
-	content: ["./src/**/*.{purs,js}"],
+	content: [
+		"./src/**/*.{purs,js}",
+		"./node_modules/tw-elements/dist/js/**/*.js",
+	],
 	theme: {
 		extend: {},
 	},
-	plugins: [],
+	plugins: [require("tw-elements/dist/plugin")],
 };

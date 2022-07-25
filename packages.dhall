@@ -37,6 +37,46 @@ let overrides =
         , repo = "https://github.com/mikesol/purescript-rito.git"
         , version = "v0.0.2"
         }
+        , bolson =
+        { dependencies =
+          [ "arrays"
+          ]
+        , repo = "https://github.com/mikesol/purescript-bolson.git"
+        , version = "always-tmp"
+        }
+      , deku =
+        { dependencies =
+          [ "arrays"
+          , "bolson"
+          , "control"
+          , "effect"
+          , "fast-vect"
+          , "filterable"
+          , "foldable-traversable"
+          , "foreign-object"
+          , "heterogeneous"
+          , "hyrule"
+          , "maybe"
+          , "monoid-extras"
+          , "newtype"
+          , "ordered-collections"
+          , "prelude"
+          , "profunctor"
+          , "quickcheck"
+          , "record"
+          , "refs"
+          , "safe-coerce"
+          , "st"
+          , "strings"
+          , "transformers"
+          , "unsafe-coerce"
+          , "web-dom"
+          , "web-events"
+          , "web-html"
+          ]
+        , repo = "https://github.com/mikesol/purescript-deku.git"
+        , version = "always-tmp"
+        }
       }
 
 in  upstream // overrides

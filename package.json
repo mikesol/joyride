@@ -27,6 +27,8 @@
 		"postcss-preset-env": "^7.5.0",
 		"purescript": "^0.15.2",
 		"purs-tidy": "^0.8.0",
+		"sass": "^1.54.0",
+		"sass-loader": "^13.0.2",
 		"spago": "^0.20.8",
 		"style-loader": "^3.3.1",
 		"tailwind": "^4.0.0",
@@ -46,6 +48,7 @@
 		"screenfull": "^6.0.1",
 		"three": "^0.140.0",
 		"tone": "^14.7.77",
+		"tw-elements": "^1.0.0-alpha12",
 		"uuid": "^8.3.2",
 		"wavesurfer.js": "^6.2.0"
 	}
