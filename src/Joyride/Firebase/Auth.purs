@@ -7,6 +7,7 @@ module Joyride.Firebase.Auth
   , MultiFactorUser
   , MultiFactorInfo
   , UserInfo
+  , upgradeAuth
   , signInWithGoogle
   , initializeGoogleClient
   , GCResponse
@@ -91,6 +92,7 @@ foreign import initializeGoogleClient :: (GCResponse -> Effect Unit) -> Effect U
 foreign import signInWithGoogle :: FirebaseAuth -> Effect (Promise Unit)
 
 foreign import onAuthStateChanged :: (Error -> Effect Unit) -> (Foreign -> Effect Unit) -> (Foreign -> Effect Unit) -> FirebaseAuth -> Effect (Promise (Effect Unit))
+foreign import upgradeAuth :: FirebaseAuth -> String -> Effect (Promise Unit)
 
 data AuthProvider = AuthAnonymous | AuthGoogle
 

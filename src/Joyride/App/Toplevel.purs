@@ -97,6 +97,7 @@ data TopLevelDisplay
       , threeDI :: ThreeDI
       , initialDims :: WindowDims
       , cNow :: Effect Milliseconds
+      , signedInNonAnonymously :: Event Boolean
       }
   | TLLoading
   | TLGameHasStarted
@@ -166,7 +167,7 @@ toplevel tli =
   ) # switcher case _ of
     TLNeedsOrientation -> orientationPermissionPage { givePermission: tli.givePermission }
     TLWillNotWorkWithoutOrientation -> sorryNeedPermissionPage
-    TLExplainer { cubeTextures, threeDI, cNow, initialDims } -> explainerPage
+    TLExplainer { cubeTextures, threeDI, cNow, initialDims, signedInNonAnonymously } -> explainerPage
       { ride: tli.ride
       , editor: tli.editor
       , tutorial: tli.tutorial
@@ -176,6 +177,7 @@ toplevel tli =
       , initialDims
       , threeDI
       , cubeTextures
+      , signedInNonAnonymously
       }
     TLOpenEditor s -> editorPage s
     TLLoading -> loadingPage

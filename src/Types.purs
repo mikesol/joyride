@@ -846,6 +846,7 @@ data Negotiation
       , initialDims :: WindowDims
       , threeDI :: ThreeDI
       , cNow :: Effect Milliseconds
+      , signedInNonAnonymously :: Event Boolean
       }
   | WantsTutorial WantsTutorial'
   | OpenEditor OpenEditor'
@@ -888,7 +889,10 @@ type Success' =
   , playerStatus :: Event KnownPlayers
   }
 
-type OpenEditor' = { fbAuth :: FirebaseAuth }
+type OpenEditor' =
+  { fbAuth :: FirebaseAuth
+  , signedInNonAnonymously :: Event Boolean
+  }
 
 type WantsTutorial' =
   { player :: Player

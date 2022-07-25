@@ -22,7 +22,7 @@ import Deku.DOM as D
 import Deku.Listeners (click)
 import Effect (Effect)
 import Effect.Aff (launchAff_)
-import FRP.Event (AnEvent, bang, fold, keepLatest, mapAccum, memoize, sampleOn)
+import FRP.Event (AnEvent, bang, fold, fromEvent, keepLatest, mapAccum, memoize, sampleOn)
 import FRP.Event.VBus (V, vbus)
 import Joyride.Editor.ADT (Landmark(..), LongLength(..), Marker(..))
 import Joyride.FRP.Rider (rider, toRide)
@@ -41,17 +41,6 @@ type Events t =
   , waveSurfer :: t WaveSurfer
   )
 
-data SoMu = Solo (Int /\ Int) | Mute (Int /\ Int) | UnSolo (Int /\ Int) | UnMute (Int /\ Int)
-
-type SingleItem :: forall k. (Type -> k) -> Row k
-type SingleItem t =
-  ( changeTitle :: t (Maybe String)
-  , changeColumn :: t Int
-  , solo :: t Unit
-  , mute :: t Unit
-  , delete :: t Unit
-  )
-
 type CEvents :: forall k. (Type -> k) -> Row k
 type CEvents t =
   ( addBasic :: t Unit
@@ -63,10 +52,20 @@ type CEvents t =
   , unMute :: t (Int /\ Int)
   )
 
+type SingleItem :: forall k. (Type -> k) -> Row k
+type SingleItem t =
+  ( changeTitle :: t (Maybe String)
+  , changeColumn :: t Int
+  , solo :: t Unit
+  , mute :: t Unit
+  , delete :: t Unit
+  )
+
 type PlainOl :: forall k. k -> k
 type PlainOl t = t
 
 data CAction = CBasic | CLeap | CLongPress
+data SoMu = Solo (Int /\ Int) | Mute (Int /\ Int) | UnSolo (Int /\ Int) | UnMute (Int /\ Int)
 
 defaultBasic :: Int -> Int -> Int -> Landmark
 defaultBasic id startIx col = LBasic
@@ -106,7 +105,7 @@ editorPage
    . Korok s m
   => OpenEditor'
   -> Domable m lock payload
-editorPage { fbAuth } = vbussed (Proxy :: _ (V (Events PlainOl))) \pushed (event :: { | Events (AnEvent m) }) -> do
+editorPage { fbAuth, signedInNonAnonymously } = vbussed (Proxy :: _ (V (Events PlainOl))) \pushed (event :: { | Events (AnEvent m) }) -> do
   let isv = event.initialScreenVisible <|> bang true
   D.div
     (bang $ D.Class := "absolute w-screen h-screen bg-zinc-900")
@@ -237,7 +236,7 @@ editorPage { fbAuth } = vbussed (Proxy :: _ (V (Events PlainOl))) \pushed (event
 
                                   ]
                               )
-                              [ text_ "Save" ]
+                              [ text (fromEvent signedInNonAnonymously <#> if _ then "Save" else "Save (sign in)") ]
                           ]
                       D.div_
                         [ D.div (oneOf [ bang $ D.Class := "flex flex-row justify-around" ]) top

@@ -4,6 +4,7 @@ import Prelude
 
 import Control.Alt ((<|>))
 import Control.Parallel (parTraverse, sequential)
+import Control.Promise (toAffE)
 import Data.Either (Either(..), hush)
 import Data.Filterable (filter)
 import Data.Homogeneous.Record (fromHomogeneous, homogeneous)
@@ -28,7 +29,7 @@ import Effect.Random as Random
 import Effect.Ref (new)
 import Effect.Ref as Ref
 import FRP.Behavior (Behavior, sample_)
-import FRP.Event (Event, bang, filterMap, folded, subscribe)
+import FRP.Event (Event, bang, create, filterMap, folded, subscribe)
 import FRP.Event as Event
 import FRP.Event.AnimationFrame (animationFrame)
 import FRP.Event.VBus (V)
@@ -38,11 +39,12 @@ import Joyride.App.Toplevel (toplevel)
 import Joyride.Effect.Ref (readFromRecord, writeToRecord)
 import Joyride.EmitsTouchEvents (emitsTouchEvents)
 import Joyride.FRP.Behavior (refToBehavior)
+import Joyride.FRP.Burning (burning)
 import Joyride.FRP.Keypress (posFromKeypress, xForKeyboard)
 import Joyride.FRP.Orientation (hasOrientationPermission, posFromOrientation, xForTouch)
 import Joyride.FRP.SampleOnSubscribe (sampleOnSubscribe)
 import Joyride.Firebase.Analytics (firebaseAnalyticsAff)
-import Joyride.Firebase.Auth (authStateChangedEventWithAnonymousAccountCreation, initializeGoogleClient, firebaseAuthAff)
+import Joyride.Firebase.Auth (AuthProvider(..), authStateChangedEventWithAnonymousAccountCreation, firebaseAuthAff, initializeGoogleClient, upgradeAuth)
 import Joyride.Firebase.Config (firebaseAppAff)
 import Joyride.Firebase.Firestore (createRideIfNotExistsYet, eventChannelChanges, firestoreDbAff, getPlayerForChannel, sendMyPointsAndPenaltiesToFirebase)
 import Joyride.IO.ParFold (ParFold(..))
@@ -175,9 +177,6 @@ main
   -> Effect Unit
 main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ do
   -- firebsae
-  liftEffect $ initializeGoogleClient \gc -> do
-    let __ = spy "mygc" gc
-    pure unit
   fbApp <- firebaseAppAff
   fbAnalytics <- firebaseAnalyticsAff fbApp
   firestoreDb <- firestoreDbAff fbApp
@@ -188,6 +187,9 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
   hop <- liftEffect hasOrientationPermission
   liftEffect do
     -- auth
+    signedInNonAnonymously' <- create
+    initializeGoogleClient \gc -> do
+      launchAff_ (toAffE (upgradeAuth fbAuth gc.credential))
     -- ONLY CALL THIS LISTENER ONCE, AT THE TOP LEVEL
     -- it is not idempotent across subsequent calls
     -- although for a single subscription it _is_ idempotent
@@ -195,6 +197,13 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
     -- TODO: do we want to do something interesting with unsubscrube?
     _ <- subscribe (authStateChangedEventWithAnonymousAccountCreation fbAuth) \{ user, provider } -> do
       Log.info ("I'm a user: " <> JSON.writeJSON user)
+      signedInNonAnonymously'.push case provider of
+        AuthGoogle -> true
+        AuthAnonymous -> false
+    -- in the current architecture,
+    -- we never unsubscribe from this, as it is at the top level
+    -- if moved down to internal scopes, we need to run the unsubscribe when it moves out of scope!
+    signedInNonAnonymously <- burning false signedInNonAnonymously'.event
     -- timing
     myCNow <- cnow
     let mappedCNow = _.time <$> myCNow.cnow
@@ -250,7 +259,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                   channelEvent.push (RideChannel id)
               , negotiation: negotiation.event
               , tutorial: channelEvent.push TutorialChannel
-              , editor: negotiation.push (OpenEditor { fbAuth })
+              , editor: negotiation.push (OpenEditor { fbAuth, signedInNonAnonymously: signedInNonAnonymously.event })
               , isMobile
               , lpsCallback: lowPriorityCb
               , givePermission: orientationPerm.push
@@ -417,6 +426,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                       , models: Models myGLTFs
                       , cubeTextures: CubeTextures myCubeTextures
                       , cNow: mappedCNow
+                      , signedInNonAnonymously: signedInNonAnonymously.event
                       }
                   )
               RideChannel proposedChannel -> do

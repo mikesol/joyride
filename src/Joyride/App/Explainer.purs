@@ -2,7 +2,8 @@ module Joyride.App.Explainer where
 
 import Prelude
 
-import Bolson.Core (Element(..), envy, fixed)
+import Bolson.Core (Element(..), dyn, envy, fixed)
+import Control.Plus (empty)
 import Data.Foldable (oneOf, oneOfMap, traverse_)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
@@ -10,12 +11,12 @@ import Data.Number (cos, pi)
 import Data.Time.Duration (Milliseconds)
 import Data.Tuple.Nested ((/\))
 import Deku.Attribute ((:=))
-import Deku.Control (text_)
+import Deku.Control (switcher, text_)
 import Deku.Core (Nut, vbussed)
 import Deku.DOM as D
 import Deku.Listeners as DL
 import Effect (Effect)
-import FRP.Event (Event, bang, keepLatest, mapAccum, memoize)
+import FRP.Event (Event, bang, fromEvent, keepLatest, mapAccum, memoize)
 import FRP.Event.Animate (animationFrameEvent)
 import FRP.Event.VBus (V)
 import Joyride.FullScreen as FullScreen
@@ -131,6 +132,7 @@ explainerPage
      , cubeTextures :: CubeTextures CubeTexture
      , initialDims :: WindowDims
      , threeDI :: ThreeDI
+     , signedInNonAnonymously :: Event Boolean
      }
   -> Nut
 explainerPage opts = vbussed (Proxy :: _ (V (unsubscriber :: Effect Unit))) \push event -> D.div (oneOf [ bang (D.Class := "absolute") ])
@@ -171,6 +173,13 @@ explainerPage opts = vbussed (Proxy :: _ (V (unsubscriber :: Effect Unit))) \pus
                       ]
                   )
                   [ text_ "Editor" ]
+              , D.button
+                        ( oneOf
+                            [ fromEvent opts.signedInNonAnonymously <#> \na -> D.Class := buttonCls <> (if na then "" else " hidden")
+                            ]
+                        )
+                        [ text_ "Sign Out" ]
+
               ]
       ]
   , filler

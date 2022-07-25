@@ -14,10 +14,22 @@ export const signInWithGoogle = (auth) => () => {
 	return Promise.resolve(true);
 };
 
+export const upgradeAuth = (auth) => (credential) => () => {
+	return linkWithCredential(auth.currentUser, credential)
+		.then((usercred) => {
+			const user = usercred.user;
+			console.log("Anonymous account successfully upgraded", user);
+		})
+		.catch((error) => {
+			console.log("Error upgrading anonymous account", error);
+		});
+}
+
 export const onAuthStateChanged = (errorF) => (signedInAnon) => (signedInGoogle) => (auth) => () =>
 	import("firebase/auth").then(({ onAuthStateChanged, signInAnonymously }) => {
 		const thunk = onAuthStateChanged(auth, (user) => {
 			if (user) {
+				console.log('auth state change with user', user);
 				if (user.isAnonymous) {
 					signedInAnon(user)();
 				} else {
