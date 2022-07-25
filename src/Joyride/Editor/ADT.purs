@@ -12,6 +12,7 @@ data Landmark
       { id :: Int
       , startIx :: Int
       , name :: Maybe String
+      , col :: Int
       , l1 :: Marker
       , l2 :: Marker
       , l3 :: Marker
@@ -20,6 +21,7 @@ data Landmark
   | LLeap
       { id :: Int
       , startIx :: Int
+      , col :: Int
       , name :: Maybe String
       , start :: Marker
       , end :: Marker
@@ -27,6 +29,7 @@ data Landmark
   | LLong
       { id :: Int
       , startIx :: Int
+      , col :: Int
       , name :: Maybe String
       , start :: Marker
       , end :: Marker

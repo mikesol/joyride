@@ -152,7 +152,9 @@ export const makeWavesurfer =
 				}),
 				MarkersPlugin.create({
 					// hack to get draggable working. we delete the first element after
-					markers: [{time:0.0,color:"#00ffff",draggable:true}].concat(markers.map((m) => ({ draggable: true, ...m }))),
+					markers: [{ time: 0.0, color: "#00ffff", draggable: true }].concat(
+						markers.map((m) => ({ draggable: true, ...m }))
+					),
 				}),
 				CursorPlugin.create({
 					showTime: true,
@@ -176,3 +178,11 @@ export const makeWavesurfer =
 export const zoom = (ws) => (z) => () => ws.zoom(z);
 export const addMarker = (ws) => (p) => () =>
 	ws.addMarker({ draggable: true, ...p });
+
+export const hideMarker = (ws) => (ix) => () => {
+	ws.markers.markers[ix].el.classList.add("invisible");
+};
+
+export const showMarker = (ws) => (ix) => () => {
+	ws.markers.markers[ix].el.classList.add("visible");
+};

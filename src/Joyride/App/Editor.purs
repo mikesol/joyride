@@ -25,6 +25,7 @@ import Deku.Attribute ((:=))
 import Deku.Control (switcher, text_)
 import Deku.Core (class Korok, Domable, Nut, bus, bussed, dyn, envy, insert, remove, vbussed)
 import Deku.DOM as D
+import Deku.Listeners (click)
 import Effect (Effect, foreachE)
 import Effect.Aff (delay, launchAff_)
 import Effect.Class (liftEffect)
@@ -32,7 +33,7 @@ import Effect.Now as LocalNow
 import Effect.Ref as Ref
 import Effect.Timer (clearInterval, setInterval)
 import FRP.Behavior (Behavior, sampleBy)
-import FRP.Event (AnEvent, Event, EventIO, bang, filterMap, fold, fromEvent, hot, keepLatest, mapAccum, memoize, subscribe)
+import FRP.Event (AnEvent, Event, EventIO, bang, filterMap, fold, fromEvent, hot, keepLatest, mapAccum, memoize, sampleOn, subscribe)
 import FRP.Event.AnimationFrame (animationFrame)
 import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V)
@@ -49,7 +50,7 @@ import Joyride.FullScreen as FullScreen
 import Joyride.Ocarina (AudibleChildEnd)
 import Joyride.Style (buttonCls, headerCls)
 import Joyride.Visual.Animation.Tutorial (runThree)
-import Joyride.Wavesurfer.Wavesurfer (WaveSurfer, addMarker, makeWavesurfer)
+import Joyride.Wavesurfer.Wavesurfer (WaveSurfer, addMarker, hideMarker, makeWavesurfer)
 import Ocarina.Clock (withACTime)
 import Ocarina.Interpret (close, constant0Hack, context)
 import Ocarina.Run (run2)
@@ -72,10 +73,10 @@ type Events t =
   , waveSurfer :: t WaveSurfer
   )
 
-data CAction = AddBasic | AddLeap | AddLongPress
+data CAction = CBasic | CLeap | CLongPress
 
-defaultBasic :: Int -> Int -> Landmark
-defaultBasic id startIx = LBasic
+defaultBasic :: Int -> Int -> Int -> Landmark
+defaultBasic id startIx col = LBasic
   { l1: Marker { at: 0.0 }
   , l2: Marker { at: 0.5 }
   , l3: Marker { at: 1.0 }
@@ -83,25 +84,28 @@ defaultBasic id startIx = LBasic
   , name: Nothing
   , id
   , startIx
+  , col
   }
 
-defaultLeap :: Int -> Int -> Landmark
-defaultLeap id startIx = LLeap
+defaultLeap :: Int -> Int -> Int -> Landmark
+defaultLeap id startIx col = LLeap
   { start: Marker { at: 0.5 }
   , end: Marker { at: 1.25 }
   , name: Nothing
   , id
   , startIx
+  , col
   }
 
-defaultLongPress :: Int -> Int -> Landmark
-defaultLongPress id startIx = LLong
+defaultLongPress :: Int -> Int -> Int -> Landmark
+defaultLongPress id startIx col = LLong
   { start: Marker { at: 0.5 }
   , end: Marker { at: 1.25 }
   , len: LongLength { len: 1.0 }
   , name: Nothing
   , id
   , startIx
+  , col
   }
 
 type CEvents t =
@@ -145,9 +149,9 @@ editorPage _ = vbussed (Proxy :: _ (V (Events Always))) \pushed (event :: { | Ev
         , D.div_
             [ vbussed (Proxy :: _ (V (CEvents Always))) \cPushed (cEvent :: { | CEvents (AnEvent m) }) -> envy $ memoize
                 ( oneOf
-                    [ cEvent.addBasic $> AddBasic
-                    , cEvent.addLeap $> AddLeap
-                    , cEvent.addLongPress $> AddLongPress
+                    [ cEvent.addBasic $> CBasic
+                    , cEvent.addLeap $> CLeap
+                    , cEvent.addLongPress $> CLongPress
                     ]
                 )
                 \ctrlEvent -> do
@@ -158,9 +162,9 @@ editorPage _ = vbussed (Proxy :: _ (V (Events Always))) \pushed (event :: { | Ev
                     store =
                       ( mapAccum
                           ( \a { id, startIx } -> case a of
-                              AddBasic -> { id: id + 1, startIx: startIx + 4 } /\ defaultBasic id startIx
-                              AddLeap -> { id: id + 1, startIx: startIx + 2 } /\ defaultLeap id startIx
-                              AddLongPress -> { id: id + 1, startIx: startIx + 2 } /\ defaultLongPress id startIx
+                              CBasic -> { id: id + 1, startIx: startIx + 4 } /\ defaultBasic id startIx 7
+                              CLeap -> { id: id + 1, startIx: startIx + 2 } /\ defaultLeap id  startIx 7
+                              CLongPress -> { id: id + 1, startIx: startIx + 2 } /\ defaultLongPress id startIx 7
 
                           )
                           ctrlEvent
@@ -168,9 +172,9 @@ editorPage _ = vbussed (Proxy :: _ (V (Events Always))) \pushed (event :: { | Ev
                       )
                     markerIndex = bang 0 <|> fold
                       ( \a b -> case a of
-                          AddBasic -> b + 4
-                          AddLeap -> b + 2
-                          AddLongPress -> b + 2
+                          CBasic -> b + 4
+                          CLeap -> b + 2
+                          CLongPress -> b + 2
                       )
                       ctrlEvent
                       0
@@ -213,8 +217,13 @@ editorPage _ = vbussed (Proxy :: _ (V (Events Always))) \pushed (event :: { | Ev
                     [ D.div (oneOf [ bang $ D.Class := "flex flex-row justify-around" ]) top
                     , D.div_
                         [ dyn $
-                            store <#>
-                              ( \itm -> keepLatest $ bus \p' e' ->
+                            sampleOn event.waveSurfer (Tuple <$> store) <#>
+                              ( \(itm /\ ws) -> keepLatest $ bus \p' e' -> do
+                                  let
+                                    id /\ name /\ col = case itm of
+                                      LBasic v -> v.id /\ v.name /\ v.col
+                                      LLeap v -> v.id /\ v.name /\ v.col
+                                      LLong v -> v.id /\ v.name /\ v.col
                                   ( bang $ insert $ D.div (oneOf [])
                                       [ D.span (oneOf [ bang $ D.Class := "inline-block" ])
                                           [ D.label
@@ -224,12 +233,15 @@ editorPage _ = vbussed (Proxy :: _ (V (Events Always))) \pushed (event :: { | Ev
                                               [ text_ "Name" ]
                                           , D.input
                                               ( oneOf
-                                                  [ bang $ D.Class := "bg-inherit text-white mx-2 appearance-none border rounded py-2 px-2 leading-tight focus:outline-none focus:shadow-outline"
-                                                  , bang $ D.Placeholder := case itm of
-                                                      LBasic v -> "Tile " <> show v.id
-                                                      LLeap v -> "Leap " <> show v.id
-                                                      LLong v -> "Long " <> show v.id
-                                                  ]
+                                                  ( [ bang $ D.Class := "bg-inherit text-white mx-2 appearance-none border rounded py-2 px-2 leading-tight focus:outline-none focus:shadow-outline"
+                                                    , bang $ D.Placeholder := case itm of
+                                                        LBasic v -> "Tile " <> show v.id
+                                                        LLeap v -> "Leap " <> show v.id
+                                                        LLong v -> "Long " <> show v.id
+                                                    ] <> case name of
+                                                      Nothing -> []
+                                                      Just n -> [ bang $ D.Value := n ]
+                                                  )
                                               )
                                               []
                                           ]
@@ -242,7 +254,7 @@ editorPage _ = vbussed (Proxy :: _ (V (Events Always))) \pushed (event :: { | Ev
                                           , D.input
                                               ( oneOf
                                                   [ bang $ D.Xtype := "number"
-                                                  , bang $ D.Value := "1" -- make this the column
+                                                  , bang $ D.Value := show col
                                                   , bang $ D.Min := "1"
                                                   , bang $ D.Max := "16"
                                                   , bang $ D.Class := "bg-inherit text-white mx-2 appearance-none border rounded py-2 px-3 leading-tight focus:outline-none focus:shadow-outline"
@@ -264,7 +276,14 @@ editorPage _ = vbussed (Proxy :: _ (V (Events Always))) \pushed (event :: { | Ev
                                                   , bang $ D.Class := buttonCls <> " mr-2"
                                                   ]
                                               )
-                                              [ D.span (oneOf []) [ text_ "Mute" ] ]
+                                              [ D.span
+                                                  ( oneOf
+                                                      [ click $ bang $ do
+                                                          hideMarker ws id
+                                                      ]
+                                                  )
+                                                  [ text_ "Mute" ]
+                                              ]
                                           , D.button
                                               ( oneOf
                                                   [ bang $ D.OnClick := p' remove
