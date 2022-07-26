@@ -336,11 +336,11 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = vbussed (Proxy :: _
                                   ( oneOf
                                       [ bang $ D.OnClick := launchAff_ do
                                           toAffE $ signInWithGoogle fbAuth
-                                      , bang $ D.Class := buttonCls
+                                      , fromEvent signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> if sina then " hidden" else ""
 
                                       ]
                                   )
-                                  [ text (fromEvent signedInNonAnonymously <#> if _ then "Save" else "Save (sign in)") ]
+                                  [ text_ "Save (sign in)" ]
                               ]
                           D.div_
                             [ D.div (oneOf [ bang $ D.Class := "flex flex-row justify-around" ]) top
@@ -414,17 +414,17 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = vbussed (Proxy :: _
                                                               [ text_ "Name" ]
                                                           , D.input
                                                               ( oneOf
-                                                                  ( [ (biSampleOn (Just <$> ctor (SpammedId {id, did: "nope" }) <|> bang Nothing) (Tuple <$> docEv)) <#> \(mDid /\ updatedId) -> D.OnInput := cb \e -> for_
+                                                                  ( [ (biSampleOn (Just <$> ctor (SpammedId { id, did: "nope" }) <|> bang Nothing) (Tuple <$> docEv)) <#> \(mDid /\ updatedId) -> D.OnInput := cb \e -> for_
                                                                         ( target e
                                                                             >>= fromEventTarget
                                                                         )
                                                                         ( \x -> do
                                                                             v <- value x
                                                                             ( (always :: m Unit -> Effect Unit) do
-                                                                                p'.changeName (if v == "" then Nothing else Just v))
+                                                                                p'.changeName (if v == "" then Nothing else Just v)
+                                                                            )
                                                                             for_ (Tuple <$> mDid <*> (initialId <|> (unwrap >>> _.did <$> updatedId))) \(trackId /\ evId) -> do
-                                                                                  launchAff_ (updateEventNameAff firestoreDb trackId evId v)
-
+                                                                              launchAff_ (updateEventNameAff firestoreDb trackId evId v)
 
                                                                         )
                                                                     , bang $ D.Class := "bg-inherit text-white mx-2 appearance-none border rounded py-2 px-2 leading-tight focus:outline-none focus:shadow-outline"
@@ -444,7 +444,7 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = vbussed (Proxy :: _
                                                               [ text_ "Column" ]
                                                           , D.input
                                                               ( oneOf
-                                                                  [ (biSampleOn (Just <$> ctor (SpammedId {id, did: "nope" }) <|> bang Nothing) (Tuple <$> docEv)) <#> \(mDid /\ updatedId) -> D.OnInput := cb \e -> for_
+                                                                  [ (biSampleOn (Just <$> ctor (SpammedId { id, did: "nope" }) <|> bang Nothing) (Tuple <$> docEv)) <#> \(mDid /\ updatedId) -> D.OnInput := cb \e -> for_
                                                                       ( target e
                                                                           >>= fromEventTarget
                                                                       )
@@ -453,7 +453,7 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = vbussed (Proxy :: _
                                                                           (always :: m Unit -> Effect Unit) do
                                                                             p'.changeColumn v
                                                                           for_ (Tuple <$> mDid <*> (initialId <|> (unwrap >>> _.did <$> updatedId))) \(trackId /\ evId) -> do
-                                                                                  launchAff_ (updateColumnAff firestoreDb trackId evId v)
+                                                                            launchAff_ (updateColumnAff firestoreDb trackId evId v)
                                                                       )
                                                                   , bang $ D.Xtype := "number"
                                                                   , bang $ D.Value := show col
