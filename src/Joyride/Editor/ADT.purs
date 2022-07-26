@@ -12,6 +12,7 @@ data Landmark
       { id :: Int
       , startIx :: Int
       , name :: Maybe String
+      , fbId :: Maybe String
       , col :: Int
       , l1 :: Marker
       , l2 :: Marker
@@ -23,6 +24,7 @@ data Landmark
       , startIx :: Int
       , col :: Int
       , name :: Maybe String
+      , fbId :: Maybe String
       , start :: Marker
       , end :: Marker
       }
@@ -31,6 +33,7 @@ data Landmark
       , startIx :: Int
       , col :: Int
       , name :: Maybe String
+      , fbId :: Maybe String
       , start :: Marker
       , end :: Marker
       , len :: LongLength

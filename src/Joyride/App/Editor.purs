@@ -7,11 +7,12 @@ import Control.Promise (toAffE)
 import Data.Array ((..))
 import Data.Either (Either(..))
 import Data.Foldable (for_, oneOf)
+import Data.Function (on)
 import Data.Int (floor)
 import Data.Maybe (Maybe(..), maybe)
 import Data.Monoid.Always (always)
 import Data.Monoid.Endo (Endo(..))
-import Data.Newtype (unwrap)
+import Data.Newtype (class Newtype, unwrap)
 import Data.Set as Set
 import Data.Tuple (Tuple(..))
 import Data.Tuple.Nested ((/\), type (/\))
@@ -23,21 +24,31 @@ import Deku.Listeners (click)
 import Effect (Effect)
 import Effect.Aff (launchAff_)
 import Effect.Class (liftEffect)
-import FRP.Event (AnEvent, bang, fold, fromEvent, keepLatest, mapAccum, memoize, sampleOn)
+import FRP.Event (AnEvent, bang, fold, fromEvent, keepLatest, mapAccum, memoize, sampleOn, mailboxed)
 import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V, vbus)
 import Joyride.Editor.ADT (Landmark(..), LongLength(..), Marker(..))
 import Joyride.FRP.Beh (memoBeh)
 import Joyride.FRP.Rider (rider, toRide)
 import Joyride.Firebase.Auth (currentUser, signInWithGoogle)
-import Joyride.Firebase.Firestore (addEvent, addEventAff, addTrackAff, updateMarker1Time, updateMarker1TimeAff, updateMarker2TimeAff, updateMarker3TimeAff, updateMarker4TimeAff)
+import Joyride.Firebase.Firestore (addEventAff, addTrackAff, updateColumnAff, updateEventNameAff, updateMarker1TimeAff, updateMarker2TimeAff, updateMarker3TimeAff, updateMarker4TimeAff)
 import Joyride.Style (buttonActiveCls, buttonCls, headerCls)
 import Joyride.UniqueNames (randomName)
 import Joyride.Wavesurfer.Wavesurfer (WaveSurfer, addMarker, associateEventDocumentIdWithMarker, hideMarker, makeWavesurfer, muteExcept, removeMarker, showMarker)
 import Type.Proxy (Proxy(..))
-import Types (EventV0(..), Event_(..), OpenEditor', Track(..), Version)
+import Types (EventV0(..), Event_(..), OpenEditor', Track(..))
 import Web.Event.Event (target)
 import Web.HTML.HTMLInputElement (fromEventTarget, value, valueAsNumber)
+
+newtype SpammedId = SpammedId { id :: Int, did :: String }
+
+derive instance Newtype SpammedId _
+
+instance Eq SpammedId where
+  eq = eq `on` (unwrap >>> _.id)
+
+instance Ord SpammedId where
+  compare = compare `on` (unwrap >>> _.id)
 
 type Events :: forall k. (Type -> k) -> Row k
 type Events t =
@@ -48,6 +59,7 @@ type Events t =
   , loadWave :: t String
   , waveSurfer :: t WaveSurfer
   , documentId :: t String
+  , spamIdsOnSubscription :: t SpammedId
   , markerMoved ::
       t
         { ix :: Int
@@ -60,9 +72,9 @@ type Events t =
 
 type CEvents :: forall k. (Type -> k) -> Row k
 type CEvents t =
-  ( addBasic :: t Unit
-  , addLeap :: t Unit
-  , addLongPress :: t Unit
+  ( addBasic :: t (Maybe String)
+  , addLeap :: t (Maybe String)
+  , addLongPress :: t (Maybe String)
   , solo :: t (Int /\ Int)
   , mute :: t (Int /\ Int)
   , unSolo :: t (Int /\ Int)
@@ -81,38 +93,41 @@ type SingleItem t =
 type PlainOl :: forall k. k -> k
 type PlainOl t = t
 
-data CAction = CBasic | CLeap | CLongPress
+data CAction = CBasic (Maybe String) | CLeap (Maybe String) | CLongPress (Maybe String)
 data SoMu = Solo (Int /\ Int) | Mute (Int /\ Int) | UnSolo (Int /\ Int) | UnMute (Int /\ Int)
 
-defaultBasic :: Int -> Int -> Int -> Landmark
-defaultBasic id startIx col = LBasic
+defaultBasic :: Int -> Int -> Int -> Maybe String -> Landmark
+defaultBasic id startIx col fbId = LBasic
   { l1: Marker { at: 0.0 }
   , l2: Marker { at: 0.5 }
   , l3: Marker { at: 1.0 }
   , l4: Marker { at: 1.5 }
   , name: Nothing
+  , fbId
   , id
   , startIx
   , col
   }
 
-defaultLeap :: Int -> Int -> Int -> Landmark
-defaultLeap id startIx col = LLeap
+defaultLeap :: Int -> Int -> Int -> Maybe String -> Landmark
+defaultLeap id startIx col fbId = LLeap
   { start: Marker { at: 0.5 }
   , end: Marker { at: 1.25 }
   , name: Nothing
   , id
+  , fbId
   , startIx
   , col
   }
 
-defaultLongPress :: Int -> Int -> Int -> Landmark
-defaultLongPress id startIx col = LLong
+defaultLongPress :: Int -> Int -> Int -> Maybe String -> Landmark
+defaultLongPress id startIx col fbId = LLong
   { start: Marker { at: 0.5 }
   , end: Marker { at: 1.25 }
   , len: LongLength { len: 1.0 }
   , name: Nothing
   , id
+  , fbId
   , startIx
   , col
   }
@@ -141,7 +156,7 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = vbussed (Proxy :: _
               (pure unit)
           }
       )
-  $ memoBeh (Just <$> event.documentId) Nothing \docEv -> do
+  $ memoBeh (Just <$> event.documentId) Nothing \docEv -> envy $ mailboxed event.spamIdsOnSubscription \ctor -> do
       let isv = event.initialScreenVisible <|> bang true
       D.div
         (bang $ D.Class := "absolute w-screen h-screen bg-zinc-900")
@@ -184,9 +199,9 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = vbussed (Proxy :: _
             , D.div_
                 [ vbussed (Proxy :: _ (V (CEvents PlainOl))) \cPushed (cEvent :: { | CEvents (AnEvent m) }) -> envy $ memoize
                     ( oneOf
-                        [ cEvent.addBasic $> CBasic
-                        , cEvent.addLeap $> CLeap
-                        , cEvent.addLongPress $> CLongPress
+                        [ cEvent.addBasic <#> CBasic
+                        , cEvent.addLeap <#> CLeap
+                        , cEvent.addLongPress <#> CLongPress
                         ]
                     )
                     \ctrlEvent -> envy
@@ -223,19 +238,18 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = vbussed (Proxy :: _
                             store =
                               ( mapAccum
                                   ( \a { id, startIx } -> case a of
-                                      CBasic -> { id: id + 1, startIx: startIx + 4 } /\ defaultBasic id startIx 7
-                                      CLeap -> { id: id + 1, startIx: startIx + 2 } /\ defaultLeap id startIx 7
-                                      CLongPress -> { id: id + 1, startIx: startIx + 2 } /\ defaultLongPress id startIx 7
-
+                                      CBasic ms -> { id: id + 1, startIx: startIx + 4 } /\ defaultBasic id startIx 7 ms
+                                      CLeap ms -> { id: id + 1, startIx: startIx + 2 } /\ defaultLeap id startIx 7 ms
+                                      CLongPress ms -> { id: id + 1, startIx: startIx + 2 } /\ defaultLongPress id startIx 7 ms
                                   )
                                   ctrlEvent
                                   { id: 0, startIx: 0 }
                               )
                             markerIndices = bang (0 /\ 0) <|> fold
                               ( \a (b /\ c) -> (b + 1) /\ case a of
-                                  CBasic -> c + 4
-                                  CLeap -> c + 2
-                                  CLongPress -> c + 2
+                                  CBasic _ -> c + 4
+                                  CLeap _ -> c + 2
+                                  CLongPress _ -> c + 2
                               )
                               ctrlEvent
                               (0 /\ 0)
@@ -243,12 +257,12 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = vbussed (Proxy :: _
                               [ D.button
                                   ( oneOf
                                       [ biSampleOn (Just <$> event.documentId <|> bang Nothing) (biSampleOn markerIndices ({ ws: _, ixs: _, did: _ } <$> event.waveSurfer)) <#> \{ ws, ixs: ix /\ _, did } -> D.OnClick := do
-                                          let endgame = cPushed.addBasic unit
+                                          let endgame = cPushed.addBasic
                                           m0 <- addMarker ws ix 0 { color: "#0f32f6", label: "B1", time: 0.0 }
                                           m1 <- addMarker ws ix 1 { color: "#61e2f6", label: "B2", time: 0.5 }
                                           m2 <- addMarker ws ix 2 { color: "#ef82f6", label: "B3", time: 1.0 }
                                           m3 <- addMarker ws ix 3 { color: "#9e0912", label: "B4", time: 1.5 }
-                                          did # maybe endgame \did' ->
+                                          did # maybe (endgame Nothing) \did' ->
                                             launchAff_ do
                                               evDid <- addEventAff firestoreDb did'
                                                 ( EventV0 $ BasicEventV0
@@ -264,7 +278,7 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = vbussed (Proxy :: _
                                                     , version: mempty
                                                     }
                                                 )
-                                              liftEffect $ associateEventDocumentIdWithMarker m0 evDid.id *> associateEventDocumentIdWithMarker m1 evDid.id *> associateEventDocumentIdWithMarker m2 evDid.id *> associateEventDocumentIdWithMarker m3 evDid.id *> endgame
+                                              liftEffect $ associateEventDocumentIdWithMarker m0 evDid.id *> associateEventDocumentIdWithMarker m1 evDid.id *> associateEventDocumentIdWithMarker m2 evDid.id *> associateEventDocumentIdWithMarker m3 evDid.id *> endgame (Just evDid.id)
                                       , bang $ D.Class := buttonCls
                                       ]
                                   )
@@ -272,10 +286,10 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = vbussed (Proxy :: _
                               , D.button
                                   ( oneOf
                                       [ biSampleOn (Just <$> event.documentId <|> bang Nothing) (biSampleOn markerIndices ({ ws: _, ixs: _, did: _ } <$> event.waveSurfer)) <#> \{ ws, ixs: ix /\ _, did } -> D.OnClick := do
-                                          let endgame = cPushed.addLeap unit
+                                          let endgame = cPushed.addLeap
                                           m0 <- addMarker ws ix 0 { color: "#0f32f6", label: "LSt", time: 0.5 }
                                           m1 <- addMarker ws ix 1 { color: "#61e2f6", label: "LEd", time: 1.25 }
-                                          did # maybe endgame \did' ->
+                                          did # maybe (endgame Nothing) \did' ->
                                             launchAff_ do
                                               evDid <- addEventAff firestoreDb did'
                                                 ( EventV0 $ LeapEventV0
@@ -287,7 +301,7 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = vbussed (Proxy :: _
                                                     , version: mempty
                                                     }
                                                 )
-                                              liftEffect $ associateEventDocumentIdWithMarker m0 evDid.id *> associateEventDocumentIdWithMarker m1 evDid.id *> endgame
+                                              liftEffect $ associateEventDocumentIdWithMarker m0 evDid.id *> associateEventDocumentIdWithMarker m1 evDid.id *> endgame (Just evDid.id)
                                       , bang $ D.Class := buttonCls
                                       ]
                                   )
@@ -295,11 +309,11 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = vbussed (Proxy :: _
                               , D.button
                                   ( oneOf
                                       [ biSampleOn (Just <$> event.documentId <|> bang Nothing) (biSampleOn markerIndices ({ ws: _, ixs: _, did: _ } <$> event.waveSurfer)) <#> \{ ws, ixs: ix /\ _, did } -> D.OnClick := do
-                                          let endgame = cPushed.addLongPress unit
+                                          let endgame = cPushed.addLongPress
                                           m0 <- addMarker ws ix 0 { color: "#0f32f6", label: "P1", time: 0.5 }
                                           m1 <- addMarker ws ix 1 { color: "#61e2f6", label: "P2", time: 1.25 }
                                           -- TODO: add length 1.0
-                                          did # maybe endgame \did' ->
+                                          did # maybe (endgame Nothing) \did' ->
                                             launchAff_ do
                                               evDid <- addEventAff firestoreDb did'
                                                 ( EventV0 $ LongEventV0
@@ -312,7 +326,7 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = vbussed (Proxy :: _
                                                     , version: mempty
                                                     }
                                                 )
-                                              liftEffect $ associateEventDocumentIdWithMarker m0 evDid.id *> associateEventDocumentIdWithMarker m1 evDid.id *> endgame
+                                              liftEffect $ associateEventDocumentIdWithMarker m0 evDid.id *> associateEventDocumentIdWithMarker m1 evDid.id *> endgame (Just evDid.id)
                                       , bang $ D.Class := buttonCls
 
                                       ]
@@ -346,10 +360,10 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = vbussed (Proxy :: _
                                                   Just x -> x
                                                   Nothing -> defaultLabel
                                               ) <|> bang defaultLabel
-                                            id /\ name /\ col /\ startIx /\ inSeq = case itm of
-                                              LBasic v -> v.id /\ v.name /\ v.col /\ v.startIx /\ 4
-                                              LLeap v -> v.id /\ v.name /\ v.col /\ v.startIx /\ 2
-                                              LLong v -> v.id /\ v.name /\ v.col /\ v.startIx /\ 2
+                                            id /\ name /\ col /\ startIx /\ initialId /\ inSeq = case itm of
+                                              LBasic v -> v.id /\ v.name /\ v.col /\ v.startIx /\ v.fbId /\ 4
+                                              LLeap v -> v.id /\ v.name /\ v.col /\ v.startIx /\ v.fbId /\ 2
+                                              LLong v -> v.id /\ v.name /\ v.col /\ v.startIx /\ v.fbId /\ 2
                                             column = e'.changeColumn <|> bang col
                                           ( bang $ insert $ D.div (oneOf [ bang $ D.Class := "accordion-item bg-zinc-900 border border-white" ])
                                               [ D.h2
@@ -400,23 +414,17 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = vbussed (Proxy :: _
                                                               [ text_ "Name" ]
                                                           , D.input
                                                               ( oneOf
-                                                                  ( [ docEv <#> \mDid -> D.OnInput := cb \e -> for_
+                                                                  ( [ (biSampleOn (Just <$> ctor (SpammedId {id, did: "nope" }) <|> bang Nothing) (Tuple <$> docEv)) <#> \(mDid /\ updatedId) -> D.OnInput := cb \e -> for_
                                                                         ( target e
                                                                             >>= fromEventTarget
                                                                         )
                                                                         ( \x -> do
                                                                             v <- value x
                                                                             ( (always :: m Unit -> Effect Unit) do
-                                                                                p'.changeName (if v == "" then Nothing else Just v)
-                                                                                for_ mDid \diiid -> do
-                                                                                  -- TODO
-                                                                                  -- we need the id for the event
-                                                                                  -- this will either come
-                                                                                  -- from creation _or_ a mailbox
-                                                                                  -- that is spammed on the initial
-                                                                                  -- save after login
-                                                                                  pure unit
-                                                                            )
+                                                                                p'.changeName (if v == "" then Nothing else Just v))
+                                                                            for_ (Tuple <$> mDid <*> (initialId <|> (unwrap >>> _.did <$> updatedId))) \(trackId /\ evId) -> do
+                                                                                  launchAff_ (updateEventNameAff firestoreDb trackId evId v)
+
 
                                                                         )
                                                                     , bang $ D.Class := "bg-inherit text-white mx-2 appearance-none border rounded py-2 px-2 leading-tight focus:outline-none focus:shadow-outline"
@@ -436,7 +444,7 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = vbussed (Proxy :: _
                                                               [ text_ "Column" ]
                                                           , D.input
                                                               ( oneOf
-                                                                  [ docEv <#> \mDid -> D.OnInput := cb \e -> for_
+                                                                  [ (biSampleOn (Just <$> ctor (SpammedId {id, did: "nope" }) <|> bang Nothing) (Tuple <$> docEv)) <#> \(mDid /\ updatedId) -> D.OnInput := cb \e -> for_
                                                                       ( target e
                                                                           >>= fromEventTarget
                                                                       )
@@ -444,14 +452,8 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = vbussed (Proxy :: _
                                                                           v <- floor <$> valueAsNumber x
                                                                           (always :: m Unit -> Effect Unit) do
                                                                             p'.changeColumn v
-                                                                            for_ mDid \diiid -> do
-                                                                              -- TODO
-                                                                              -- we need the id for the event
-                                                                              -- this will either come
-                                                                              -- from creation _or_ a mailbox
-                                                                              -- that is spammed on the initial
-                                                                              -- save after login
-                                                                              pure unit
+                                                                          for_ (Tuple <$> mDid <*> (initialId <|> (unwrap >>> _.did <$> updatedId))) \(trackId /\ evId) -> do
+                                                                                  launchAff_ (updateColumnAff firestoreDb trackId evId v)
                                                                       )
                                                                   , bang $ D.Xtype := "number"
                                                                   , bang $ D.Value := show col

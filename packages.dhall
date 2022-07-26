@@ -79,6 +79,14 @@ let overrides =
         --, version = "always-tmp"
         , version = "main"
         }
+      , hyrule =
+        { dependencies =
+          [ "arrays"
+          ]
+        , repo = "https://github.com/mikesol/purescript-hyrule.git"
+        --, version = "always-tmp"
+        , version = "mailboxed"
+        }
       }
 
 in  upstream // overrides
