@@ -9,12 +9,11 @@ const RIDES = "rides";
 
 export const addRide = (db) => (ride) => () =>
 	import("firebase/firestore").then(({ collection, addDoc }) => {
-		console.log("addRide", ride);
 		return addDoc(collection(db, RIDES), ride);
 	});
+
 export const getRide = (db) => (ride) => () =>
 	import("firebase/firestore").then(({ getDoc, doc }) => {
-		console.log("getRide", db, RIDES, ride);
 		return getDoc(doc(db, RIDES, ride)).then((r) => r.data());
 	});
 

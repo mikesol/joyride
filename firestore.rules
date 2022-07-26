@@ -1,14 +1,14 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /track/{track} {
+    match /tracks/{track} {
       // add rules later
       allow write, delete, create: if resource.data.owner == request.auth.uid;
       allow read: if request.auth != null;
       function trackData() {
-        return get(/databases/$(database)/documents/track/$(track)).data
+        return get(/databases/$(database)/documents/tracks/$(track)).data
       }
-      match /event/{event} {
+      match /events/{event} {
         allow write, delete, create: if trackData().owner == request.auth.uid;
         allow read: if request.auth != null;
       }
