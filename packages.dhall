@@ -77,7 +77,7 @@ let overrides =
           ]
         , repo = "https://github.com/mikesol/purescript-deku.git"
         --, version = "always-tmp"
-        , version = "main"
+        , version = "uncurried-busses"
         }
       , hyrule =
         { dependencies =
