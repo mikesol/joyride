@@ -24,14 +24,14 @@ import Deku.Listeners (click)
 import Effect (Effect)
 import Effect.Aff (launchAff_)
 import Effect.Class (liftEffect)
-import FRP.Event (AnEvent, bang, fold, fromEvent, keepLatest, mapAccum, memoize, sampleOn, mailboxed)
+import FRP.Event (AnEvent, bang, fold, folded, fromEvent, keepLatest, mailboxed, mapAccum, memoize, sampleOn)
 import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V, vbus)
 import Joyride.Editor.ADT (Landmark(..), LongLength(..), Marker(..))
 import Joyride.FRP.Beh (memoBeh)
 import Joyride.FRP.Rider (rider, toRide)
 import Joyride.Firebase.Auth (currentUser, signInWithGoogle)
-import Joyride.Firebase.Firestore (addEventAff, addTrackAff, updateColumnAff, updateEventNameAff, updateMarker1TimeAff, updateMarker2TimeAff, updateMarker3TimeAff, updateMarker4TimeAff)
+import Joyride.Firebase.Firestore (addEventAff, addTrackAff, updateColumnAff, updateEventNameAff, updateMarker1TimeAff, updateMarker2TimeAff, updateMarker3TimeAff, updateMarker4TimeAff, updateTrackTitleAff)
 import Joyride.QualifiedDo.Apply as QDA
 import Joyride.Style (buttonActiveCls, buttonCls, headerCls)
 import Joyride.UniqueNames (randomName)
@@ -40,6 +40,9 @@ import Type.Proxy (Proxy(..))
 import Types (EventV0(..), Event_(..), OpenEditor', Track(..))
 import Web.Event.Event (target)
 import Web.HTML.HTMLInputElement (fromEventTarget, value, valueAsNumber)
+
+infixr 4 sampleOn as 🙂
+infixr 4 biSampleOn as 😄
 
 newtype SpammedId = SpammedId { id :: Int, did :: String }
 
@@ -57,6 +60,7 @@ type Events t =
   -- achtung: this event is only for external modification
   -- the listener for edited content shouldn't loop back to the element, otherwise we'll get an unnecessary gnarly feedback loop
   , title :: t String
+  , changeTitle :: t (Maybe String)
   , loadWave :: t String
   , waveSurfer :: t WaveSurfer
   , documentId :: t String
@@ -144,7 +148,7 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
     ( envy
         <<< rider
           ( toRide
-              { event: biSampleOn event.markerMoved (Tuple <$> event.documentId)
+              { event: event.markerMoved 😄 (Tuple <$> event.documentId)
               , push: \(did /\ mm) -> unwrap
                   ( (always :: (Endo Function (Effect Unit)) -> (Endo Function (m Unit)))
                       ( Endo \_ -> for_ mm.id \id -> do
@@ -155,6 +159,23 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                               2 -> updateMarker3TimeAff
                               _ -> updateMarker4TimeAff
                           launchAff_ $ fn firestoreDb did id mm.time
+                      )
+                  )
+                  (pure unit)
+              }
+          )
+        <<< rider
+          ( toRide
+              { event: (Just <$> event.title <|> event.changeTitle) 🙂 fromEvent (folded $ map pure signedInNonAnonymously) 😄 ({ did: _, sina: _, title: _ } <$> (Just <$> event.documentId <|> bang Nothing))
+              , push: \{ did, sina, title } -> unwrap
+                  ( (always :: (Endo Function (Effect Unit)) -> (Endo Function (m Unit)))
+                      ( Endo \_ -> case did, sina of
+                          -- we have gone from not signed in to signed in
+                          -- create the document on firebase
+                          Nothing, [ true, false ] -> pure unit
+                          -- ignore other stuff
+                          -- if this proves to be too general, make it more nuanced
+                          _, _ -> pure unit
                       )
                   )
                   (pure unit)
@@ -176,6 +197,16 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                 ( oneOf
                     [ bang $ D.Contenteditable := "true"
                     , bang $ D.Class := headerCls <> " p-2"
+                    , docEv <#> \mDid -> D.OnInput := cb \e -> for_
+                        ( target e
+                            >>= fromEventTarget
+                        )
+                        ( \x -> do
+                            v <- value x
+                            pushed.changeTitle (if v == "" then Nothing else Just v)
+                            for_ mDid \trackId -> do
+                              launchAff_ (updateTrackTitleAff firestoreDb trackId v)
+                        )
                     ]
                 )
                 [ text event.title ]
@@ -213,7 +244,7 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                 \ctrlEvent -> envy
                   $ rider
                       ( toRide
-                          { event: sampleOn event.waveSurfer
+                          { event: event.waveSurfer 🙂
                               ( Tuple <$> mapAccum
                                   ( case _ of
                                       Solo x -> \s -> let o = Set.insert x s in o /\ Left o
@@ -262,7 +293,7 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                         top =
                           [ D.button
                               ( oneOf
-                                  [ biSampleOn (Just <$> event.documentId <|> bang Nothing) (biSampleOn markerIndices ({ ws: _, ixs: _, did: _ } <$> event.waveSurfer)) <#> \{ ws, ixs: ix /\ _, did } -> D.OnClick := do
+                                  [ (Just <$> event.documentId <|> bang Nothing) 😄 markerIndices 😄 ({ ws: _, ixs: _, did: _ } <$> event.waveSurfer) <#> \{ ws, ixs: ix /\ _, did } -> D.OnClick := do
                                       let endgame = cPushed.addBasic
                                       m0 <- addMarker ws ix 0 { color: "#0f32f6", label: "B1", time: 0.0 }
                                       m1 <- addMarker ws ix 1 { color: "#61e2f6", label: "B2", time: 0.5 }
@@ -291,7 +322,7 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                               [ text_ "Add Tile" ]
                           , D.button
                               ( oneOf
-                                  [ biSampleOn (Just <$> event.documentId <|> bang Nothing) (biSampleOn markerIndices ({ ws: _, ixs: _, did: _ } <$> event.waveSurfer)) <#> \{ ws, ixs: ix /\ _, did } -> D.OnClick := do
+                                  [ (Just <$> event.documentId <|> bang Nothing) 😄 markerIndices 😄 ({ ws: _, ixs: _, did: _ } <$> event.waveSurfer) <#> \{ ws, ixs: ix /\ _, did } -> D.OnClick := do
                                       let endgame = cPushed.addLeap
                                       m0 <- addMarker ws ix 0 { color: "#0f32f6", label: "LSt", time: 0.5 }
                                       m1 <- addMarker ws ix 1 { color: "#61e2f6", label: "LEd", time: 1.25 }
@@ -314,7 +345,7 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                               [ text_ "Add Leap" ]
                           , D.button
                               ( oneOf
-                                  [ biSampleOn (Just <$> event.documentId <|> bang Nothing) (biSampleOn markerIndices ({ ws: _, ixs: _, did: _ } <$> event.waveSurfer)) <#> \{ ws, ixs: ix /\ _, did } -> D.OnClick := do
+                                  [ (Just <$> event.documentId <|> bang Nothing) 😄 markerIndices 😄 ({ ws: _, ixs: _, did: _ } <$> event.waveSurfer) <#> \{ ws, ixs: ix /\ _, did } -> D.OnClick := do
                                       let endgame = cPushed.addLongPress
                                       m0 <- addMarker ws ix 0 { color: "#0f32f6", label: "P1", time: 0.5 }
                                       m1 <- addMarker ws ix 1 { color: "#61e2f6", label: "P2", time: 1.25 }
@@ -352,7 +383,7 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                         [ D.div (oneOf [ bang $ D.Class := "flex flex-row justify-around" ]) top
                         , D.div (oneOf [ bang $ D.Class := "accordion", bang $ D.Id := "accordionExample" ])
                             [ dyn $
-                                (sampleOn event.waveSurfer ({ itm: _, ws: _ } <$> store)) <#>
+                                (event.waveSurfer 🙂 ({ itm: _, ws: _ } <$> store)) <#>
                                   ( \{ itm, ws } -> keepLatest $ vbus (Proxy :: _ (V (SingleItem PlainOl))) \p' e' -> do
                                       let
                                         muteState = fold (const not) e'.mute false <|> bang false
@@ -420,7 +451,7 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                                                           [ text_ "Name" ]
                                                       , D.input
                                                           ( oneOf
-                                                              ( [ (biSampleOn (Just <$> ctor (SpammedId { id, did: "nope" }) <|> bang Nothing) (Tuple <$> docEv)) <#> \(mDid /\ updatedId) -> D.OnInput := cb \e -> for_
+                                                              ( [ (Just <$> ctor (SpammedId { id, did: "nope" }) <|> bang Nothing) 😄 (Tuple <$> docEv) <#> \(mDid /\ updatedId) -> D.OnInput := cb \e -> for_
                                                                     ( target e
                                                                         >>= fromEventTarget
                                                                     )
@@ -450,7 +481,7 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                                                           [ text_ "Column" ]
                                                       , D.input
                                                           ( oneOf
-                                                              [ (biSampleOn (Just <$> ctor (SpammedId { id, did: "nope" }) <|> bang Nothing) (Tuple <$> docEv)) <#> \(mDid /\ updatedId) -> D.OnInput := cb \e -> for_
+                                                              [ (Just <$> ctor (SpammedId { id, did: "nope" }) <|> bang Nothing) 😄 (Tuple <$> docEv) <#> \(mDid /\ updatedId) -> D.OnInput := cb \e -> for_
                                                                   ( target e
                                                                       >>= fromEventTarget
                                                                   )

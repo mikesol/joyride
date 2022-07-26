@@ -40,6 +40,7 @@ import Joyride.Effect.Ref (readFromRecord, writeToRecord)
 import Joyride.EmitsTouchEvents (emitsTouchEvents)
 import Joyride.FRP.Behavior (refToBehavior)
 import Joyride.FRP.Burning (burning)
+import Joyride.FRP.Dedup (dedup)
 import Joyride.FRP.Keypress (posFromKeypress, xForKeyboard)
 import Joyride.FRP.Orientation (hasOrientationPermission, posFromOrientation, xForTouch)
 import Joyride.FRP.SampleOnSubscribe (sampleOnSubscribe)
@@ -263,7 +264,9 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                   ( OpenEditor
                       { fbAuth
                       , firestoreDb
-                      , signedInNonAnonymously: signedInNonAnonymously.event
+                      -- we throw in a dedup just cuz we only ever want to track actual changes
+                      -- if random stuff fires a lot, the event should stillb e idempotent
+                      , signedInNonAnonymously: dedup signedInNonAnonymously.event
                       }
                   )
               , isMobile
