@@ -124,8 +124,7 @@ function secondaryLabelInterval(pxPerSec) {
 	return Math.floor(10 / timeInterval(pxPerSec));
 }
 
-export const makeWavesurfer =
-	(markers) => (dropCb) => (success) => (container) => (url) => () => {
+export const makeWavesurfer = (nothing) => (just) => (dropCb) => (success) => (container) => (url) => () => {
 		const ws = WaveSurfer.create({
 			backend: "MediaElement",
 			waveColor: "#A8DBA8",
@@ -152,9 +151,7 @@ export const makeWavesurfer =
 				}),
 				MarkersPlugin.create({
 					// hack to get draggable working. we delete the first element after
-					markers: [{ time: 0.0, color: "#00ffff", draggable: true }].concat(
-						markers.map((m) => ({ draggable: true, ...m }))
-					),
+					markers: [{ time: 0.0, color: "#00ffff", draggable: true }],
 				}),
 				CursorPlugin.create({
 					showTime: true,
@@ -172,20 +169,30 @@ export const makeWavesurfer =
 		ws.load(url);
 		ws.on("ready", success);
 		ws.markers.remove(0);
-		ws.on("marker-drop", function ({time, el: { $$joyrideIndex }}) {
-			dropCb($$joyrideIndex)(time)();
-		});
-		for (let i = 0; i < ws.markers.markers.length; i++) {
-			ws.markers.markers[i].el.$$joyrideIndex = i;
-		}
+		ws.on(
+			"marker-drop",
+			function ({
+				time,
+				el: { $$joyrideIndex, $$joyrideOffset, $$realIndex, $$documentId },
+			}) {
+				dropCb($$joyrideIndex)($$joyrideOffset)($$realIndex)($$documentId ? just($$documentId) : nothing)(
+					time
+				)();
+			}
+		);
 		return ws;
 
 	};
 
 export const zoom = (ws) => (z) => () => ws.zoom(z);
-export const addMarker = (ws) => (p) => () => {
+export const associateEventDocumentIdWithMarker =
+  (m) => (id) => () => { m.el.$$documentId = id; }
+export const addMarker = (ws) => (i) => (j) => (p) => () => {
 	const m = ws.addMarker({ draggable: true, ...p });
-	m.el.$$joyrideIndex = ws.markers.markers.length - 1;
+	m.el.$$joyrideIndex = i;
+	m.el.$$joyrideOffset = j;
+	m.el.$$realIndex = ws.markers.markers.length - 1;
+	return m;
 }
 
 export const hideMarker = (ws) => (ix) => () => {

@@ -259,7 +259,13 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                   channelEvent.push (RideChannel id)
               , negotiation: negotiation.event
               , tutorial: channelEvent.push TutorialChannel
-              , editor: negotiation.push (OpenEditor { fbAuth, signedInNonAnonymously: signedInNonAnonymously.event })
+              , editor: negotiation.push
+                  ( OpenEditor
+                      { fbAuth
+                      , firestoreDb
+                      , signedInNonAnonymously: signedInNonAnonymously.event
+                      }
+                  )
               , isMobile
               , lpsCallback: lowPriorityCb
               , givePermission: orientationPerm.push

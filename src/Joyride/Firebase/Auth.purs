@@ -1,8 +1,8 @@
 module Joyride.Firebase.Auth
   ( authStateChangedEventWithAnonymousAccountCreation
   , firebaseAuthAff
+  , currentUser
   , User(..)
-  , FirebaseAuth
   , UserMetadata
   , MultiFactorUser
   , MultiFactorInfo
@@ -18,7 +18,7 @@ import Prelude
 
 import Control.Promise (Promise, toAffE)
 import Data.Either (Either(..))
-import Data.Maybe (Maybe)
+import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype)
 import Effect (Effect)
 import Effect.Aff (Aff, Error, error, launchAff_, throwError)
@@ -27,7 +27,7 @@ import Effect.Class.Console as Log
 import Effect.Ref as Ref
 import FRP.Event (Event, makeEvent)
 import Foreign (Foreign)
-import Joyride.Firebase.Config (FirebaseApp)
+import Joyride.Firebase.Opaque (FirebaseAuth, FirebaseApp)
 import Simple.JSON as JSON
 
 type MultiFactorInfo =
@@ -55,6 +55,10 @@ type UserInfo =
   , uid :: String
   }
 
+foreign import currentUserImpl :: Maybe User -> (User -> Maybe User) -> FirebaseAuth -> Effect (Maybe User)
+
+currentUser = currentUserImpl Nothing Just :: FirebaseAuth -> Effect (Maybe User)
+
 newtype User = User
   { displayName :: Maybe String
   , email :: Maybe String
@@ -74,8 +78,6 @@ newtype User = User
 derive instance Newtype User _
 derive newtype instance JSON.ReadForeign User
 derive newtype instance JSON.WriteForeign User
-
-data FirebaseAuth
 
 foreign import firebaseAuth :: FirebaseApp -> Effect (Promise FirebaseAuth)
 

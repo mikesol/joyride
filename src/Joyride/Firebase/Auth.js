@@ -14,6 +14,9 @@ export const signInWithGoogle = (auth) => () => {
 	return Promise.resolve(true);
 };
 
+export const currentUserImpl = (nothing) => (just) => (auth) => () =>
+	auth.currentUser ? just(auth.currentUser) : nothing;
+
 export const upgradeAuth = (auth) => (credential) => () => {
 	return linkWithCredential(auth.currentUser, credential)
 		.then((usercred) => {

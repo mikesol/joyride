@@ -8,6 +8,10 @@ module Types
   , ChannelChooser(..)
   , Ride(..)
   , RideV0'
+  , Track(..)
+  , TrackV0'
+  , Event_(..)
+  , EventV0(..)
   , Version
   , Models(..)
   , defaultRide
@@ -106,7 +110,7 @@ import FRP.Behavior (Behavior)
 import FRP.Event (EventIO, Event)
 import Foreign (ForeignError(..), fail)
 import Foreign.Object as Object
-import Joyride.Firebase.Auth (FirebaseAuth)
+import Joyride.Firebase.Opaque (FirebaseAuth, Firestore)
 import Joyride.Ocarina (AudibleChildEnd, AudibleEnd)
 import Ocarina.Math (calcSlope)
 import Ocarina.WebAPI (BrowserAudioBuffer)
@@ -892,6 +896,7 @@ type Success' =
 type OpenEditor' =
   { fbAuth :: FirebaseAuth
   , signedInNonAnonymously :: Event Boolean
+  , firestoreDb :: Firestore
   }
 
 type WantsTutorial' =
@@ -1064,6 +1069,12 @@ type GalaxyAttributes =
 
 data Version (i :: Int) = Version Int
 
+instance Semigroup (Version i) where
+  append a _ = a
+
+instance Reflectable i Int => Monoid (Version i) where
+  mempty = Version (reflectType (Proxy :: _ i))
+
 instance Reflectable i Int => JSON.ReadForeign (Version i) where
   readImpl i' = do
     i <- JSON.readImpl i'
@@ -1097,6 +1108,56 @@ type RideV0' =
   , open :: Boolean
   , version :: Version 0
   }
+
+type TrackV0' = { url :: String, title :: Maybe String, owner :: String, version :: Version 0 }
+
+instance JSON.ReadForeign EventV0 where
+  readImpl i = do
+    { _type } :: { _type :: String } <- JSON.readImpl i
+    case _type of
+      "Basic" -> BasicEventV0 <$> JSON.readImpl i
+      "Leap" -> LeapEventV0 <$> JSON.readImpl i
+      "Long" -> LongEventV0 <$> JSON.readImpl i
+      _ -> fail (ForeignError $ "Could not parse: " <> JSON.writeJSON i)
+
+instance JSON.WriteForeign EventV0 where
+  writeImpl (BasicEventV0 x) = JSON.writeImpl $ union { _type: "Basic" } x
+  writeImpl (LeapEventV0 x) = JSON.writeImpl $ union { _type: "Leap" } x
+  writeImpl (LongEventV0 x) = JSON.writeImpl $ union { _type: "Long" } x
+
+data Track = TrackV0 TrackV0'
+data Event_ = EventV0 EventV0
+
+data EventV0
+  = BasicEventV0
+      { marker1Time :: Number
+      , marker1AudioURL :: Maybe String
+      , marker2Time :: Number
+      , marker2AudioURL :: Maybe String
+      , marker3Time :: Number
+      , marker3AudioURL :: Maybe String
+      , marker4Time :: Number
+      , marker4AudioURL :: Maybe String
+      , name :: Maybe String
+      , version :: Version 0
+      }
+  | LeapEventV0
+      { marker1Time :: Number
+      , marker1AudioURL :: Maybe String
+      , marker2Time :: Number
+      , marker2AudioURL :: Maybe String
+      , name :: Maybe String
+      , version :: Version 0
+      }
+  | LongEventV0
+      { marker1Time :: Number
+      , marker1AudioURL :: Maybe String
+      , marker2Time :: Number
+      , marker2AudioURL :: Maybe String
+      , length :: Number
+      , name :: Maybe String
+      , version :: Version 0
+      }
 
 defaultRide :: Ride
 defaultRide = RideV0
@@ -1132,6 +1193,18 @@ instance JSON.ReadForeign Ride where
 
 instance JSON.WriteForeign Ride where
   writeImpl (RideV0 i) = JSON.writeImpl i
+
+instance JSON.ReadForeign Track where
+  readImpl i = TrackV0 <$> (JSON.readImpl i)
+
+instance JSON.WriteForeign Track where
+  writeImpl (TrackV0 i) = JSON.writeImpl i
+
+instance JSON.ReadForeign Event_ where
+  readImpl i = EventV0 <$> (JSON.readImpl i)
+
+instance JSON.WriteForeign Event_ where
+  writeImpl (EventV0 i) = JSON.writeImpl i
 
 data ChannelChooser = NoChannel | RideChannel String | TutorialChannel
 

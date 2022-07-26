@@ -50,6 +50,7 @@
 		"three": "^0.140.0",
 		"tone": "^14.7.77",
 		"tw-elements": "^1.0.0-alpha12",
+		"unique-names-generator": "^4.7.1",
 		"uuid": "^8.3.2",
 		"wavesurfer.js": "^6.2.0"
 	}
