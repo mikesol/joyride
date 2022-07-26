@@ -400,15 +400,23 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = vbussed (Proxy :: _
                                                               [ text_ "Name" ]
                                                           , D.input
                                                               ( oneOf
-                                                                  ( [ bang $ D.OnInput := cb \e -> for_
+                                                                  ( [ docEv <#> \mDid -> D.OnInput := cb \e -> for_
                                                                         ( target e
                                                                             >>= fromEventTarget
                                                                         )
                                                                         ( \x -> do
                                                                             v <- value x
-                                                                            ( map (always :: m Unit -> Effect Unit) do
-                                                                                p'.changeName
-                                                                            ) (if v == "" then Nothing else Just v)
+                                                                            ( (always :: m Unit -> Effect Unit) do
+                                                                                p'.changeName (if v == "" then Nothing else Just v)
+                                                                                for_ mDid \diiid -> do
+                                                                                  -- TODO
+                                                                                  -- we need the id for the event
+                                                                                  -- this will either come
+                                                                                  -- from creation _or_ a mailbox
+                                                                                  -- that is spammed on the initial
+                                                                                  -- save after login
+                                                                                  pure unit
+                                                                            )
 
                                                                         )
                                                                     , bang $ D.Class := "bg-inherit text-white mx-2 appearance-none border rounded py-2 px-2 leading-tight focus:outline-none focus:shadow-outline"
@@ -428,13 +436,22 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = vbussed (Proxy :: _
                                                               [ text_ "Column" ]
                                                           , D.input
                                                               ( oneOf
-                                                                  [ bang $ D.OnInput := cb \e -> for_
+                                                                  [ docEv <#> \mDid -> D.OnInput := cb \e -> for_
                                                                       ( target e
                                                                           >>= fromEventTarget
                                                                       )
                                                                       ( \x -> do
                                                                           v <- floor <$> valueAsNumber x
-                                                                          (map (always :: m Unit -> Effect Unit) p'.changeColumn) v
+                                                                          (always :: m Unit -> Effect Unit) do
+                                                                            p'.changeColumn v
+                                                                            for_ mDid \diiid -> do
+                                                                              -- TODO
+                                                                              -- we need the id for the event
+                                                                              -- this will either come
+                                                                              -- from creation _or_ a mailbox
+                                                                              -- that is spammed on the initial
+                                                                              -- save after login
+                                                                              pure unit
                                                                       )
                                                                   , bang $ D.Xtype := "number"
                                                                   , bang $ D.Value := show col
