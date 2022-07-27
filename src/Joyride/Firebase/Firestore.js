@@ -1,7 +1,9 @@
 // Initialize Cloud Firestore and get a reference to the service
 export const firestoreDb = (app) => () =>
 	import("firebase/firestore").then(({ getFirestore }) => {
-		return getFirestore(app);
+		return getFirestore(
+			process.env.NODE_ENV === "production" ? app : undefined
+		);
 	});
 
 const RIDES = "rides";
@@ -23,6 +25,7 @@ const COLUMN = "column";
 
 export const addTrack = (db) => (track) => () =>
 	import("firebase/firestore").then(({ collection, addDoc }) => {
+		console.log(track);
 		return addDoc(collection(db, TRACKS), track);
 	});
 
@@ -50,6 +53,7 @@ export const removeTagFromTrack = (db) => (trackID) => (tag) => () =>
 	});
 export const addEvent = (db) => (trackID) => (event) => () =>
 	import("firebase/firestore").then(({ collection, addDoc }) => {
+		console.log(trackID, event);
 		return addDoc(collection(db, TRACKS, trackID, EVENTS), event);
 	});
 

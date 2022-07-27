@@ -95,6 +95,7 @@ data TopLevelDisplay
       { cubeTextures :: CubeTextures CTL.CubeTexture
       , models :: Models GLTFLoader.GLTF
       , threeDI :: ThreeDI
+      , signOut :: Effect Unit
       , initialDims :: WindowDims
       , cNow :: Effect Milliseconds
       , signedInNonAnonymously :: Event Boolean
@@ -167,12 +168,13 @@ toplevel tli =
   ) # switcher case _ of
     TLNeedsOrientation -> orientationPermissionPage { givePermission: tli.givePermission }
     TLWillNotWorkWithoutOrientation -> sorryNeedPermissionPage
-    TLExplainer { cubeTextures, threeDI, cNow, initialDims, signedInNonAnonymously } -> explainerPage
+    TLExplainer { cubeTextures, threeDI, cNow, initialDims, signedInNonAnonymously, signOut } -> explainerPage
       { ride: tli.ride
       , editor: tli.editor
       , tutorial: tli.tutorial
       , isMobile: tli.isMobile
       , cnow: cNow
+      , signOut
       , resizeE: tli.resizeE
       , initialDims
       , threeDI

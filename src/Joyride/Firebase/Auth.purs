@@ -3,14 +3,13 @@ module Joyride.Firebase.Auth
   , firebaseAuthAff
   , currentUser
   , User(..)
+  , signOut
   , UserMetadata
   , MultiFactorUser
   , MultiFactorInfo
   , UserInfo
-  , upgradeAuth
   , signInWithGoogle
   , initializeGoogleClient
-  , GCResponse
   , AuthProvider(..)
   ) where
 
@@ -27,7 +26,7 @@ import Effect.Class.Console as Log
 import Effect.Ref as Ref
 import FRP.Event (Event, makeEvent)
 import Foreign (Foreign)
-import Joyride.Firebase.Opaque (FirebaseAuth, FirebaseApp)
+import Joyride.Firebase.Opaque (FirebaseApp, FirebaseAuth)
 import Simple.JSON as JSON
 
 type MultiFactorInfo =
@@ -84,17 +83,11 @@ foreign import firebaseAuth :: FirebaseApp -> Effect (Promise FirebaseAuth)
 firebaseAuthAff :: FirebaseApp -> Aff FirebaseAuth
 firebaseAuthAff = toAffE <<< firebaseAuth
 
-type GCResponse =
-  { clientId :: String
-  , credential :: String
-  , select_by :: String
-  }
-
-foreign import initializeGoogleClient :: (GCResponse -> Effect Unit) -> Effect Unit
-foreign import signInWithGoogle :: FirebaseAuth -> Effect (Promise Unit)
+foreign import initializeGoogleClient :: FirebaseAuth -> Effect Unit -> Effect Unit
+foreign import signInWithGoogle :: Effect Unit -> Effect Unit
+foreign import signOut :: FirebaseAuth -> Effect Unit -> Effect (Promise Unit)
 
 foreign import onAuthStateChanged :: (Error -> Effect Unit) -> (Foreign -> Effect Unit) -> (Foreign -> Effect Unit) -> FirebaseAuth -> Effect (Promise (Effect Unit))
-foreign import upgradeAuth :: FirebaseAuth -> String -> Effect (Promise Unit)
 
 data AuthProvider = AuthAnonymous | AuthGoogle
 

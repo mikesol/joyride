@@ -32,6 +32,7 @@ import Deku.Listeners (click)
 import Effect (Effect)
 import Effect.Aff (launchAff_)
 import Effect.Class (liftEffect)
+import Effect.Class.Console as Log
 import FRP.Event (AnEvent, bang, fold, folded, fromEvent, keepLatest, mailboxed, mapAccum, memoize, sampleOn)
 import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V, vbus)
@@ -49,7 +50,11 @@ import Joyride.Wavesurfer.Wavesurfer (WaveSurfer, addMarker, associateEventDocum
 import Type.Proxy (Proxy(..))
 import Types (EventV0(..), Event_(..), OpenEditor', Track(..))
 import Web.Event.Event (target)
+import Web.HTML (window)
 import Web.HTML.HTMLInputElement (fromEventTarget, value, valueAsNumber)
+import Web.HTML.Window (alert)
+
+smplCls s = oneOf [ bang $ D.Class := s ]
 
 infixr 4 sampleOn as 🙂
 infixr 4 biSampleOn as 😄
@@ -118,6 +123,9 @@ type ChangeEvent_ = Map Int Event_ -> Map Int Event_
 
 aChangeTitle :: Maybe String -> ChangeTrack
 aChangeTitle t (TrackV0 track) = (TrackV0 (track { title = t }))
+
+aChangeOwner :: String -> ChangeTrack
+aChangeOwner o (TrackV0 track) = (TrackV0 (track { owner = o }))
 
 aAddBasic
   :: { id :: Int
@@ -324,19 +332,18 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
               { event: do
 
                   let
-                    ownerEvent :: AnEvent m String
-                    ownerEvent = fromEvent $ compact $ mToEvent ((map <<< map) (unwrap >>> _.uid) (currentUser fbAuth))
-                    initialData :: AnEvent m { title :: String, url :: String, owner :: String }
-                    initialData = fireAndForget (ownerEvent 😄 event.loadWave 😄 ({ title: _, url: _, owner: _ } <$> event.title))
+
+                    initialData :: AnEvent m { title :: String, url :: String }
+                    initialData = fireAndForget (event.loadWave 😄 ({ title: _, url: _ } <$> event.title))
                   let
                     mostRecentData = keepLatest
-                      ( initialData <#> \{ title, url, owner } -> fold
+                      ( initialData <#> \{ title, url } -> fold
                           ( \a (t /\ e) -> case a of
                               Left ae -> t /\ ae e
                               Right at -> at t /\ e
                           )
                           (Left <$> (event.atomicEventOperation) <|> (Right <$> event.atomicTrackOperation))
-                          (TrackV0 { title: Just title, url, version: mempty, owner } /\ Map.empty)
+                          (TrackV0 { title: Just title, url, private: false, version: mempty, owner: "" } /\ Map.empty)
                       )
                   mostRecentData 🙂 event.waveSurfer 🙂 fromEvent (folded $ map pure signedInNonAnonymously) 😄 ({ did: _, sina: _, ws: _, mostRecentData: _ } <$> (Just <$> event.documentId <|> bang Nothing))
               , push: \{ did, sina, ws, mostRecentData } -> unwrap
@@ -345,7 +352,7 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                           -- we have gone from not signed in to signed in
                           -- create the document on firebase
                           Nothing, [ true, false ] -> currentUser fbAuth >>= traverse_ \(User u) -> launchAff_ do
-                            added <- addTrackAff firestoreDb (fst mostRecentData)
+                            added <- addTrackAff firestoreDb (aChangeOwner u.uid (fst mostRecentData))
                             liftEffect $ pushed.documentId added.id
                             forIdAttribution <- Map.toUnfoldable (snd mostRecentData) # parTraverse \(id /\ data') -> do
                               addedEvent <- addEventAff firestoreDb added.id data'
@@ -582,8 +589,9 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                               [ text_ "Add Long Press" ]
                           , D.button
                               ( oneOf
-                                  [ bang $ D.OnClick := launchAff_ do
-                                      toAffE $ signInWithGoogle fbAuth
+                                  [ bang $ D.OnClick := do
+                                      signInWithGoogle do
+                                        window >>= alert "Sign in with google is temporarily unavailable. Please try again later."
                                   , fromEvent signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> if sina then " hidden" else ""
 
                                   ]
@@ -781,7 +789,6 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                   ]
                 <>
                   [ D.div (bang $ D.Class := "flex w-full justify-center items-center")
-
                       [ D.button
                           ( oneOf
                               [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
@@ -806,7 +813,7 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                                     if (cu.isAnonymous == false) then launchAff_ do
                                       docRef <- addTrackAff firestoreDb
                                         ( TrackV0
-                                            { url, title: Just rn, owner: cu.uid, version: mempty }
+                                            { url, title: Just rn, owner: cu.uid, private: false, version: mempty }
                                         )
                                       liftEffect $ (pushed.documentId docRef.id *> endgame)
                                     else endgame

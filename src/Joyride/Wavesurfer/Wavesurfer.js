@@ -124,7 +124,14 @@ function secondaryLabelInterval(pxPerSec) {
 	return Math.floor(10 / timeInterval(pxPerSec));
 }
 
-export const makeWavesurfer = (nothing) => (just) => (dropCb) => (success) => (container) => (url) => () => {
+export const makeWavesurfer =
+	(nothing) =>
+	(just) =>
+	(dropCb) =>
+	(success) =>
+	(container) =>
+	(url) =>
+	() => {
 		const ws = WaveSurfer.create({
 			backend: "MediaElement",
 			waveColor: "#A8DBA8",
@@ -175,13 +182,12 @@ export const makeWavesurfer = (nothing) => (just) => (dropCb) => (success) => (c
 				time,
 				el: { $$joyrideIndex, $$joyrideOffset, $$realIndex, $$documentId },
 			}) {
-				dropCb($$joyrideIndex)($$joyrideOffset)($$realIndex)($$documentId ? just($$documentId) : nothing)(
-					time
-				)();
+				dropCb($$joyrideIndex)($$joyrideOffset)($$realIndex)(
+					$$documentId ? just($$documentId) : nothing
+				)(time)();
 			}
 		);
 		return ws;
-
 	};
 
 export const zoom = (ws) => (z) => () => ws.zoom(z);
@@ -189,31 +195,40 @@ export const zoom = (ws) => (z) => () => ws.zoom(z);
 // $ixid is sorted based on ix
 // all markers have a $$joyrideIndex
 // the joyride index increases monotonically
-export const associateEventDocumentIdWithSortedMarkerIdList = (ws) => ($ixid) => () => {
-	const ixid = [...$ixid];
-	for (let i = 0; i < ws.markers.markers.length; i++) {
-		if (ws.markers[i].$$joyrideIndex !== ixid[0].ix) {
-			ixid.shift();
+export const associateEventDocumentIdWithSortedMarkerIdList =
+	(ws) => ($ixid) => () => {
+		const ixid = [...$ixid];
+		for (let i = 0; i < ws.markers.markers.length; i++) {
+			if (ws.markers.markers[i].el.$$joyrideIndex !== ixid[0].ix) {
+				console.log(
+					"shifting",
+					ws.markers.markers[i].el.$$joyrideIndex,
+					ixid[0].ix
+				);
+				ixid.shift();
+			}
+			if (ws.markers.markers[i].el.$$joyrideIndex !== ixid[0].ix) {
+				console.error(
+					"Programming error: something isn't sorted",
+					ws.markers.markers[i].el.$$joyrideIndex , ixid[0].ix,
+					JSON.stringify($ixid),
+					JSON.stringify(ws.markers.markers.map((m) => m.el.$$joyrideIndex))
+				);
+				throw new Error("Programming error: something isn't sorted");
+			}
+			ws.markers.markers[i].el.$$documentId = ixid[0].id;
 		}
-		if (ws.markers[i].$$joyrideIndex !== ixid[0].ix) {
-			throw new Error(
-				"Programming error: something isn't sorted",
-				JSON.stringify($ixid),
-				JSON.stringify(ws.markers.markers.map((m) => m.el.$$joyrideIndex))
-			);
-		}
-		ws.markers.markers[i].el.$$documentId = ixid[0].id;
-	}
-}
-export const associateEventDocumentIdWithMarker =
-  (m) => (id) => () => { m.el.$$documentId = id; }
+	};
+export const associateEventDocumentIdWithMarker = (m) => (id) => () => {
+	m.el.$$documentId = id;
+};
 export const addMarker = (ws) => (i) => (j) => (p) => () => {
 	const m = ws.addMarker({ draggable: true, ...p });
 	m.el.$$joyrideIndex = i;
 	m.el.$$joyrideOffset = j;
 	m.el.$$realIndex = ws.markers.markers.length - 1;
 	return m;
-}
+};
 
 export const getMarkers = (ws) => () => {
 	const out = [];
@@ -223,7 +238,7 @@ export const getMarkers = (ws) => () => {
 			time: m.time,
 			offset: m.el.$$joyrideOffset,
 			id: m.el.$$joyrideIndex,
-			blob: m
+			blob: m,
 		});
 	}
 	return out;

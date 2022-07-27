@@ -4,7 +4,7 @@ import Prelude
 
 import Control.Alt ((<|>))
 import Control.Parallel (parTraverse, sequential)
-import Control.Promise (toAffE)
+import Control.Promise (Promise, toAffE)
 import Data.Either (Either(..), hush)
 import Data.Filterable (filter)
 import Data.Homogeneous.Record (fromHomogeneous, homogeneous)
@@ -45,9 +45,10 @@ import Joyride.FRP.Keypress (posFromKeypress, xForKeyboard)
 import Joyride.FRP.Orientation (hasOrientationPermission, posFromOrientation, xForTouch)
 import Joyride.FRP.SampleOnSubscribe (sampleOnSubscribe)
 import Joyride.Firebase.Analytics (firebaseAnalyticsAff)
-import Joyride.Firebase.Auth (AuthProvider(..), authStateChangedEventWithAnonymousAccountCreation, firebaseAuthAff, initializeGoogleClient, upgradeAuth)
+import Joyride.Firebase.Auth (AuthProvider(..), authStateChangedEventWithAnonymousAccountCreation, firebaseAuthAff, initializeGoogleClient, signOut)
 import Joyride.Firebase.Config (firebaseAppAff)
 import Joyride.Firebase.Firestore (createRideIfNotExistsYet, eventChannelChanges, firestoreDbAff, getPlayerForChannel, sendMyPointsAndPenaltiesToFirebase)
+import Joyride.Firebase.Opaque (FirebaseAuth, Firestore)
 import Joyride.IO.ParFold (ParFold(..))
 import Joyride.Ledger.Basic (basicOutcomeToPointOutcome, beatsToBasicOutcome)
 import Joyride.Ledger.Long (longToPointOutcome)
@@ -122,6 +123,8 @@ type LeapUnsubscribes =
   , p4 :: Effect Unit
   }
 
+foreign import useFirebaseEmulatorInDevMode :: Firestore -> FirebaseAuth -> Effect (Promise Unit)
+
 constructAppendableKnownPlayersFromRide :: Ride -> KnownPlayers
 constructAppendableKnownPlayersFromRide
   ( RideV0
@@ -182,6 +185,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
   fbAnalytics <- firebaseAnalyticsAff fbApp
   firestoreDb <- firestoreDbAff fbApp
   fbAuth <- firebaseAuthAff fbApp
+  toAffE $ useFirebaseEmulatorInDevMode firestoreDb fbAuth
   -- has orientation permission
   -- see if this helps get rid of the screen on iOS for successive plays
   -- if not, get rid of it and just use hasOrientationPermission
@@ -189,8 +193,8 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
   liftEffect do
     -- auth
     signedInNonAnonymously' <- create
-    initializeGoogleClient \gc -> do
-      launchAff_ (toAffE (upgradeAuth fbAuth gc.credential))
+    initializeGoogleClient fbAuth do
+      signedInNonAnonymously'.push true
     -- ONLY CALL THIS LISTENER ONCE, AT THE TOP LEVEL
     -- it is not idempotent across subsequent calls
     -- although for a single subscription it _is_ idempotent
@@ -433,6 +437,8 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                       { threeDI
                       , initialDims
                       , models: Models myGLTFs
+                      , signOut: launchAff_ do
+                          toAffE $ signOut fbAuth (pure unit)
                       , cubeTextures: CubeTextures myCubeTextures
                       , cNow: mappedCNow
                       , signedInNonAnonymously: signedInNonAnonymously.event

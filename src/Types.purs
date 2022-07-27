@@ -848,6 +848,7 @@ data Negotiation
       { cubeTextures :: CubeTextures CTL.CubeTexture
       , models :: Models GLTFLoader.GLTF
       , initialDims :: WindowDims
+      , signOut :: Effect Unit
       , threeDI :: ThreeDI
       , cNow :: Effect Milliseconds
       , signedInNonAnonymously :: Event Boolean
@@ -1109,7 +1110,13 @@ type RideV0' =
   , version :: Version 0
   }
 
-type TrackV0' = { url :: String, title :: Maybe String, owner :: String, version :: Version 0 }
+type TrackV0' =
+  { url :: String
+  , private :: Boolean
+  , title :: Maybe String
+  , owner :: String
+  , version :: Version 0
+  }
 
 instance JSON.ReadForeign EventV0 where
   readImpl i = do

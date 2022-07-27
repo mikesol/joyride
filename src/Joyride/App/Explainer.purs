@@ -14,6 +14,7 @@ import Deku.Attribute ((:=))
 import Deku.Control (switcher, text_)
 import Deku.Core (Nut, vbussed)
 import Deku.DOM as D
+import Deku.Listeners (click)
 import Deku.Listeners as DL
 import Effect (Effect)
 import FRP.Event (Event, bang, fromEvent, keepLatest, mapAccum, memoize)
@@ -127,6 +128,7 @@ explainerPage
      , tutorial :: Effect Unit
      , editor :: Effect Unit
      , isMobile :: Boolean
+     , signOut :: Effect Unit
      , resizeE :: Event WindowDims
      , cnow :: Effect Milliseconds
      , cubeTextures :: CubeTextures CubeTexture
@@ -174,11 +176,12 @@ explainerPage opts = vbussed (Proxy :: _ (V (unsubscriber :: Effect Unit))) \pus
                   )
                   [ text_ "Editor" ]
               , D.button
-                        ( oneOf
-                            [ fromEvent opts.signedInNonAnonymously <#> \na -> D.Class := buttonCls <> (if na then "" else " hidden")
-                            ]
-                        )
-                        [ text_ "Sign Out" ]
+                  ( oneOf
+                      [ fromEvent opts.signedInNonAnonymously <#> \na -> D.Class := buttonCls <> (if na then "" else " hidden")
+                      , click $ bang opts.signOut
+                      ]
+                  )
+                  [ text_ "Sign Out" ]
 
               ]
       ]
