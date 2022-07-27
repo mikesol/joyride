@@ -12,7 +12,7 @@ import Effect.Class (liftEffect)
 import Effect.Ref as Ref
 import FRP.Event (Event, makeEvent)
 import Foreign (Foreign)
-import Joyride.Firebase.Opaque (FirebaseAuth, Firestore, FirebaseApp)
+import Joyride.Firebase.Opaque (FirebaseApp, FirebaseAuth, Firestore)
 import Simple.JSON as JSON
 import Types (Event_, Penalty(..), Player(..), Points(..), Ride(..), RideV0', Track, defaultRide)
 
@@ -74,9 +74,18 @@ getEventAff fs id0 id1 = do
 
 foreign import getEvents :: Firestore -> String -> Effect (Promise Foreign)
 
-getEventsAff :: Firestore -> String -> Aff (Array Event_)
+getEventsAff :: Firestore -> String -> Aff (Array { id :: String, data :: Event_ })
 getEventsAff fs id = do
   ds <- toAffE $ getEvents fs id
+  case JSON.read ds of
+    Right r -> pure r
+    Left e -> throwError (error (show e))
+
+foreign import getTracks :: FirebaseAuth -> Firestore -> Effect (Promise Foreign)
+
+getTracksAff :: FirebaseAuth -> Firestore -> Aff (Array { id :: String, data :: Track })
+getTracksAff fa fs = do
+  ds <- toAffE $ getTracks fa fs
   case JSON.read ds of
     Right r -> pure r
     Left e -> throwError (error (show e))
@@ -194,9 +203,11 @@ eventChannelChanges :: Firestore -> String -> Event Ride
 eventChannelChanges fs s = makeEvent \k -> do
   u <- Ref.new (pure unit)
   launchAff_ do
-    unsub <- toAffE $ listenToRemoteChannelChanges fs s (\f -> case JSON.read f of
-      Left e -> throwError (error (show e))
-      Right r -> k r)
+    unsub <- toAffE $ listenToRemoteChannelChanges fs s
+      ( \f -> case JSON.read f of
+          Left e -> throwError (error (show e))
+          Right r -> k r
+      )
     liftEffect $ Ref.write unsub u
   pure $ join $ Ref.read u
 

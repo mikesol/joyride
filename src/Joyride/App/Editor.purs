@@ -3,57 +3,54 @@ module Joyride.App.Editor where
 import Prelude
 
 import Control.Alt ((<|>))
-import Control.Parallel (parTraverse, parallel, sequential)
-import Control.Promise (toAffE)
-import Data.Array (groupBy, (..))
-import Data.Array as Array
-import Data.Array.NonEmpty as NEA
-import Data.Compactable (compact)
+import Control.Parallel (parTraverse)
+import Data.Array ((..))
 import Data.Either (Either(..))
-import Data.Foldable (foldl, for_, oneOf, traverse_)
+import Data.Foldable (for_, oneOf, traverse_)
 import Data.FoldableWithIndex (traverseWithIndex_)
 import Data.Function (on)
 import Data.Int (floor)
 import Data.Map (Map)
 import Data.Map as Map
-import Data.Maybe (Maybe(..), maybe)
+import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.Monoid.Always (always)
 import Data.Monoid.Endo (Endo(..))
 import Data.Newtype (class Newtype, unwrap)
 import Data.Set as Set
-import Data.TraversableWithIndex (traverseWithIndex)
 import Data.Tuple (Tuple(..), fst, snd)
 import Data.Tuple.Nested ((/\), type (/\))
-import Deku.Attribute (cb, xdata, (:=))
-import Deku.Control (text, text_)
+import Deku.Attribute (class Attr, Attribute, cb, xdata, (:=))
+import Deku.Control (switcher, text, text_)
 import Deku.Core (class Korok, Domable, dyn, envy, insert, remove, vbussed, vbussedUncurried)
+import Deku.DOM (Class(..))
 import Deku.DOM as D
 import Deku.Listeners (click)
 import Effect (Effect)
-import Effect.Aff (launchAff_)
+import Effect.Aff (forkAff, joinFiber, launchAff_)
 import Effect.Class (liftEffect)
-import Effect.Class.Console as Log
-import FRP.Event (AnEvent, bang, fold, folded, fromEvent, keepLatest, mailboxed, mapAccum, memoize, sampleOn)
+import FRP.Event (AnEvent, bang, fold, folded, fromEvent, keepLatest, mailboxed, mapAccum, memoize, sampleOn, subscribe, toEvent)
 import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V, vbus)
+import Joyride.App.Loading (loadingPage)
 import Joyride.Editor.ADT (Landmark(..), LongLength(..), Marker(..))
+import Joyride.FRP.Aff (eventToAff)
 import Joyride.FRP.Beh (memoBeh)
-import Joyride.FRP.Monad (mToEvent)
 import Joyride.FRP.Rider (rider, toRide)
 import Joyride.FRP.Schedule (fireAndForget)
 import Joyride.Firebase.Auth (User(..), currentUser, signInWithGoogle)
-import Joyride.Firebase.Firestore (addEvent, addEventAff, addTrack, addTrackAff, deleteEventAff, firestoreDb, updateColumnAff, updateEventNameAff, updateMarker1TimeAff, updateMarker2TimeAff, updateMarker3TimeAff, updateMarker4TimeAff, updateTrackTitleAff)
+import Joyride.Firebase.Firestore (addEventAff, addTrackAff, deleteEventAff, getEvents, getEventsAff, getTracksAff, updateColumnAff, updateEventNameAff, updateMarker1TimeAff, updateMarker2TimeAff, updateMarker3TimeAff, updateMarker4TimeAff, updateTrackTitleAff)
 import Joyride.QualifiedDo.Apply as QDA
 import Joyride.Style (buttonActiveCls, buttonCls, headerCls)
 import Joyride.UniqueNames (randomName)
-import Joyride.Wavesurfer.Wavesurfer (WaveSurfer, addMarker, associateEventDocumentIdWithMarker, associateEventDocumentIdWithSortedMarkerIdList, getMarkers, hideMarker, makeWavesurfer, muteExcept, removeMarker, showMarker)
+import Joyride.Wavesurfer.Wavesurfer (WaveSurfer, addMarker, associateEventDocumentIdWithMarker, associateEventDocumentIdWithSortedMarkerIdList, hideMarker, makeWavesurfer, muteExcept, removeMarker, showMarker)
 import Type.Proxy (Proxy(..))
-import Types (EventV0(..), Event_(..), OpenEditor', Track(..))
+import Types (BasicEventV0', EventV0(..), Event_(..), LongEventV0', OpenEditor', Track(..), LeapEventV0')
 import Web.Event.Event (target)
 import Web.HTML (window)
 import Web.HTML.HTMLInputElement (fromEventTarget, value, valueAsNumber)
 import Web.HTML.Window (alert)
 
+smplCls :: forall m elt. Applicative m => Attr elt Class String => String -> AnEvent m (Attribute elt)
 smplCls s = oneOf [ bang $ D.Class := s ]
 
 infixr 4 sampleOn as 🙂
@@ -71,7 +68,10 @@ instance Ord SpammedId where
 
 type Events :: forall k. (Type -> k) -> Row k
 type Events t =
-  ( initialScreenVisible :: t Boolean
+  ( importerScreenVisible :: t Boolean
+  , chooserScreenVisible :: t Boolean
+  , loadingScreenVisible :: t Boolean
+  , availableTracks :: t (Array { id :: String, data :: Track })
   -- achtung: this event is only for external modification
   -- the listener for edited content shouldn't loop back to the element, otherwise we'll get an unnecessary gnarly feedback loop
   , title :: t String
@@ -90,13 +90,10 @@ type Events t =
         , time :: Number
         , id :: Maybe String
         }
-  )
-
-type CEvents :: forall k. (Type -> k) -> Row k
-type CEvents t =
-  ( addBasic :: t (Maybe String)
-  , addLeap :: t (Maybe String)
-  , addLongPress :: t (Maybe String)
+  -- CEvents
+  , addBasic :: t (Maybe String /\ BasicEventV0')
+  , addLeap :: t (Maybe String /\ LeapEventV0')
+  , addLongPress :: t (Maybe String /\ LongEventV0')
   , solo :: t (Int /\ Int)
   , mute :: t (Int /\ Int)
   , unSolo :: t (Int /\ Int)
@@ -115,7 +112,7 @@ type SingleItem t =
 type PlainOl :: forall k. k -> k
 type PlainOl t = t
 
-data CAction = CBasic (Maybe String) | CLeap (Maybe String) | CLongPress (Maybe String)
+data CAction = CBasic (Maybe String /\ BasicEventV0') | CLeap (Maybe String /\ LeapEventV0') | CLongPress (Maybe String /\ LongEventV0')
 data SoMu = Solo (Int /\ Int) | Mute (Int /\ Int) | UnSolo (Int /\ Int) | UnMute (Int /\ Int)
 
 type ChangeTrack = Track -> Track
@@ -264,36 +261,36 @@ aChangeLength { id, length } = Map.update
 aDeleteEvent_ :: { id :: Int } -> ChangeEvent_
 aDeleteEvent_ { id } = Map.delete id
 
-defaultBasic :: Int -> Int -> Int -> Maybe String -> Landmark
-defaultBasic id startIx col fbId = LBasic
-  { l1: Marker { at: 0.0 }
-  , l2: Marker { at: 0.5 }
-  , l3: Marker { at: 1.0 }
-  , l4: Marker { at: 1.5 }
-  , name: Nothing
+defaultBasic :: Int -> Int -> Int -> Maybe String -> BasicEventV0' -> Landmark
+defaultBasic id startIx col fbId be = LBasic
+  { l1: Marker { at: be.marker1Time }
+  , l2: Marker { at: be.marker2Time }
+  , l3: Marker { at: be.marker3Time }
+  , l4: Marker { at: be.marker4Time }
+  , name: be.name
   , fbId
   , id
   , startIx
   , col
   }
 
-defaultLeap :: Int -> Int -> Int -> Maybe String -> Landmark
-defaultLeap id startIx col fbId = LLeap
-  { start: Marker { at: 0.5 }
-  , end: Marker { at: 1.25 }
-  , name: Nothing
+defaultLeap :: Int -> Int -> Int -> Maybe String -> LeapEventV0' -> Landmark
+defaultLeap id startIx col fbId be = LLeap
+  { start: Marker { at: be.marker1Time }
+  , end: Marker { at: be.marker2Time }
+  , name: be.name
   , id
   , fbId
   , startIx
   , col
   }
 
-defaultLongPress :: Int -> Int -> Int -> Maybe String -> Landmark
-defaultLongPress id startIx col fbId = LLong
-  { start: Marker { at: 0.5 }
-  , end: Marker { at: 1.25 }
-  , len: LongLength { len: 1.0 }
-  , name: Nothing
+defaultLongPress :: Int -> Int -> Int -> Maybe String -> LongEventV0' -> Landmark
+defaultLongPress id startIx col fbId be = LLong
+  { start: Marker { at: be.marker1Time }
+  , end: Marker { at: be.marker2Time }
+  , len: LongLength { len: be.length }
+  , name: be.name
   , id
   , fbId
   , startIx
@@ -369,7 +366,9 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
         <<< memoBeh (Just <$> event.documentId) Nothing
     )
   ctor <- envy <<< mailboxed event.spamIdsOnSubscription
-  let isv = event.initialScreenVisible <|> bang true
+  let importerScreenVisible = event.importerScreenVisible <|> bang true
+  let chooserScreenVisible = event.chooserScreenVisible <|> bang false
+  let loadingScreenVisible = event.loadingScreenVisible <|> bang false
   D.div
     (bang $ D.Class := "absolute w-screen h-screen bg-zinc-900")
     [ D.div
@@ -411,7 +410,7 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                             2 -> aChangeMarker3 { id: i, time: t }
                             _ -> aChangeMarker4 { id: i, time: t }
                       )
-                      (pushed.initialScreenVisible false)
+                      (pushed.importerScreenVisible false)
                       s
                       url >>= pushed.waveSurfer
 
@@ -426,11 +425,11 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
             )
             []
         , D.div_
-            [ vbussed (Proxy :: _ (V (CEvents PlainOl))) \cPushed (cEvent :: { | CEvents (AnEvent m) }) -> envy $ memoize
+            [ envy $ memoize
                 ( oneOf
-                    [ cEvent.addBasic <#> CBasic
-                    , cEvent.addLeap <#> CLeap
-                    , cEvent.addLongPress <#> CLongPress
+                    [ event.addBasic <#> CBasic
+                    , event.addLeap <#> CLeap
+                    , event.addLongPress <#> CLongPress
                     ]
                 )
                 \ctrlEvent -> envy
@@ -444,7 +443,7 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                                       Mute x -> \s -> s /\ Right (Right x)
                                       UnMute x -> \s -> s /\ Right (Left x)
                                   )
-                                  ((cEvent.solo <#> Solo) <|> (cEvent.mute <#> Mute) <|> (cEvent.unSolo <#> UnSolo) <|> (cEvent.unMute <#> UnMute))
+                                  ((event.solo <#> Solo) <|> (event.mute <#> Mute) <|> (event.unSolo <#> UnSolo) <|> (event.unMute <#> UnMute))
                                   Set.empty
                               )
                           , push: \(a /\ ws) -> unwrap
@@ -467,9 +466,9 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                         store =
                           ( mapAccum
                               ( \a { id, startIx } -> case a of
-                                  CBasic ms -> { id: id + 1, startIx: startIx + 4 } /\ defaultBasic id startIx 7 ms
-                                  CLeap ms -> { id: id + 1, startIx: startIx + 2 } /\ defaultLeap id startIx 7 ms
-                                  CLongPress ms -> { id: id + 1, startIx: startIx + 2 } /\ defaultLongPress id startIx 7 ms
+                                  CBasic (ms /\ be) -> { id: id + 1, startIx: startIx + 4 } /\ defaultBasic id startIx 7 ms be
+                                  CLeap (ms /\ be) -> { id: id + 1, startIx: startIx + 2 } /\ defaultLeap id startIx 7 ms be
+                                  CLongPress (ms /\ be) -> { id: id + 1, startIx: startIx + 2 } /\ defaultLongPress id startIx 7 ms be
                               )
                               ctrlEvent
                               { id: 0, startIx: 0 }
@@ -486,7 +485,23 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                           [ D.button
                               ( oneOf
                                   [ (Just <$> event.documentId <|> bang Nothing) 😄 markerIndices 😄 ({ ws: _, ixs: _, did: _ } <$> event.waveSurfer) <#> \{ ws, ixs: ix /\ _, did } -> D.OnClick := do
-                                      let endgame = cPushed.addBasic
+                                      let
+                                        endgame x = pushed.addBasic
+                                          ( x /\
+                                              { marker1Time: 0.0
+                                              , marker1AudioURL: Nothing
+                                              , marker2Time: 0.5
+                                              , marker2AudioURL: Nothing
+                                              , marker3Time: 1.0
+                                              , marker3AudioURL: Nothing
+                                              , marker4Time: 1.0
+                                              , marker4AudioURL: Nothing
+                                              , column: 7
+                                              , name: Nothing
+                                              , version: mempty
+
+                                              }
+                                          )
                                       m0 <- addMarker ws ix 0 { color: "#0f32f6", label: "B1", time: 0.0 }
                                       m1 <- addMarker ws ix 1 { color: "#61e2f6", label: "B2", time: 0.5 }
                                       m2 <- addMarker ws ix 2 { color: "#ef82f6", label: "B3", time: 1.0 }
@@ -525,7 +540,19 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                           , D.button
                               ( oneOf
                                   [ (Just <$> event.documentId <|> bang Nothing) 😄 markerIndices 😄 ({ ws: _, ixs: _, did: _ } <$> event.waveSurfer) <#> \{ ws, ixs: ix /\ _, did } -> D.OnClick := do
-                                      let endgame = cPushed.addLeap
+                                      let
+                                        endgame x = pushed.addLeap
+                                          ( x /\
+                                              { marker1Time: 0.5
+                                              , marker1AudioURL: Nothing
+                                              , marker2Time: 1.25
+                                              , marker2AudioURL: Nothing
+                                              , column: 7
+                                              , name: Nothing
+                                              , version: mempty
+
+                                              }
+                                          )
                                       m0 <- addMarker ws ix 0 { color: "#0f32f6", label: "LSt", time: 0.5 }
                                       m1 <- addMarker ws ix 1 { color: "#61e2f6", label: "LEd", time: 1.25 }
                                       pushed.atomicEventOperation $ aAddLeap
@@ -556,7 +583,20 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                           , D.button
                               ( oneOf
                                   [ (Just <$> event.documentId <|> bang Nothing) 😄 markerIndices 😄 ({ ws: _, ixs: _, did: _ } <$> event.waveSurfer) <#> \{ ws, ixs: ix /\ _, did } -> D.OnClick := do
-                                      let endgame = cPushed.addLongPress
+                                      let
+                                        endgame x = pushed.addLongPress
+                                          ( x /\
+                                              { marker1Time: 0.5
+                                              , marker1AudioURL: Nothing
+                                              , marker2Time: 1.25
+                                              , marker2AudioURL: Nothing
+                                              , length: 1.0
+                                              , column: 7
+                                              , name: Nothing
+                                              , version: mempty
+
+                                              }
+                                          )
                                       m0 <- addMarker ws ix 0 { color: "#0f32f6", label: "P1", time: 0.5 }
                                       m1 <- addMarker ws ix 1 { color: "#61e2f6", label: "P2", time: 1.25 }
                                       pushed.atomicEventOperation $ aAddLongPress
@@ -727,7 +767,7 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                                                           ( oneOf
                                                               [ soloState <#> \ms -> D.Class := (if ms then buttonActiveCls else buttonCls) <> " mr-2"
                                                               , click $ soloState <#> \ms -> do
-                                                                  (if ms then cPushed.unSolo else cPushed.solo) (startIx /\ inSeq)
+                                                                  (if ms then pushed.unSolo else pushed.solo) (startIx /\ inSeq)
                                                                   (map (always :: m Unit -> Effect Unit) p'.solo) unit
                                                               ]
                                                           )
@@ -736,7 +776,7 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                                                           ( oneOf
                                                               [ muteState <#> \ms -> D.Class := (if ms then buttonActiveCls else buttonCls) <> " mr-2"
                                                               , click $ muteState <#> \ms -> do
-                                                                  (if ms then cPushed.unMute else cPushed.mute) (startIx /\ inSeq)
+                                                                  (if ms then pushed.unMute else pushed.mute) (startIx /\ inSeq)
                                                                   (map (always :: m Unit -> Effect Unit) p'.mute) unit
                                                               ]
                                                           )
@@ -770,7 +810,7 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
             ]
         ]
     , D.div
-        ( isv <#> \isv -> D.Class := "absolute w-screen h-screen grid grid-rows-6 grid-cols-6 bg-zinc-900" <> if isv then "" else " hidden"
+        ( importerScreenVisible <#> \isv -> D.Class := "absolute w-screen h-screen grid grid-rows-6 grid-cols-6 bg-zinc-900" <> if isv then "" else " hidden"
         )
 
         [ D.div
@@ -791,7 +831,14 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                       [ D.button
                           ( oneOf
                               [ fromEvent signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> " mx-2 pointer-events-auto" <> if sina then "" else " hidden"
-                              , bang $ D.OnClick := (pure unit :: Effect Unit)
+                              , bang $ D.OnClick := do
+                                  pushed.loadingScreenVisible true
+                                  launchAff_ do
+                                    tracks <- getTracksAff fbAuth firestoreDb
+                                    liftEffect $ pushed.availableTracks tracks
+                                    liftEffect do
+                                      pushed.chooserScreenVisible true
+                                      pushed.loadingScreenVisible false
                               ]
                           )
                           [ text_ "Import project" ]
@@ -824,4 +871,83 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                   ]
             )
         ]
+    , D.div
+        ( chooserScreenVisible <#> \csv -> D.Class := "absolute w-screen h-screen grid grid-rows-6 grid-cols-6 bg-zinc-900" <> if csv then "" else " hidden"
+        )
+
+        [ D.div
+            (bang $ D.Class := "select-auto row-start-1 row-end-2 col-start-1 col-end-2")
+            [ D.button
+                ( oneOf
+                    [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                    , bang $ D.OnClick := pushed.chooserScreenVisible false
+                    ]
+                )
+                [ text_ "< Back" ]
+            ]
+        , D.div
+            (bang $ D.Class := "select-auto justify-self-center self-center row-start-2 row-end-6 col-start-2 col-end-6")
+            ( [ D.div
+                  (bang $ D.Class := "pointer-events-auto text-center p-4 " <> headerCls)
+                  [ D.p_ [ text_ "Choose a project" ]
+                  ]
+              ]
+                <>
+                  [ D.div (bang $ D.Class := "flex w-full justify-center items-center")
+                      [ ( event.availableTracks # switcher \l -> D.ul (bang $ D.Class := "flex w-full justify-center items-center")
+                            ( l <#> \{ id, data: TrackV0 aTra } -> D.li_
+                                [ D.button
+                                    ( oneOf
+                                        [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                                        , bang $ D.OnClick := do
+                                            pushed.loadingScreenVisible true *> launchAff_ do
+                                              evts <- getEventsAff firestoreDb id
+                                              wsf <- forkAff $ eventToAff $ toEvent event.waveSurfer
+                                              liftEffect do
+                                                pushed.loadWave aTra.url
+                                                for_ aTra.title pushed.title
+                                                pushed.documentId id
+                                              ws <- joinFiber wsf
+                                              liftEffect do
+                                                evts # traverseWithIndex_ \ix { id, data: evt } -> case evt of
+                                                  EventV0 (BasicEventV0 be) -> do
+                                                    pushed.addBasic (Just id /\ be)
+                                                    m0 <- addMarker ws ix 0 { color: "#0f32f6", label: "B1", time: be.marker1Time }
+                                                    m1 <- addMarker ws ix 1 { color: "#61e2f6", label: "B2", time: be.marker2Time }
+                                                    m2 <- addMarker ws ix 2 { color: "#ef82f6", label: "B3", time: be.marker3Time }
+                                                    m3 <- addMarker ws ix 3 { color: "#9e0912", label: "B4", time: be.marker4Time }
+                                                    associateEventDocumentIdWithMarker m0 id
+                                                    associateEventDocumentIdWithMarker m1 id
+                                                    associateEventDocumentIdWithMarker m2 id
+                                                    associateEventDocumentIdWithMarker m3 id
+                                                  EventV0 (LeapEventV0 be) -> do
+                                                    pushed.addLeap (Just id /\ be)
+                                                    m0 <- addMarker ws ix 0 { color: "#0f32f6", label: "LSt", time: be.marker1Time }
+                                                    m1 <- addMarker ws ix 1 { color: "#61e2f6", label: "LEd", time: be.marker2Time }
+                                                    associateEventDocumentIdWithMarker m0 id
+                                                    associateEventDocumentIdWithMarker m1 id
+                                                  EventV0 (LongEventV0 be) -> do
+                                                    pushed.addLongPress (Just id /\ be)
+                                                    m0 <- addMarker ws ix 0 { color: "#0f32f6", label: "LSt", time: be.marker1Time }
+                                                    m1 <- addMarker ws ix 1 { color: "#61e2f6", label: "LEd", time: be.marker2Time }
+                                                    associateEventDocumentIdWithMarker m0 id
+                                                    associateEventDocumentIdWithMarker m1 id
+                                                pushed.chooserScreenVisible false
+                                                pushed.importerScreenVisible false
+                                                pushed.loadingScreenVisible false
+                                        ]
+                                    )
+                                    [ text_ (fromMaybe "Untitled Track" aTra.title) ]
+                                ]
+                            )
+                        )
+                      ]
+                  ]
+            )
+        ]
+    , D.div
+        ( loadingScreenVisible <#> \lsv ->
+            D.Class := "absolute w-screen h-screen" <> if lsv then "" else " hidden"
+        )
+        [ loadingPage ]
     ]

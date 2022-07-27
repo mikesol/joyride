@@ -4,6 +4,9 @@ module Types
   , Shaders
   , Shader
   , GalaxyAttributes
+  , BasicEventV0'
+  , LeapEventV0'
+  , LongEventV0'
   , RenderingInfo
   , ChannelChooser(..)
   , Ride(..)
@@ -1135,9 +1138,7 @@ instance JSON.WriteForeign EventV0 where
 data Track = TrackV0 TrackV0'
 data Event_ = EventV0 EventV0
 
-data EventV0
-  = BasicEventV0
-      { marker1Time :: Number
+type BasicEventV0' = { marker1Time :: Number
       , marker1AudioURL :: Maybe String
       , marker2Time :: Number
       , marker2AudioURL :: Maybe String
@@ -1149,8 +1150,7 @@ data EventV0
       , name :: Maybe String
       , version :: Version 0
       }
-  | LeapEventV0
-      { marker1Time :: Number
+type LeapEventV0' = { marker1Time :: Number
       , marker1AudioURL :: Maybe String
       , marker2Time :: Number
       , marker2AudioURL :: Maybe String
@@ -1158,8 +1158,7 @@ data EventV0
       , name :: Maybe String
       , version :: Version 0
       }
-  | LongEventV0
-      { marker1Time :: Number
+type LongEventV0' = { marker1Time :: Number
       , marker1AudioURL :: Maybe String
       , marker2Time :: Number
       , marker2AudioURL :: Maybe String
@@ -1168,6 +1167,11 @@ data EventV0
       , name :: Maybe String
       , version :: Version 0
       }
+data EventV0
+  = BasicEventV0 BasicEventV0'
+  | LeapEventV0 LeapEventV0'
+  | LongEventV0 LongEventV0'
+
 
 defaultRide :: Ride
 defaultRide = RideV0

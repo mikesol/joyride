@@ -64,8 +64,23 @@ export const getEvent = (db) => (trackID) => (eventID) => () =>
 		);
 	});
 
+export const getTracks = (auth) => (db) => () =>
+	import("firebase/firestore").then(({ query, getDocs, collection, where }) => {
+		const q = query(
+			collection(db, TRACKS),
+			where("owner", "==", auth.currentUser.uid)
+		);
+		return getDocs(q).then((querySnapshot) => {
+			const data = [];
+			querySnapshot.forEach((doc) => {
+				data.push({ id: doc.id, data: doc.data() });
+			});
+			return data;
+		});
+	});
+
 export const getEvents = (db) => (trackID) => () =>
-	import("firebase/firestore").then(({ query, collection }) => {
+	import("firebase/firestore").then(({ query, getDocs, collection }) => {
 		const q = query(collection(db, TRACKS, trackID, EVENTS));
 		return getDocs(q).then((querySnapshot) => {
 			const data = [];
