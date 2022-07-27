@@ -185,6 +185,26 @@ export const makeWavesurfer = (nothing) => (just) => (dropCb) => (success) => (c
 	};
 
 export const zoom = (ws) => (z) => () => ws.zoom(z);
+// this is a fragile algorithm as it requires two things:
+// $ixid is sorted based on ix
+// all markers have a $$joyrideIndex
+// the joyride index increases monotonically
+export const associateEventDocumentIdWithSortedMarkerIdList = (ws) => ($ixid) => () => {
+	const ixid = [...$ixid];
+	for (let i = 0; i < ws.markers.markers.length; i++) {
+		if (ws.markers[i].$$joyrideIndex !== ixid[0].ix) {
+			ixid.shift();
+		}
+		if (ws.markers[i].$$joyrideIndex !== ixid[0].ix) {
+			throw new Error(
+				"Programming error: something isn't sorted",
+				JSON.stringify($ixid),
+				JSON.stringify(ws.markers.markers.map((m) => m.el.$$joyrideIndex))
+			);
+		}
+		ws.markers.markers[i].el.$$documentId = ixid[0].id;
+	}
+}
 export const associateEventDocumentIdWithMarker =
   (m) => (id) => () => { m.el.$$documentId = id; }
 export const addMarker = (ws) => (i) => (j) => (p) => () => {

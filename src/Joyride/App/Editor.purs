@@ -3,11 +3,15 @@ module Joyride.App.Editor where
 import Prelude
 
 import Control.Alt ((<|>))
+import Control.Parallel (parTraverse, parallel, sequential)
 import Control.Promise (toAffE)
 import Data.Array (groupBy, (..))
+import Data.Array as Array
 import Data.Array.NonEmpty as NEA
+import Data.Compactable (compact)
 import Data.Either (Either(..))
 import Data.Foldable (foldl, for_, oneOf, traverse_)
+import Data.FoldableWithIndex (traverseWithIndex_)
 import Data.Function (on)
 import Data.Int (floor)
 import Data.Map (Map)
@@ -17,7 +21,8 @@ import Data.Monoid.Always (always)
 import Data.Monoid.Endo (Endo(..))
 import Data.Newtype (class Newtype, unwrap)
 import Data.Set as Set
-import Data.Tuple (Tuple(..))
+import Data.TraversableWithIndex (traverseWithIndex)
+import Data.Tuple (Tuple(..), fst, snd)
 import Data.Tuple.Nested ((/\), type (/\))
 import Deku.Attribute (cb, xdata, (:=))
 import Deku.Control (text, text_)
@@ -32,13 +37,15 @@ import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V, vbus)
 import Joyride.Editor.ADT (Landmark(..), LongLength(..), Marker(..))
 import Joyride.FRP.Beh (memoBeh)
+import Joyride.FRP.Monad (mToEvent)
 import Joyride.FRP.Rider (rider, toRide)
+import Joyride.FRP.Schedule (fireAndForget)
 import Joyride.Firebase.Auth (User(..), currentUser, signInWithGoogle)
 import Joyride.Firebase.Firestore (addEvent, addEventAff, addTrack, addTrackAff, deleteEventAff, firestoreDb, updateColumnAff, updateEventNameAff, updateMarker1TimeAff, updateMarker2TimeAff, updateMarker3TimeAff, updateMarker4TimeAff, updateTrackTitleAff)
 import Joyride.QualifiedDo.Apply as QDA
 import Joyride.Style (buttonActiveCls, buttonCls, headerCls)
 import Joyride.UniqueNames (randomName)
-import Joyride.Wavesurfer.Wavesurfer (WaveSurfer, addMarker, associateEventDocumentIdWithMarker, getMarkers, hideMarker, makeWavesurfer, muteExcept, removeMarker, showMarker)
+import Joyride.Wavesurfer.Wavesurfer (WaveSurfer, addMarker, associateEventDocumentIdWithMarker, associateEventDocumentIdWithSortedMarkerIdList, getMarkers, hideMarker, makeWavesurfer, muteExcept, removeMarker, showMarker)
 import Type.Proxy (Proxy(..))
 import Types (EventV0(..), Event_(..), OpenEditor', Track(..))
 import Web.Event.Event (target)
@@ -314,40 +321,36 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
           )
         <<< rider
           ( toRide
-              { event: event.waveSurfer 🙂 event.loadWave 🙂 (bang Nothing <|> Just <$> event.title <|> event.changeTitle) 🙂 fromEvent (folded $ map pure signedInNonAnonymously) 😄 ({ did: _, sina: _, title: _, url: _, ws: _ } <$> (Just <$> event.documentId <|> bang Nothing))
-              , push: \{ did, sina, title, url, ws } -> unwrap
+              { event: do
+
+                  let
+                    ownerEvent :: AnEvent m String
+                    ownerEvent = fromEvent $ compact $ mToEvent ((map <<< map) (unwrap >>> _.uid) (currentUser fbAuth))
+                    initialData :: AnEvent m { title :: String, url :: String, owner :: String }
+                    initialData = fireAndForget (ownerEvent 😄 event.loadWave 😄 ({ title: _, url: _, owner: _ } <$> event.title))
+                  let
+                    mostRecentData = keepLatest
+                      ( initialData <#> \{ title, url, owner } -> fold
+                          ( \a (t /\ e) -> case a of
+                              Left ae -> t /\ ae e
+                              Right at -> at t /\ e
+                          )
+                          (Left <$> (event.atomicEventOperation) <|> (Right <$> event.atomicTrackOperation))
+                          (TrackV0 { title: Just title, url, version: mempty, owner } /\ Map.empty)
+                      )
+                  mostRecentData 🙂 event.waveSurfer 🙂 fromEvent (folded $ map pure signedInNonAnonymously) 😄 ({ did: _, sina: _, ws: _, mostRecentData: _ } <$> (Just <$> event.documentId <|> bang Nothing))
+              , push: \{ did, sina, ws, mostRecentData } -> unwrap
                   ( (always :: (Endo Function (Effect Unit)) -> (Endo Function (m Unit)))
                       ( Endo \_ -> case did, sina of
                           -- we have gone from not signed in to signed in
                           -- create the document on firebase
                           Nothing, [ true, false ] -> currentUser fbAuth >>= traverse_ \(User u) -> launchAff_ do
-                            added <- addTrackAff firestoreDb
-                              $ TrackV0
-                                  { url
-                                  , title
-                                  , owner: u.uid
-                                  , version: mempty
-                                  }
-                            -- markers <- liftEffect $ getMarkers ws
-                            -- let grouped = groupBy (eq `on` _.id) markers
-                            -- for_ grouped \mka -> do
-                            --   let mkid = (NEA.head mka).id
-                            --   let
-                            --     times = foldl
-                            --       ( \b a -> case a.offset of
-                            --           0 -> b { marker1Time = a.time }
-                            --           1 -> b { marker2Time = a.time }
-                            --           2 -> b { marker3Time = a.time }
-                            --           _ -> b { marker4Time = a.time }
-                            --       )
-                            --       { marker1Time: 0.0, marker2Time: 0.0, marker3Time: 0.0, marker4Time: 0.0 }
-                            --       mka
-                            --   -- todo: this is really fragile because it is relying on the visual representation
-                            --   -- of markers
-                            --   -- even though that should be correct, it is missing lots of information
-                            --   -- unfortunately, we need to keep a top-level cache :-(
-                            --   addEventAff firestoreDb added.id
-                            pure unit
+                            added <- addTrackAff firestoreDb (fst mostRecentData)
+                            liftEffect $ pushed.documentId added.id
+                            forIdAttribution <- Map.toUnfoldable (snd mostRecentData) # parTraverse \(id /\ data') -> do
+                              addedEvent <- addEventAff firestoreDb added.id data'
+                              pure { ix: id, id: addedEvent.id }
+                            liftEffect $ associateEventDocumentIdWithSortedMarkerIdList ws forIdAttribution
                           -- ignore other stuff
                           -- if this proves to be too general, make it more nuanced
                           _, _ -> pure unit
@@ -805,7 +808,7 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                                         ( TrackV0
                                             { url, title: Just rn, owner: cu.uid, version: mempty }
                                         )
-                                      liftEffect $ pushed.documentId docRef.id *> endgame
+                                      liftEffect $ (pushed.documentId docRef.id *> endgame)
                                     else endgame
                               ]
                           )

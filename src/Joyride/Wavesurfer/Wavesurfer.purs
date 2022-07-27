@@ -25,6 +25,7 @@ type Marker = { time :: Number, label :: String, color :: String }
 
 foreign import addMarker :: WaveSurfer -> Int -> Int -> Marker -> Effect MarkerBlob
 foreign import associateEventDocumentIdWithMarker :: MarkerBlob -> String -> Effect Unit
+foreign import associateEventDocumentIdWithSortedMarkerIdList :: WaveSurfer -> Array { ix :: Int, id :: String } -> Effect Unit
 foreign import hideMarker :: WaveSurfer -> Int -> Effect Unit
 foreign import mute :: WaveSurfer -> Int -> Effect Unit
 foreign import muteExcept :: WaveSurfer -> Array (Array Int) -> Effect Unit
