@@ -195,6 +195,20 @@ export const addMarker = (ws) => (i) => (j) => (p) => () => {
 	return m;
 }
 
+export const getMarkers = (ws) => () => {
+	const out = [];
+	for (let i = 0; i < ws.markers.markers.length; i++) {
+		const m = ws.markers.markers[i];
+		out.push({
+			time: m.time,
+			offset: m.el.$$joyrideOffset,
+			id: m.el.$$joyrideIndex,
+			blob: m
+		});
+	}
+	return out;
+};
+
 export const hideMarker = (ws) => (ix) => () => {
 	ws.markers.markers[ix].el.classList.remove("visible");
 	ws.markers.markers[ix].el.classList.add("invisible");

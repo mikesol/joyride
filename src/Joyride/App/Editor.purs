@@ -4,11 +4,14 @@ import Prelude
 
 import Control.Alt ((<|>))
 import Control.Promise (toAffE)
-import Data.Array ((..))
+import Data.Array (groupBy, (..))
+import Data.Array.NonEmpty as NEA
 import Data.Either (Either(..))
-import Data.Foldable (for_, oneOf)
+import Data.Foldable (foldl, for_, oneOf, traverse_)
 import Data.Function (on)
 import Data.Int (floor)
+import Data.Map (Map)
+import Data.Map as Map
 import Data.Maybe (Maybe(..), maybe)
 import Data.Monoid.Always (always)
 import Data.Monoid.Endo (Endo(..))
@@ -30,12 +33,12 @@ import FRP.Event.VBus (V, vbus)
 import Joyride.Editor.ADT (Landmark(..), LongLength(..), Marker(..))
 import Joyride.FRP.Beh (memoBeh)
 import Joyride.FRP.Rider (rider, toRide)
-import Joyride.Firebase.Auth (currentUser, signInWithGoogle)
-import Joyride.Firebase.Firestore (addEventAff, addTrackAff, updateColumnAff, updateEventNameAff, updateMarker1TimeAff, updateMarker2TimeAff, updateMarker3TimeAff, updateMarker4TimeAff, updateTrackTitleAff)
+import Joyride.Firebase.Auth (User(..), currentUser, signInWithGoogle)
+import Joyride.Firebase.Firestore (addEvent, addEventAff, addTrack, addTrackAff, deleteEventAff, firestoreDb, updateColumnAff, updateEventNameAff, updateMarker1TimeAff, updateMarker2TimeAff, updateMarker3TimeAff, updateMarker4TimeAff, updateTrackTitleAff)
 import Joyride.QualifiedDo.Apply as QDA
 import Joyride.Style (buttonActiveCls, buttonCls, headerCls)
 import Joyride.UniqueNames (randomName)
-import Joyride.Wavesurfer.Wavesurfer (WaveSurfer, addMarker, associateEventDocumentIdWithMarker, hideMarker, makeWavesurfer, muteExcept, removeMarker, showMarker)
+import Joyride.Wavesurfer.Wavesurfer (WaveSurfer, addMarker, associateEventDocumentIdWithMarker, getMarkers, hideMarker, makeWavesurfer, muteExcept, removeMarker, showMarker)
 import Type.Proxy (Proxy(..))
 import Types (EventV0(..), Event_(..), OpenEditor', Track(..))
 import Web.Event.Event (target)
@@ -61,6 +64,8 @@ type Events t =
   -- the listener for edited content shouldn't loop back to the element, otherwise we'll get an unnecessary gnarly feedback loop
   , title :: t String
   , changeTitle :: t (Maybe String)
+  , atomicTrackOperation :: t (Track -> Track)
+  , atomicEventOperation :: t (Map Int Event_ -> Map Int Event_)
   , loadWave :: t String
   , waveSurfer :: t WaveSurfer
   , documentId :: t String
@@ -100,6 +105,149 @@ type PlainOl t = t
 
 data CAction = CBasic (Maybe String) | CLeap (Maybe String) | CLongPress (Maybe String)
 data SoMu = Solo (Int /\ Int) | Mute (Int /\ Int) | UnSolo (Int /\ Int) | UnMute (Int /\ Int)
+
+type ChangeTrack = Track -> Track
+type ChangeEvent_ = Map Int Event_ -> Map Int Event_
+
+aChangeTitle :: Maybe String -> ChangeTrack
+aChangeTitle t (TrackV0 track) = (TrackV0 (track { title = t }))
+
+aAddBasic
+  :: { id :: Int
+     , name :: Maybe String
+     , column :: Int
+     , marker1Time :: Number
+     , marker2Time :: Number
+     , marker3Time :: Number
+     , marker4Time :: Number
+     }
+  -> ChangeEvent_
+aAddBasic t = Map.insert t.id
+  ( EventV0
+      ( BasicEventV0
+          { marker1Time: t.marker1Time
+          , marker1AudioURL: Nothing
+          , marker2Time: t.marker2Time
+          , marker2AudioURL: Nothing
+          , marker3Time: t.marker3Time
+          , marker3AudioURL: Nothing
+          , marker4Time: t.marker4Time
+          , marker4AudioURL: Nothing
+          , column: t.column
+          , name: t.name
+          , version: mempty
+          }
+      )
+  )
+
+aAddLeap
+  :: { id :: Int
+     , name :: Maybe String
+     , column :: Int
+     , marker1Time :: Number
+     , marker2Time :: Number
+     }
+  -> ChangeEvent_
+aAddLeap t = Map.insert t.id
+  ( EventV0
+      ( LeapEventV0
+          { marker1Time: t.marker1Time
+          , marker1AudioURL: Nothing
+          , marker2Time: t.marker2Time
+          , marker2AudioURL: Nothing
+          , column: t.column
+          , name: t.name
+          , version: mempty
+          }
+      )
+  )
+
+aAddLongPress
+  :: { id :: Int
+     , name :: Maybe String
+     , column :: Int
+     , marker1Time :: Number
+     , marker2Time :: Number
+     , length :: Number
+     }
+  -> ChangeEvent_
+aAddLongPress t = Map.insert t.id
+  ( EventV0
+      ( LongEventV0
+          { marker1Time: t.marker1Time
+          , marker1AudioURL: Nothing
+          , marker2Time: t.marker2Time
+          , marker2AudioURL: Nothing
+          , length: t.length
+          , column: t.column
+          , name: t.name
+          , version: mempty
+          }
+      )
+  )
+
+aChangeName :: { id :: Int, name :: Maybe String } -> ChangeEvent_
+aChangeName { id, name } = Map.update
+  ( Just <<< case _ of
+      EventV0 (BasicEventV0 be) -> EventV0 (BasicEventV0 (be { name = name }))
+      EventV0 (LeapEventV0 be) -> EventV0 (LeapEventV0 (be { name = name }))
+      EventV0 (LongEventV0 be) -> EventV0 (LongEventV0 (be { name = name }))
+  )
+  id
+
+aChangeColumn :: { id :: Int, column :: Int } -> ChangeEvent_
+aChangeColumn { id, column } = Map.update
+  ( Just <<< case _ of
+      EventV0 (BasicEventV0 be) -> EventV0 (BasicEventV0 (be { column = column }))
+      EventV0 (LeapEventV0 be) -> EventV0 (LeapEventV0 (be { column = column }))
+      EventV0 (LongEventV0 be) -> EventV0 (LongEventV0 (be { column = column }))
+  )
+  id
+
+aChangeMarker1 :: { id :: Int, time :: Number } -> ChangeEvent_
+aChangeMarker1 { id, time } = Map.update
+  ( Just <<< case _ of
+      EventV0 (BasicEventV0 be) -> EventV0 (BasicEventV0 (be { marker1Time = time }))
+      EventV0 (LeapEventV0 be) -> EventV0 (LeapEventV0 (be { marker1Time = time }))
+      EventV0 (LongEventV0 be) -> EventV0 (LongEventV0 (be { marker1Time = time }))
+  )
+  id
+
+aChangeMarker2 :: { id :: Int, time :: Number } -> ChangeEvent_
+aChangeMarker2 { id, time } = Map.update
+  ( Just <<< case _ of
+      EventV0 (BasicEventV0 be) -> EventV0 (BasicEventV0 (be { marker2Time = time }))
+      EventV0 (LeapEventV0 be) -> EventV0 (LeapEventV0 (be { marker2Time = time }))
+      EventV0 (LongEventV0 be) -> EventV0 (LongEventV0 (be { marker2Time = time }))
+  )
+  id
+
+aChangeMarker3 :: { id :: Int, time :: Number } -> ChangeEvent_
+aChangeMarker3 { id, time } = Map.update
+  ( Just <<< case _ of
+      EventV0 (BasicEventV0 be) -> EventV0 (BasicEventV0 (be { marker3Time = time }))
+      x -> x
+  )
+  id
+
+aChangeMarker4 :: { id :: Int, time :: Number } -> ChangeEvent_
+aChangeMarker4 { id, time } = Map.update
+  ( Just <<< case _ of
+      EventV0 (BasicEventV0 be) -> EventV0 (BasicEventV0 (be { marker4Time = time }))
+      x -> x
+  )
+  id
+
+aChangeLength :: { id :: Int, length :: Number } -> ChangeEvent_
+aChangeLength { id, length } = Map.update
+  ( Just <<< case _ of
+      EventV0 (LongEventV0 be) -> EventV0 (LongEventV0 (be { length = length }))
+      x -> x
+  )
+  id
+
+aDeleteEvent_ :: { id :: Int } -> ChangeEvent_
+aDeleteEvent_ { id } = Map.delete id
 
 defaultBasic :: Int -> Int -> Int -> Maybe String -> Landmark
 defaultBasic id startIx col fbId = LBasic
@@ -166,13 +314,40 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
           )
         <<< rider
           ( toRide
-              { event: (Just <$> event.title <|> event.changeTitle) 🙂 fromEvent (folded $ map pure signedInNonAnonymously) 😄 ({ did: _, sina: _, title: _ } <$> (Just <$> event.documentId <|> bang Nothing))
-              , push: \{ did, sina, title } -> unwrap
+              { event: event.waveSurfer 🙂 event.loadWave 🙂 (bang Nothing <|> Just <$> event.title <|> event.changeTitle) 🙂 fromEvent (folded $ map pure signedInNonAnonymously) 😄 ({ did: _, sina: _, title: _, url: _, ws: _ } <$> (Just <$> event.documentId <|> bang Nothing))
+              , push: \{ did, sina, title, url, ws } -> unwrap
                   ( (always :: (Endo Function (Effect Unit)) -> (Endo Function (m Unit)))
                       ( Endo \_ -> case did, sina of
                           -- we have gone from not signed in to signed in
                           -- create the document on firebase
-                          Nothing, [ true, false ] -> pure unit
+                          Nothing, [ true, false ] -> currentUser fbAuth >>= traverse_ \(User u) -> launchAff_ do
+                            added <- addTrackAff firestoreDb
+                              $ TrackV0
+                                  { url
+                                  , title
+                                  , owner: u.uid
+                                  , version: mempty
+                                  }
+                            -- markers <- liftEffect $ getMarkers ws
+                            -- let grouped = groupBy (eq `on` _.id) markers
+                            -- for_ grouped \mka -> do
+                            --   let mkid = (NEA.head mka).id
+                            --   let
+                            --     times = foldl
+                            --       ( \b a -> case a.offset of
+                            --           0 -> b { marker1Time = a.time }
+                            --           1 -> b { marker2Time = a.time }
+                            --           2 -> b { marker3Time = a.time }
+                            --           _ -> b { marker4Time = a.time }
+                            --       )
+                            --       { marker1Time: 0.0, marker2Time: 0.0, marker3Time: 0.0, marker4Time: 0.0 }
+                            --       mka
+                            --   -- todo: this is really fragile because it is relying on the visual representation
+                            --   -- of markers
+                            --   -- even though that should be correct, it is missing lots of information
+                            --   -- unfortunately, we need to keep a top-level cache :-(
+                            --   addEventAff firestoreDb added.id
+                            pure unit
                           -- ignore other stuff
                           -- if this proves to be too general, make it more nuanced
                           _, _ -> pure unit
@@ -203,7 +378,9 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                         )
                         ( \x -> do
                             v <- value x
-                            pushed.changeTitle (if v == "" then Nothing else Just v)
+                            let t = if v == "" then Nothing else Just v
+                            pushed.changeTitle t
+                            pushed.atomicTrackOperation (aChangeTitle t)
                             for_ mDid \trackId -> do
                               launchAff_ (updateTrackTitleAff firestoreDb trackId v)
                         )
@@ -218,6 +395,11 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                     makeWavesurfer Nothing Just
                       ( \i j x id t -> do
                           pushed.markerMoved { ix: i, offset: j, inArray: x, time: t, id }
+                          pushed.atomicEventOperation $ case j of
+                            0 -> aChangeMarker1 { id: i, time: t }
+                            1 -> aChangeMarker2 { id: i, time: t }
+                            2 -> aChangeMarker3 { id: i, time: t }
+                            _ -> aChangeMarker4 { id: i, time: t }
                       )
                       (pushed.initialScreenVisible false)
                       s
@@ -299,6 +481,15 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                                       m1 <- addMarker ws ix 1 { color: "#61e2f6", label: "B2", time: 0.5 }
                                       m2 <- addMarker ws ix 2 { color: "#ef82f6", label: "B3", time: 1.0 }
                                       m3 <- addMarker ws ix 3 { color: "#9e0912", label: "B4", time: 1.5 }
+                                      pushed.atomicEventOperation $ aAddBasic
+                                        { id: ix
+                                        , name: Nothing
+                                        , column: 7
+                                        , marker1Time: 0.0
+                                        , marker2Time: 0.5
+                                        , marker3Time: 1.0
+                                        , marker4Time: 1.5
+                                        }
                                       did # maybe (endgame Nothing) \did' ->
                                         launchAff_ do
                                           evDid <- addEventAff firestoreDb did'
@@ -311,6 +502,7 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                                                 , marker3AudioURL: Nothing
                                                 , marker4Time: 1.5
                                                 , marker4AudioURL: Nothing
+                                                , column: 7
                                                 , name: Nothing
                                                 , version: mempty
                                                 }
@@ -326,6 +518,13 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                                       let endgame = cPushed.addLeap
                                       m0 <- addMarker ws ix 0 { color: "#0f32f6", label: "LSt", time: 0.5 }
                                       m1 <- addMarker ws ix 1 { color: "#61e2f6", label: "LEd", time: 1.25 }
+                                      pushed.atomicEventOperation $ aAddLeap
+                                        { id: ix
+                                        , name: Nothing
+                                        , column: 7
+                                        , marker1Time: 0.5
+                                        , marker2Time: 1.25
+                                        }
                                       did # maybe (endgame Nothing) \did' ->
                                         launchAff_ do
                                           evDid <- addEventAff firestoreDb did'
@@ -335,6 +534,7 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                                                 , marker2Time: 1.25
                                                 , marker2AudioURL: Nothing
                                                 , name: Nothing
+                                                , column: 7
                                                 , version: mempty
                                                 }
                                             )
@@ -349,7 +549,14 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                                       let endgame = cPushed.addLongPress
                                       m0 <- addMarker ws ix 0 { color: "#0f32f6", label: "P1", time: 0.5 }
                                       m1 <- addMarker ws ix 1 { color: "#61e2f6", label: "P2", time: 1.25 }
-                                      -- TODO: add length 1.0
+                                      pushed.atomicEventOperation $ aAddLongPress
+                                        { id: ix
+                                        , name: Nothing
+                                        , column: 7
+                                        , marker1Time: 0.5
+                                        , marker2Time: 1.25
+                                        , length: 1.0
+                                        }
                                       did # maybe (endgame Nothing) \did' ->
                                         launchAff_ do
                                           evDid <- addEventAff firestoreDb did'
@@ -360,6 +567,7 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                                                 , marker2AudioURL: Nothing
                                                 , length: 1.0
                                                 , name: Nothing
+                                                , column: 7
                                                 , version: mempty
                                                 }
                                             )
@@ -457,9 +665,11 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                                                                     )
                                                                     ( \x -> do
                                                                         v <- value x
+                                                                        let nm = if v == "" then Nothing else Just v
                                                                         ( (always :: m Unit -> Effect Unit) do
-                                                                            p'.changeName (if v == "" then Nothing else Just v)
+                                                                            p'.changeName nm
                                                                         )
+                                                                        pushed.atomicEventOperation $ aChangeName { id, name: nm }
                                                                         for_ (Tuple <$> mDid <*> (initialId <|> (unwrap >>> _.did <$> updatedId))) \(trackId /\ evId) -> do
                                                                           launchAff_ (updateEventNameAff firestoreDb trackId evId v)
 
@@ -489,6 +699,7 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                                                                       v <- floor <$> valueAsNumber x
                                                                       (always :: m Unit -> Effect Unit) do
                                                                         p'.changeColumn v
+                                                                      pushed.atomicEventOperation $ aChangeColumn { id, column: v }
                                                                       for_ (Tuple <$> mDid <*> (initialId <|> (unwrap >>> _.did <$> updatedId))) \(trackId /\ evId) -> do
                                                                         launchAff_ (updateColumnAff firestoreDb trackId evId v)
                                                                   )
@@ -525,11 +736,14 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                                                           ]
                                                       , D.button
                                                           ( oneOf
-                                                              [ bang $ D.OnClick := do
+                                                              [ (Just <$> ctor (SpammedId { id, did: "nope" }) <|> bang Nothing) 😄 (Tuple <$> docEv) <#> \(mDid /\ updatedId) -> D.OnClick := cb \_ -> do
                                                                   for_ (startIx .. (startIx + inSeq - 1)) \_ -> do
                                                                     -- do not increment as the list gets shorter and shorter so we are always removing at startIx
                                                                     removeMarker ws startIx
                                                                   (map (always :: m Unit -> Effect Unit) p'.delete) unit
+                                                                  pushed.atomicEventOperation $ aDeleteEvent_ { id }
+                                                                  for_ (Tuple <$> mDid <*> (initialId <|> (unwrap >>> _.did <$> updatedId))) \(trackId /\ evId) -> do
+                                                                    launchAff_ (deleteEventAff firestoreDb trackId evId)
                                                               , bang $ D.Class := buttonCls <> " mr-2"
                                                               ]
                                                           )

@@ -1138,6 +1138,7 @@ data EventV0
       , marker3AudioURL :: Maybe String
       , marker4Time :: Number
       , marker4AudioURL :: Maybe String
+      , column :: Int
       , name :: Maybe String
       , version :: Version 0
       }
@@ -1146,6 +1147,7 @@ data EventV0
       , marker1AudioURL :: Maybe String
       , marker2Time :: Number
       , marker2AudioURL :: Maybe String
+      , column :: Int
       , name :: Maybe String
       , version :: Version 0
       }
@@ -1155,6 +1157,7 @@ data EventV0
       , marker2Time :: Number
       , marker2AudioURL :: Maybe String
       , length :: Number
+      , column :: Int
       , name :: Maybe String
       , version :: Version 0
       }

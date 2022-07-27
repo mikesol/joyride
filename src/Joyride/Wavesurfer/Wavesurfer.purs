@@ -9,6 +9,8 @@ import Web.DOM as Web.DOM
 data WaveSurfer
 data MarkerBlob
 
+foreign import getMarkers :: WaveSurfer -> Effect (Array { time :: Number, id :: Int, offset :: Int, blob :: MarkerBlob })
+
 foreign import makeWavesurfer
   :: Maybe String
   -> (String -> Maybe String)
