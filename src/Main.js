@@ -11,6 +11,6 @@ export const useFirebaseEmulatorInDevMode = (db) => (auth) => () => {
 			});
 		});
 	} else {
-		Promise.resolve();
+		return Promise.resolve();
 	}
 };
