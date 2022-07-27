@@ -593,7 +593,6 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                                       signInWithGoogle do
                                         window >>= alert "Sign in with google is temporarily unavailable. Please try again later."
                                   , fromEvent signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> if sina then " hidden" else ""
-
                                   ]
                               )
                               [ text_ "Save (sign in)" ]
@@ -775,7 +774,7 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
         )
 
         [ D.div
-            (bang $ D.Class := "select-auto justify-self-center self-center row-start-3 row-end-5 col-start-2 col-end-6 md:col-start-3 md:col-end-5")
+            (bang $ D.Class := "select-auto justify-self-center self-center row-start-3 row-end-5 col-start-2 col-end-6")
             ( [ D.div
                   (bang $ D.Class := "pointer-events-auto text-center p-4 " <> headerCls)
                   [ D.p_ [ text_ "Joyride editor" ]
@@ -785,13 +784,13 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
 
                   [ D.div
                       (bang $ D.Class := "pointer-events-auto text-center text-white p-4")
-                      [ text_ "Get started by importing a file or project." ]
+                      [ text (fromEvent signedInNonAnonymously <#> \sina -> "Get started by importing an audio file" <> if sina then " or project." else ".") ]
                   ]
                 <>
                   [ D.div (bang $ D.Class := "flex w-full justify-center items-center")
                       [ D.button
                           ( oneOf
-                              [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                              [ fromEvent signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> " mx-2 pointer-events-auto" <> if sina then "" else " hidden"
                               , bang $ D.OnClick := (pure unit :: Effect Unit)
                               ]
                           )
