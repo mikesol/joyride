@@ -278,6 +278,9 @@ export const removeMarker = (ws) => (ix) => () => {
 	ws.markers.remove(ix);
 };
 
+export const getCurrentTime = (ws) => () => ws.getCurrentTime();
+export const getDuration = (ws) => () => ws.getDuration();
+
 export const showMarker = (ws) => (ix) => () => {
 	ws.markers.markers[ix].el.classList.remove("invisible");
 	ws.markers.markers[ix].el.classList.add("visible");

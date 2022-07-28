@@ -31,3 +31,5 @@ foreign import mute :: WaveSurfer -> Int -> Effect Unit
 foreign import muteExcept :: WaveSurfer -> Array (Array Int) -> Effect Unit
 foreign import removeMarker :: WaveSurfer -> Int -> Effect Unit
 foreign import showMarker :: WaveSurfer -> Int -> Effect Unit
+foreign import getCurrentTime :: WaveSurfer -> Effect Number
+foreign import getDuration :: WaveSurfer -> Effect Number

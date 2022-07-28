@@ -5,7 +5,7 @@ import Prelude
 import Control.Alt ((<|>))
 import Control.Parallel (parTraverse)
 import Control.Plus (empty)
-import Data.Array (sortBy, (..))
+import Data.Array (length, sortBy, (!!), (..))
 import Data.Array as Array
 import Data.Either (Either(..))
 import Data.Filterable (filterMap)
@@ -55,9 +55,9 @@ import Joyride.QualifiedDo.Apply as QDA
 import Joyride.Scores.Ride.Basic (rideBasics)
 import Joyride.Scores.Ride.Leap (rideLeaps)
 import Joyride.Scores.Ride.Long (rideLongs)
-import Joyride.Style (buttonActiveCls, buttonCls, headerCls)
+import Joyride.Style (buttonActiveCls, buttonCls, distinctColors, headerCls)
 import Joyride.UniqueNames (randomName)
-import Joyride.Wavesurfer.Wavesurfer (WaveSurfer, addMarker, associateEventDocumentIdWithMarker, associateEventDocumentIdWithSortedMarkerIdList, hideMarker, makeWavesurfer, muteExcept, removeMarker, showMarker, zoom)
+import Joyride.Wavesurfer.Wavesurfer (WaveSurfer, addMarker, associateEventDocumentIdWithMarker, associateEventDocumentIdWithSortedMarkerIdList, getCurrentTime, getDuration, hideMarker, makeWavesurfer, muteExcept, removeMarker, showMarker, zoom)
 import Ocarina.Interpret (context_, decodeAudioDataFromUri)
 import Ocarina.WebAPI (BrowserAudioBuffer)
 import Type.Proxy (Proxy(..))
@@ -323,6 +323,11 @@ defaultLongPress id startIx fbId be = LLong
   , col: be.column
   }
 
+ldc = length distinctColors
+
+dC :: Int -> String
+dC i = fromMaybe "#8b6f1f" (distinctColors !! (i `mod` ldc))
+
 editorPage
   :: forall s m lock payload
    . Korok s m
@@ -569,16 +574,22 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                           [ D.button
                               ( oneOf
                                   [ (Just <$> event.documentId <|> bang Nothing) 😄 markerIndices 😄 ({ ws: _, ixs: _, did: _ } <$> event.waveSurfer) <#> \{ ws, ixs: ix /\ _, did } -> D.OnClick := do
+                                      ct <- getCurrentTime ws
+                                      dur <- getDuration ws
+                                      let time1 = min dur (0.0 + ct)
+                                      let time2 = min dur (0.5 + ct)
+                                      let time3 = min dur (1.0 + ct)
+                                      let time4 = min dur (1.5 + ct)
                                       let
                                         endgame x = pushed.addBasic
                                           ( x /\
-                                              { marker1Time: 0.0
+                                              { marker1Time: time1
                                               , marker1AudioURL: Nothing
-                                              , marker2Time: 0.5
+                                              , marker2Time: time2
                                               , marker2AudioURL: Nothing
-                                              , marker3Time: 1.0
+                                              , marker3Time: time3
                                               , marker3AudioURL: Nothing
-                                              , marker4Time: 1.0
+                                              , marker4Time: time4
                                               , marker4AudioURL: Nothing
                                               , column: 7
                                               , name: Nothing
@@ -586,30 +597,30 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
 
                                               }
                                           )
-                                      m0 <- addMarker ws ix 0 { color: "#0f32f6", label: "B1", time: 0.0 }
-                                      m1 <- addMarker ws ix 1 { color: "#61e2f6", label: "B2", time: 0.5 }
-                                      m2 <- addMarker ws ix 2 { color: "#ef82f6", label: "B3", time: 1.0 }
-                                      m3 <- addMarker ws ix 3 { color: "#9e0912", label: "B4", time: 1.5 }
+                                      m0 <- addMarker ws ix 0 { color: dC ix, label: "B1", time: time1 }
+                                      m1 <- addMarker ws ix 1 { color: dC ix, label: "B2", time: time2 }
+                                      m2 <- addMarker ws ix 2 { color: dC ix, label: "B3", time: time3 }
+                                      m3 <- addMarker ws ix 3 { color: dC ix, label: "B4", time: time4 }
                                       pushed.atomicEventOperation $ aAddBasic
                                         { id: ix
                                         , name: Nothing
                                         , column: 7
-                                        , marker1Time: 0.0
-                                        , marker2Time: 0.5
-                                        , marker3Time: 1.0
-                                        , marker4Time: 1.5
+                                        , marker1Time: time1
+                                        , marker2Time: time2
+                                        , marker3Time: time3
+                                        , marker4Time: time4
                                         }
                                       did # maybe (endgame Nothing) \did' ->
                                         launchAff_ do
                                           evDid <- addEventAff firestoreDb did'
                                             ( EventV0 $ BasicEventV0
-                                                { marker1Time: 0.0
+                                                { marker1Time: time1
                                                 , marker1AudioURL: Nothing
-                                                , marker2Time: 0.5
+                                                , marker2Time: time2
                                                 , marker2AudioURL: Nothing
-                                                , marker3Time: 1.0
+                                                , marker3Time: time3
                                                 , marker3AudioURL: Nothing
-                                                , marker4Time: 1.5
+                                                , marker4Time: time4
                                                 , marker4AudioURL: Nothing
                                                 , column: 7
                                                 , name: Nothing
@@ -624,12 +635,16 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                           , D.button
                               ( oneOf
                                   [ (Just <$> event.documentId <|> bang Nothing) 😄 markerIndices 😄 ({ ws: _, ixs: _, did: _ } <$> event.waveSurfer) <#> \{ ws, ixs: ix /\ _, did } -> D.OnClick := do
+                                      ct <- getCurrentTime ws
+                                      dur <- getDuration ws
                                       let
+                                        time1 = min dur (0.0 + ct)
+                                        time2 = min dur (0.5 + ct)
                                         endgame position x = pushed.addLeap
                                           ( x /\
-                                              { marker1Time: 0.5
+                                              { marker1Time: time1
                                               , audioURL: Nothing
-                                              , marker2Time: 1.25
+                                              , marker2Time: time2
                                               , column: 7
                                               , position
                                               , name: Nothing
@@ -637,8 +652,8 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
 
                                               }
                                           )
-                                      m0 <- addMarker ws ix 0 { color: "#0f32f6", label: "LSt", time: 0.5 }
-                                      m1 <- addMarker ws ix 1 { color: "#61e2f6", label: "LEd", time: 1.25 }
+                                      m0 <- addMarker ws ix 0 { color: dC ix, label: "LSt", time: time1 }
+                                      m1 <- addMarker ws ix 1 { color: dC ix, label: "LEd", time: time2 }
                                       position <- randomInt 0 3 <#> case _ of
                                         0 -> Position1
                                         1 -> Position2
@@ -649,16 +664,16 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                         , name: Nothing
                                         , column: 7
                                         , position
-                                        , marker1Time: 0.5
-                                        , marker2Time: 1.25
+                                        , marker1Time: time1
+                                        , marker2Time: time2
                                         }
                                       did # maybe (endgame position Nothing) \did' ->
                                         launchAff_ do
                                           evDid <- addEventAff firestoreDb did'
                                             ( EventV0 $ LeapEventV0
-                                                { marker1Time: 0.5
+                                                { marker1Time: time1
                                                 , audioURL: Nothing
-                                                , marker2Time: 1.25
+                                                , marker2Time: time2
                                                 , position
                                                 , name: Nothing
                                                 , column: 7
@@ -673,12 +688,16 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                           , D.button
                               ( oneOf
                                   [ (Just <$> event.documentId <|> bang Nothing) 😄 markerIndices 😄 ({ ws: _, ixs: _, did: _ } <$> event.waveSurfer) <#> \{ ws, ixs: ix /\ _, did } -> D.OnClick := do
+                                      ct <- getCurrentTime ws
+                                      dur <- getDuration ws
                                       let
+                                        time1 = min dur (0.0 + ct)
+                                        time2 = min dur (0.5 + ct)
                                         endgame x = pushed.addLongPress
                                           ( x /\
-                                              { marker1Time: 0.5
+                                              { marker1Time: time1
                                               , audioURL: Nothing
-                                              , marker2Time: 1.25
+                                              , marker2Time: time2
                                               , length: 1.0
                                               , column: 7
                                               , name: Nothing
@@ -686,23 +705,23 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
 
                                               }
                                           )
-                                      m0 <- addMarker ws ix 0 { color: "#0f32f6", label: "P1", time: 0.5 }
-                                      m1 <- addMarker ws ix 1 { color: "#61e2f6", label: "P2", time: 1.25 }
+                                      m0 <- addMarker ws ix 0 { color: dC ix, label: "P1", time: time1 }
+                                      m1 <- addMarker ws ix 1 { color: dC ix, label: "P2", time: time2 }
                                       pushed.atomicEventOperation $ aAddLongPress
                                         { id: ix
                                         , name: Nothing
                                         , column: 7
-                                        , marker1Time: 0.5
-                                        , marker2Time: 1.25
+                                        , marker1Time: time1
+                                        , marker2Time: time2
                                         , length: 1.0
                                         }
                                       did # maybe (endgame Nothing) \did' ->
                                         launchAff_ do
                                           evDid <- addEventAff firestoreDb did'
                                             ( EventV0 $ LongEventV0
-                                                { marker1Time: 0.5
+                                                { marker1Time: time1
                                                 , audioURL: Nothing
-                                                , marker2Time: 1.25
+                                                , marker2Time: time2
                                                 , length: 1.0
                                                 , name: Nothing
                                                 , column: 7
@@ -1026,24 +1045,24 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                     case evt of
                                                       EventV0 (BasicEventV0 be) -> do
                                                         pushed.addBasic (Just id /\ be)
-                                                        m0 <- addMarker ws ix 0 { color: "#0f32f6", label: "B1", time: be.marker1Time }
-                                                        m1 <- addMarker ws ix 1 { color: "#61e2f6", label: "B2", time: be.marker2Time }
-                                                        m2 <- addMarker ws ix 2 { color: "#ef82f6", label: "B3", time: be.marker3Time }
-                                                        m3 <- addMarker ws ix 3 { color: "#9e0912", label: "B4", time: be.marker4Time }
+                                                        m0 <- addMarker ws ix 0 { color: dC ix, label: "B1", time: be.marker1Time }
+                                                        m1 <- addMarker ws ix 1 { color: dC ix, label: "B2", time: be.marker2Time }
+                                                        m2 <- addMarker ws ix 2 { color: dC ix, label: "B3", time: be.marker3Time }
+                                                        m3 <- addMarker ws ix 3 { color: dC ix, label: "B4", time: be.marker4Time }
                                                         associateEventDocumentIdWithMarker m0 id
                                                         associateEventDocumentIdWithMarker m1 id
                                                         associateEventDocumentIdWithMarker m2 id
                                                         associateEventDocumentIdWithMarker m3 id
                                                       EventV0 (LeapEventV0 be) -> do
                                                         pushed.addLeap (Just id /\ be)
-                                                        m0 <- addMarker ws ix 0 { color: "#0f32f6", label: "LSt", time: be.marker1Time }
-                                                        m1 <- addMarker ws ix 1 { color: "#61e2f6", label: "LEd", time: be.marker2Time }
+                                                        m0 <- addMarker ws ix 0 { color: dC ix, label: "LSt", time: be.marker1Time }
+                                                        m1 <- addMarker ws ix 1 { color: dC ix, label: "LEd", time: be.marker2Time }
                                                         associateEventDocumentIdWithMarker m0 id
                                                         associateEventDocumentIdWithMarker m1 id
                                                       EventV0 (LongEventV0 be) -> do
                                                         pushed.addLongPress (Just id /\ be)
-                                                        m0 <- addMarker ws ix 0 { color: "#0f32f6", label: "LSt", time: be.marker1Time }
-                                                        m1 <- addMarker ws ix 1 { color: "#61e2f6", label: "LEd", time: be.marker2Time }
+                                                        m0 <- addMarker ws ix 0 { color: dC ix, label: "LSt", time: be.marker1Time }
+                                                        m1 <- addMarker ws ix 1 { color: dC ix, label: "LEd", time: be.marker2Time }
                                                         associateEventDocumentIdWithMarker m0 id
                                                         associateEventDocumentIdWithMarker m1 id
                                                   pushed.chooserScreenVisible false
