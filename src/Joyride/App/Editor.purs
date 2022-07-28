@@ -28,7 +28,7 @@ import Deku.Control (switcher, text, text_)
 import Deku.Core (class Korok, Domable, dyn, envy, insert, remove, vbussedUncurried)
 import Deku.DOM (Class)
 import Deku.DOM as D
-import Deku.Listeners (click)
+import Deku.Listeners (click, slider)
 import Effect (Effect)
 import Effect.Aff (forkAff, joinFiber, launchAff_)
 import Effect.Class (liftEffect)
@@ -57,7 +57,7 @@ import Joyride.Scores.Ride.Leap (rideLeaps)
 import Joyride.Scores.Ride.Long (rideLongs)
 import Joyride.Style (buttonActiveCls, buttonCls, headerCls)
 import Joyride.UniqueNames (randomName)
-import Joyride.Wavesurfer.Wavesurfer (WaveSurfer, addMarker, associateEventDocumentIdWithMarker, associateEventDocumentIdWithSortedMarkerIdList, hideMarker, makeWavesurfer, muteExcept, removeMarker, showMarker)
+import Joyride.Wavesurfer.Wavesurfer (WaveSurfer, addMarker, associateEventDocumentIdWithMarker, associateEventDocumentIdWithSortedMarkerIdList, hideMarker, makeWavesurfer, muteExcept, removeMarker, showMarker, zoom)
 import Ocarina.Interpret (context_, decodeAudioDataFromUri)
 import Ocarina.WebAPI (BrowserAudioBuffer)
 import Type.Proxy (Proxy(..))
@@ -485,7 +485,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                       (pushed.importerScreenVisible false)
                       s
                       url >>= pushed.waveSurfer
-
+                    pushed.loadingScreenVisible false
                 ]
             )
             []
@@ -496,6 +496,18 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                 ]
             )
             []
+        , D.div_
+            [ D.label (oneOf [ bang $ D.Class := "text-white" ]) [ text_ "Zoom" ]
+            , D.input
+                ( oneOf
+                    [ bang $ D.Min := "2"
+                    , bang $ D.Value := "2"
+                    , bang $ D.Max := "1000"
+                    , slider $ event.waveSurfer <#> zoom
+                    ]
+                )
+                []
+            ]
         , D.div_
             [ envy $ memoize
                 ( oneOf
@@ -942,6 +954,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                   client <- init
                                   picker (\_ -> pure unit) (\_ _ -> pure unit) (\_ _ -> pure unit)
                                     ( \{ url } -> do
+                                        pushed.loadingScreenVisible true
                                         rn <- randomName
                                         let
                                           endgame :: Effect Unit
