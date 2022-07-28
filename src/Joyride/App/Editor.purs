@@ -326,7 +326,7 @@ editorPage
   -> OpenEditor'
   -> WantsTutorial'
   -> Domable m lock payload
-editorPage tli { fbAuth, firestoreDb, signedInNonAnonymously } wtut = QDA.do
+editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QDA.do
   pushed /\ (event :: { | Events (AnEvent m) }) <- vbussedUncurried (Proxy :: _ (V (Events PlainOl)))
   let
     initialData :: AnEvent m { title :: String, url :: String }
@@ -407,10 +407,18 @@ editorPage tli { fbAuth, firestoreDb, signedInNonAnonymously } wtut = QDA.do
         )
         [ D.div
             ( oneOf
-                [
+                [bang $ D.Class := "flex flex-row"
                 ]
             )
-            [ D.h2
+            [ D.button
+                              ( oneOf
+                                  [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                                  -- , bang $ D.OnClick := log "hello world"
+                                  , bang $ D.OnClick := do
+                                      goBack
+                                  ]
+                              )
+                              [ text_ "<" ], D.h2
                 ( oneOf
                     [ bang $ D.Contenteditable := "true"
                     , bang $ D.Class := headerCls <> " p-2"

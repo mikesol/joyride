@@ -433,6 +433,9 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                   { oe:
                       { fbAuth
                       , firestoreDb
+                      , goBack: do
+                          -- clear the channel
+                          channelEvent.push NoChannel
                       -- we throw in a dedup just cuz we only ever want to track actual changes
                       -- if random stuff fires a lot, the event should stillb e idempotent
                       , signedInNonAnonymously: dedup signedInNonAnonymously.event
@@ -621,6 +624,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                             )
                     let
                       TrackV0 tv0 = track
+
                       bufferNames :: List (BufferName /\ String)
                       bufferNames = (BufferName tv0.url /\ tv0.url) : Nil
                     let n2oh = take 300 bufferNames

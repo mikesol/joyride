@@ -928,6 +928,7 @@ type Success' =
 
 type OpenEditor' =
   { fbAuth :: FirebaseAuth
+  , goBack :: Effect Unit
   , signedInNonAnonymously :: Event Boolean
   , firestoreDb :: Firestore
   }
