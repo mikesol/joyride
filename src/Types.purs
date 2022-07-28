@@ -50,6 +50,7 @@ module Types
   , JMilliseconds(..)
   , Seconds(..)
   , RateInfo
+  , int2Column
   , beatToTime
   , allPlayers
   , allPositions
@@ -276,6 +277,24 @@ normalizedColumn C12 = 12.0 / 16.0
 normalizedColumn C13 = 13.0 / 16.0
 normalizedColumn C14 = 14.0 / 16.0
 normalizedColumn C15 = 15.0 / 16.0
+
+int2Column :: Int -> Column
+int2Column 0 = C0
+int2Column 1 = C1
+int2Column 2 = C2
+int2Column 3 = C3
+int2Column 4 = C4
+int2Column 5 = C5
+int2Column 6 = C6
+int2Column 7 = C7
+int2Column 8 = C8
+int2Column 9 = C9
+int2Column 10 = C10
+int2Column 11 = C11
+int2Column 12 = C12
+int2Column 13 = C13
+int2Column 14 = C14
+int2Column _ = C15
 
 -- | Beats, or a temporal unit based on seconds modulated by a tempo.
 newtype Beats = Beats Number
@@ -1155,6 +1174,7 @@ type LeapEventV0' = { marker1Time :: Number
       , marker2Time :: Number
       , marker2AudioURL :: Maybe String
       , column :: Int
+      , position :: Position
       , name :: Maybe String
       , version :: Version 0
       }

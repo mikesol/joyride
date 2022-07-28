@@ -3,6 +3,7 @@ module Joyride.Editor.ADT where
 import Prelude
 
 import Data.Maybe (Maybe)
+import Types (Position)
 
 newtype Marker = Marker { at :: Number }
 newtype LongLength = LongLength { len :: Number }
@@ -27,6 +28,7 @@ data Landmark
       , fbId :: Maybe String
       , start :: Marker
       , end :: Marker
+      , position :: Position
       }
   | LLong
       { id :: Int

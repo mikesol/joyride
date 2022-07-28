@@ -60,7 +60,7 @@ import Rito.Matrix4 as M4
 import Safe.Coerce (coerce)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
-import Types (Beats(..), HitBasicMe, HitBasicOtherPlayer(..), HitBasicOverTheWire(..), HitLeapMe, HitLeapOtherPlayer(..), HitLeapOverTheWire(..), HitLongMe, HitLongOtherPlayer(..), HitLongOverTheWire(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, MakeLongs, Player(..), PlayerAction(..), PlayerPositionsF, RateInfo, ReleaseLongMe, ReleaseLongOtherPlayer(..), ReleaseLongOverTheWire(..), RenderingInfo, Seconds(..), StartStatus(..), Success', WindowDims)
+import Types (Beats(..), Event_, HitBasicMe, HitBasicOtherPlayer(..), HitBasicOverTheWire(..), HitLeapMe, HitLeapOtherPlayer(..), HitLeapOverTheWire(..), HitLongMe, HitLongOtherPlayer(..), HitLongOverTheWire(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, MakeLongs, Player(..), PlayerAction(..), PlayerPositionsF, RateInfo, ReleaseLongMe, ReleaseLongOtherPlayer(..), ReleaseLongOverTheWire(..), RenderingInfo, Seconds(..), StartStatus(..), Success', Track, WindowDims)
 import Web.DOM as Web.DOM
 import Web.Event.Event (target)
 import Web.HTML.HTMLCanvasElement as HTMLCanvasElement
@@ -97,6 +97,7 @@ type RideScore =
   { basicE :: forall lock payload. { | MakeBasics () } -> ASceneful lock payload
   , leapE :: forall lock payload. { | MakeLeaps () } -> ASceneful lock payload
   , longE :: forall lock payload. { | MakeLongs () } -> ASceneful lock payload
+  , bgtrack :: String
   }
 
 -- effect unit is unsub
@@ -236,6 +237,7 @@ ride
                                 , rateInfo: _.rateInfo <$> aStuff
                                 , buffers: refToBehavior tli.soundObj
                                 , silence: tli.silence
+                                , bgtrack: tscore.bgtrack
                                 }
                             )
                           push.iAmReady

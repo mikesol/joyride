@@ -28,6 +28,7 @@ import Deku.Listeners (click)
 import Effect (Effect)
 import Effect.Aff (forkAff, joinFiber, launchAff_)
 import Effect.Class (liftEffect)
+import Effect.Random (randomInt)
 import FRP.Event (AnEvent, bang, fold, folded, fromEvent, keepLatest, mailboxed, mapAccum, memoize, sampleOn, subscribe, toEvent)
 import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V, vbus)
@@ -44,7 +45,7 @@ import Joyride.Style (buttonActiveCls, buttonCls, headerCls)
 import Joyride.UniqueNames (randomName)
 import Joyride.Wavesurfer.Wavesurfer (WaveSurfer, addMarker, associateEventDocumentIdWithMarker, associateEventDocumentIdWithSortedMarkerIdList, hideMarker, makeWavesurfer, muteExcept, removeMarker, showMarker)
 import Type.Proxy (Proxy(..))
-import Types (BasicEventV0', EventV0(..), Event_(..), LongEventV0', OpenEditor', Track(..), LeapEventV0')
+import Types (BasicEventV0', EventV0(..), Event_(..), LeapEventV0', LongEventV0', OpenEditor', Position(..), Track(..))
 import Web.Event.Event (target)
 import Web.HTML (window)
 import Web.HTML.HTMLInputElement (fromEventTarget, value, valueAsNumber)
@@ -158,6 +159,7 @@ aAddLeap
      , column :: Int
      , marker1Time :: Number
      , marker2Time :: Number
+     , position :: Position
      }
   -> ChangeEvent_
 aAddLeap t = Map.insert t.id
@@ -167,6 +169,7 @@ aAddLeap t = Map.insert t.id
           , marker1AudioURL: Nothing
           , marker2Time: t.marker2Time
           , marker2AudioURL: Nothing
+          , position: t.position
           , column: t.column
           , name: t.name
           , version: mempty
@@ -278,6 +281,7 @@ defaultLeap :: Int -> Int -> Int -> Maybe String -> LeapEventV0' -> Landmark
 defaultLeap id startIx col fbId be = LLeap
   { start: Marker { at: be.marker1Time }
   , end: Marker { at: be.marker2Time }
+  , position: be.position
   , name: be.name
   , id
   , fbId
@@ -541,13 +545,14 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                               ( oneOf
                                   [ (Just <$> event.documentId <|> bang Nothing) 😄 markerIndices 😄 ({ ws: _, ixs: _, did: _ } <$> event.waveSurfer) <#> \{ ws, ixs: ix /\ _, did } -> D.OnClick := do
                                       let
-                                        endgame x = pushed.addLeap
+                                        endgame position x = pushed.addLeap
                                           ( x /\
                                               { marker1Time: 0.5
                                               , marker1AudioURL: Nothing
                                               , marker2Time: 1.25
                                               , marker2AudioURL: Nothing
                                               , column: 7
+                                              , position
                                               , name: Nothing
                                               , version: mempty
 
@@ -555,14 +560,20 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                                           )
                                       m0 <- addMarker ws ix 0 { color: "#0f32f6", label: "LSt", time: 0.5 }
                                       m1 <- addMarker ws ix 1 { color: "#61e2f6", label: "LEd", time: 1.25 }
+                                      position <- randomInt 0 3 <#> case _ of
+                                        0 -> Position1
+                                        1 -> Position2
+                                        2 -> Position3
+                                        _ -> Position4
                                       pushed.atomicEventOperation $ aAddLeap
                                         { id: ix
                                         , name: Nothing
                                         , column: 7
+                                        , position
                                         , marker1Time: 0.5
                                         , marker2Time: 1.25
                                         }
-                                      did # maybe (endgame Nothing) \did' ->
+                                      did # maybe (endgame position Nothing) \did' ->
                                         launchAff_ do
                                           evDid <- addEventAff firestoreDb did'
                                             ( EventV0 $ LeapEventV0
@@ -570,12 +581,13 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                                                 , marker1AudioURL: Nothing
                                                 , marker2Time: 1.25
                                                 , marker2AudioURL: Nothing
+                                                , position
                                                 , name: Nothing
                                                 , column: 7
                                                 , version: mempty
                                                 }
                                             )
-                                          liftEffect $ associateEventDocumentIdWithMarker m0 evDid.id *> associateEventDocumentIdWithMarker m1 evDid.id *> endgame (Just evDid.id)
+                                          liftEffect $ associateEventDocumentIdWithMarker m0 evDid.id *> associateEventDocumentIdWithMarker m1 evDid.id *> endgame position (Just evDid.id)
                                   , bang $ D.Class := buttonCls
                                   ]
                               )

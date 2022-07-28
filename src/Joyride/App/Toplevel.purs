@@ -197,5 +197,6 @@ toplevel tli =
       { basicE: rideBasics
       , leapE: rideLeaps
       , longE: rideLongs
+      , bgtrack: "butterflies"
       }
       successful

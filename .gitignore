@@ -10,3 +10,7 @@
 /.spago
 /dist/**
 .DS_Store
+firebase-debug.log
+firestore-debug.log
+pubsub-debug.log
+ui-debug.log

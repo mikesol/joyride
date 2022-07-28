@@ -7,8 +7,11 @@ import Control.Comonad.Cofree (Cofree)
 import Control.Comonad.Cofree.Class (unwrapCofree)
 import Control.Monad.ST.Class (class MonadST, liftST)
 import Control.Monad.ST.Internal as Ref
+import Data.Compactable (compact)
+import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
-import FRP.Event (AnEvent, makeEvent, subscribe)
+import Data.Tuple.Nested (type (/\), (/\))
+import FRP.Event (AnEvent, makeEvent, mapAccum, subscribe)
 
 fireAndForget
   :: forall s m
@@ -16,21 +19,30 @@ fireAndForget
   => AnEvent m ~> AnEvent m
 fireAndForget = oneOff Just
 
-oneOff
-  :: forall s m a b
+oneOff :: forall s m a b
    . MonadST s m
   => (a -> Maybe b)
   -> AnEvent m a
   -> AnEvent m b
-oneOff aToB e = makeEvent \k -> do
+oneOff f e = compact $ emitUntil (\a -> case f a of
+  Nothing -> Right Nothing
+  Just x -> Left (Just x)) e
+
+emitUntil
+  :: forall s m a b
+   . MonadST s m
+  => (a -> Either b b)
+  -> AnEvent m a
+  -> AnEvent m b
+emitUntil aToB e = makeEvent \k -> do
   r <- liftST $ Ref.new true
   u <- liftST $ Ref.new (pure unit)
   usu <- subscribe e \n -> do
     l <- liftST $ Ref.read r
     when l $ do
       case aToB n of
-        Nothing -> pure unit
-        Just b -> do
+        Right b -> k b
+        Left b -> do
           k b
           void $ liftST $ Ref.write false r
           join (liftST $ Ref.read u)
