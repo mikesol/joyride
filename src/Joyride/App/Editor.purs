@@ -61,6 +61,8 @@ import Ocarina.Interpret (context_, decodeAudioDataFromUri)
 import Ocarina.WebAPI (BrowserAudioBuffer)
 import Type.Proxy (Proxy(..))
 import Types (BasicEventV0', EventV0(..), Event_(..), LeapEventV0', LongEventV0', OpenEditor', Position(..), ToplevelInfo, Track(..), WantsTutorial')
+import Web.DOM.Node (firstChild, textContent)
+import Web.DOM.Node as Node
 import Web.Event.Event (target)
 import Web.HTML (window)
 import Web.HTML.HTMLInputElement (fromEventTarget, value, valueAsNumber)
@@ -414,15 +416,18 @@ editorPage tli { fbAuth, firestoreDb, signedInNonAnonymously } wtut = QDA.do
                     , bang $ D.Class := headerCls <> " p-2"
                     , docEv <#> \mDid -> D.OnInput := cb \e -> for_
                         ( target e
-                            >>= fromEventTarget
+                            >>= Node.fromEventTarget
                         )
                         ( \x -> do
-                            v <- value x
-                            let t = if v == "" then Nothing else Just v
-                            pushed.changeTitle t
-                            pushed.atomicTrackOperation (aChangeTitle t)
-                            for_ mDid \trackId -> do
-                              launchAff_ (updateTrackTitleAff firestoreDb trackId v)
+                            fc <- firstChild x
+                            for_ fc \fc' -> do
+                              v <- textContent fc'
+                              log $ "New title: " <> v
+                              let t = if v == "" then Nothing else Just v
+                              pushed.changeTitle t
+                              pushed.atomicTrackOperation (aChangeTitle t)
+                              for_ mDid \trackId -> do
+                                launchAff_ (updateTrackTitleAff firestoreDb trackId v)
                         )
                     ]
                 )
