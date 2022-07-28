@@ -10,6 +10,7 @@ import Control.Monad.ST.Internal as Ref
 import Data.Compactable (compact)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
+import Data.Tuple (fst)
 import Data.Tuple.Nested (type (/\), (/\))
 import FRP.Event (AnEvent, makeEvent, mapAccum, subscribe)
 
@@ -25,13 +26,13 @@ oneOff :: forall s m a b
   -> AnEvent m a
   -> AnEvent m b
 oneOff f e = compact $ emitUntil (\a -> case f a of
-  Nothing -> Right Nothing
-  Just x -> Left (Just x)) e
+  Nothing -> Just Nothing
+  Just x -> Nothing) e
 
 emitUntil
   :: forall s m a b
    . MonadST s m
-  => (a -> Either b b)
+  => (a -> Maybe b)
   -> AnEvent m a
   -> AnEvent m b
 emitUntil aToB e = makeEvent \k -> do
@@ -41,9 +42,8 @@ emitUntil aToB e = makeEvent \k -> do
     l <- liftST $ Ref.read r
     when l $ do
       case aToB n of
-        Right b -> k b
-        Left b -> do
-          k b
+        Just b -> k b
+        Nothing -> do
           void $ liftST $ Ref.write false r
           join (liftST $ Ref.read u)
           void $ liftST $ Ref.write (pure unit) u
