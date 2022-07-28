@@ -77,7 +77,7 @@ long makeLong = keepLatest $ vbus (Proxy :: _ LongActions) \push event -> do
       ( \fr { prevZ, consumedByPress } ->
 
           let
-            logicalZ = calcSlope (unwrap makeLong.appearsAt) (appearancePoint fr.renderingInfo) (unwrap makeLong.appearsAt + 1.0) (p1bar fr.renderingInfo) (unwrap fr.animatedStuff.rateInfo.beats)
+            logicalZ = calcSlope (unwrap makeLong.appearsAt) (appearancePoint fr.renderingInfo) (unwrap makeLong.hitsLastPositionAt) (p4bar fr.renderingInfo) (unwrap fr.animatedStuff.rateInfo.beats)
             newConsumed = case fr.endTime, prevZ of
               Just _, Just pz -> consumedByPress + (logicalZ - pz)
               _, _ -> consumedByPress
@@ -299,7 +299,7 @@ long makeLong = keepLatest $ vbus (Proxy :: _ LongActions) \push event -> do
     { rateInfo: _.rateInfo <$> makeLong.animatedStuff
     , playerPositions: _.playerPositions <$> makeLong.animatedStuff
     }
-  p1bar ri = touchPointZ ri Position1
+  p4bar ri = touchPointZ ri Position4
   appearancePoint ri = entryZ ri
   ratioEvent = map (\{ iw, ih } -> { iw, ih, r: iw / ih }) (bang makeLong.initialDims <|> makeLong.resizeEvent)
   longYThickness = 0.04

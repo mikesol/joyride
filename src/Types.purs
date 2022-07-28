@@ -616,6 +616,7 @@ derive instance Newtype HitBasicVisualForLabel _
 type MakeLong r =
   ( column :: Column
   , appearsAt :: Beats
+  , hitsLastPositionAt :: Beats
   , uniqueId :: Int
   , length :: Number
   , sound :: { on :: Event RateInfo, off :: Event RateInfo } -> AudibleEnd
@@ -765,6 +766,7 @@ derive instance Newtype ReleaseLongVisualForLabel _
 type MakeLeap r =
   ( column :: Column
   , appearsAt :: Beats
+  , hitsLastPositionAt :: Beats
   , uniqueId :: Int
   , sound :: Event RateInfo -> AudibleEnd
   , newPosition :: Position
@@ -776,6 +778,7 @@ type MakeLeapWord r =
   , text :: String
   , column :: Column
   , appearsAt :: Beats
+  , hitsLastPositionAt :: Beats
   , uniqueId :: Int
   , newPosition :: Position
   | MakeLeaps r
@@ -1170,18 +1173,16 @@ type BasicEventV0' = { marker1Time :: Number
       , version :: Version 0
       }
 type LeapEventV0' = { marker1Time :: Number
-      , marker1AudioURL :: Maybe String
       , marker2Time :: Number
-      , marker2AudioURL :: Maybe String
+      , audioURL :: Maybe String
       , column :: Int
       , position :: Position
       , name :: Maybe String
       , version :: Version 0
       }
 type LongEventV0' = { marker1Time :: Number
-      , marker1AudioURL :: Maybe String
       , marker2Time :: Number
-      , marker2AudioURL :: Maybe String
+      , audioURL :: Maybe String
       , length :: Number
       , column :: Int
       , name :: Maybe String

@@ -166,9 +166,8 @@ aAddLeap t = Map.insert t.id
   ( EventV0
       ( LeapEventV0
           { marker1Time: t.marker1Time
-          , marker1AudioURL: Nothing
+          , audioURL: Nothing
           , marker2Time: t.marker2Time
-          , marker2AudioURL: Nothing
           , position: t.position
           , column: t.column
           , name: t.name
@@ -190,9 +189,8 @@ aAddLongPress t = Map.insert t.id
   ( EventV0
       ( LongEventV0
           { marker1Time: t.marker1Time
-          , marker1AudioURL: Nothing
+          , audioURL: Nothing
           , marker2Time: t.marker2Time
-          , marker2AudioURL: Nothing
           , length: t.length
           , column: t.column
           , name: t.name
@@ -548,9 +546,8 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                                         endgame position x = pushed.addLeap
                                           ( x /\
                                               { marker1Time: 0.5
-                                              , marker1AudioURL: Nothing
+                                              , audioURL: Nothing
                                               , marker2Time: 1.25
-                                              , marker2AudioURL: Nothing
                                               , column: 7
                                               , position
                                               , name: Nothing
@@ -578,9 +575,8 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                                           evDid <- addEventAff firestoreDb did'
                                             ( EventV0 $ LeapEventV0
                                                 { marker1Time: 0.5
-                                                , marker1AudioURL: Nothing
+                                                , audioURL: Nothing
                                                 , marker2Time: 1.25
-                                                , marker2AudioURL: Nothing
                                                 , position
                                                 , name: Nothing
                                                 , column: 7
@@ -599,9 +595,8 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                                         endgame x = pushed.addLongPress
                                           ( x /\
                                               { marker1Time: 0.5
-                                              , marker1AudioURL: Nothing
+                                              , audioURL: Nothing
                                               , marker2Time: 1.25
-                                              , marker2AudioURL: Nothing
                                               , length: 1.0
                                               , column: 7
                                               , name: Nothing
@@ -624,9 +619,8 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                                           evDid <- addEventAff firestoreDb did'
                                             ( EventV0 $ LongEventV0
                                                 { marker1Time: 0.5
-                                                , marker1AudioURL: Nothing
+                                                , audioURL: Nothing
                                                 , marker2Time: 1.25
-                                                , marker2AudioURL: Nothing
                                                 , length: 1.0
                                                 , name: Nothing
                                                 , column: 7

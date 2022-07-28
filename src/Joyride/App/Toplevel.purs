@@ -28,9 +28,6 @@ import Joyride.App.SorryNeedPermission (sorryNeedPermissionPage)
 import Joyride.App.Tutorial (tutorial)
 import Joyride.FRP.Dedup (dedup)
 import Joyride.FRP.StartingWith (startingWith)
-import Joyride.Mocks.Basic (mockBasics)
-import Joyride.Mocks.Leap (mockLeaps)
-import Joyride.Mocks.Long (mockLongs)
 import Joyride.Ocarina (AudibleChildEnd)
 import Joyride.Scores.Ride.Basic (rideBasics)
 import Joyride.Scores.Ride.Leap (rideLeaps)
@@ -194,9 +191,9 @@ toplevel tli =
       wantsTutorial
     TLSuccess successful -> ride
       tli
-      { basicE: rideBasics
-      , leapE: rideLeaps
-      , longE: rideLongs
+      { basicE: rideBasics [] -- change
+      , leapE: rideLeaps []  -- change
+      , longE: rideLongs [] -- change
       , bgtrack: "butterflies"
       }
       successful
