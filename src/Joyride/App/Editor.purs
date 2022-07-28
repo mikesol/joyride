@@ -4,48 +4,63 @@ import Prelude
 
 import Control.Alt ((<|>))
 import Control.Parallel (parTraverse)
-import Data.Array ((..))
+import Control.Plus (empty)
+import Data.Array (sortBy, (..))
+import Data.Array as Array
 import Data.Either (Either(..))
+import Data.Filterable (filterMap)
 import Data.Foldable (for_, oneOf, traverse_)
 import Data.FoldableWithIndex (traverseWithIndex_)
 import Data.Function (on)
 import Data.Int (floor)
 import Data.Map (Map)
 import Data.Map as Map
-import Data.Maybe (Maybe(..), fromMaybe, maybe)
+import Data.Maybe (Maybe(..), fromMaybe, isJust, maybe)
 import Data.Monoid.Always (always)
 import Data.Monoid.Endo (Endo(..))
 import Data.Newtype (class Newtype, unwrap)
 import Data.Set as Set
 import Data.Tuple (Tuple(..), fst, snd)
 import Data.Tuple.Nested ((/\), type (/\))
+import Debug (spy)
 import Deku.Attribute (class Attr, Attribute, cb, xdata, (:=))
 import Deku.Control (switcher, text, text_)
-import Deku.Core (class Korok, Domable, dyn, envy, insert, remove, vbussed, vbussedUncurried)
-import Deku.DOM (Class(..))
+import Deku.Core (class Korok, Domable, dyn, envy, insert, remove, vbussedUncurried)
+import Deku.DOM (Class)
 import Deku.DOM as D
 import Deku.Listeners (click)
 import Effect (Effect)
 import Effect.Aff (forkAff, joinFiber, launchAff_)
 import Effect.Class (liftEffect)
+import Effect.Class.Console as Log
+import Effect.Console (log)
 import Effect.Random (randomInt)
-import FRP.Event (AnEvent, bang, fold, folded, fromEvent, keepLatest, mailboxed, mapAccum, memoize, sampleOn, subscribe, toEvent)
+import Effect.Ref as Ref
+import FRP.Event (AnEvent, bang, fold, folded, fromEvent, keepLatest, mailboxed, mapAccum, memoize, sampleOn, toEvent)
 import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V, vbus)
+import Foreign.Object (Object)
+import Foreign.Object as Object
 import Joyride.App.Loading (loadingPage)
+import Joyride.App.Tutorial (tutorial)
 import Joyride.Editor.ADT (Landmark(..), LongLength(..), Marker(..))
 import Joyride.FRP.Aff (eventToAff)
 import Joyride.FRP.Beh (memoBeh)
 import Joyride.FRP.Rider (rider, toRide)
 import Joyride.FRP.Schedule (fireAndForget)
 import Joyride.Firebase.Auth (User(..), currentUser, signInWithGoogle)
-import Joyride.Firebase.Firestore (addEventAff, addTrackAff, deleteEventAff, getEvents, getEventsAff, getTracksAff, updateColumnAff, updateEventNameAff, updateMarker1TimeAff, updateMarker2TimeAff, updateMarker3TimeAff, updateMarker4TimeAff, updateTrackTitleAff)
+import Joyride.Firebase.Firestore (addEventAff, addTrackAff, deleteEventAff, getEventsAff, getTracksAff, updateColumnAff, updateEventNameAff, updateMarker1TimeAff, updateMarker2TimeAff, updateMarker3TimeAff, updateMarker4TimeAff, updateTrackTitleAff)
 import Joyride.QualifiedDo.Apply as QDA
+import Joyride.Scores.Ride.Basic (rideBasics)
+import Joyride.Scores.Ride.Leap (rideLeaps)
+import Joyride.Scores.Ride.Long (rideLongs)
 import Joyride.Style (buttonActiveCls, buttonCls, headerCls)
 import Joyride.UniqueNames (randomName)
 import Joyride.Wavesurfer.Wavesurfer (WaveSurfer, addMarker, associateEventDocumentIdWithMarker, associateEventDocumentIdWithSortedMarkerIdList, hideMarker, makeWavesurfer, muteExcept, removeMarker, showMarker)
+import Ocarina.Interpret (context_, decodeAudioDataFromUri)
+import Ocarina.WebAPI (BrowserAudioBuffer)
 import Type.Proxy (Proxy(..))
-import Types (BasicEventV0', EventV0(..), Event_(..), LeapEventV0', LongEventV0', OpenEditor', Position(..), Track(..))
+import Types (BasicEventV0', EventV0(..), Event_(..), LeapEventV0', LongEventV0', OpenEditor', Position(..), ToplevelInfo, Track(..), WantsTutorial')
 import Web.Event.Event (target)
 import Web.HTML (window)
 import Web.HTML.HTMLInputElement (fromEventTarget, value, valueAsNumber)
@@ -67,11 +82,14 @@ instance Eq SpammedId where
 instance Ord SpammedId where
   compare = compare `on` (unwrap >>> _.id)
 
+type PreviewScreenNeeds = WantsTutorial'
+
 type Events :: forall k. (Type -> k) -> Row k
 type Events t =
   ( importerScreenVisible :: t Boolean
   , chooserScreenVisible :: t Boolean
   , loadingScreenVisible :: t Boolean
+  , previewScreenVisible :: t (Maybe PreviewScreenNeeds)
   , availableTracks :: t (Array { id :: String, data :: Track })
   -- achtung: this event is only for external modification
   -- the listener for edited content shouldn't loop back to the element, otherwise we'll get an unnecessary gnarly feedback loop
@@ -302,10 +320,31 @@ defaultLongPress id startIx col fbId be = LLong
 editorPage
   :: forall s m lock payload
    . Korok s m
-  => OpenEditor'
+  => ToplevelInfo
+  -> OpenEditor'
+  -> WantsTutorial'
   -> Domable m lock payload
-editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
+editorPage tli { fbAuth, firestoreDb, signedInNonAnonymously } wtut = QDA.do
   pushed /\ (event :: { | Events (AnEvent m) }) <- vbussedUncurried (Proxy :: _ (V (Events PlainOl)))
+  let
+    initialData :: AnEvent m { title :: String, url :: String }
+    initialData = fireAndForget (event.loadWave 😄 ({ title: _, url: _ } <$> event.title))
+  let
+    mostRecentData' = keepLatest
+      ( initialData <#> \{ title, url } ->
+          let
+            __ = spy "MRD" { title, url }
+            bangor = (TrackV0 { title: Just title, url, private: false, version: mempty, owner: "" } /\ Map.empty)
+          in
+            bang bangor <|> fold
+              ( \a (t /\ e) -> case a of
+                  Left ae -> t /\ ae e
+                  Right at -> at t /\ e
+              )
+              (Left <$> (event.atomicEventOperation) <|> (Right <$> event.atomicTrackOperation))
+              bangor
+      )
+  mostRecentData <- envy <<< memoize mostRecentData'
   docEv <-
     ( envy
         <<< rider
@@ -329,31 +368,16 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
         <<< rider
           ( toRide
               { event: do
-
-                  let
-
-                    initialData :: AnEvent m { title :: String, url :: String }
-                    initialData = fireAndForget (event.loadWave 😄 ({ title: _, url: _ } <$> event.title))
-                  let
-                    mostRecentData = keepLatest
-                      ( initialData <#> \{ title, url } -> fold
-                          ( \a (t /\ e) -> case a of
-                              Left ae -> t /\ ae e
-                              Right at -> at t /\ e
-                          )
-                          (Left <$> (event.atomicEventOperation) <|> (Right <$> event.atomicTrackOperation))
-                          (TrackV0 { title: Just title, url, private: false, version: mempty, owner: "" } /\ Map.empty)
-                      )
-                  mostRecentData 🙂 event.waveSurfer 🙂 fromEvent (folded $ map pure signedInNonAnonymously) 😄 ({ did: _, sina: _, ws: _, mostRecentData: _ } <$> (Just <$> event.documentId <|> bang Nothing))
-              , push: \{ did, sina, ws, mostRecentData } -> unwrap
+                  mostRecentData 🙂 event.waveSurfer 🙂 fromEvent (folded $ map pure signedInNonAnonymously) 😄 ({ did: _, sina: _, ws: _, mrd: _ } <$> (Just <$> event.documentId <|> bang Nothing))
+              , push: \{ did, sina, ws, mrd } -> unwrap
                   ( (always :: (Endo Function (Effect Unit)) -> (Endo Function (m Unit)))
                       ( Endo \_ -> case did, sina of
                           -- we have gone from not signed in to signed in
                           -- create the document on firebase
                           Nothing, [ true, false ] -> currentUser fbAuth >>= traverse_ \(User u) -> launchAff_ do
-                            added <- addTrackAff firestoreDb (aChangeOwner u.uid (fst mostRecentData))
+                            added <- addTrackAff firestoreDb (aChangeOwner u.uid (fst mrd))
                             liftEffect $ pushed.documentId added.id
-                            forIdAttribution <- Map.toUnfoldable (snd mostRecentData) # parTraverse \(id /\ data') -> do
+                            forIdAttribution <- Map.toUnfoldable (snd mrd) # parTraverse \(id /\ data') -> do
                               addedEvent <- addEventAff firestoreDb added.id data'
                               pure { ix: id, id: addedEvent.id }
                             liftEffect $ associateEventDocumentIdWithSortedMarkerIdList ws forIdAttribution
@@ -371,6 +395,7 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
   let importerScreenVisible = event.importerScreenVisible <|> bang true
   let chooserScreenVisible = event.chooserScreenVisible <|> bang false
   let loadingScreenVisible = event.loadingScreenVisible <|> bang false
+  let previewScreenVisible = event.previewScreenVisible <|> bang Nothing
   D.div
     (bang $ D.Class := "absolute w-screen h-screen bg-zinc-900")
     [ D.div
@@ -378,7 +403,11 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
             [ bang $ D.Class := "absolute w-screen bg-zinc-900"
             ]
         )
-        [ D.div_
+        [ D.div
+            ( oneOf
+                [
+                ]
+            )
             [ D.h2
                 ( oneOf
                     [ bang $ D.Contenteditable := "true"
@@ -633,6 +662,23 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                                   ]
                               )
                               [ text_ "Add Long Press" ]
+                          , D.button
+                              ( oneOf
+                                  [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                                  -- , bang $ D.OnClick := log "hello world"
+                                  , mostRecentData <#> \(TrackV0 ato /\ aeo) -> D.OnClick := do
+                                      log "starting from most recent data"
+                                      pushed.loadingScreenVisible true
+                                      ctx <- context_
+                                      launchAff_ do
+                                        buffy <- decodeAudioDataFromUri ctx ato.url
+                                        liftEffect do
+                                          Ref.modify_ (Object.insert ato.url buffy) tli.soundObj
+                                          pushed.previewScreenVisible $ Just wtut
+                                          pushed.loadingScreenVisible false
+                                  ]
+                              )
+                              [ text_ "Preview" ]
                           , D.button
                               ( oneOf
                                   [ bang $ D.OnClick := do
@@ -908,6 +954,7 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                                         , bang $ D.OnClick := do
                                             pushed.loadingScreenVisible true *> launchAff_ do
                                               evts <- getEventsAff firestoreDb id
+                                              liftEffect $ pushed.atomicTrackOperation (const (TrackV0 aTra))
                                               wsf <- forkAff $ eventToAff $ toEvent event.waveSurfer
                                               liftEffect do
                                                 pushed.loadWave aTra.url
@@ -918,6 +965,7 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                                                 evts # traverseWithIndex_ \ix { id, data: evt } -> case evt of
                                                   EventV0 (BasicEventV0 be) -> do
                                                     pushed.addBasic (Just id /\ be)
+                                                    liftEffect $ pushed.atomicEventOperation (Map.insert ix evt)
                                                     m0 <- addMarker ws ix 0 { color: "#0f32f6", label: "B1", time: be.marker1Time }
                                                     m1 <- addMarker ws ix 1 { color: "#61e2f6", label: "B2", time: be.marker2Time }
                                                     m2 <- addMarker ws ix 2 { color: "#ef82f6", label: "B3", time: be.marker3Time }
@@ -950,6 +998,45 @@ editorPage { fbAuth, firestoreDb, signedInNonAnonymously } = QDA.do
                       ]
                   ]
             )
+        ]
+    , D.div
+        ( previewScreenVisible <#> \psv ->
+            D.Class := "absolute w-screen h-screen" <> if isJust psv then "" else " hidden"
+        )
+        [ (mostRecentData 🙂 ({ psv: _, mrd: _ } <$> previewScreenVisible)) # switcher \x ->
+            do
+              let __ = spy "running switcher" x
+              let vals = Array.fromFoldable $ Map.values $ snd x.mrd
+              let TrackV0 tv0 = fst x.mrd
+              case x.psv of
+                Nothing -> envy empty
+                Just success -> tutorial
+                  ( tli
+                      { goHome = do
+                          pushed.loadingScreenVisible true
+                          pushed.previewScreenVisible Nothing
+                          pushed.loadingScreenVisible false
+                      }
+                  )
+                  { basicE: rideBasics $ sortBy (compare `on` _.marker1Time)
+                      ( vals # filterMap case _ of
+                          EventV0 (BasicEventV0 be) -> Just be
+                          _ -> Nothing
+                      )
+                  , leapE: rideLeaps
+                      ( vals # filterMap case _ of
+                          EventV0 (LeapEventV0 be) -> Just be
+                          _ -> Nothing
+                      )
+                  , longE: rideLongs
+                      ( vals # filterMap case _ of
+                          EventV0 (LongEventV0 be) -> Just be
+                          _ -> Nothing
+                      )
+                  , bgtrack: tv0.url
+                  , isPreviewPage: true
+                  }
+                  success
         ]
     , D.div
         ( loadingScreenVisible <#> \lsv ->

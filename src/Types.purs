@@ -4,6 +4,7 @@ module Types
   , Shaders
   , Shader
   , GalaxyAttributes
+  , ToplevelInfo
   , BasicEventV0'
   , LeapEventV0'
   , LongEventV0'
@@ -110,6 +111,7 @@ import Data.Time.Duration (Milliseconds)
 import Data.Tuple (Tuple(..))
 import Data.Tuple.Nested (type (/\))
 import Effect (Effect)
+import Effect.Ref as Ref
 import FRP.Behavior (Behavior)
 import FRP.Event (EventIO, Event)
 import Foreign (ForeignError(..), fail)
@@ -130,6 +132,7 @@ import Rito.Vector3 (Vector3')
 import Simple.JSON (undefined, writeJSON)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
+import Web.HTML.Window (RequestIdleCallbackId, Window)
 
 type CanvasInfo = { x :: Number, y :: Number } /\ Number
 
@@ -879,7 +882,7 @@ data Negotiation
       , signedInNonAnonymously :: Event Boolean
       }
   | WantsTutorial WantsTutorial'
-  | OpenEditor OpenEditor'
+  | OpenEditor { oe :: OpenEditor', wt :: WantsTutorial' }
   | StartingNegotiation
   | RoomIsFull
   | GameHasStarted
@@ -1160,39 +1163,44 @@ instance JSON.WriteForeign EventV0 where
 data Track = TrackV0 TrackV0'
 data Event_ = EventV0 EventV0
 
-type BasicEventV0' = { marker1Time :: Number
-      , marker1AudioURL :: Maybe String
-      , marker2Time :: Number
-      , marker2AudioURL :: Maybe String
-      , marker3Time :: Number
-      , marker3AudioURL :: Maybe String
-      , marker4Time :: Number
-      , marker4AudioURL :: Maybe String
-      , column :: Int
-      , name :: Maybe String
-      , version :: Version 0
-      }
-type LeapEventV0' = { marker1Time :: Number
-      , marker2Time :: Number
-      , audioURL :: Maybe String
-      , column :: Int
-      , position :: Position
-      , name :: Maybe String
-      , version :: Version 0
-      }
-type LongEventV0' = { marker1Time :: Number
-      , marker2Time :: Number
-      , audioURL :: Maybe String
-      , length :: Number
-      , column :: Int
-      , name :: Maybe String
-      , version :: Version 0
-      }
+type BasicEventV0' =
+  { marker1Time :: Number
+  , marker1AudioURL :: Maybe String
+  , marker2Time :: Number
+  , marker2AudioURL :: Maybe String
+  , marker3Time :: Number
+  , marker3AudioURL :: Maybe String
+  , marker4Time :: Number
+  , marker4AudioURL :: Maybe String
+  , column :: Int
+  , name :: Maybe String
+  , version :: Version 0
+  }
+
+type LeapEventV0' =
+  { marker1Time :: Number
+  , marker2Time :: Number
+  , audioURL :: Maybe String
+  , column :: Int
+  , position :: Position
+  , name :: Maybe String
+  , version :: Version 0
+  }
+
+type LongEventV0' =
+  { marker1Time :: Number
+  , marker2Time :: Number
+  , audioURL :: Maybe String
+  , length :: Number
+  , column :: Int
+  , name :: Maybe String
+  , version :: Version 0
+  }
+
 data EventV0
   = BasicEventV0 BasicEventV0'
   | LeapEventV0 LeapEventV0'
   | LongEventV0 LongEventV0'
-
 
 defaultRide :: Ride
 defaultRide = RideV0
@@ -1241,7 +1249,7 @@ instance JSON.ReadForeign Event_ where
 instance JSON.WriteForeign Event_ where
   writeImpl (EventV0 i) = JSON.writeImpl i
 
-data ChannelChooser = NoChannel | RideChannel String | TutorialChannel
+data ChannelChooser = NoChannel | RideChannel String | TutorialChannel | EditorChannel
 
 derive instance Generic ChannelChooser _
 instance Show ChannelChooser where
@@ -1250,3 +1258,28 @@ instance Show ChannelChooser where
 newtype Models s = Models { spaceship :: s }
 
 derive instance Newtype (Models s) _
+
+type ToplevelInfo =
+  { loaded :: Event Boolean
+  , negotiation :: Event Negotiation
+  , isMobile :: Boolean
+  , tutorial :: Effect Unit
+  , editor :: Effect Unit
+  , ride :: Effect Unit
+  , lpsCallback :: JMilliseconds -> Effect Unit -> Effect Unit
+  , playerPositions :: Behavior PlayerPositionsF
+  , resizeE :: Event WindowDims
+  , renderingInfo :: Behavior RenderingInfo
+  , goHome :: Effect Unit
+  , givePermission :: Boolean -> Effect Unit
+  , pushBasic :: EventIO HitBasicMe
+  , pushLeap :: EventIO HitLeapMe
+  , pushHitLong :: EventIO HitLongMe
+  , pushReleaseLong :: EventIO ReleaseLongMe
+  , debug :: Boolean
+  , silence :: BrowserAudioBuffer
+  , icid :: Ref.Ref (Maybe RequestIdleCallbackId)
+  , wdw :: Window
+  , unschedule :: Ref.Ref (Map.Map JMilliseconds (Effect Unit))
+  , soundObj :: Ref.Ref (Object.Object BrowserAudioBuffer)
+  }

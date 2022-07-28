@@ -64,7 +64,7 @@ twoPi = 2.0 * pi :: Number
 
 data FadeInstruction = FadeIn | FadeOut | FadeInOut | NoFade
 
-data CenterState = Intro | Tiles | Tilt | Leap | Long | End | Empty
+data CenterState = Preview | Intro | Tiles | Tilt | Leap | Long | End | Empty
 
 newtype Unsubscribe = Unsubscribe (Effect Unit)
 
@@ -93,6 +93,8 @@ type TutorialScore =
   { basicE :: forall lock payload. { | MakeBasics () } -> ASceneful lock payload
   , leapE :: forall lock payload. { | MakeLeaps () } -> ASceneful lock payload
   , longE :: forall lock payload. { | MakeLongs () } -> ASceneful lock payload
+  , bgtrack :: String
+  , isPreviewPage :: Boolean
   }
 
 -- effect unit is unsub
@@ -225,6 +227,7 @@ tutorial
                         , buffers: refToBehavior tli.soundObj
                         , silence: tli.silence
                         , longVerb: longVerb
+                        , bgtrack: tscore.bgtrack
                         }
                     )
                   push.iAmReady
@@ -239,7 +242,7 @@ tutorial
                     )
                   t :: JMilliseconds <- coerce <$> cNow
                   optMeIn t
-            tutorialCenterMatter (bang Intro <|> event.tutorialCenterState) push.tutorialCenterState { startCallback }
+            tutorialCenterMatter (bang (if tscore.isPreviewPage then Preview else Intro) <|> event.tutorialCenterState) push.tutorialCenterState { startCallback }
         envy $ fromEvent $ memoize
           ( makeAnimatedStuff
               ( biSampleOn
@@ -438,6 +441,9 @@ tutorial
       }
 
   tutorialCenterMatter currentState pushCurrentState { startCallback } = currentState # switcher \cs -> case cs of
+    Preview -> tutorialCenterMatterFrame "Preview your ride!" Nothing false "Start" FadeOut
+      ( FullScreen.fullScreenFlow startCallback)
+      pushCurrentState
     Intro -> tutorialCenterMatterFrame "Welcome to Joyride!" Nothing false "Start Tutorial" FadeOut
       ( FullScreen.fullScreenFlow
           ( startCallback *> launchAff_

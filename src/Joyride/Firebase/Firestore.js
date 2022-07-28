@@ -79,7 +79,25 @@ export const getTracks = (auth) => (db) => () =>
 		});
 	});
 
-export const getEvents = (db) => (trackID) => () =>
+	export const getPublicTracks = (db) => () =>
+		import("firebase/firestore").then(
+			({ query, getDocs, collection, where, limit }) => {
+				const q = query(
+					collection(db, TRACKS),
+					where("public", "==", true),
+					limit(50)
+				);
+				return getDocs(q).then((querySnapshot) => {
+					const data = [];
+					querySnapshot.forEach((doc) => {
+						data.push({ id: doc.id, data: doc.data() });
+					});
+					return data;
+				});
+			}
+		);
+
+		export const getEvents = (db) => (trackID) => () =>
 	import("firebase/firestore").then(({ query, getDocs, collection }) => {
 		const q = query(collection(db, TRACKS, trackID, EVENTS));
 		return getDocs(q).then((querySnapshot) => {

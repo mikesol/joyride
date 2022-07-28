@@ -81,6 +81,15 @@ getEventsAff fs id = do
     Right r -> pure r
     Left e -> throwError (error (show e))
 
+foreign import getPublicTracks :: Firestore -> Effect (Promise Foreign)
+
+getPublicTracksAff :: Firestore -> Aff (Array { id :: String, data :: Track })
+getPublicTracksAff fs = do
+  ds <- toAffE $ getPublicTracks fs
+  case JSON.read ds of
+    Right r -> pure r
+    Left e -> throwError (error (show e))
+
 foreign import getTracks :: FirebaseAuth -> Firestore -> Effect (Promise Foreign)
 
 getTracksAff :: FirebaseAuth -> Firestore -> Aff (Array { id :: String, data :: Track })

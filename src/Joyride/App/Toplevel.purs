@@ -38,7 +38,7 @@ import Joyride.Scores.Tutorial.Long (tutorialLongs)
 import Ocarina.WebAPI (BrowserAudioBuffer)
 import Rito.CubeTexture as CTL
 import Rito.GLTF as GLTFLoader
-import Types (CubeTextures, HitBasicMe, HitLeapMe, HitLongMe, JMilliseconds, Models, Negotiation(..), PlayerPositionsF, RateInfo, ReleaseLongMe, RenderingInfo, Success', ThreeDI, WantsTutorial', WindowDims, OpenEditor')
+import Types (CubeTextures, HitBasicMe, HitLeapMe, HitLongMe, JMilliseconds, Models, Negotiation(..), PlayerPositionsF, RateInfo, ReleaseLongMe, ToplevelInfo, RenderingInfo, Success', ThreeDI, WantsTutorial', WindowDims, OpenEditor')
 import Web.DOM as Web.DOM
 import Web.HTML.Window (RequestIdleCallbackId, Window)
 
@@ -60,31 +60,6 @@ type UIEvents = V
 -- , leapE :: forall lock payload. { | MakeLeaps () } -> ASceneful lock payload
 -- , longE :: forall lock payload. { | MakeLongs () } -> ASceneful lock payload
 
-type ToplevelInfo =
-  { loaded :: Event Boolean
-  , negotiation :: Event Negotiation
-  , isMobile :: Boolean
-  , tutorial :: Effect Unit
-  , editor :: Effect Unit
-  , ride :: Effect Unit
-  , lpsCallback :: JMilliseconds -> Effect Unit -> Effect Unit
-  , playerPositions :: Behavior PlayerPositionsF
-  , resizeE :: Event WindowDims
-  , renderingInfo :: Behavior RenderingInfo
-  , goHome :: Effect Unit
-  , givePermission :: Boolean -> Effect Unit
-  , pushBasic :: EventIO HitBasicMe
-  , pushLeap :: EventIO HitLeapMe
-  , pushHitLong :: EventIO HitLongMe
-  , pushReleaseLong :: EventIO ReleaseLongMe
-  , debug :: Boolean
-  , silence :: BrowserAudioBuffer
-  , icid :: Ref.Ref (Maybe RequestIdleCallbackId)
-  , wdw :: Window
-  , unschedule :: Ref.Ref (Map.Map JMilliseconds (Effect Unit))
-  , soundObj :: Ref.Ref (Object.Object BrowserAudioBuffer)
-  }
-
 data TopLevelDisplay
   = TLNeedsOrientation
   | TLWillNotWorkWithoutOrientation
@@ -101,7 +76,7 @@ data TopLevelDisplay
   | TLGameHasStarted
   | TLRoomIsFull
   | TLWantsTutorial WantsTutorial'
-  | TLOpenEditor OpenEditor'
+  | TLOpenEditor {oe :: OpenEditor', wt :: WantsTutorial' }
   | TLSuccess Success'
 
 -- effect unit is unsub
@@ -141,7 +116,6 @@ toplevel tli =
                 _, GetRulesOfGame s -> TLExplainer s
                 -- editor does not need to be loaded for now
                 -- change if that's the case
-                false, OpenEditor s -> TLOpenEditor s
                 false, _ -> TLLoading
                 -- should never reach
                 _, PageLoad -> TLLoading
@@ -178,7 +152,7 @@ toplevel tli =
       , cubeTextures
       , signedInNonAnonymously
       }
-    TLOpenEditor s -> editorPage s
+    TLOpenEditor s -> editorPage tli s.oe s.wt
     TLLoading -> loadingPage
     TLRoomIsFull -> roomIsFull
     TLGameHasStarted -> gameHasStarted
@@ -187,6 +161,8 @@ toplevel tli =
       { basicE: tutorialBasics
       , leapE: tutorialLeaps
       , longE: tutorialLongs
+      , bgtrack: "tutorial"
+      , isPreviewPage: false
       }
       wantsTutorial
     TLSuccess successful -> ride

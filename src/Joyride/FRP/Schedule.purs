@@ -20,14 +20,22 @@ fireAndForget
   => AnEvent m ~> AnEvent m
 fireAndForget = oneOff Just
 
-oneOff :: forall s m a b
+oneOff
+  :: forall s m a b
    . MonadST s m
   => (a -> Maybe b)
   -> AnEvent m a
   -> AnEvent m b
-oneOff f e = compact $ emitUntil (\a -> case f a of
-  Nothing -> Just Nothing
-  Just x -> Nothing) e
+oneOff f e = compact $ emitUntil identity
+  ( mapAccum
+      ( \a b -> case f a, b of
+          _, true -> true /\ Nothing
+          Nothing, false -> false /\ Just Nothing
+          Just x, false -> true /\ Just (Just x)
+      )
+      e
+      false
+  )
 
 emitUntil
   :: forall s m a b
