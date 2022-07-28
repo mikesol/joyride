@@ -28,14 +28,15 @@ midi2cps i = 440.0 * (2.0 `pow` (((Int.toNumber i) - 69.0) / 12.0))
 
 graph
   :: forall lock payload
-   . { basics :: Event (Event AudibleChildEnd)
+   . { bgtrack :: String
+     , basics :: Event (Event AudibleChildEnd)
      , leaps :: Event (Event AudibleChildEnd)
      , rateInfo :: Event RateInfo
      , buffers :: Behavior (Object.Object BrowserAudioBuffer)
      , silence :: BrowserAudioBuffer
      }
   -> Array (Audible D2 lock payload)
-graph { basics, leaps, rateInfo, silence, buffers } =
+graph { bgtrack, basics, leaps, rateInfo, silence, buffers } =
   [ gain_ 1.0
       [ dyn ((map <<< map) (\(AudibleChildEnd e) -> e) basics)
       ]
@@ -45,7 +46,7 @@ graph { basics, leaps, rateInfo, silence, buffers } =
   , gain_ 1.0
       [ playBuf { buffer: silence }
           ( oneOf
-              [ sample_ buffers (bang unit) <#> Object.lookup "butterflies" >>> case _ of
+              [ sample_ buffers (bang unit) <#> Object.lookup bgtrack >>> case _ of
                   Just b -> buffer b
                   Nothing -> buffer silence
               , oneOff

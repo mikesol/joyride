@@ -9,34 +9,29 @@ import Control.Plus (empty)
 import Data.DateTime.Instant (unInstant)
 import Data.FastVect.FastVect (Vect, cons)
 import Data.FastVect.FastVect as V
-import Data.Filterable (filter, filterMap)
 import Data.Foldable (oneOfMap)
 import Data.Function (on)
 import Data.FunctorWithIndex (mapWithIndex)
 import Data.List (List(..), sortBy, span, (:))
 import Data.List as List
 import Data.Maybe (Maybe(..))
-import Data.Newtype (unwrap)
 import Data.Time.Duration (Milliseconds(..), Seconds(..))
-import Data.Tuple (Tuple(..), fst, snd)
 import Effect (Effect)
 import FRP.Behavior (Behavior, sample_)
 import FRP.Event (Event, keepLatest, memoize)
 import FRP.Event.Class (bang)
 import FRP.Event.Time as LocalTime
 import Joyride.Audio.Basic as BasicA
-import Joyride.Constants.Ride (rideStartOffset)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Schedule (oneOff, scheduleCf)
 import Joyride.Ocarina (AudibleEnd(..))
-import Joyride.Scores.Ride.Base (ButterflyDrum(..), ButterflyLyric, Butterflyable(..), TCID, b2tcid, l2s, score)
 import Joyride.Visual.Basic as BasicV
 import Joyride.Visual.BasicWord as BasicW
 import Ocarina.WebAPI (BrowserAudioBuffer)
 import Record (union)
 import Rito.Core (ASceneful, CSS3DObject, Mesh, toScene)
 import Safe.Coerce (coerce)
-import Types (Beats(..), Column(..), HitBasicMe, JMilliseconds(..), MakeBasics, RateInfo, beatToTime)
+import Types (BasicEventV0', Beats(..), Column(..), HitBasicMe, JMilliseconds(..), MakeBasics, RateInfo, beatToTime, int2Column)
 
 type ACU =
   { appearsAt :: Beats
@@ -48,13 +43,6 @@ type ACU =
   , column :: Column
   , uniqueId :: Int
   }
-
--- words
--- 🥁
--- 👏
--- ⚡
--- 🤖
--- 🪘
 
 infixr 4 cons as :/
 
@@ -85,7 +73,6 @@ singleBeat { buffer, silence, myBeat } =
                 , onAt: coerce oa
                 }
           )
-
       )
   }
 
@@ -115,11 +102,11 @@ severalBeats { b0, b1, b2, b3, silence } = singleBeat (f $ b0)
     , silence
     }
 
-rideBasics :: forall lock payload. { | MakeBasics () } -> ASceneful lock payload
-rideBasics makeBasics =
+rideBasics :: forall lock payload. Array BasicEventV0' -> { | MakeBasics () } -> ASceneful lock payload
+rideBasics bevs makeBasics =
   ( fixed
       [ toScene $ dyn (children transformBasic)
-      , toScene $ dyn (children transformBasicWord)
+      -- , toScene $ dyn (children transformBasicWord)
       ]
   )
 
@@ -184,7 +171,20 @@ rideBasics makeBasics =
     let
       { init, rest } = span (\{ appearsAt } -> appearsAt <= beats + lookAhead) l
     (f <$> init) :< go f rest
-  score = mapWithIndex (\uniqueId x -> union { uniqueId } x) $ sortBy (compare `on` _.b0) (bassDrums1 <> bassDrums2 <> bassDrums3 <> lyrics1 <> lyrics2 <> lyrics3 <> lyrics4 <> {- more stuff? -}  Nil)
+  -- we don't use text for now so just put in a dummy value
+  score =
+    mapWithIndex
+      ( \uniqueId x ->
+          { uniqueId
+          , appearsAt: Beats $ 2.0 * x.marker1Time - x.marker2Time
+          , b0: Beats $ x.marker1Time
+          , b1: Beats $ x.marker2Time
+          , b2: Beats $ x.marker3Time
+          , b3: Beats $ x.marker4Time
+          , text: pure ""
+          , column: int2Column x.column
+          }
+      ) $ sortBy (compare `on` _.marker1Time) (List.fromFoldable bevs)
 
 type ScoreMorcel =
   { appearsAt :: Beats
@@ -201,55 +201,3 @@ v4 a b c d = V.cons a $ V.cons b $ V.cons c $ V.cons d $ V.empty
 
 tmpScore :: List ScoreMorcel
 tmpScore = { column: C4, text: pure "✩", appearsAt: Beats 0.0, b0: Beats 1.0, b1: Beats 2.0, b2: Beats 3.0, b3: Beats 4.0 } : Nil
-
-lyrics' :: Column -> List { t :: Number, c :: ButterflyLyric } -> List ScoreMorcel
-lyrics' column = go
-  where
-  rso = unwrap rideStartOffset
-  go (a : b : c : d : e) = { column, text: v4 (l2s a.c) (l2s b.c) (l2s c.c) (l2s d.c), appearsAt: Beats ((a.t - (b.t - a.t)) + rso), b0: Beats (a.t + rso), b1: Beats (b.t + rso), b2: Beats (c.t + rso), b3: Beats (d.t + rso) } : go (b : c : d : e)
-  go _ = Nil
-
-lyricsMod :: Column -> Int -> Int -> List ScoreMorcel
-lyricsMod c n md = lyrics' c
-  ( map snd $ filter (fst >>> (_ `mod` md) >>> eq n) $ mapWithIndex Tuple $ List.fromFoldable
-      ( filterMap
-          ( \i -> case i.c of
-              L x -> Just { t: i.t, c: x }
-              _ -> Nothing
-          )
-          score
-      )
-  )
-
-lyrics1 :: List ScoreMorcel
-lyrics1 = lyricsMod C7 0 4
-
-lyrics2 :: List ScoreMorcel
-lyrics2 = lyricsMod C8 1 4
-
-lyrics3 :: List ScoreMorcel
-lyrics3 = lyricsMod C2 2 4
-
-lyrics4 :: List ScoreMorcel
-lyrics4 = lyricsMod C14 3 4
-
-bassDrums' :: Column -> List TCID -> List ScoreMorcel
-bassDrums' column = go
-  where
-  rso = unwrap rideStartOffset
-  go (a : b : c : d : e) = { column, text: pure "✩", appearsAt: Beats ((a.t - (b.t - a.t)) + rso), b0: Beats (a.t + rso), b1: Beats (b.t + rso), b2: Beats (c.t + rso), b3: Beats (d.t + rso) } : go (b : c : d : e)
-  go _ = Nil
-
-bassDrums = bassDrums' C7 (List.fromFoldable (b2tcid (D Dbd))) :: List ScoreMorcel
-
-bassDrumsMod :: Column -> Int -> Int -> List ScoreMorcel
-bassDrumsMod c n md = bassDrums' c (map snd $ filter (fst >>> (_ `mod` md) >>> eq n) $ mapWithIndex Tuple $ List.fromFoldable (b2tcid (D Dbd)))
-
-bassDrums1 :: List ScoreMorcel
-bassDrums1 = bassDrumsMod C6 0 2
-
-bassDrums2 :: List ScoreMorcel
-bassDrums2 = bassDrumsMod C9 1 2
-
-bassDrums3 :: List ScoreMorcel
-bassDrums3 = Nil -- bassDrumsMod C9 2 3 :: List ScoreMorcel

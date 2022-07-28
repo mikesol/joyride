@@ -6,19 +6,15 @@ import Control.Alt ((<|>))
 import Control.Promise (Promise, toAffE)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
-import Data.Profunctor (lcmap)
 import Effect (Effect)
 import Effect.Aff (Aff, error, launchAff_, throwError, try)
 import Effect.Class (liftEffect)
 import Effect.Ref as Ref
 import FRP.Event (Event, makeEvent)
 import Foreign (Foreign)
-import Joyride.Firebase.Auth (FirebaseAuth)
-import Joyride.Firebase.Config (FirebaseApp)
+import Joyride.Firebase.Opaque (FirebaseApp, FirebaseAuth, Firestore)
 import Simple.JSON as JSON
-import Types (Penalty(..), Player(..), Points(..), Ride(..), RideV0', defaultRide)
-
-data Firestore
+import Types (Event_, Penalty(..), Player(..), Points(..), Ride(..), RideV0', Track, defaultRide)
 
 foreign import firestoreDb :: FirebaseApp -> Effect (Promise Firestore)
 
@@ -31,6 +27,149 @@ type DocumentReference =
   }
 
 data DocumentSnapshot
+
+--
+foreign import addTrack :: Firestore -> Foreign -> Effect (Promise DocumentReference)
+
+addTrackAff :: Firestore -> Track -> Aff DocumentReference
+addTrackAff fs r = toAffE $ addTrack fs (removeUndefineds (JSON.writeImpl r))
+
+foreign import getTrack :: Firestore -> String -> Effect (Promise Foreign)
+
+getTrackAff :: Firestore -> String -> Aff (Maybe Track)
+getTrackAff fs id = do
+  ds <- toAffE $ getTrack fs id
+  case JSON.read ds of
+    Right r -> pure r
+    Left e -> throwError (error (show e))
+
+foreign import updateTrackTitle :: Firestore -> String -> String -> Effect (Promise Unit)
+
+updateTrackTitleAff :: Firestore -> String -> String -> Aff Unit
+updateTrackTitleAff a b c = toAffE $ updateTrackTitle a b c
+
+foreign import updateTrackPrivate :: Firestore -> String -> Boolean -> Effect (Promise Unit)
+
+updateTrackPrivateAff :: Firestore -> String -> Boolean -> Aff Unit
+updateTrackPrivateAff a b c = toAffE $ updateTrackPrivate a b c
+
+foreign import addTagToTrack :: Firestore -> String -> String -> Effect (Promise Unit)
+
+addTagToTrackAff :: Firestore -> String -> String -> Aff Unit
+addTagToTrackAff a b c = toAffE $ addTagToTrack a b c
+
+foreign import removeTagFromTrack :: Firestore -> String -> String -> Effect (Promise Unit)
+
+removeTagFromTrackAff :: Firestore -> String -> String -> Aff Unit
+removeTagFromTrackAff a b c = toAffE $ addTagToTrack a b c
+
+foreign import addEvent :: Firestore -> String -> Foreign -> Effect (Promise DocumentReference)
+
+addEventAff :: Firestore -> String -> Event_ -> Aff DocumentReference
+addEventAff fs id r = toAffE $ addEvent fs id (removeUndefineds (JSON.writeImpl r))
+
+foreign import getEvent :: Firestore -> String -> String -> Effect (Promise Foreign)
+
+getEventAff :: Firestore -> String -> String -> Aff (Maybe Track)
+getEventAff fs id0 id1 = do
+  ds <- toAffE $ getEvent fs id0 id1
+  case JSON.read ds of
+    Right r -> pure r
+    Left e -> throwError (error (show e))
+
+foreign import getEvents :: Firestore -> String -> Effect (Promise Foreign)
+
+getEventsAff :: Firestore -> String -> Aff (Array { id :: String, data :: Event_ })
+getEventsAff fs id = do
+  ds <- toAffE $ getEvents fs id
+  case JSON.read ds of
+    Right r -> pure r
+    Left e -> throwError (error (show e))
+
+foreign import getPublicTracks :: Firestore -> Effect (Promise Foreign)
+
+getPublicTracksAff :: Firestore -> Aff (Array { id :: String, data :: Track })
+getPublicTracksAff fs = do
+  ds <- toAffE $ getPublicTracks fs
+  case JSON.read ds of
+    Right r -> pure r
+    Left e -> throwError (error (show e))
+
+foreign import getTracks :: FirebaseAuth -> Firestore -> Effect (Promise Foreign)
+
+getTracksAff :: FirebaseAuth -> Firestore -> Aff (Array { id :: String, data :: Track })
+getTracksAff fa fs = do
+  ds <- toAffE $ getTracks fa fs
+  case JSON.read ds of
+    Right r -> pure r
+    Left e -> throwError (error (show e))
+
+foreign import updateEventName :: Firestore -> String -> String -> String -> Effect (Promise Unit)
+
+updateEventNameAff :: Firestore -> String -> String -> String -> Aff Unit
+updateEventNameAff a b c d = toAffE $ updateEventName a b c d
+
+foreign import deleteName :: Firestore -> String -> String -> Effect (Promise Unit)
+
+deleteNameAff :: Firestore -> String -> String -> Aff Unit
+deleteNameAff a b c = toAffE $ deleteName a b c
+
+foreign import updateColumn :: Firestore -> String -> String -> Int -> Effect (Promise Unit)
+
+updateColumnAff :: Firestore -> String -> String -> Int -> Aff Unit
+updateColumnAff a b c d = toAffE $ updateColumn a b c d
+
+foreign import deleteEvent :: Firestore -> String -> String -> Effect (Promise Unit)
+
+deleteEventAff :: Firestore -> String -> String -> Aff Unit
+deleteEventAff a b c = toAffE $ deleteEvent a b c
+
+foreign import updateMarker1Time :: Firestore -> String -> String -> Number -> Effect (Promise Unit)
+
+updateMarker1TimeAff :: Firestore -> String -> String -> Number -> Aff Unit
+updateMarker1TimeAff a b c d = toAffE $ updateMarker1Time a b c d
+
+foreign import updateMarker1AudioUrl :: Firestore -> String -> String -> String -> Effect (Promise Unit)
+
+updateMarker1AudioUrlAff :: Firestore -> String -> String -> String -> Aff Unit
+updateMarker1AudioUrlAff a b c d = toAffE $ updateMarker1AudioUrl a b c d
+
+foreign import updateMarker2Time :: Firestore -> String -> String -> Number -> Effect (Promise Unit)
+
+updateMarker2TimeAff :: Firestore -> String -> String -> Number -> Aff Unit
+updateMarker2TimeAff a b c d = toAffE $ updateMarker2Time a b c d
+
+foreign import updateMarker2AudioUrl :: Firestore -> String -> String -> String -> Effect (Promise Unit)
+
+updateMarker2AudioUrlAff :: Firestore -> String -> String -> String -> Aff Unit
+updateMarker2AudioUrlAff a b c d = toAffE $ updateMarker2AudioUrl a b c d
+
+foreign import updateMarker3Time :: Firestore -> String -> String -> Number -> Effect (Promise Unit)
+
+updateMarker3TimeAff :: Firestore -> String -> String -> Number -> Aff Unit
+updateMarker3TimeAff a b c d = toAffE $ updateMarker3Time a b c d
+
+foreign import updateMarker3AudioUrl :: Firestore -> String -> String -> String -> Effect (Promise Unit)
+
+updateMarker3AudioUrlAff :: Firestore -> String -> String -> String -> Aff Unit
+updateMarker3AudioUrlAff a b c d = toAffE $ updateMarker3AudioUrl a b c d
+
+foreign import updateMarker4Time :: Firestore -> String -> String -> Number -> Effect (Promise Unit)
+
+updateMarker4TimeAff :: Firestore -> String -> String -> Number -> Aff Unit
+updateMarker4TimeAff a b c d = toAffE $ updateMarker4Time a b c d
+
+foreign import updateMarker4AudioUrl :: Firestore -> String -> String -> String -> Effect (Promise Unit)
+
+updateMarker4AudioUrlAff :: Firestore -> String -> String -> String -> Aff Unit
+updateMarker4AudioUrlAff a b c d = toAffE $ updateMarker4AudioUrl a b c d
+
+foreign import updateLength :: Firestore -> String -> String -> Number -> Effect (Promise Unit)
+
+updateLengthAff :: Firestore -> String -> String -> Number -> Aff Unit
+updateLengthAff a b c d = toAffE $ updateLength a b c d
+
+--
 
 foreign import addRide :: Firestore -> Foreign -> Effect (Promise DocumentReference)
 foreign import removeUndefineds :: Foreign -> Foreign
@@ -78,9 +217,11 @@ eventChannelChanges :: Firestore -> String -> Event Ride
 eventChannelChanges fs s = makeEvent \k -> do
   u <- Ref.new (pure unit)
   launchAff_ do
-    unsub <- toAffE $ listenToRemoteChannelChanges fs s (\f -> case JSON.read f of
-      Left e -> throwError (error (show e))
-      Right r -> k r)
+    unsub <- toAffE $ listenToRemoteChannelChanges fs s
+      ( \f -> case JSON.read f of
+          Left e -> throwError (error (show e))
+          Right r -> k r
+      )
     liftEffect $ Ref.write unsub u
   pure $ join $ Ref.read u
 

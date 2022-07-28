@@ -8,8 +8,10 @@ import Control.Plus (empty)
 import Data.DateTime.Instant (unInstant)
 import Data.Foldable (oneOfMap)
 import Data.FunctorWithIndex (mapWithIndex)
-import Data.List (List(..), span, (:))
-import Data.Maybe (Maybe(..))
+import Data.List (List(..), span)
+import Data.List as List
+import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Number (abs)
 import Data.Time.Duration (Milliseconds(..))
 import FRP.Behavior (Behavior, sample_)
 import FRP.Event (Event, keepLatest)
@@ -17,7 +19,6 @@ import FRP.Event.Class (bang)
 import FRP.Event.Time as LocalTime
 import Foreign.Object as Object
 import Joyride.Audio.Long as LongA
-import Joyride.Constants.Ride (rideStartOffset)
 import Joyride.FRP.Behavior (misbehavior)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Schedule (oneOff, scheduleCf)
@@ -31,7 +32,7 @@ import Rito.Geometries.Box (box)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.RoundRobin (InstanceId, Semaphore(..), roundRobinInstancedMesh)
 import Safe.Coerce (coerce)
-import Types (Beats(..), Column(..), JMilliseconds(..), MakeLongs, RateInfo, Seconds(..))
+import Types (Beats(..), Column, JMilliseconds(..), LongEventV0', MakeLongs, RateInfo, Seconds(..), int2Column)
 
 lookAhead :: Beats
 lookAhead = Beats 0.1
@@ -66,8 +67,8 @@ singleBeat { buffer, silence, myBeat: _ } riE = AudibleEnd
 
 data IO = I | O
 
-rideLongs :: forall lock payload. { | MakeLongs () } -> ASceneful lock payload
-rideLongs makeLongs = toScene
+rideLongs :: forall lock payload. Array LongEventV0' -> { | MakeLongs () } -> ASceneful lock payload
+rideLongs levs makeLongs = toScene
   ( roundRobinInstancedMesh { instancedMesh: makeLongs.threeDI.instancedMesh, mesh: makeLongs.threeDI.mesh, matrix4: makeLongs.threeDI.matrix4 } 100 (box { box: makeLongs.threeDI.boxGeometry })
       ( meshStandardMaterial
           -- { map: textures.tilesZelligeHexCOL
@@ -97,7 +98,7 @@ rideLongs makeLongs = toScene
                 { sound: singleBeat
                     { myBeat: input.appearsAt + Beats 1.0
                     , silence: makeLongs.silence
-                    , buffer: misbehavior (Object.lookup input.tag) makeLongs.buffers
+                    , buffer: misbehavior (bind input.tag <<< flip Object.lookup) makeLongs.buffers
                     }
                 , uniqueId: input.uniqueId
                 }
@@ -113,27 +114,29 @@ rideLongs makeLongs = toScene
     let
       { init, rest } = span (\{ appearsAt } -> appearsAt <= beats + lookAhead) l
     (transform <$> init) :< go rest
-  score = mapWithIndex (\uniqueId x -> union { uniqueId } x) $ tmpScore
+  score =
+    List.fromFoldable $ mapWithIndex
+      ( \uniqueId x ->
+          let
+            logicalFirst = min x.marker1Time x.marker2Time
+            logicalLast = max x.marker1Time x.marker2Time
+          in
+            { uniqueId
+            -- abs in case accidentally out of order
+            -- divide by 4.0 to get roughly an extra bar back
+            , appearsAt: Beats $ logicalFirst - (abs (x.marker2Time - x.marker1Time) / 4.0)
+            , hitsLastPositionAt: Beats logicalLast
+            -- ugh, nicer way to do this in case there is no buffer for long press?
+            , tag: x.audioURL
+            , length: x.length
+            , column: int2Column x.column
+            }
+      ) levs
 
 type ScoreMorcel =
   { appearsAt :: Beats
+  , hitsLastPositionAt :: Beats
   , column :: Column
   , length :: Number
-  , tag :: String
+  , tag :: Maybe String
   }
-
-tmpScore0 :: List ScoreMorcel
-tmpScore0 = Nil
-
-tmpScore :: List ScoreMorcel
-tmpScore =
-  -- { column: C11, appearsAt: (Beats (mb2info M1B1).t) + rideStartOffset, length: 1.25, tag: "shakuhachi0" }  :
-  { column: C11, appearsAt: Beats 35.0 + rideStartOffset, length: 1.25, tag: "shakuhachi0" }
-    : { column: C4, appearsAt: Beats 60.0 + rideStartOffset, length: 1.0, tag: "shakuhachi1" }
-    : { column: C11, appearsAt: Beats 80.0 + rideStartOffset, length: 1.25, tag: "shakuhachi2" }
-    : { column: C4, appearsAt: Beats 95.0 + rideStartOffset, length: 1.5, tag: "shakuhachi3" }
-    : { column: C11, appearsAt: Beats 105.0 + rideStartOffset, length: 1.75, tag: "shakuhachi0" }
-    : { column: C4, appearsAt: Beats 110.0 + rideStartOffset, length: 1.5, tag: "shakuhachi1" }
-    : { column: C11, appearsAt: Beats 115.0 + rideStartOffset, length: 1.25, tag: "shakuhachi2" }
-    : { column: C4, appearsAt: Beats 117.0 + rideStartOffset, length: 1.0, tag: "shakuhachi1" }
-    : Nil

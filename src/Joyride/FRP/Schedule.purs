@@ -5,46 +5,76 @@ import Prelude
 import Control.Comonad (extract)
 import Control.Comonad.Cofree (Cofree)
 import Control.Comonad.Cofree.Class (unwrapCofree)
+import Control.Monad.ST.Class (class MonadST, liftST)
+import Control.Monad.ST.Internal as Ref
+import Data.Compactable (compact)
+import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
-import Effect.Ref as Ref
-import FRP.Event (Event, makeEvent, subscribe)
+import Data.Tuple (fst)
+import Data.Tuple.Nested (type (/\), (/\))
+import FRP.Event (AnEvent, makeEvent, mapAccum, subscribe)
 
-fireAndForget :: forall a. Event a -> Event a
+fireAndForget
+  :: forall s m
+   . MonadST s m
+  => AnEvent m ~> AnEvent m
 fireAndForget = oneOff Just
 
-oneOff :: forall a b. (a -> Maybe b) -> Event a -> Event b
-oneOff aToB e = makeEvent \k -> do
-  r <- Ref.new true
-  u <- Ref.new (pure unit)
+oneOff
+  :: forall s m a b
+   . MonadST s m
+  => (a -> Maybe b)
+  -> AnEvent m a
+  -> AnEvent m b
+oneOff f e = compact $ emitUntil identity
+  ( mapAccum
+      ( \a b -> case f a, b of
+          _, true -> true /\ Nothing
+          Nothing, false -> false /\ Just Nothing
+          Just x, false -> true /\ Just (Just x)
+      )
+      e
+      false
+  )
+
+emitUntil
+  :: forall s m a b
+   . MonadST s m
+  => (a -> Maybe b)
+  -> AnEvent m a
+  -> AnEvent m b
+emitUntil aToB e = makeEvent \k -> do
+  r <- liftST $ Ref.new true
+  u <- liftST $ Ref.new (pure unit)
   usu <- subscribe e \n -> do
-    l <- Ref.read r
+    l <- liftST $ Ref.read r
     when l $ do
       case aToB n of
-        Nothing -> pure unit
-        Just b -> do
-          k b
-          Ref.write false r
-          join (Ref.read u)
-          Ref.write (pure unit) u
-  Ref.write usu u
+        Just b -> k b
+        Nothing -> do
+          void $ liftST $ Ref.write false r
+          join (liftST $ Ref.read u)
+          void $ liftST $ Ref.write (pure unit) u
+  void $ liftST $ Ref.write usu u
   pure do
-    join (Ref.read u)
+    join (liftST $ Ref.read u)
 
 scheduleCf
-  :: forall r val
-   . (r -> Cofree ((->) r) val)
-  -> Event r
-  -> Event val
+  :: forall s m r val
+   . MonadST s m
+  => (r -> Cofree ((->) r) val)
+  -> AnEvent m r
+  -> AnEvent m val
 scheduleCf ll e = makeEvent \k -> do
-  r <- Ref.new ll
-  u <- Ref.new (pure unit)
+  r <- liftST $ Ref.new ll
+  u <- liftST $ Ref.new (pure unit)
   usu <- subscribe e \n -> do
-    l <- Ref.read r
+    l <- liftST $ Ref.read r
     let { init, rest } = go n l
     k init
-    Ref.write rest r
-  Ref.write usu u
+    void $ liftST $ Ref.write rest r
+  void $ liftST $ Ref.write usu u
   pure do
-    join (Ref.read u)
+    join (liftST $ Ref.read u)
   where
   go n f = let c = f n in { init: extract c, rest: unwrapCofree c }

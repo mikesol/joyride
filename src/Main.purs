@@ -3,8 +3,8 @@ module Main where
 import Prelude
 
 import Control.Alt ((<|>))
-import Joyride.EmitsTouchEvents (emitsTouchEvents)
 import Control.Parallel (parTraverse, sequential)
+import Control.Promise (Promise, toAffE)
 import Data.Either (Either(..), hush)
 import Data.Filterable (filter)
 import Data.Homogeneous.Record (fromHomogeneous, homogeneous)
@@ -16,19 +16,20 @@ import Data.Newtype (unwrap)
 import Data.Number (pi, pow, sqrt)
 import Data.Profunctor (lcmap)
 import Data.Traversable (for_, oneOf)
-import Data.Tuple (Tuple)
+import Data.Tuple (Tuple(..), uncurry)
 import Data.Tuple.Nested (type (/\), (/\))
 import Data.Unfoldable (replicate)
+import Debug (spy)
 import Deku.Toplevel (runInBody)
 import Effect (Effect)
-import Effect.Aff (Milliseconds, ParAff, forkAff, joinFiber, launchAff_, never)
+import Effect.Aff (Aff, Milliseconds, ParAff, forkAff, joinFiber, launchAff_, never)
 import Effect.Class (liftEffect)
 import Effect.Class.Console as Log
 import Effect.Random as Random
 import Effect.Ref (new)
 import Effect.Ref as Ref
 import FRP.Behavior (Behavior, sample_)
-import FRP.Event (Event, bang, filterMap, folded, subscribe)
+import FRP.Event (Event, bang, create, filterMap, folded, subscribe)
 import FRP.Event as Event
 import FRP.Event.AnimationFrame (animationFrame)
 import FRP.Event.VBus (V)
@@ -36,14 +37,18 @@ import Foreign.Object as Object
 import Heterogeneous.Folding (hfoldlWithIndex)
 import Joyride.App.Toplevel (toplevel)
 import Joyride.Effect.Ref (readFromRecord, writeToRecord)
+import Joyride.EmitsTouchEvents (emitsTouchEvents)
 import Joyride.FRP.Behavior (refToBehavior)
+import Joyride.FRP.Burning (burning)
+import Joyride.FRP.Dedup (dedup)
 import Joyride.FRP.Keypress (posFromKeypress, xForKeyboard)
 import Joyride.FRP.Orientation (hasOrientationPermission, posFromOrientation, xForTouch)
 import Joyride.FRP.SampleOnSubscribe (sampleOnSubscribe)
 import Joyride.Firebase.Analytics (firebaseAnalyticsAff)
-import Joyride.Firebase.Auth (authStateChangedEventWithAnonymousAccountCreation, firebaseAuthAff)
+import Joyride.Firebase.Auth (AuthProvider(..), authStateChangedEventWithAnonymousAccountCreation, firebaseAuthAff, initializeGoogleClient, signOut)
 import Joyride.Firebase.Config (firebaseAppAff)
-import Joyride.Firebase.Firestore (createRideIfNotExistsYet, eventChannelChanges, firestoreDbAff, getPlayerForChannel, sendMyPointsAndPenaltiesToFirebase)
+import Joyride.Firebase.Firestore (createRideIfNotExistsYet, eventChannelChanges, firestoreDbAff, getEventsAff, getPlayerForChannel, getTrack, getTrackAff, sendMyPointsAndPenaltiesToFirebase)
+import Joyride.Firebase.Opaque (FirebaseAuth, Firestore)
 import Joyride.IO.ParFold (ParFold(..))
 import Joyride.Ledger.Basic (basicOutcomeToPointOutcome, beatsToBasicOutcome)
 import Joyride.Ledger.Long (longToPointOutcome)
@@ -63,7 +68,7 @@ import Route (Route(..), route)
 import Routing.Duplex (parse)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
-import Types (BufferName(..), Channel(..), ChannelChooser(..), CubeTexture, CubeTextures(..), HitBasicMe(..), HitBasicOverTheWire(..), HitLeapMe(..), HitLeapOverTheWire(..), HitLongMe(..), HitLongOverTheWire(..), IAm(..), InFlightGameInfo(..), InFlightGameInfo', JMilliseconds(..), KnownPlayers(..), Models(..), Negotiation(..), Penalty(..), Player(..), PlayerAction(..), PlayerPositionsF, PointOutcome, Points(..), Position, ReleaseLongMe(..), ReleaseLongOverTheWire(..), RenderingInfo, RenderingInfo', Ride(..), Shaders, StartStatus(..), Textures(..), ThreeDI, initialPositions, touchPointZ)
+import Types (BufferName(..), Channel(..), ChannelChooser(..), CubeTexture, CubeTextures(..), HitBasicMe(..), HitBasicOverTheWire(..), HitLeapMe(..), HitLeapOverTheWire(..), HitLongMe(..), HitLongOverTheWire(..), IAm(..), InFlightGameInfo(..), InFlightGameInfo', JMilliseconds(..), KnownPlayers(..), Models(..), Negotiation(..), Penalty(..), Player(..), PlayerAction(..), PlayerPositionsF, PointOutcome, Points(..), Position, ReleaseLongMe(..), ReleaseLongOverTheWire(..), RenderingInfo, RenderingInfo', Ride(..), Shaders, StartStatus(..), Textures(..), ThreeDI, Track(..), WantsTutorial', initialPositions, touchPointZ)
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
 import Web.HTML (window)
@@ -103,13 +108,18 @@ renderingInfoMobile =
 
 channelFromRoute :: Route -> Maybe String
 channelFromRoute Home = Nothing
-channelFromRoute (Session session) = Just session
-channelFromRoute (SessionAndPlayer session _) = Just session
+channelFromRoute (Session session _) = Just session
+channelFromRoute (SessionAndPlayer session _ _) = Just session
+
+trackFromRoute :: Route -> Maybe String
+trackFromRoute Home = Nothing
+trackFromRoute (Session _ trackId) = Just trackId
+trackFromRoute (SessionAndPlayer _ trackId _) = Just trackId
 
 playerFromRoute :: Route -> Maybe Player
 playerFromRoute Home = Nothing
-playerFromRoute (Session _) = Nothing
-playerFromRoute (SessionAndPlayer _ player) = Just player
+playerFromRoute (Session _ _) = Nothing
+playerFromRoute (SessionAndPlayer _ _ player) = Just player
 
 type LeapUnsubscribes =
   { p1 :: Effect Unit
@@ -117,6 +127,8 @@ type LeapUnsubscribes =
   , p3 :: Effect Unit
   , p4 :: Effect Unit
   }
+
+foreign import useFirebaseEmulatorInDevMode :: Firestore -> FirebaseAuth -> Effect (Promise Unit)
 
 constructAppendableKnownPlayersFromRide :: Ride -> KnownPlayers
 constructAppendableKnownPlayersFromRide
@@ -178,19 +190,30 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
   fbAnalytics <- firebaseAnalyticsAff fbApp
   firestoreDb <- firestoreDbAff fbApp
   fbAuth <- firebaseAuthAff fbApp
+  toAffE $ useFirebaseEmulatorInDevMode firestoreDb fbAuth
   -- has orientation permission
   -- see if this helps get rid of the screen on iOS for successive plays
   -- if not, get rid of it and just use hasOrientationPermission
   hop <- liftEffect hasOrientationPermission
   liftEffect do
     -- auth
+    signedInNonAnonymously' <- create
+    initializeGoogleClient fbAuth do
+      signedInNonAnonymously'.push true
     -- ONLY CALL THIS LISTENER ONCE, AT THE TOP LEVEL
     -- it is not idempotent across subsequent calls
     -- although for a single subscription it _is_ idempotent
     -- for each thunk
     -- TODO: do we want to do something interesting with unsubscrube?
-    _ <- subscribe (authStateChangedEventWithAnonymousAccountCreation fbAuth) \maybeUser -> do
-      Log.info ("I'm a user: " <> JSON.writeJSON maybeUser)
+    _ <- subscribe (authStateChangedEventWithAnonymousAccountCreation fbAuth) \{ user, provider } -> do
+      Log.info ("I'm a user: " <> JSON.writeJSON user)
+      signedInNonAnonymously'.push case provider of
+        AuthGoogle -> true
+        AuthAnonymous -> false
+    -- in the current architecture,
+    -- we never unsubscribe from this, as it is at the top level
+    -- if moved down to internal scopes, we need to run the unsubscribe when it moves out of scope!
+    signedInNonAnonymously <- burning false signedInNonAnonymously'.event
     -- timing
     myCNow <- cnow
     let mappedCNow = _.time <$> myCNow.cnow
@@ -241,11 +264,12 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
         runInBody
           ( toplevel
               { loaded: loaded.event
-              , ride: do
-                  id <- randId' 6
-                  channelEvent.push (RideChannel id)
+              , ride: \(id /\ track) -> do
+                  cid <- randId' 6
+                  channelEvent.push (RideChannel cid id track)
               , negotiation: negotiation.event
               , tutorial: channelEvent.push TutorialChannel
+              , editor: channelEvent.push EditorChannel
               , isMobile
               , lpsCallback: lowPriorityCb
               , givePermission: orientationPerm.push
@@ -318,87 +342,110 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
           downloadedCubeTextures <- forkAff (fromHomogeneous <$> parTraverse ((CubeTextureLoader.loadAffRecord cldr)) (map unwrap $ homogeneous cubeTextures))
           -- "server" via pubnub
           let
-            proposedChannel' = case hush parsed >>= channelFromRoute of
-              Nothing -> NoChannel
-              Just x -> RideChannel x
+            proposedChannel'' = do
+              res <- hush parsed
+              Tuple <$> channelFromRoute res <*> trackFromRoute res
           let galaxyAttributes = makeGalaxyAttributes threeDI.instancedBufferAttribute
+          let
+            buildWantsTutorial :: Aff WantsTutorial'
+            buildWantsTutorial = do
+              knownPlayers :: Ref.Ref KnownPlayers <- liftEffect $ Ref.new $ KnownPlayers Map.empty
+              knownPlayersBus <- liftEffect Event.create
+              ---- TODO: this is a copy/paste from below with the pubnub taken out
+              ---- refactor to combine!!!
+              xPosE <- liftEffect $ if isMobile then xForTouch mappedCNow w Player4 mempty else xForKeyboard mappedCNow w Player4 mempty
+              -- ignore subscription
+              _ <- liftEffect $ subscribe xPosE \xp -> writeToRecord (Proxy :: _ "p4x") xp playerPositions
+              -- deal with incoming basics
+              _ <- liftEffect $ subscribe pushBasic.event \(HitBasicMe bt) -> do
+                let outcome = basicOutcomeToPointOutcome $ beatsToBasicOutcome bt.deltaBeats
+                kp <- updateKnownPlayerPoints Player4 outcome knownPlayers
+                knownPlayersBus.push kp
+              _ <- liftEffect $ subscribe pushReleaseLong.event \(ReleaseLongMe rl) -> do
+                let outcome = longToPointOutcome rl.distance rl.pctConsumed
+                kp <- updateKnownPlayerPoints Player4 outcome knownPlayers
+                knownPlayersBus.push kp
+              -- deal with incoming leaps
+              leapUnsubscribesRef <- liftEffect $ Ref.new (mempty :: LeapUnsubscribes)
+              _ <- liftEffect $ subscribe pushLeap.event \(HitLeapMe bt) -> do
+                magicLeaps leapUnsubscribesRef mappedCNow playerPositions renderingInfoBehavior { player: Player4, newPosition: bt.newPosition }
+              ---- end TODO
+              let
+                -- TODO: this is only necessary for the tutorial, not the preview mode
+                -- we can make a flag to get rid of this stuff when it's not needed
+                bufferNames :: List (BufferName /\ String)
+                bufferNames = (BufferName "tutorial" /\ "tutorial")
+                  : (BufferName "shakuhachi0" /\ "shakuhachi0")
+                  : (BufferName "shakuhachi1" /\ "shakuhachi1")
+                  : (BufferName "shakuhachi2" /\ "shakuhachi2")
+                  : (BufferName "shakuhachi3" /\ "shakuhachi3")
+                  : (BufferName "floorTom" /\ "floorTom")
+                  : (BufferName "floorTom" /\ "floorTom")
+                  : (BufferName "elvedenHallLordsCloakroom" /\ "elvedenHallLordsCloakroom")
+                  : Nil
+              let n2oh = take 300 bufferNames
+              let n2ot = drop 300 bufferNames
+              dlInChunks audio 100 n2oh ctx' soundObj
+              liftEffect $ loaded.push true
+              dlInChunks audio 100 n2ot ctx' soundObj
+              myTextures <- joinFiber downloadedTextures
+              myGLTFs <- joinFiber downloadedGLTFs
+              myCubeTextures <- joinFiber downloadedCubeTextures
+              liftEffect do
+                longVerb <- fromMaybe silence <<< Object.lookup "elvedenHallLordsCloakroom" <$> Ref.read soundObj
+                -- resize
+                initialDims <- { iw: _, ih: _ }
+                  <$> (Int.toNumber <$> innerWidth w)
+                  <*> (Int.toNumber <$> innerHeight w)
+                pure
+                  { player: Player4
+                  , threeDI
+                  , initialDims
+                  , shaders
+                  , galaxyAttributes
+                  , cNow: mappedCNow
+                  , models: Models myGLTFs
+                  , textures: Textures myTextures
+                  , cubeTextures: CubeTextures myCubeTextures
+                  , longVerb
+                  , playerStatus:
+                      let
+                        e :: Event KnownPlayers
+                        e = sampleOnSubscribe (refToBehavior knownPlayers) <|> knownPlayersBus.event
+                      in
+                        -- folded because, by design, we always know which value "wins"
+                        -- in player status
+                        -- so we can always fold with the previous one in case there's a
+                        -- regression in the incoming value (ie packets out of order)
+                        folded e
+                  , optMeIn: \ms -> do
+                      players <- Ref.modify (KnownPlayers (Map.singleton Player4 (HasStarted $ InFlightGameInfo { startedAt: ms, points: Points 0.0, penalties: Penalty 0.0, name: Nothing })) <> _) knownPlayers
+                      knownPlayersBus.push players
+                  }
           _ <- liftEffect $ subscribe channelEvent.event \chan -> launchAff_ $ do
             Log.info ("received channel " <> show chan)
             liftEffect $ join $ Ref.read channelUnsub
             case chan of
+              EditorChannel -> do
+                liftEffect $ negotiation.push StartingNegotiation
+                wt <- buildWantsTutorial
+                liftEffect $ negotiation.push $ OpenEditor
+                  { oe:
+                      { fbAuth
+                      , firestoreDb
+                      , goBack: do
+                          -- clear the channel
+                          channelEvent.push NoChannel
+                      -- we throw in a dedup just cuz we only ever want to track actual changes
+                      -- if random stuff fires a lot, the event should stillb e idempotent
+                      , signedInNonAnonymously: dedup signedInNonAnonymously.event
+                      }
+                  , wt
+                  }
               TutorialChannel -> do
                 liftEffect $ negotiation.push StartingNegotiation
-                knownPlayers :: Ref.Ref KnownPlayers <- liftEffect $ Ref.new $ KnownPlayers Map.empty
-                knownPlayersBus <- liftEffect Event.create
-                ---- TODO: this is a copy/paste from below with the pubnub taken out
-                ---- refactor to combine!!!
-                xPosE <- liftEffect $ if isMobile then xForTouch mappedCNow w Player4 mempty else xForKeyboard mappedCNow w Player4 mempty
-                -- ignore subscription
-                _ <- liftEffect $ subscribe xPosE \xp -> writeToRecord (Proxy :: _ "p4x") xp playerPositions
-                -- deal with incoming basics
-                _ <- liftEffect $ subscribe pushBasic.event \(HitBasicMe bt) -> do
-                  let outcome = basicOutcomeToPointOutcome $ beatsToBasicOutcome bt.deltaBeats
-                  kp <- updateKnownPlayerPoints Player4 outcome knownPlayers
-                  knownPlayersBus.push kp
-                _ <- liftEffect $ subscribe pushReleaseLong.event \(ReleaseLongMe rl) -> do
-                  let outcome = longToPointOutcome rl.distance rl.pctConsumed
-                  kp <- updateKnownPlayerPoints Player4 outcome knownPlayers
-                  knownPlayersBus.push kp
-                -- deal with incoming leaps
-                leapUnsubscribesRef <- liftEffect $ Ref.new (mempty :: LeapUnsubscribes)
-                _ <- liftEffect $ subscribe pushLeap.event \(HitLeapMe bt) -> do
-                  magicLeaps leapUnsubscribesRef mappedCNow playerPositions renderingInfoBehavior { player: Player4, newPosition: bt.newPosition }
-                ---- end TODO
-                let
-                  bufferNames :: List (BufferName /\ String)
-                  bufferNames = (BufferName "tutorial" /\ "tutorial")
-                    : (BufferName "shakuhachi0" /\ "shakuhachi0")
-                    : (BufferName "shakuhachi1" /\ "shakuhachi1")
-                    : (BufferName "shakuhachi2" /\ "shakuhachi2")
-                    : (BufferName "shakuhachi3" /\ "shakuhachi3")
-                    : (BufferName "floorTom" /\ "floorTom")
-                    : (BufferName "floorTom" /\ "floorTom")
-                    : (BufferName "elvedenHallLordsCloakroom" /\ "elvedenHallLordsCloakroom")
-                    : Nil
-                let n2oh = take 300 bufferNames
-                let n2ot = drop 300 bufferNames
-                dlInChunks audio 100 n2oh ctx' soundObj
-                liftEffect $ loaded.push true
-                dlInChunks audio 100 n2ot ctx' soundObj
-                myTextures <- joinFiber downloadedTextures
-                myGLTFs <- joinFiber downloadedGLTFs
-                myCubeTextures <- joinFiber downloadedCubeTextures
-                liftEffect do
-                  longVerb <- fromMaybe silence <<< Object.lookup "elvedenHallLordsCloakroom" <$> Ref.read soundObj
-                  -- resize
-                  initialDims <- { iw: _, ih: _ }
-                    <$> (Int.toNumber <$> innerWidth w)
-                    <*> (Int.toNumber <$> innerHeight w)
-                  negotiation.push $ WantsTutorial
-                    { player: Player4
-                    , threeDI
-                    , initialDims
-                    , shaders
-                    , galaxyAttributes
-                    , cNow: mappedCNow
-                    , models: Models myGLTFs
-                    , textures: Textures myTextures
-                    , cubeTextures: CubeTextures myCubeTextures
-                    , longVerb
-                    , playerStatus:
-                        let
-                          e :: Event KnownPlayers
-                          e = sampleOnSubscribe (refToBehavior knownPlayers) <|> knownPlayersBus.event
-                        in
-                          -- folded because, by design, we always know which value "wins"
-                          -- in player status
-                          -- so we can always fold with the previous one in case there's a
-                          -- regression in the incoming value (ie packets out of order)
-                          folded e
-                    , optMeIn: \ms -> do
-                        players <- Ref.modify (KnownPlayers (Map.singleton Player4 (HasStarted $ InFlightGameInfo { startedAt: ms, points: Points 0.0, penalties: Penalty 0.0, name: Nothing })) <> _) knownPlayers
-                        knownPlayersBus.push players
-                    }
+                wt <- buildWantsTutorial
+                liftEffect $ negotiation.push $ WantsTutorial wt
               NoChannel -> do
                 myGLTFs <- joinFiber downloadedGLTFs
                 myCubeTextures <- joinFiber downloadedCubeTextures
@@ -409,12 +456,16 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                   ( GetRulesOfGame
                       { threeDI
                       , initialDims
+                      , firestoreDb
                       , models: Models myGLTFs
+                      , signOut: launchAff_ do
+                          toAffE $ signOut fbAuth (pure unit)
                       , cubeTextures: CubeTextures myCubeTextures
                       , cNow: mappedCNow
+                      , signedInNonAnonymously: signedInNonAnonymously.event
                       }
                   )
-              RideChannel proposedChannel -> do
+              RideChannel proposedChannel trackId track -> do
                 -- maybe is not ideal here
                 -- what it means semantically is "player exists but has not started"
                 -- a new type for this?
@@ -572,14 +623,16 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                                 }
                             )
                     let
+                      TrackV0 tv0 = track
+
                       bufferNames :: List (BufferName /\ String)
-                      bufferNames = (BufferName "butterflies" /\ "butterflies")
-                        : Nil
+                      bufferNames = (BufferName tv0.url /\ tv0.url) : Nil
                     let n2oh = take 300 bufferNames
                     let n2ot = drop 300 bufferNames
-                    dlInChunks audio 100 n2oh ctx' soundObj
+                    let dumb = Object.fromFoldable (map (\(BufferName n /\ s) -> n /\ s) bufferNames)
+                    dlInChunks dumb 100 n2oh ctx' soundObj
                     liftEffect $ loaded.push true
-                    dlInChunks audio 100 n2ot ctx' soundObj
+                    dlInChunks dumb 100 n2ot ctx' soundObj
                     playerName <- liftEffect $ LS.getItem LocalStorage.playerName stor
                     myTextures <- joinFiber downloadedTextures
                     myGLTFs <- joinFiber downloadedGLTFs
@@ -587,8 +640,12 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                     initialDims <- liftEffect $ { iw: _, ih: _ }
                       <$> (Int.toNumber <$> innerWidth w)
                       <*> (Int.toNumber <$> innerHeight w)
+                    ets <- getEventsAff firestoreDb trackId
                     liftEffect $ negotiation.push $ Success
                       { player: myPlayer
+                      , trackId
+                      , track
+                      , events: map _.data ets
                       , initialDims
                       , threeDI
                       , playerName
@@ -625,6 +682,11 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
           -- if we need permissions, ask for them first
           _ <- liftEffect $
             when hop (negotiation.push NeedsOrientation)
+          proposedChannel' <- case proposedChannel'' of
+            Nothing -> pure NoChannel
+            Just (x /\ y) -> do
+              track <- getTrackAff firestoreDb y
+              pure $ maybe NoChannel (RideChannel x y) track
           _ <- liftEffect $
             subscribe (filter identity $ oneOf [ bang (not hop), orientationPerm.event ]) \_ -> channelEvent.push proposedChannel'
           _ <- liftEffect $

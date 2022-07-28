@@ -111,6 +111,7 @@ tutorialLeaps makeLeaps = fixed
                     }
                 , uniqueId: input.uniqueId
                 , newPosition: input.position
+                , hitsLastPositionAt: input.appearsAt + Beats 5.0
                 , text: case input.position of
                   Position1 -> "1"
                   Position2 -> "2"
@@ -139,6 +140,7 @@ tutorialLeaps makeLeaps = fixed
                     }
                 , uniqueId: input.uniqueId
                 , newPosition: input.position
+                , hitsLastPositionAt: input.appearsAt + Beats 5.0
                 }
             )
         )

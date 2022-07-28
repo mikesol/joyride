@@ -4,10 +4,18 @@ module Types
   , Shaders
   , Shader
   , GalaxyAttributes
+  , ToplevelInfo
+  , BasicEventV0'
+  , LeapEventV0'
+  , LongEventV0'
   , RenderingInfo
   , ChannelChooser(..)
   , Ride(..)
   , RideV0'
+  , Track(..)
+  , TrackV0'
+  , Event_(..)
+  , EventV0(..)
   , Version
   , Models(..)
   , defaultRide
@@ -27,6 +35,7 @@ module Types
   , Column(..)
   , Success'
   , WantsTutorial'
+  , OpenEditor'
   , normalizedColumn
   , Orientation
   , Claim(..)
@@ -42,6 +51,7 @@ module Types
   , JMilliseconds(..)
   , Seconds(..)
   , RateInfo
+  , int2Column
   , beatToTime
   , allPlayers
   , allPositions
@@ -101,10 +111,12 @@ import Data.Time.Duration (Milliseconds)
 import Data.Tuple (Tuple(..))
 import Data.Tuple.Nested (type (/\))
 import Effect (Effect)
+import Effect.Ref as Ref
 import FRP.Behavior (Behavior)
 import FRP.Event (EventIO, Event)
 import Foreign (ForeignError(..), fail)
 import Foreign.Object as Object
+import Joyride.Firebase.Opaque (FirebaseAuth, Firestore)
 import Joyride.Ocarina (AudibleChildEnd, AudibleEnd)
 import Ocarina.Math (calcSlope)
 import Ocarina.WebAPI (BrowserAudioBuffer)
@@ -120,6 +132,7 @@ import Rito.Vector3 (Vector3')
 import Simple.JSON (undefined, writeJSON)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
+import Web.HTML.Window (RequestIdleCallbackId, Window)
 
 type CanvasInfo = { x :: Number, y :: Number } /\ Number
 
@@ -267,6 +280,24 @@ normalizedColumn C12 = 12.0 / 16.0
 normalizedColumn C13 = 13.0 / 16.0
 normalizedColumn C14 = 14.0 / 16.0
 normalizedColumn C15 = 15.0 / 16.0
+
+int2Column :: Int -> Column
+int2Column 0 = C0
+int2Column 1 = C1
+int2Column 2 = C2
+int2Column 3 = C3
+int2Column 4 = C4
+int2Column 5 = C5
+int2Column 6 = C6
+int2Column 7 = C7
+int2Column 8 = C8
+int2Column 9 = C9
+int2Column 10 = C10
+int2Column 11 = C11
+int2Column 12 = C12
+int2Column 13 = C13
+int2Column 14 = C14
+int2Column _ = C15
 
 -- | Beats, or a temporal unit based on seconds modulated by a tempo.
 newtype Beats = Beats Number
@@ -588,6 +619,7 @@ derive instance Newtype HitBasicVisualForLabel _
 type MakeLong r =
   ( column :: Column
   , appearsAt :: Beats
+  , hitsLastPositionAt :: Beats
   , uniqueId :: Int
   , length :: Number
   , sound :: { on :: Event RateInfo, off :: Event RateInfo } -> AudibleEnd
@@ -737,6 +769,7 @@ derive instance Newtype ReleaseLongVisualForLabel _
 type MakeLeap r =
   ( column :: Column
   , appearsAt :: Beats
+  , hitsLastPositionAt :: Beats
   , uniqueId :: Int
   , sound :: Event RateInfo -> AudibleEnd
   , newPosition :: Position
@@ -748,6 +781,7 @@ type MakeLeapWord r =
   , text :: String
   , column :: Column
   , appearsAt :: Beats
+  , hitsLastPositionAt :: Beats
   , uniqueId :: Int
   , newPosition :: Position
   | MakeLeaps r
@@ -842,10 +876,14 @@ data Negotiation
       { cubeTextures :: CubeTextures CTL.CubeTexture
       , models :: Models GLTFLoader.GLTF
       , initialDims :: WindowDims
+      , signOut :: Effect Unit
+      , firestoreDb :: Firestore
       , threeDI :: ThreeDI
       , cNow :: Effect Milliseconds
+      , signedInNonAnonymously :: Event Boolean
       }
   | WantsTutorial WantsTutorial'
+  | OpenEditor { oe :: OpenEditor', wt :: WantsTutorial' }
   | StartingNegotiation
   | RoomIsFull
   | GameHasStarted
@@ -871,18 +909,28 @@ instance JSON.WriteForeign StartStatus where
 type Success' =
   { player :: Player
   , shaders :: Shaders
+  , trackId :: String
+  , track :: Track
+  , events :: Array Event_
   , galaxyAttributes :: GalaxyAttributes
   , playerName :: Maybe String
   , channelName :: String
   , initialDims :: WindowDims
   , cNow :: Effect Milliseconds
   , threeDI :: ThreeDI
-  , pubNubEvent :: Event PlayerAction
   , models :: Models GLTFLoader.GLTF
   , textures :: Textures Texture
   , cubeTextures :: CubeTextures CTL.CubeTexture
   , optMeIn :: JMilliseconds -> Maybe String -> Effect Unit
+  , pubNubEvent :: Event PlayerAction
   , playerStatus :: Event KnownPlayers
+  }
+
+type OpenEditor' =
+  { fbAuth :: FirebaseAuth
+  , goBack :: Effect Unit
+  , signedInNonAnonymously :: Event Boolean
+  , firestoreDb :: Firestore
   }
 
 type WantsTutorial' =
@@ -1055,6 +1103,15 @@ type GalaxyAttributes =
 
 data Version (i :: Int) = Version Int
 
+instance Reflectable i Int => Show (Version i) where
+  show _ = "Version " <> show (reflectType (Proxy :: _ i))
+
+instance Semigroup (Version i) where
+  append a _ = a
+
+instance Reflectable i Int => Monoid (Version i) where
+  mempty = Version (reflectType (Proxy :: _ i))
+
 instance Reflectable i Int => JSON.ReadForeign (Version i) where
   readImpl i' = do
     i <- JSON.readImpl i'
@@ -1088,6 +1145,74 @@ type RideV0' =
   , open :: Boolean
   , version :: Version 0
   }
+
+type TrackV0' =
+  { url :: String
+  , private :: Boolean
+  , title :: Maybe String
+  , owner :: String
+  , version :: Version 0
+  }
+
+instance JSON.ReadForeign EventV0 where
+  readImpl i = do
+    { _type } :: { _type :: String } <- JSON.readImpl i
+    case _type of
+      "Basic" -> BasicEventV0 <$> JSON.readImpl i
+      "Leap" -> LeapEventV0 <$> JSON.readImpl i
+      "Long" -> LongEventV0 <$> JSON.readImpl i
+      _ -> fail (ForeignError $ "Could not parse: " <> JSON.writeJSON i)
+
+instance JSON.WriteForeign EventV0 where
+  writeImpl (BasicEventV0 x) = JSON.writeImpl $ union { _type: "Basic" } x
+  writeImpl (LeapEventV0 x) = JSON.writeImpl $ union { _type: "Leap" } x
+  writeImpl (LongEventV0 x) = JSON.writeImpl $ union { _type: "Long" } x
+
+data Track = TrackV0 TrackV0'
+
+instance Show Track where
+  show (TrackV0 t) = "TrackV0 <" <> show t <> ">"
+
+data Event_ = EventV0 EventV0
+
+type BasicEventV0' =
+  { marker1Time :: Number
+  , marker1AudioURL :: Maybe String
+  , marker2Time :: Number
+  , marker2AudioURL :: Maybe String
+  , marker3Time :: Number
+  , marker3AudioURL :: Maybe String
+  , marker4Time :: Number
+  , marker4AudioURL :: Maybe String
+  , column :: Int
+  , name :: Maybe String
+  , version :: Version 0
+  }
+
+type LeapEventV0' =
+  { marker1Time :: Number
+  , marker2Time :: Number
+  , audioURL :: Maybe String
+  , column :: Int
+  , position :: Position
+  , name :: Maybe String
+  , version :: Version 0
+  }
+
+type LongEventV0' =
+  { marker1Time :: Number
+  , marker2Time :: Number
+  , audioURL :: Maybe String
+  , length :: Number
+  , column :: Int
+  , name :: Maybe String
+  , version :: Version 0
+  }
+
+data EventV0
+  = BasicEventV0 BasicEventV0'
+  | LeapEventV0 LeapEventV0'
+  | LongEventV0 LongEventV0'
 
 defaultRide :: Ride
 defaultRide = RideV0
@@ -1124,7 +1249,19 @@ instance JSON.ReadForeign Ride where
 instance JSON.WriteForeign Ride where
   writeImpl (RideV0 i) = JSON.writeImpl i
 
-data ChannelChooser = NoChannel | RideChannel String | TutorialChannel
+instance JSON.ReadForeign Track where
+  readImpl i = TrackV0 <$> (JSON.readImpl i)
+
+instance JSON.WriteForeign Track where
+  writeImpl (TrackV0 i) = JSON.writeImpl i
+
+instance JSON.ReadForeign Event_ where
+  readImpl i = EventV0 <$> (JSON.readImpl i)
+
+instance JSON.WriteForeign Event_ where
+  writeImpl (EventV0 i) = JSON.writeImpl i
+
+data ChannelChooser = NoChannel | RideChannel String String Track | TutorialChannel | EditorChannel
 
 derive instance Generic ChannelChooser _
 instance Show ChannelChooser where
@@ -1133,3 +1270,28 @@ instance Show ChannelChooser where
 newtype Models s = Models { spaceship :: s }
 
 derive instance Newtype (Models s) _
+
+type ToplevelInfo =
+  { loaded :: Event Boolean
+  , negotiation :: Event Negotiation
+  , isMobile :: Boolean
+  , tutorial :: Effect Unit
+  , editor :: Effect Unit
+  , ride :: (String /\ Track) -> Effect Unit
+  , lpsCallback :: JMilliseconds -> Effect Unit -> Effect Unit
+  , playerPositions :: Behavior PlayerPositionsF
+  , resizeE :: Event WindowDims
+  , renderingInfo :: Behavior RenderingInfo
+  , goHome :: Effect Unit
+  , givePermission :: Boolean -> Effect Unit
+  , pushBasic :: EventIO HitBasicMe
+  , pushLeap :: EventIO HitLeapMe
+  , pushHitLong :: EventIO HitLongMe
+  , pushReleaseLong :: EventIO ReleaseLongMe
+  , debug :: Boolean
+  , silence :: BrowserAudioBuffer
+  , icid :: Ref.Ref (Maybe RequestIdleCallbackId)
+  , wdw :: Window
+  , unschedule :: Ref.Ref (Map.Map JMilliseconds (Effect Unit))
+  , soundObj :: Ref.Ref (Object.Object BrowserAudioBuffer)
+  }

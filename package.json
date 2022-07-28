@@ -4,7 +4,7 @@
 	"description": "",
 	"main": "index.js",
 	"scripts": {
-		"start": "spago build && webpack serve --open",
+		"start": "spago build && webpack serve --open --port 8081",
 		"start:force-4": "spago build && FORCE_4=true webpack serve --open",
 		"start:no-gui": "spago build && LIL_GUI=false webpack serve --open",
 		"build": "npm run build-ps && rm -rf dist && mkdir dist && LIL_GUI=false FORCE_4=false webpack --mode=production",
@@ -27,6 +27,8 @@
 		"postcss-preset-env": "^7.5.0",
 		"purescript": "^0.15.2",
 		"purs-tidy": "^0.8.0",
+		"sass": "^1.54.0",
+		"sass-loader": "^13.0.2",
 		"spago": "^0.20.8",
 		"style-loader": "^3.3.1",
 		"tailwind": "^4.0.0",
@@ -39,11 +41,17 @@
 		"@capacitor/android": "^3.6.0",
 		"@capacitor/core": "^3.6.0",
 		"@capacitor/ios": "^3.6.0",
+		"filestack-js": "^3.25.0",
 		"firebase": "^9.8.3",
+		"google-one-tap": "^1.0.6",
 		"lil-gui": "^0.16.1",
 		"pubnub": "^5.0.1",
 		"screenfull": "^6.0.1",
 		"three": "^0.140.0",
-		"uuid": "^8.3.2"
+		"tone": "^14.7.77",
+		"tw-elements": "^1.0.0-alpha12",
+		"unique-names-generator": "^4.7.1",
+		"uuid": "^8.3.2",
+		"wavesurfer.js": "^6.2.0"
 	}
 }

@@ -101,6 +101,7 @@ tutorialLongs makeLongs = toScene
                     , buffer: misbehavior (Object.lookup input.tag) makeLongs.buffers
                     }
                 , uniqueId: input.uniqueId
+                , hitsLastPositionAt: input.appearsAt + Beats 5.0
                 }
             )
         )
@@ -129,7 +130,7 @@ tmpScore0 = Nil
 tmpScore :: List ScoreMorcel
 tmpScore =
   -- { column: C10, appearsAt: (Beats (mb2info M1B1).t) + tutorialStartOffset, length: 1.25, tag: "shakuhachi0" }  :
-     { column: C10, appearsAt: (Beats (mb2info M29B1).t) + tutorialStartOffset, length: 1.25, tag: "shakuhachi0" }
+  { column: C10, appearsAt: (Beats (mb2info M29B1).t) + tutorialStartOffset, length: 1.25, tag: "shakuhachi0" }
     : { column: C2, appearsAt: (Beats (mb2info M33B1).t) + tutorialStartOffset, length: 1.0, tag: "shakuhachi1" }
     : { column: C10, appearsAt: (Beats (mb2info M36B1).t) + tutorialStartOffset, length: 1.25, tag: "shakuhachi2" }
     : { column: C2, appearsAt: (Beats (mb2info M39B1).t) + tutorialStartOffset, length: 1.5, tag: "shakuhachi3" }

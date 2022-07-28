@@ -34,10 +34,11 @@ graph
      , rateInfo :: Event RateInfo
      , buffers :: Behavior (Object.Object BrowserAudioBuffer)
      , longVerb :: BrowserAudioBuffer
+     , bgtrack :: String
      , silence :: BrowserAudioBuffer
      }
   -> Array (Audible D2 lock payload)
-graph { basics, leaps, longs, longVerb, rateInfo, silence, buffers } =
+graph { basics, leaps, longs, longVerb, rateInfo, silence, buffers, bgtrack } =
   [ gain_ 1.0
       [ dyn ((map <<< map) (\(AudibleChildEnd e) -> e) basics)
       ]
@@ -50,7 +51,7 @@ graph { basics, leaps, longs, longVerb, rateInfo, silence, buffers } =
   , gain_ 1.0
       [ playBuf { buffer: silence }
           ( oneOf
-              [ sample_ buffers (bang unit) <#> Object.lookup "tutorial" >>> case _ of
+              [ sample_ buffers (bang unit) <#> Object.lookup bgtrack >>> case _ of
                   Just b -> buffer b
                   Nothing -> buffer silence
               , oneOff

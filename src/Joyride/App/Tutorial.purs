@@ -19,7 +19,6 @@ import Data.String as String
 import Data.Time.Duration (Milliseconds(..))
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..), fst, snd)
-import Debug (spy)
 import Deku.Attribute ((:=))
 import Deku.Control (switcher, text_)
 import Deku.Core (class Korok, Domable, Nut, bussed, envy, vbussed)
@@ -31,7 +30,7 @@ import Effect.Now as LocalNow
 import Effect.Ref as Ref
 import Effect.Timer (clearInterval, setInterval)
 import FRP.Behavior (Behavior, sampleBy)
-import FRP.Event (Event, EventIO, bang, filterMap, fromEvent, hot, memoize, subscribe)
+import FRP.Event (Event, EventIO, bang, filterMap, fromEvent, toEvent, hot, memoize, subscribe)
 import FRP.Event.AnimationFrame (animationFrame)
 import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V)
@@ -65,7 +64,7 @@ twoPi = 2.0 * pi :: Number
 
 data FadeInstruction = FadeIn | FadeOut | FadeInOut | NoFade
 
-data CenterState = Intro | Tiles | Tilt | Leap | Long | End | Empty
+data CenterState = Preview | Intro | Tiles | Tilt | Leap | Long | End | Empty
 
 newtype Unsubscribe = Unsubscribe (Effect Unit)
 
@@ -94,6 +93,8 @@ type TutorialScore =
   { basicE :: forall lock payload. { | MakeBasics () } -> ASceneful lock payload
   , leapE :: forall lock payload. { | MakeLeaps () } -> ASceneful lock payload
   , longE :: forall lock payload. { | MakeLongs () } -> ASceneful lock payload
+  , bgtrack :: String
+  , isPreviewPage :: Boolean
   }
 
 -- effect unit is unsub
@@ -165,7 +166,7 @@ tutorial
                         off
                     ]
                 )
-                [ text_ "Exit tutorial" ]
+                [ text_ (if tscore.isPreviewPage then "Exit preview" else "Exit tutorial") ]
             ]
           startButton aStuff = do
             let
@@ -219,13 +220,14 @@ tutorial
                   iu0 <- subscribe withRate.event push.rateInfo
                   st <- run2 ctx
                     ( graph
-                        { basics: event.basicAudio
-                        , leaps: event.leapAudio
-                        , longs: event.longAudio
+                        { basics: toEvent event.basicAudio
+                        , leaps: toEvent event.leapAudio
+                        , longs: toEvent event.longAudio
                         , rateInfo: _.rateInfo <$> aStuff
                         , buffers: refToBehavior tli.soundObj
                         , silence: tli.silence
                         , longVerb: longVerb
+                        , bgtrack: tscore.bgtrack
                         }
                     )
                   push.iAmReady
@@ -240,7 +242,7 @@ tutorial
                     )
                   t :: JMilliseconds <- coerce <$> cNow
                   optMeIn t
-            tutorialCenterMatter (bang Intro <|> event.tutorialCenterState) push.tutorialCenterState { startCallback }
+            tutorialCenterMatter (bang (if tscore.isPreviewPage then Preview else Intro) <|> event.tutorialCenterState) push.tutorialCenterState { startCallback }
         envy $ fromEvent $ memoize
           ( makeAnimatedStuff
               ( biSampleOn
@@ -257,7 +259,7 @@ tutorial
                               )
                       )
                   )
-                  (event.rateInfo <#> \ri { startTime, myTime } -> adjustRateInfoBasedOnActualStart myTime startTime ri)
+                  (toEvent event.rateInfo <#> \ri { startTime, myTime } -> adjustRateInfoBasedOnActualStart myTime startTime ri)
               )
           )
           \animatedStuff -> D.div_
@@ -268,7 +270,7 @@ tutorial
                     -- fromEvent because playerStatus is effectful
 
                     [ D.div (bang $ D.Class := "mx-2 mt-2 ")
-                        [ fromEvent (biSampleOn (initializeWithEmpty event.iAmReady) (map Tuple playerStatus))
+                        [ fromEvent (biSampleOn (toEvent (initializeWithEmpty event.iAmReady)) (map Tuple playerStatus))
                             -- we theoretically don't need to dedup because
                             -- the button should never redraw once we've started
                             -- if there's flicker, dedup
@@ -278,7 +280,7 @@ tutorial
                         ]
                     , D.div_
                         [ envy $ map stopButton
-                            ( fromEvent
+                            (
                                 ( map
                                     ( \(Unsubscribe u) -> u *> tli.goHome
                                     )
@@ -300,8 +302,8 @@ tutorial
                         , bang $ D.Self := HTMLCanvasElement.fromElement >>> traverse_
                             ( runThree <<<
                                 { threeDI: threeDI
-                                , css2DRendererElt: event.render2DElement
-                                , css3DRendererElt: event.render3DElement
+                                , css2DRendererElt: toEvent event.render2DElement
+                                , css3DRendererElt: toEvent event.render3DElement
                                 , isMobile: tli.isMobile
                                 , galaxyAttributes
                                 , shaders
@@ -439,6 +441,9 @@ tutorial
       }
 
   tutorialCenterMatter currentState pushCurrentState { startCallback } = currentState # switcher \cs -> case cs of
+    Preview -> tutorialCenterMatterFrame "Preview your ride!" Nothing false "Start" FadeOut
+      ( FullScreen.fullScreenFlow startCallback)
+      pushCurrentState
     Intro -> tutorialCenterMatterFrame "Welcome to Joyride!" Nothing false "Start Tutorial" FadeOut
       ( FullScreen.fullScreenFlow
           ( startCallback *> launchAff_

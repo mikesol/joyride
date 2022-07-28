@@ -1,19 +1,23 @@
 module Joyride.Firebase.Auth
   ( authStateChangedEventWithAnonymousAccountCreation
   , firebaseAuthAff
+  , currentUser
   , User(..)
-  , FirebaseAuth
+  , signOut
   , UserMetadata
   , MultiFactorUser
   , MultiFactorInfo
   , UserInfo
+  , signInWithGoogle
+  , initializeGoogleClient
+  , AuthProvider(..)
   ) where
 
 import Prelude
 
 import Control.Promise (Promise, toAffE)
 import Data.Either (Either(..))
-import Data.Maybe (Maybe)
+import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype)
 import Effect (Effect)
 import Effect.Aff (Aff, Error, error, launchAff_, throwError)
@@ -22,7 +26,7 @@ import Effect.Class.Console as Log
 import Effect.Ref as Ref
 import FRP.Event (Event, makeEvent)
 import Foreign (Foreign)
-import Joyride.Firebase.Config (FirebaseApp)
+import Joyride.Firebase.Opaque (FirebaseApp, FirebaseAuth)
 import Simple.JSON as JSON
 
 type MultiFactorInfo =
@@ -50,6 +54,10 @@ type UserInfo =
   , uid :: String
   }
 
+foreign import currentUserImpl :: Maybe User -> (User -> Maybe User) -> FirebaseAuth -> Effect (Maybe User)
+
+currentUser = currentUserImpl Nothing Just :: FirebaseAuth -> Effect (Maybe User)
+
 newtype User = User
   { displayName :: Maybe String
   , email :: Maybe String
@@ -70,27 +78,33 @@ derive instance Newtype User _
 derive newtype instance JSON.ReadForeign User
 derive newtype instance JSON.WriteForeign User
 
-data FirebaseAuth
-
 foreign import firebaseAuth :: FirebaseApp -> Effect (Promise FirebaseAuth)
 
 firebaseAuthAff :: FirebaseApp -> Aff FirebaseAuth
 firebaseAuthAff = toAffE <<< firebaseAuth
 
-foreign import onAuthStateChanged :: (Error -> Effect Unit) -> (Foreign -> Effect Unit) -> FirebaseAuth -> Effect (Promise (Effect Unit))
+foreign import initializeGoogleClient :: FirebaseAuth -> Effect Unit -> Effect Unit
+foreign import signInWithGoogle :: Effect Unit -> Effect Unit
+foreign import signOut :: FirebaseAuth -> Effect Unit -> Effect (Promise Unit)
 
-authStateChangedEventWithAnonymousAccountCreation :: FirebaseAuth -> Event User
+foreign import onAuthStateChanged :: (Error -> Effect Unit) -> (Foreign -> Effect Unit) -> (Foreign -> Effect Unit) -> FirebaseAuth -> Effect (Promise (Effect Unit))
+
+data AuthProvider = AuthAnonymous | AuthGoogle
+
+authStateChangedEventWithAnonymousAccountCreation :: FirebaseAuth -> Event { user :: User, provider :: AuthProvider }
 authStateChangedEventWithAnonymousAccountCreation auth = makeEvent \k -> do
   unsub <- Ref.new (pure unit)
+  let
+    authFlow provider u = do
+      let user' = JSON.read u
+      case user' of
+        Left e -> do
+          throwError (error $ (show (JSON.writeJSON u) <> " " <> show e))
+        Right user -> k { user, provider }
   launchAff_ do
     us <- toAffE $ onAuthStateChanged (show >>> Log.error)
-      ( \u -> do
-          let user' = JSON.read u
-          case user' of
-            Left e -> do
-              throwError (error $ (show (JSON.writeJSON u) <> " " <> show e))
-            Right user -> k user
-      )
+      (authFlow AuthAnonymous)
+      (authFlow AuthGoogle)
       auth
     liftEffect $ Ref.write us unsub
   pure $ join $ Ref.read unsub

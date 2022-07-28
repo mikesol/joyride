@@ -114,7 +114,6 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
                 | rateInfo.beats < p3.startsAt = calcSlope (unwrap p2.startsAt) (p2bar renderingInfo) (unwrap p3.startsAt) (p3bar renderingInfo) (unwrap rateInfo.beats)
                 | rateInfo.beats < p4.startsAt = calcSlope (unwrap p3.startsAt) (p3bar renderingInfo) (unwrap p4.startsAt) (p4bar renderingInfo) (unwrap rateInfo.beats)
                 | otherwise = calcSlope (unwrap p4.startsAt) (p4bar renderingInfo) (unwrap p4.startsAt + 0.2) (p4bar renderingInfo + 0.5) (unwrap rateInfo.beats)
-            -- __________ = spy "myri" (rateInfo.beats)
             in
               o - (basicZThickness / 2.0)
         , n11:

@@ -1,0 +1,9 @@
+.accordion-button-ms {
+
+  &:not(.collapsed) {
+    color: #ffffff;
+    background-color: #000000;
+  }
+}
+
+$accordion-icon-color: #ffffff;

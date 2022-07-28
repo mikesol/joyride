@@ -60,7 +60,7 @@ import Rito.Matrix4 as M4
 import Safe.Coerce (coerce)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
-import Types (Beats(..), HitBasicMe, HitBasicOtherPlayer(..), HitBasicOverTheWire(..), HitLeapMe, HitLeapOtherPlayer(..), HitLeapOverTheWire(..), HitLongMe, HitLongOtherPlayer(..), HitLongOverTheWire(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, MakeLongs, Player(..), PlayerAction(..), PlayerPositionsF, RateInfo, ReleaseLongMe, ReleaseLongOtherPlayer(..), ReleaseLongOverTheWire(..), RenderingInfo, Seconds(..), StartStatus(..), Success', WindowDims)
+import Types (Beats(..), Event_, HitBasicMe, HitBasicOtherPlayer(..), HitBasicOverTheWire(..), HitLeapMe, HitLeapOtherPlayer(..), HitLeapOverTheWire(..), HitLongMe, HitLongOtherPlayer(..), HitLongOverTheWire(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, MakeLongs, Player(..), PlayerAction(..), PlayerPositionsF, RateInfo, ReleaseLongMe, ReleaseLongOtherPlayer(..), ReleaseLongOverTheWire(..), RenderingInfo, Seconds(..), StartStatus(..), Success', Track, WindowDims)
 import Web.DOM as Web.DOM
 import Web.Event.Event (target)
 import Web.HTML.HTMLCanvasElement as HTMLCanvasElement
@@ -97,6 +97,7 @@ type RideScore =
   { basicE :: forall lock payload. { | MakeBasics () } -> ASceneful lock payload
   , leapE :: forall lock payload. { | MakeLeaps () } -> ASceneful lock payload
   , longE :: forall lock payload. { | MakeLongs () } -> ASceneful lock payload
+  , bgtrack :: String
   }
 
 -- effect unit is unsub
@@ -136,6 +137,7 @@ ride
   { player: myPlayer
   , textures
   , cubeTextures
+  , trackId
   , models
   , cNow
   , galaxyAttributes
@@ -231,11 +233,12 @@ ride
                           iu0 <- subscribe withRate.event push.rateInfo
                           st <- run2 ctx
                             ( graph
-                                { basics: event.basicAudio
-                                , leaps: event.leapAudio
+                                { basics: toEvent event.basicAudio
+                                , leaps: toEvent event.leapAudio
                                 , rateInfo: _.rateInfo <$> aStuff
                                 , buffers: refToBehavior tli.soundObj
                                 , silence: tli.silence
+                                , bgtrack: tscore.bgtrack
                                 }
                             )
                           push.iAmReady
@@ -288,7 +291,7 @@ ride
                     false -> D.div (bang $ D.Class := "select-auto")
                       [ D.div (bang $ D.Class := "pointer-events-auto text-center text-white p-4")
                           let
-                            url = "joyride.fm/" <> channelName
+                            url = "joyride.fm/" <> channelName <> "/" <> trackId
                           in
                             [ D.p_
                                 [ text_ ("Press the clipboard and get a link to this ride:")
@@ -349,7 +352,7 @@ ride
                               )
                       )
                   )
-                  (event.rateInfo <#> \ri { startTime, myTime } -> adjustRateInfoBasedOnActualStart myTime startTime ri)
+                  (toEvent event.rateInfo <#> \ri { startTime, myTime } -> adjustRateInfoBasedOnActualStart myTime startTime ri)
               )
           )
           \animatedStuff -> D.div_
@@ -359,7 +362,7 @@ ride
                 [ D.div (bang $ D.Class := "row-start-1 row-end-2 col-start-1 col-end-4")
                     -- fromEvent because playerStatus is effectful
                     [ D.div (bang $ D.Class := "mx-2 mt-2")
-                        [ fromEvent (biSampleOn (initializeWithEmpty event.iAmReady) (map Tuple playerStatus))
+                        [ fromEvent (biSampleOn (toEvent (initializeWithEmpty event.iAmReady)) (map Tuple playerStatus))
                             -- we theoretically don't need to dedup because
                             -- the button should never redraw once we've started
                             -- if there's flicker, dedup
@@ -369,7 +372,7 @@ ride
                         ]
                     , D.div_
                         [ envy $ map stopButton
-                            ( fromEvent
+                            (
                                 ( map
                                     ( \(Unsubscribe u) -> u *> tli.goHome
                                     )
@@ -412,8 +415,8 @@ ride
                         , bang $ D.Self := HTMLCanvasElement.fromElement >>> traverse_
                             ( runThree <<<
                                 { threeDI: threeDI
-                                , css2DRendererElt: event.render2DElement
-                                , css3DRendererElt: event.render3DElement
+                                , css2DRendererElt: toEvent event.render2DElement
+                                , css3DRendererElt: toEvent event.render3DElement
                                 , isMobile: tli.isMobile
                                 , galaxyAttributes
                                 , shaders
