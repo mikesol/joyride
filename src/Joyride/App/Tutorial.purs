@@ -166,7 +166,7 @@ tutorial
                         off
                     ]
                 )
-                [ text_ "Exit tutorial" ]
+                [ text_ (if tscore.isPreviewPage then "Exit preview" else "Exit tutorial") ]
             ]
           startButton aStuff = do
             let

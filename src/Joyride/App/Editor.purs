@@ -400,7 +400,7 @@ editorPage tli { fbAuth, firestoreDb, signedInNonAnonymously } wtut = QDA.do
     (bang $ D.Class := "absolute w-screen h-screen bg-zinc-900")
     [ D.div
         ( oneOf
-            [ bang $ D.Class := "absolute w-screen bg-zinc-900"
+            [ previewScreenVisible <#> \psv -> D.Class := "absolute w-screen bg-zinc-900" <> if isJust psv then " hidden" else ""
             ]
         )
         [ D.div
