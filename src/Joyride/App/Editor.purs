@@ -48,8 +48,9 @@ import Joyride.FRP.Aff (eventToAff)
 import Joyride.FRP.Beh (memoBeh)
 import Joyride.FRP.Rider (rider, toRide)
 import Joyride.FRP.Schedule (fireAndForget)
+import Joyride.Filestack.Filestack (init, picker)
 import Joyride.Firebase.Auth (User(..), currentUser, signInWithGoogle)
-import Joyride.Firebase.Firestore (addEventAff, addTrackAff, deleteEventAff, getEventsAff, getTracksAff, updateColumnAff, updateEventNameAff, updateMarker1TimeAff, updateMarker2TimeAff, updateMarker3TimeAff, updateMarker4TimeAff, updateTrackTitleAff)
+import Joyride.Firebase.Firestore (addEventAff, addTrackAff, deleteEventAff, getEventsAff, getTracksAff, updateColumnAff, updateEventNameAff, updateMarker1TimeAff, updateMarker2TimeAff, updateMarker3TimeAff, updateMarker4TimeAff, updateTrackPrivateAff, updateTrackTitleAff)
 import Joyride.QualifiedDo.Apply as QDA
 import Joyride.Scores.Ride.Basic (rideBasics)
 import Joyride.Scores.Ride.Leap (rideLeaps)
@@ -95,8 +96,8 @@ type Events t =
   , availableTracks :: t (Array { id :: String, data :: Track })
   -- achtung: this event is only for external modification
   -- the listener for edited content shouldn't loop back to the element, otherwise we'll get an unnecessary gnarly feedback loop
-  , title :: t String
-  , changeTitle :: t (Maybe String)
+  , initialTitle :: t String
+  , initialPrivate :: t Boolean
   , atomicTrackOperation :: t (Track -> Track)
   , atomicEventOperation :: t (Map Int Event_ -> Map Int Event_)
   , loadWave :: t String
@@ -141,6 +142,9 @@ type ChangeEvent_ = Map Int Event_ -> Map Int Event_
 
 aChangeTitle :: Maybe String -> ChangeTrack
 aChangeTitle t (TrackV0 track) = (TrackV0 (track { title = t }))
+
+aChangePrivate :: Boolean -> ChangeTrack
+aChangePrivate p (TrackV0 track) = (TrackV0 (track { private = p }))
 
 aChangeOwner :: String -> ChangeTrack
 aChangeOwner o (TrackV0 track) = (TrackV0 (track { owner = o }))
@@ -329,14 +333,21 @@ editorPage
 editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QDA.do
   pushed /\ (event :: { | Events (AnEvent m) }) <- vbussedUncurried (Proxy :: _ (V (Events PlainOl)))
   let
-    initialData :: AnEvent m { title :: String, url :: String }
-    initialData = fireAndForget (event.loadWave 😄 ({ title: _, url: _ } <$> event.title))
+    initialData :: AnEvent m { initialTitle :: String, url :: String, initialPrivate :: Boolean }
+    initialData = fireAndForget (event.initialPrivate 😄 event.loadWave 😄 ({ initialTitle: _, url: _, initialPrivate: _ } <$> event.initialTitle))
   let
     mostRecentData' = keepLatest
-      ( initialData <#> \{ title, url } ->
+      ( initialData <#> \{ initialTitle, url, initialPrivate } ->
           let
-            __ = spy "MRD" { title, url }
-            bangor = (TrackV0 { title: Just title, url, private: false, version: mempty, owner: "" } /\ Map.empty)
+            bangor =
+              ( TrackV0
+                  { title: Just initialTitle
+                  , url
+                  , private: initialPrivate
+                  , version: mempty
+                  , owner: ""
+                  } /\ Map.empty
+              )
           in
             bang bangor <|> fold
               ( \a (t /\ e) -> case a of
@@ -407,7 +418,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
         )
         [ D.div
             ( oneOf
-                [ bang $ D.Class := "flex flex-row"
+                [ bang $ D.Class := "flex flex-row justify-between"
                 ]
             )
             [ D.button
@@ -433,14 +444,30 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                               v <- textContent fc'
                               log $ "New title: " <> v
                               let t = if v == "" then Nothing else Just v
-                              pushed.changeTitle t
                               pushed.atomicTrackOperation (aChangeTitle t)
                               for_ mDid \trackId -> do
                                 launchAff_ (updateTrackTitleAff firestoreDb trackId v)
                         )
                     ]
                 )
-                [ text event.title ]
+                [ text event.initialTitle ]
+            , D.span_
+                [ D.span (bang $ D.Class := "text-white") [ text_ "Private?" ]
+                , D.input
+                    ( oneOf
+                        [ bang $ D.Xtype := "checkbox"
+                        , fireAndForget mostRecentData <#> \(TrackV0 tr /\ _) -> D.Checked := if tr.private then "true" else "false"
+                        , bang $ D.Class := "w-4 h-4 text-blue-600 bg-gray-100 rounded border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                        -- , bang $ D.OnClick := log "hello world"
+                        , (docEv 😄 (Tuple <$> mostRecentData)) <#> \((TrackV0 tr /\ _) /\ mDid) -> D.OnClick := do
+                            let changed = not tr.private
+                            pushed.atomicTrackOperation (aChangePrivate changed)
+                            for_ mDid \trackId -> do
+                              launchAff_ (updateTrackPrivateAff firestoreDb trackId changed)
+                        ]
+                    )
+                    [ text_ "<" ]
+                ]
             ]
         , D.div
             ( oneOf
@@ -912,23 +939,26 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                           ( oneOf
                               [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
                               , bang $ D.OnClick := do
-                                  -- client <- init
-                                  -- picker (\_ -> pure unit) (\_ _ -> pure unit) (\_ _ -> pure unit) (\{ url } -> let __ = spy "url" url in pushed.loadWave url) client
-                                  let url = "https://cdn.filestackcontent.com/AOK7YpjJTnGJvDKGucuU"
-                                  rn <- randomName
-                                  let
-                                    endgame :: Effect Unit
-                                    endgame = do
-                                      pushed.title rn
-                                      pushed.loadWave url
-                                  (map unwrap <$> currentUser fbAuth) >>= maybe endgame \cu ->
-                                    if (cu.isAnonymous == false) then launchAff_ do
-                                      docRef <- addTrackAff firestoreDb
-                                        ( TrackV0
-                                            { url, title: Just rn, owner: cu.uid, private: false, version: mempty }
-                                        )
-                                      liftEffect $ (pushed.documentId docRef.id *> endgame)
-                                    else endgame
+                                  client <- init
+                                  picker (\_ -> pure unit) (\_ _ -> pure unit) (\_ _ -> pure unit)
+                                    ( \{ url } -> do
+                                        rn <- randomName
+                                        let
+                                          endgame :: Effect Unit
+                                          endgame = do
+                                            pushed.initialTitle rn
+                                            pushed.loadWave url
+                                            pushed.initialPrivate false
+                                        (map unwrap <$> currentUser fbAuth) >>= maybe endgame \cu ->
+                                          if (cu.isAnonymous == false) then launchAff_ do
+                                            docRef <- addTrackAff firestoreDb
+                                              ( TrackV0
+                                                  { url, title: Just rn, owner: cu.uid, private: false, version: mempty }
+                                              )
+                                            liftEffect $ (pushed.documentId docRef.id *> endgame)
+                                          else endgame
+                                    )
+                                    client
                               ]
                           )
                           [ text_ "Import file" ]
@@ -973,35 +1003,36 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                 wsf <- forkAff $ eventToAff $ toEvent event.waveSurfer
                                                 liftEffect do
                                                   pushed.loadWave aTra.url
-                                                  for_ aTra.title pushed.title
+                                                  for_ aTra.title pushed.initialTitle
+                                                  pushed.initialPrivate aTra.private
                                                   pushed.documentId trackId
                                                 ws <- joinFiber wsf
                                                 liftEffect do
                                                   evts # traverseWithIndex_ \ix { id, data: evt } -> do
                                                     liftEffect $ pushed.atomicEventOperation (Map.insert ix evt)
                                                     case evt of
-                                                            EventV0 (BasicEventV0 be) -> do
-                                                              pushed.addBasic (Just id /\ be)
-                                                              m0 <- addMarker ws ix 0 { color: "#0f32f6", label: "B1", time: be.marker1Time }
-                                                              m1 <- addMarker ws ix 1 { color: "#61e2f6", label: "B2", time: be.marker2Time }
-                                                              m2 <- addMarker ws ix 2 { color: "#ef82f6", label: "B3", time: be.marker3Time }
-                                                              m3 <- addMarker ws ix 3 { color: "#9e0912", label: "B4", time: be.marker4Time }
-                                                              associateEventDocumentIdWithMarker m0 id
-                                                              associateEventDocumentIdWithMarker m1 id
-                                                              associateEventDocumentIdWithMarker m2 id
-                                                              associateEventDocumentIdWithMarker m3 id
-                                                            EventV0 (LeapEventV0 be) -> do
-                                                              pushed.addLeap (Just id /\ be)
-                                                              m0 <- addMarker ws ix 0 { color: "#0f32f6", label: "LSt", time: be.marker1Time }
-                                                              m1 <- addMarker ws ix 1 { color: "#61e2f6", label: "LEd", time: be.marker2Time }
-                                                              associateEventDocumentIdWithMarker m0 id
-                                                              associateEventDocumentIdWithMarker m1 id
-                                                            EventV0 (LongEventV0 be) -> do
-                                                              pushed.addLongPress (Just id /\ be)
-                                                              m0 <- addMarker ws ix 0 { color: "#0f32f6", label: "LSt", time: be.marker1Time }
-                                                              m1 <- addMarker ws ix 1 { color: "#61e2f6", label: "LEd", time: be.marker2Time }
-                                                              associateEventDocumentIdWithMarker m0 id
-                                                              associateEventDocumentIdWithMarker m1 id
+                                                      EventV0 (BasicEventV0 be) -> do
+                                                        pushed.addBasic (Just id /\ be)
+                                                        m0 <- addMarker ws ix 0 { color: "#0f32f6", label: "B1", time: be.marker1Time }
+                                                        m1 <- addMarker ws ix 1 { color: "#61e2f6", label: "B2", time: be.marker2Time }
+                                                        m2 <- addMarker ws ix 2 { color: "#ef82f6", label: "B3", time: be.marker3Time }
+                                                        m3 <- addMarker ws ix 3 { color: "#9e0912", label: "B4", time: be.marker4Time }
+                                                        associateEventDocumentIdWithMarker m0 id
+                                                        associateEventDocumentIdWithMarker m1 id
+                                                        associateEventDocumentIdWithMarker m2 id
+                                                        associateEventDocumentIdWithMarker m3 id
+                                                      EventV0 (LeapEventV0 be) -> do
+                                                        pushed.addLeap (Just id /\ be)
+                                                        m0 <- addMarker ws ix 0 { color: "#0f32f6", label: "LSt", time: be.marker1Time }
+                                                        m1 <- addMarker ws ix 1 { color: "#61e2f6", label: "LEd", time: be.marker2Time }
+                                                        associateEventDocumentIdWithMarker m0 id
+                                                        associateEventDocumentIdWithMarker m1 id
+                                                      EventV0 (LongEventV0 be) -> do
+                                                        pushed.addLongPress (Just id /\ be)
+                                                        m0 <- addMarker ws ix 0 { color: "#0f32f6", label: "LSt", time: be.marker1Time }
+                                                        m1 <- addMarker ws ix 1 { color: "#61e2f6", label: "LEd", time: be.marker2Time }
+                                                        associateEventDocumentIdWithMarker m0 id
+                                                        associateEventDocumentIdWithMarker m1 id
                                                   pushed.chooserScreenVisible false
                                                   pushed.importerScreenVisible false
                                                   pushed.loadingScreenVisible false

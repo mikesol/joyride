@@ -20,6 +20,7 @@ const MARKER4AUDIOURL = "marker4AudioUrl";
 const LENGTH = "length";
 const NAME = "name";
 const TITLE = "title";
+const PRIVATE = "private";
 const TAGS = "tags";
 const COLUMN = "column";
 
@@ -37,6 +38,12 @@ export const updateTrackTitle = (db) => (trackID) => (title) => () =>
 	import("firebase/firestore").then(({ updateDoc, doc }) => {
 		const update = {};
 		update[TITLE] = title;
+		return updateDoc(doc(db, TRACKS, trackID), update);
+	});
+export const updateTrackPrivate = (db) => (trackID) => (pvt) => () =>
+	import("firebase/firestore").then(({ updateDoc, doc }) => {
+		const update = {};
+		update[PRIVATE] = pvt;
 		return updateDoc(doc(db, TRACKS, trackID), update);
 	});
 export const addTagToTrack = (db) => (trackID) => (tag) => () =>
@@ -79,25 +86,25 @@ export const getTracks = (auth) => (db) => () =>
 		});
 	});
 
-	export const getPublicTracks = (db) => () =>
-		import("firebase/firestore").then(
-			({ query, getDocs, collection, where, limit }) => {
-				const q = query(
-					collection(db, TRACKS),
-					where("private", "==", false),
-					limit(50)
-				);
-				return getDocs(q).then((querySnapshot) => {
-					const data = [];
-					querySnapshot.forEach((doc) => {
-						data.push({ id: doc.id, data: doc.data() });
-					});
-					return data;
+export const getPublicTracks = (db) => () =>
+	import("firebase/firestore").then(
+		({ query, getDocs, collection, where, limit }) => {
+			const q = query(
+				collection(db, TRACKS),
+				where("private", "==", false),
+				limit(50)
+			);
+			return getDocs(q).then((querySnapshot) => {
+				const data = [];
+				querySnapshot.forEach((doc) => {
+					data.push({ id: doc.id, data: doc.data() });
 				});
-			}
-		);
+				return data;
+			});
+		}
+	);
 
-		export const getEvents = (db) => (trackID) => () =>
+export const getEvents = (db) => (trackID) => () =>
 	import("firebase/firestore").then(({ query, getDocs, collection }) => {
 		const q = query(collection(db, TRACKS, trackID, EVENTS));
 		return getDocs(q).then((querySnapshot) => {

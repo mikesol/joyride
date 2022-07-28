@@ -200,22 +200,35 @@ explainerPage opts = vbussed
                 ]
         ]
     , D.div (oneOf [ availableRides <#> \ar -> D.Class := "z-10 bg-zinc-900 absolute grid grid-cols-6 grid-rows-6 place-items-center h-screen w-screen " <> if isJust ar then "" else " hidden" ])
-        [ D.div (bang $ D.Class := "col-start-2 col-end-6 row-start-2 row-end-6 flex flex-col")
+        [ D.div (bang $ D.Class := "col-start-1 col-end-2 row-start-1 row-end-2")
+            [ D.button
+                ( oneOf
+                    [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                    , DL.click $ bang (push.availableRides Nothing)
+                    ]
+                )
+                [ text_ "<" ]
+            ]
+        , D.div (bang $ D.Class := "col-start-2 col-end-6 row-start-2 row-end-6 flex flex-col")
             [ D.h2 (bang $ D.Class := headerCls) [ text_ "Choose a ride" ]
             , D.div (oneOf [])
                 [ ( availableRides # switcher \l' -> l' # maybe (envy empty) \l -> D.ul (bang $ D.Class := "flex w-full justify-center items-center")
-                      ( l <#> \{ id, data: data' } -> let TrackV0 aTra = data' in D.li_
-                          [ D.button
-                              ( oneOf
-                                  [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
-                                  , DL.click
-                                      ( (oneOf [ bang (pure unit), event.unsubscriber ]) <#>
-                                          FullScreen.fullScreenFlow <<< (opts.ride (id /\ data') *> _)
-                                      )
-                                  ]
-                              )
-                              [ text_ (fromMaybe "Untitled Track" aTra.title) ]
-                          ]
+                      ( l <#> \{ id, data: data' } ->
+                          let
+                            TrackV0 aTra = data'
+                          in
+                            D.li_
+                              [ D.button
+                                  ( oneOf
+                                      [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                                      , DL.click
+                                          ( (oneOf [ bang (pure unit), event.unsubscriber ]) <#>
+                                              FullScreen.fullScreenFlow <<< (opts.ride (id /\ data') *> _)
+                                          )
+                                      ]
+                                  )
+                                  [ text_ (fromMaybe "Untitled Track" aTra.title) ]
+                              ]
                       )
                   )
                 ]

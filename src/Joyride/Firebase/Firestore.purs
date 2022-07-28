@@ -48,6 +48,11 @@ foreign import updateTrackTitle :: Firestore -> String -> String -> Effect (Prom
 updateTrackTitleAff :: Firestore -> String -> String -> Aff Unit
 updateTrackTitleAff a b c = toAffE $ updateTrackTitle a b c
 
+foreign import updateTrackPrivate :: Firestore -> String -> Boolean -> Effect (Promise Unit)
+
+updateTrackPrivateAff :: Firestore -> String -> Boolean -> Aff Unit
+updateTrackPrivateAff a b c = toAffE $ updateTrackPrivate a b c
+
 foreign import addTagToTrack :: Firestore -> String -> String -> Effect (Promise Unit)
 
 addTagToTrackAff :: Firestore -> String -> String -> Aff Unit
