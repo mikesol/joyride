@@ -877,6 +877,7 @@ data Negotiation
       , models :: Models GLTFLoader.GLTF
       , initialDims :: WindowDims
       , signOut :: Effect Unit
+      , firestoreDb :: Firestore
       , threeDI :: ThreeDI
       , cNow :: Effect Milliseconds
       , signedInNonAnonymously :: Event Boolean
@@ -908,6 +909,9 @@ instance JSON.WriteForeign StartStatus where
 type Success' =
   { player :: Player
   , shaders :: Shaders
+  , trackId :: String
+  , track :: Track
+  , events :: Array Event_
   , galaxyAttributes :: GalaxyAttributes
   , playerName :: Maybe String
   , channelName :: String
@@ -1098,6 +1102,9 @@ type GalaxyAttributes =
 
 data Version (i :: Int) = Version Int
 
+instance Reflectable i Int => Show (Version i) where
+  show _ = "Version " <> show (reflectType (Proxy :: _ i))
+
 instance Semigroup (Version i) where
   append a _ = a
 
@@ -1161,6 +1168,10 @@ instance JSON.WriteForeign EventV0 where
   writeImpl (LongEventV0 x) = JSON.writeImpl $ union { _type: "Long" } x
 
 data Track = TrackV0 TrackV0'
+
+instance Show Track where
+  show (TrackV0 t) = "TrackV0 <" <> show t <> ">"
+
 data Event_ = EventV0 EventV0
 
 type BasicEventV0' =
@@ -1249,7 +1260,7 @@ instance JSON.ReadForeign Event_ where
 instance JSON.WriteForeign Event_ where
   writeImpl (EventV0 i) = JSON.writeImpl i
 
-data ChannelChooser = NoChannel | RideChannel String | TutorialChannel | EditorChannel
+data ChannelChooser = NoChannel | RideChannel String String Track | TutorialChannel | EditorChannel
 
 derive instance Generic ChannelChooser _
 instance Show ChannelChooser where
@@ -1265,7 +1276,7 @@ type ToplevelInfo =
   , isMobile :: Boolean
   , tutorial :: Effect Unit
   , editor :: Effect Unit
-  , ride :: Effect Unit
+  , ride :: (String /\ Track) -> Effect Unit
   , lpsCallback :: JMilliseconds -> Effect Unit -> Effect Unit
   , playerPositions :: Behavior PlayerPositionsF
   , resizeE :: Event WindowDims

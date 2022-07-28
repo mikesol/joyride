@@ -84,7 +84,7 @@ export const getTracks = (auth) => (db) => () =>
 			({ query, getDocs, collection, where, limit }) => {
 				const q = query(
 					collection(db, TRACKS),
-					where("public", "==", true),
+					where("private", "==", false),
 					limit(50)
 				);
 				return getDocs(q).then((querySnapshot) => {

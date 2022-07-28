@@ -3,8 +3,10 @@ module Joyride.App.Toplevel where
 import Prelude
 
 import Control.Plus (empty)
+import Data.Array (sortBy)
+import Data.Function (on)
 import Data.Map as Map
-import Data.Maybe (Maybe)
+import Data.Maybe (Maybe(..))
 import Data.Number (pi)
 import Data.Time.Duration (Milliseconds)
 import Debug (spy)
@@ -13,7 +15,7 @@ import Deku.Core (class Korok, Domable, envy)
 import Effect (Effect)
 import Effect.Ref as Ref
 import FRP.Behavior (Behavior)
-import FRP.Event (Event, EventIO, fromEvent)
+import FRP.Event (Event, EventIO, filterMap, fromEvent)
 import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V)
 import Foreign.Object as Object
@@ -28,6 +30,7 @@ import Joyride.App.SorryNeedPermission (sorryNeedPermissionPage)
 import Joyride.App.Tutorial (tutorial)
 import Joyride.FRP.Dedup (dedup)
 import Joyride.FRP.StartingWith (startingWith)
+import Joyride.Firebase.Opaque (FirebaseAuth, Firestore)
 import Joyride.Ocarina (AudibleChildEnd)
 import Joyride.Scores.Ride.Basic (rideBasics)
 import Joyride.Scores.Ride.Leap (rideLeaps)
@@ -38,7 +41,7 @@ import Joyride.Scores.Tutorial.Long (tutorialLongs)
 import Ocarina.WebAPI (BrowserAudioBuffer)
 import Rito.CubeTexture as CTL
 import Rito.GLTF as GLTFLoader
-import Types (CubeTextures, HitBasicMe, HitLeapMe, HitLongMe, JMilliseconds, Models, Negotiation(..), PlayerPositionsF, RateInfo, ReleaseLongMe, ToplevelInfo, RenderingInfo, Success', ThreeDI, WantsTutorial', WindowDims, OpenEditor')
+import Types (CubeTextures, EventV0(..), HitBasicMe, HitLeapMe, HitLongMe, JMilliseconds, Models, Negotiation(..), OpenEditor', PlayerPositionsF, RateInfo, Event_(..), ReleaseLongMe, RenderingInfo, Success', ThreeDI, ToplevelInfo, Track(..), WantsTutorial', WindowDims)
 import Web.DOM as Web.DOM
 import Web.HTML.Window (RequestIdleCallbackId, Window)
 
@@ -68,6 +71,7 @@ data TopLevelDisplay
       , models :: Models GLTFLoader.GLTF
       , threeDI :: ThreeDI
       , signOut :: Effect Unit
+      , firestoreDb :: Firestore
       , initialDims :: WindowDims
       , cNow :: Effect Milliseconds
       , signedInNonAnonymously :: Event Boolean
@@ -76,7 +80,7 @@ data TopLevelDisplay
   | TLGameHasStarted
   | TLRoomIsFull
   | TLWantsTutorial WantsTutorial'
-  | TLOpenEditor {oe :: OpenEditor', wt :: WantsTutorial' }
+  | TLOpenEditor { oe :: OpenEditor', wt :: WantsTutorial' }
   | TLSuccess Success'
 
 -- effect unit is unsub
@@ -109,25 +113,28 @@ toplevel
 toplevel tli =
   ( dedup
       ( map
-          ( \{ loaded, negotiation } -> let __ = spy "inc" {loaded,negotiation} in
-              case loaded, negotiation of
-                _, NeedsOrientation -> TLNeedsOrientation
-                _, WillNotWorkWithoutOrientation -> TLWillNotWorkWithoutOrientation
-                _, GetRulesOfGame s -> TLExplainer s
-                -- editor does not need to be loaded for now
-                -- change if that's the case
-                false, _ -> TLLoading
-                -- should never reach
-                _, PageLoad -> TLLoading
-                _, StartingNegotiation -> TLLoading
-                _, RoomIsFull -> TLRoomIsFull
-                _, GameHasStarted -> TLGameHasStarted
-                _, RequestingPlayer -> TLLoading
-                _, ReceivedPossibilities -> TLLoading
-                _, ClaimFail -> TLRoomIsFull
-                true, Success s -> TLSuccess s
-                true, WantsTutorial s -> TLWantsTutorial s
-                true, OpenEditor s -> TLOpenEditor s
+          ( \{ loaded, negotiation } ->
+              let
+                __ = spy "inc" { loaded, negotiation }
+              in
+                case loaded, negotiation of
+                  _, NeedsOrientation -> TLNeedsOrientation
+                  _, WillNotWorkWithoutOrientation -> TLWillNotWorkWithoutOrientation
+                  _, GetRulesOfGame s -> TLExplainer s
+                  -- editor does not need to be loaded for now
+                  -- change if that's the case
+                  false, _ -> TLLoading
+                  -- should never reach
+                  _, PageLoad -> TLLoading
+                  _, StartingNegotiation -> TLLoading
+                  _, RoomIsFull -> TLRoomIsFull
+                  _, GameHasStarted -> TLGameHasStarted
+                  _, RequestingPlayer -> TLLoading
+                  _, ReceivedPossibilities -> TLLoading
+                  _, ClaimFail -> TLRoomIsFull
+                  true, Success s -> TLSuccess s
+                  true, WantsTutorial s -> TLWantsTutorial s
+                  true, OpenEditor s -> TLOpenEditor s
           )
           ( biSampleOn
               (startingWith PageLoad $ fromEvent tli.negotiation)
@@ -139,7 +146,7 @@ toplevel tli =
   ) # switcher case _ of
     TLNeedsOrientation -> orientationPermissionPage { givePermission: tli.givePermission }
     TLWillNotWorkWithoutOrientation -> sorryNeedPermissionPage
-    TLExplainer { cubeTextures, threeDI, cNow, initialDims, signedInNonAnonymously, signOut } -> explainerPage
+    TLExplainer { cubeTextures, threeDI, cNow, initialDims, firestoreDb, signedInNonAnonymously, signOut } -> explainerPage
       { ride: tli.ride
       , editor: tli.editor
       , tutorial: tli.tutorial
@@ -148,6 +155,7 @@ toplevel tli =
       , signOut
       , resizeE: tli.resizeE
       , initialDims
+      , firestoreDb
       , threeDI
       , cubeTextures
       , signedInNonAnonymously
@@ -165,11 +173,30 @@ toplevel tli =
       , isPreviewPage: false
       }
       wantsTutorial
-    TLSuccess successful -> ride
-      tli
-      { basicE: rideBasics [] -- change
-      , leapE: rideLeaps []  -- change
-      , longE: rideLongs [] -- change
-      , bgtrack: "butterflies"
-      }
-      successful
+    TLSuccess successful ->
+      let
+        vals = successful.events
+        TrackV0 tv0 = successful.track
+      in
+        ride
+          tli
+          -- todo: this is a code dup with the editor
+          -- merge
+          { basicE: rideBasics $ sortBy (compare `on` _.marker1Time)
+              ( vals # filterMap case _ of
+                  EventV0 (BasicEventV0 be) -> Just be
+                  _ -> Nothing
+              )
+          , leapE: rideLeaps
+              ( vals # filterMap case _ of
+                  EventV0 (LeapEventV0 be) -> Just be
+                  _ -> Nothing
+              )
+          , longE: rideLongs
+              ( vals # filterMap case _ of
+                  EventV0 (LongEventV0 be) -> Just be
+                  _ -> Nothing
+              )
+          , bgtrack: tv0.url
+          }
+          successful

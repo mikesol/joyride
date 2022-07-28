@@ -16,7 +16,7 @@ import Data.Newtype (unwrap)
 import Data.Number (pi, pow, sqrt)
 import Data.Profunctor (lcmap)
 import Data.Traversable (for_, oneOf)
-import Data.Tuple (Tuple)
+import Data.Tuple (Tuple(..), uncurry)
 import Data.Tuple.Nested (type (/\), (/\))
 import Data.Unfoldable (replicate)
 import Debug (spy)
@@ -47,7 +47,7 @@ import Joyride.FRP.SampleOnSubscribe (sampleOnSubscribe)
 import Joyride.Firebase.Analytics (firebaseAnalyticsAff)
 import Joyride.Firebase.Auth (AuthProvider(..), authStateChangedEventWithAnonymousAccountCreation, firebaseAuthAff, initializeGoogleClient, signOut)
 import Joyride.Firebase.Config (firebaseAppAff)
-import Joyride.Firebase.Firestore (createRideIfNotExistsYet, eventChannelChanges, firestoreDbAff, getPlayerForChannel, sendMyPointsAndPenaltiesToFirebase)
+import Joyride.Firebase.Firestore (createRideIfNotExistsYet, eventChannelChanges, firestoreDbAff, getEventsAff, getPlayerForChannel, getTrack, getTrackAff, sendMyPointsAndPenaltiesToFirebase)
 import Joyride.Firebase.Opaque (FirebaseAuth, Firestore)
 import Joyride.IO.ParFold (ParFold(..))
 import Joyride.Ledger.Basic (basicOutcomeToPointOutcome, beatsToBasicOutcome)
@@ -68,7 +68,7 @@ import Route (Route(..), route)
 import Routing.Duplex (parse)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
-import Types (BufferName(..), Channel(..), ChannelChooser(..), CubeTexture, CubeTextures(..), HitBasicMe(..), HitBasicOverTheWire(..), HitLeapMe(..), HitLeapOverTheWire(..), HitLongMe(..), HitLongOverTheWire(..), IAm(..), InFlightGameInfo(..), InFlightGameInfo', JMilliseconds(..), KnownPlayers(..), Models(..), Negotiation(..), Penalty(..), Player(..), PlayerAction(..), PlayerPositionsF, PointOutcome, Points(..), Position, ReleaseLongMe(..), ReleaseLongOverTheWire(..), RenderingInfo, RenderingInfo', Ride(..), Shaders, StartStatus(..), Textures(..), ThreeDI, WantsTutorial', initialPositions, touchPointZ)
+import Types (BufferName(..), Channel(..), ChannelChooser(..), CubeTexture, CubeTextures(..), HitBasicMe(..), HitBasicOverTheWire(..), HitLeapMe(..), HitLeapOverTheWire(..), HitLongMe(..), HitLongOverTheWire(..), IAm(..), InFlightGameInfo(..), InFlightGameInfo', JMilliseconds(..), KnownPlayers(..), Models(..), Negotiation(..), Penalty(..), Player(..), PlayerAction(..), PlayerPositionsF, PointOutcome, Points(..), Position, ReleaseLongMe(..), ReleaseLongOverTheWire(..), RenderingInfo, RenderingInfo', Ride(..), Shaders, StartStatus(..), Textures(..), ThreeDI, Track(..), WantsTutorial', initialPositions, touchPointZ)
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
 import Web.HTML (window)
@@ -108,13 +108,18 @@ renderingInfoMobile =
 
 channelFromRoute :: Route -> Maybe String
 channelFromRoute Home = Nothing
-channelFromRoute (Session session) = Just session
-channelFromRoute (SessionAndPlayer session _) = Just session
+channelFromRoute (Session session _) = Just session
+channelFromRoute (SessionAndPlayer session _ _) = Just session
+
+trackFromRoute :: Route -> Maybe String
+trackFromRoute Home = Nothing
+trackFromRoute (Session _ trackId) = Just trackId
+trackFromRoute (SessionAndPlayer _ trackId _) = Just trackId
 
 playerFromRoute :: Route -> Maybe Player
 playerFromRoute Home = Nothing
-playerFromRoute (Session _) = Nothing
-playerFromRoute (SessionAndPlayer _ player) = Just player
+playerFromRoute (Session _ _) = Nothing
+playerFromRoute (SessionAndPlayer _ _ player) = Just player
 
 type LeapUnsubscribes =
   { p1 :: Effect Unit
@@ -259,9 +264,9 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
         runInBody
           ( toplevel
               { loaded: loaded.event
-              , ride: do
-                  id <- randId' 6
-                  channelEvent.push (RideChannel id)
+              , ride: \(id /\ track) -> do
+                  cid <- randId' 6
+                  channelEvent.push (RideChannel cid id track)
               , negotiation: negotiation.event
               , tutorial: channelEvent.push TutorialChannel
               , editor: channelEvent.push EditorChannel
@@ -337,9 +342,9 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
           downloadedCubeTextures <- forkAff (fromHomogeneous <$> parTraverse ((CubeTextureLoader.loadAffRecord cldr)) (map unwrap $ homogeneous cubeTextures))
           -- "server" via pubnub
           let
-            proposedChannel' = case hush parsed >>= channelFromRoute of
-              Nothing -> NoChannel
-              Just x -> RideChannel x
+            proposedChannel'' = do
+              res <- hush parsed
+              Tuple <$> channelFromRoute res <*> trackFromRoute res
           let galaxyAttributes = makeGalaxyAttributes threeDI.instancedBufferAttribute
           let
             buildWantsTutorial :: Aff WantsTutorial'
@@ -366,6 +371,8 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                 magicLeaps leapUnsubscribesRef mappedCNow playerPositions renderingInfoBehavior { player: Player4, newPosition: bt.newPosition }
               ---- end TODO
               let
+                -- TODO: this is only necessary for the tutorial, not the preview mode
+                -- we can make a flag to get rid of this stuff when it's not needed
                 bufferNames :: List (BufferName /\ String)
                 bufferNames = (BufferName "tutorial" /\ "tutorial")
                   : (BufferName "shakuhachi0" /\ "shakuhachi0")
@@ -446,6 +453,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                   ( GetRulesOfGame
                       { threeDI
                       , initialDims
+                      , firestoreDb
                       , models: Models myGLTFs
                       , signOut: launchAff_ do
                           toAffE $ signOut fbAuth (pure unit)
@@ -454,7 +462,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                       , signedInNonAnonymously: signedInNonAnonymously.event
                       }
                   )
-              RideChannel proposedChannel -> do
+              RideChannel proposedChannel trackId track -> do
                 -- maybe is not ideal here
                 -- what it means semantically is "player exists but has not started"
                 -- a new type for this?
@@ -612,13 +620,15 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                                 }
                             )
                     let
+                      TrackV0 tv0 = track
                       bufferNames :: List (BufferName /\ String)
-                      bufferNames = Nil -- (BufferName "butterflies" /\ "butterflies") : Nil
+                      bufferNames = (BufferName tv0.url /\ tv0.url) : Nil
                     let n2oh = take 300 bufferNames
                     let n2ot = drop 300 bufferNames
-                    dlInChunks audio 100 n2oh ctx' soundObj
+                    let dumb = Object.fromFoldable (map (\(BufferName n /\ s) -> n /\ s) bufferNames)
+                    dlInChunks dumb 100 n2oh ctx' soundObj
                     liftEffect $ loaded.push true
-                    dlInChunks audio 100 n2ot ctx' soundObj
+                    dlInChunks dumb 100 n2ot ctx' soundObj
                     playerName <- liftEffect $ LS.getItem LocalStorage.playerName stor
                     myTextures <- joinFiber downloadedTextures
                     myGLTFs <- joinFiber downloadedGLTFs
@@ -626,8 +636,12 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                     initialDims <- liftEffect $ { iw: _, ih: _ }
                       <$> (Int.toNumber <$> innerWidth w)
                       <*> (Int.toNumber <$> innerHeight w)
+                    ets <- getEventsAff firestoreDb trackId
                     liftEffect $ negotiation.push $ Success
                       { player: myPlayer
+                      , trackId
+                      , track
+                      , events: map _.data ets
                       , initialDims
                       , threeDI
                       , playerName
@@ -664,6 +678,11 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
           -- if we need permissions, ask for them first
           _ <- liftEffect $
             when hop (negotiation.push NeedsOrientation)
+          proposedChannel' <- case proposedChannel'' of
+            Nothing -> pure NoChannel
+            Just (x /\ y) -> do
+              track <- getTrackAff firestoreDb y
+              pure $ maybe NoChannel (RideChannel x y) track
           _ <- liftEffect $
             subscribe (filter identity $ oneOf [ bang (not hop), orientationPerm.event ]) \_ -> channelEvent.push proposedChannel'
           _ <- liftEffect $
