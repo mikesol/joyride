@@ -187,6 +187,51 @@ export const makeWavesurfer =
 				)(time)();
 			}
 		);
+
+		// copy-pasta from wavesurfer.js's website
+		// don't completely understand this, but it works!!
+		var GLOBAL_ACTIONS = {
+			// eslint-disable-line
+			play: function () {
+				ws.playPause();
+			},
+
+			back: function () {
+				ws.skipBackward();
+			},
+
+			forth: function () {
+				ws.skipForward();
+			},
+
+			"toggle-mute": function () {
+				ws.toggleMute();
+			},
+		};
+		const evl = function (e) {
+			let map = {
+				32: "play", // space
+				37: "back", // left
+				39: "forth", // right
+			};
+			let action = map[e.keyCode];
+			if (action in GLOBAL_ACTIONS) {
+				if (
+					document == e.target ||
+					document.body == e.target ||
+					e.target.attributes["data-action"]
+				) {
+					e.preventDefault();
+				}
+				GLOBAL_ACTIONS[action](e);
+			}
+		};
+		// Bind actions to buttons and keypresses
+		document.addEventListener("keydown",  evl);
+		ws.on("destroy", () => {
+			document.removeEventListener("keydown", evl);
+		});
+
 		return ws;
 	};
 
@@ -210,7 +255,8 @@ export const associateEventDocumentIdWithSortedMarkerIdList =
 			if (ws.markers.markers[i].el.$$joyrideIndex !== ixid[0].ix) {
 				console.error(
 					"Programming error: something isn't sorted",
-					ws.markers.markers[i].el.$$joyrideIndex , ixid[0].ix,
+					ws.markers.markers[i].el.$$joyrideIndex,
+					ixid[0].ix,
 					JSON.stringify($ixid),
 					JSON.stringify(ws.markers.markers.map((m) => m.el.$$joyrideIndex))
 				);
