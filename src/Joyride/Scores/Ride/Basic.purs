@@ -22,7 +22,7 @@ import FRP.Event (Event, keepLatest, memoize)
 import FRP.Event.Class (bang)
 import FRP.Event.Time as LocalTime
 import Joyride.Audio.Basic as BasicA
-import Joyride.Constants.Ride (rideStartOffset)
+import Joyride.Constants.Audio (startOffset)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Schedule (oneOff, scheduleCf)
 import Joyride.Ocarina (AudibleEnd(..))
@@ -177,11 +177,11 @@ rideBasics bevs makeBasics =
     mapWithIndex
       ( \uniqueId x ->
           { uniqueId
-          , appearsAt: (Beats $ (2.0 * x.marker1Time - x.marker2Time)) + rideStartOffset
-          , b0: (Beats $ x.marker1Time) + rideStartOffset
-          , b1: (Beats $ x.marker2Time) + rideStartOffset
-          , b2: (Beats $ x.marker3Time) + rideStartOffset
-          , b3: (Beats $ x.marker4Time) + rideStartOffset
+          , appearsAt: (Beats $ (2.0 * x.marker1Time - x.marker2Time)) + startOffset
+          , b0: (Beats $ x.marker1Time) + startOffset
+          , b1: (Beats $ x.marker2Time) + startOffset
+          , b2: (Beats $ x.marker3Time) + startOffset
+          , b3: (Beats $ x.marker4Time) + startOffset
           , text: pure ""
           , column: int2Column x.column
           }

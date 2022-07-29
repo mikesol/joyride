@@ -19,7 +19,7 @@ import FRP.Event.Class (bang)
 import FRP.Event.Time as LocalTime
 import Foreign.Object as Object
 import Joyride.Audio.Leap as LeapA
-import Joyride.Constants.Tutorial (tutorialStartOffset)
+import Joyride.Constants.Audio (startOffset)
 import Joyride.FRP.Behavior (misbehavior)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Schedule (oneOff, scheduleCf)
@@ -172,91 +172,91 @@ tmpScore0 = Nil
 
 -- 3 7 8 12
 tmpScore :: List ScoreMorcel
-tmpScore = { column: C7, appearsAt: (Beats (mb2info M16B1).t) + tutorialStartOffset, position: Position2 }
-  : { column: C8, appearsAt: (Beats (mb2info M18B1).t) + tutorialStartOffset, position: Position3 }
-  : { column: C7, appearsAt: (Beats (mb2info M20B1).t) + tutorialStartOffset, position: Position1 }
-  : { column: C8, appearsAt: (Beats (mb2info M21B1).t) + tutorialStartOffset, position: Position4 }
-  : { column: C7, appearsAt: (Beats (mb2info M22B1).t) + tutorialStartOffset, position: Position2 }
-  : { column: C8, appearsAt: (Beats (mb2info M23B1).t) + tutorialStartOffset, position: Position3 }
-  : { column: C7, appearsAt: (Beats (mb2info M24B1).t) + tutorialStartOffset, position: Position1 }
-  : { column: C8, appearsAt: (Beats (mb2info M25B1).t) + tutorialStartOffset, position: Position4 }
-  : { column: C3, appearsAt: (Beats (mb2info M26B1).t) + tutorialStartOffset, position: Position2 }
-  : { column: C7, appearsAt: (Beats (mb2info M26B3).t) + tutorialStartOffset, position: Position3 }
-  : { column: C12, appearsAt: (Beats (mb2info M27B1).t) + tutorialStartOffset, position: Position1 }
-  : { column: C8, appearsAt: (Beats (mb2info M27B3).t) + tutorialStartOffset, position: Position4 }
-  : { column: C3, appearsAt: (Beats (mb2info M29B1).t) + tutorialStartOffset, position: Position2 }
-  : { column: C7, appearsAt: (Beats (mb2info M29B3).t) + tutorialStartOffset, position: Position3 }
-  : { column: C12, appearsAt: (Beats (mb2info M30B1).t) + tutorialStartOffset, position: Position1 }
-  : { column: C8, appearsAt: (Beats (mb2info M30B3).t) + tutorialStartOffset, position: Position4 }
-  : { column: C3, appearsAt: (Beats (mb2info M31B1).t) + tutorialStartOffset, position: Position2 }
-  : { column: C7, appearsAt: (Beats (mb2info M32B3).t) + tutorialStartOffset, position: Position3 }
-  : { column: C12, appearsAt: (Beats (mb2info M33B1).t) + tutorialStartOffset, position: Position1 }
-  : { column: C8, appearsAt: (Beats (mb2info M34B3).t) + tutorialStartOffset, position: Position4 }
-  : { column: C3, appearsAt: (Beats (mb2info M35B1).t) + tutorialStartOffset, position: Position2 }
-  : { column: C7, appearsAt: (Beats (mb2info M36B3).t) + tutorialStartOffset, position: Position3 }
-  : { column: C12, appearsAt: (Beats (mb2info M37B1).t) + tutorialStartOffset, position: Position1 }
-  : { column: C8, appearsAt: (Beats (mb2info M38B3).t) + tutorialStartOffset, position: Position4 }
-  : { column: C3, appearsAt: (Beats (mb2info M39B1).t) + tutorialStartOffset, position: Position2 }
-  : { column: C7, appearsAt: (Beats (mb2info M40B3).t) + tutorialStartOffset, position: Position3 }
-  : { column: C12, appearsAt: (Beats (mb2info M41B1).t) + tutorialStartOffset, position: Position1 }
-  : { column: C8, appearsAt: (Beats (mb2info M42B3).t) + tutorialStartOffset, position: Position4 }
-  : { column: C3, appearsAt: (Beats (mb2info M43B1).t) + tutorialStartOffset, position: Position2 }
-  : { column: C7, appearsAt: (Beats (mb2info M44B3).t) + tutorialStartOffset, position: Position3 }
-  : { column: C12, appearsAt: (Beats (mb2info M45B1).t) + tutorialStartOffset, position: Position1 }
-  : { column: C8, appearsAt: (Beats (mb2info M46B3).t) + tutorialStartOffset, position: Position4 }
-  : { column: C3, appearsAt: (Beats (mb2info M47B1).t) + tutorialStartOffset, position: Position2 }
-  : { column: C7, appearsAt: (Beats (mb2info M48B3).t) + tutorialStartOffset, position: Position3 }
-  : { column: C12, appearsAt: (Beats (mb2info M49B1).t) + tutorialStartOffset, position: Position1 }
-  : { column: C8, appearsAt: (Beats (mb2info M50B3).t) + tutorialStartOffset, position: Position4 }
+tmpScore = { column: C7, appearsAt: (Beats (mb2info M16B1).t) + startOffset, position: Position2 }
+  : { column: C8, appearsAt: (Beats (mb2info M18B1).t) + startOffset, position: Position3 }
+  : { column: C7, appearsAt: (Beats (mb2info M20B1).t) + startOffset, position: Position1 }
+  : { column: C8, appearsAt: (Beats (mb2info M21B1).t) + startOffset, position: Position4 }
+  : { column: C7, appearsAt: (Beats (mb2info M22B1).t) + startOffset, position: Position2 }
+  : { column: C8, appearsAt: (Beats (mb2info M23B1).t) + startOffset, position: Position3 }
+  : { column: C7, appearsAt: (Beats (mb2info M24B1).t) + startOffset, position: Position1 }
+  : { column: C8, appearsAt: (Beats (mb2info M25B1).t) + startOffset, position: Position4 }
+  : { column: C3, appearsAt: (Beats (mb2info M26B1).t) + startOffset, position: Position2 }
+  : { column: C7, appearsAt: (Beats (mb2info M26B3).t) + startOffset, position: Position3 }
+  : { column: C12, appearsAt: (Beats (mb2info M27B1).t) + startOffset, position: Position1 }
+  : { column: C8, appearsAt: (Beats (mb2info M27B3).t) + startOffset, position: Position4 }
+  : { column: C3, appearsAt: (Beats (mb2info M29B1).t) + startOffset, position: Position2 }
+  : { column: C7, appearsAt: (Beats (mb2info M29B3).t) + startOffset, position: Position3 }
+  : { column: C12, appearsAt: (Beats (mb2info M30B1).t) + startOffset, position: Position1 }
+  : { column: C8, appearsAt: (Beats (mb2info M30B3).t) + startOffset, position: Position4 }
+  : { column: C3, appearsAt: (Beats (mb2info M31B1).t) + startOffset, position: Position2 }
+  : { column: C7, appearsAt: (Beats (mb2info M32B3).t) + startOffset, position: Position3 }
+  : { column: C12, appearsAt: (Beats (mb2info M33B1).t) + startOffset, position: Position1 }
+  : { column: C8, appearsAt: (Beats (mb2info M34B3).t) + startOffset, position: Position4 }
+  : { column: C3, appearsAt: (Beats (mb2info M35B1).t) + startOffset, position: Position2 }
+  : { column: C7, appearsAt: (Beats (mb2info M36B3).t) + startOffset, position: Position3 }
+  : { column: C12, appearsAt: (Beats (mb2info M37B1).t) + startOffset, position: Position1 }
+  : { column: C8, appearsAt: (Beats (mb2info M38B3).t) + startOffset, position: Position4 }
+  : { column: C3, appearsAt: (Beats (mb2info M39B1).t) + startOffset, position: Position2 }
+  : { column: C7, appearsAt: (Beats (mb2info M40B3).t) + startOffset, position: Position3 }
+  : { column: C12, appearsAt: (Beats (mb2info M41B1).t) + startOffset, position: Position1 }
+  : { column: C8, appearsAt: (Beats (mb2info M42B3).t) + startOffset, position: Position4 }
+  : { column: C3, appearsAt: (Beats (mb2info M43B1).t) + startOffset, position: Position2 }
+  : { column: C7, appearsAt: (Beats (mb2info M44B3).t) + startOffset, position: Position3 }
+  : { column: C12, appearsAt: (Beats (mb2info M45B1).t) + startOffset, position: Position1 }
+  : { column: C8, appearsAt: (Beats (mb2info M46B3).t) + startOffset, position: Position4 }
+  : { column: C3, appearsAt: (Beats (mb2info M47B1).t) + startOffset, position: Position2 }
+  : { column: C7, appearsAt: (Beats (mb2info M48B3).t) + startOffset, position: Position3 }
+  : { column: C12, appearsAt: (Beats (mb2info M49B1).t) + startOffset, position: Position1 }
+  : { column: C8, appearsAt: (Beats (mb2info M50B3).t) + startOffset, position: Position4 }
   --
   --
-  : { column: C3, appearsAt: (Beats (mb2info M51B1).t) + tutorialStartOffset, position: Position2 }
-  : { column: C7, appearsAt: (Beats (mb2info M51B1).t) + tutorialStartOffset, position: Position3 }
-  : { column: C12, appearsAt: (Beats (mb2info M51B1).t) + tutorialStartOffset, position: Position1 }
-  : { column: C8, appearsAt: (Beats (mb2info M51B1).t) + tutorialStartOffset, position: Position4 }
+  : { column: C3, appearsAt: (Beats (mb2info M51B1).t) + startOffset, position: Position2 }
+  : { column: C7, appearsAt: (Beats (mb2info M51B1).t) + startOffset, position: Position3 }
+  : { column: C12, appearsAt: (Beats (mb2info M51B1).t) + startOffset, position: Position1 }
+  : { column: C8, appearsAt: (Beats (mb2info M51B1).t) + startOffset, position: Position4 }
 
   --
-  : { column: C3, appearsAt: (Beats (mb2info M55B1).t) + tutorialStartOffset, position: Position2 }
-  : { column: C7, appearsAt: (Beats (mb2info M55B1).t) + tutorialStartOffset, position: Position3 }
-  : { column: C12, appearsAt: (Beats (mb2info M55B1).t) + tutorialStartOffset, position: Position1 }
-  : { column: C8, appearsAt: (Beats (mb2info M55B1).t) + tutorialStartOffset, position: Position4 }
+  : { column: C3, appearsAt: (Beats (mb2info M55B1).t) + startOffset, position: Position2 }
+  : { column: C7, appearsAt: (Beats (mb2info M55B1).t) + startOffset, position: Position3 }
+  : { column: C12, appearsAt: (Beats (mb2info M55B1).t) + startOffset, position: Position1 }
+  : { column: C8, appearsAt: (Beats (mb2info M55B1).t) + startOffset, position: Position4 }
 
   --
-  : { column: C3, appearsAt: (Beats (mb2info M59B1).t) + tutorialStartOffset, position: Position2 }
-  : { column: C7, appearsAt: (Beats (mb2info M59B1).t) + tutorialStartOffset, position: Position3 }
-  : { column: C12, appearsAt: (Beats (mb2info M59B1).t) + tutorialStartOffset, position: Position1 }
-  : { column: C8, appearsAt: (Beats (mb2info M59B1).t) + tutorialStartOffset, position: Position4 }
+  : { column: C3, appearsAt: (Beats (mb2info M59B1).t) + startOffset, position: Position2 }
+  : { column: C7, appearsAt: (Beats (mb2info M59B1).t) + startOffset, position: Position3 }
+  : { column: C12, appearsAt: (Beats (mb2info M59B1).t) + startOffset, position: Position1 }
+  : { column: C8, appearsAt: (Beats (mb2info M59B1).t) + startOffset, position: Position4 }
 
   --
-  : { column: C3, appearsAt: (Beats (mb2info M63B1).t) + tutorialStartOffset, position: Position2 }
-  : { column: C7, appearsAt: (Beats (mb2info M63B1).t) + tutorialStartOffset, position: Position3 }
-  : { column: C12, appearsAt: (Beats (mb2info M63B1).t) + tutorialStartOffset, position: Position1 }
-  : { column: C8, appearsAt: (Beats (mb2info M63B1).t) + tutorialStartOffset, position: Position4 }
+  : { column: C3, appearsAt: (Beats (mb2info M63B1).t) + startOffset, position: Position2 }
+  : { column: C7, appearsAt: (Beats (mb2info M63B1).t) + startOffset, position: Position3 }
+  : { column: C12, appearsAt: (Beats (mb2info M63B1).t) + startOffset, position: Position1 }
+  : { column: C8, appearsAt: (Beats (mb2info M63B1).t) + startOffset, position: Position4 }
 
   --
-  : { column: C3, appearsAt: (Beats (mb2info M67B1).t) + tutorialStartOffset, position: Position2 }
-  : { column: C7, appearsAt: (Beats (mb2info M67B1).t) + tutorialStartOffset, position: Position3 }
-  : { column: C12, appearsAt: (Beats (mb2info M67B1).t) + tutorialStartOffset, position: Position1 }
-  : { column: C8, appearsAt: (Beats (mb2info M67B1).t) + tutorialStartOffset, position: Position4 }
+  : { column: C3, appearsAt: (Beats (mb2info M67B1).t) + startOffset, position: Position2 }
+  : { column: C7, appearsAt: (Beats (mb2info M67B1).t) + startOffset, position: Position3 }
+  : { column: C12, appearsAt: (Beats (mb2info M67B1).t) + startOffset, position: Position1 }
+  : { column: C8, appearsAt: (Beats (mb2info M67B1).t) + startOffset, position: Position4 }
 
   --
-  : { column: C3, appearsAt: (Beats (mb2info M71B1).t) + tutorialStartOffset, position: Position2 }
-  : { column: C7, appearsAt: (Beats (mb2info M71B1).t) + tutorialStartOffset, position: Position3 }
-  : { column: C12, appearsAt: (Beats (mb2info M71B1).t) + tutorialStartOffset, position: Position1 }
-  : { column: C8, appearsAt: (Beats (mb2info M71B1).t) + tutorialStartOffset, position: Position4 }
+  : { column: C3, appearsAt: (Beats (mb2info M71B1).t) + startOffset, position: Position2 }
+  : { column: C7, appearsAt: (Beats (mb2info M71B1).t) + startOffset, position: Position3 }
+  : { column: C12, appearsAt: (Beats (mb2info M71B1).t) + startOffset, position: Position1 }
+  : { column: C8, appearsAt: (Beats (mb2info M71B1).t) + startOffset, position: Position4 }
 
   --
-  : { column: C3, appearsAt: (Beats (mb2info M75B1).t) + tutorialStartOffset, position: Position2 }
-  : { column: C7, appearsAt: (Beats (mb2info M75B1).t) + tutorialStartOffset, position: Position3 }
-  : { column: C12, appearsAt: (Beats (mb2info M75B1).t) + tutorialStartOffset, position: Position1 }
-  : { column: C8, appearsAt: (Beats (mb2info M75B1).t) + tutorialStartOffset, position: Position4 }
+  : { column: C3, appearsAt: (Beats (mb2info M75B1).t) + startOffset, position: Position2 }
+  : { column: C7, appearsAt: (Beats (mb2info M75B1).t) + startOffset, position: Position3 }
+  : { column: C12, appearsAt: (Beats (mb2info M75B1).t) + startOffset, position: Position1 }
+  : { column: C8, appearsAt: (Beats (mb2info M75B1).t) + startOffset, position: Position4 }
 
   --
-  : { column: C3, appearsAt: (Beats (mb2info M79B1).t) + tutorialStartOffset, position: Position2 }
-  : { column: C12, appearsAt: (Beats (mb2info M79B1).t) + tutorialStartOffset, position: Position1 }
+  : { column: C3, appearsAt: (Beats (mb2info M79B1).t) + startOffset, position: Position2 }
+  : { column: C12, appearsAt: (Beats (mb2info M79B1).t) + startOffset, position: Position1 }
 
   --
-  : { column: C3, appearsAt: (Beats (mb2info M83B1).t) + tutorialStartOffset, position: Position2 }
-  : { column: C12, appearsAt: (Beats (mb2info M83B1).t) + tutorialStartOffset, position: Position1 }
+  : { column: C3, appearsAt: (Beats (mb2info M83B1).t) + startOffset, position: Position2 }
+  : { column: C12, appearsAt: (Beats (mb2info M83B1).t) + startOffset, position: Position1 }
 
   : Nil

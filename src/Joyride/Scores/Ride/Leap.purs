@@ -21,7 +21,7 @@ import FRP.Event.Class (bang)
 import FRP.Event.Time as LocalTime
 import Foreign.Object as Object
 import Joyride.Audio.Leap as LeapA
-import Joyride.Constants.Ride (rideStartOffset)
+import Joyride.Constants.Audio (startOffset)
 import Joyride.FRP.Behavior (misbehavior)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Schedule (oneOff, scheduleCf)
@@ -163,8 +163,8 @@ rideLeaps levs makeLeaps = fixed
             { uniqueId
             -- abs in case accidentally out of order
             -- divide by 4.0 to get roughly an extra bar back
-            , appearsAt: (Beats $ logicalFirst - (abs (x.marker2Time - x.marker1Time) / 4.0)) + rideStartOffset
-            , hitsLastPositionAt: (Beats logicalLast) + rideStartOffset
+            , appearsAt: (Beats $ logicalFirst - (abs (x.marker2Time - x.marker1Time) / 4.0)) + startOffset
+            , hitsLastPositionAt: (Beats logicalLast) + startOffset
             , column: int2Column x.column
             , position: x.position
             }

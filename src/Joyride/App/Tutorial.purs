@@ -94,6 +94,7 @@ type TutorialScore =
   , leapE :: forall lock payload. { | MakeLeaps () } -> ASceneful lock payload
   , longE :: forall lock payload. { | MakeLongs () } -> ASceneful lock payload
   , bgtrack :: String
+  , baseFileOffsetInSeconds :: Number
   , isPreviewPage :: Boolean
   }
 
@@ -228,6 +229,7 @@ tutorial
                         , silence: tli.silence
                         , longVerb: longVerb
                         , bgtrack: tscore.bgtrack
+                        , baseFileOffsetInSeconds: tscore.baseFileOffsetInSeconds
                         }
                     )
                   push.iAmReady

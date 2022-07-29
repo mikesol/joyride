@@ -12,12 +12,12 @@ import FRP.Behavior (Behavior, sample_)
 import FRP.Event (Event)
 import FRP.Event.Class (bang)
 import Foreign.Object as Object
-import Joyride.Constants.Tutorial (tutorialStartOffset)
+import Joyride.Constants.Audio (startOffset)
 import Joyride.FRP.Schedule (oneOff)
 import Joyride.Ocarina (AudibleChildEnd(..))
 import Ocarina.Control (gain_, playBuf, convolver)
 import Ocarina.Core (Audible, AudioOnOff(..), _on, dyn)
-import Ocarina.Properties (buffer, onOff)
+import Ocarina.Properties (buffer, bufferOffset, onOff)
 import Ocarina.WebAPI (BrowserAudioBuffer)
 import Types (Beats(..), RateInfo, beatToTime)
 
@@ -36,9 +36,10 @@ graph
      , longVerb :: BrowserAudioBuffer
      , bgtrack :: String
      , silence :: BrowserAudioBuffer
+     , baseFileOffsetInSeconds :: Number
      }
   -> Array (Audible D2 lock payload)
-graph { basics, leaps, longs, longVerb, rateInfo, silence, buffers, bgtrack } =
+graph { basics, leaps, longs, longVerb, rateInfo, silence, buffers, bgtrack, baseFileOffsetInSeconds } =
   [ gain_ 1.0
       [ dyn ((map <<< map) (\(AudibleChildEnd e) -> e) basics)
       ]
@@ -54,11 +55,12 @@ graph { basics, leaps, longs, longVerb, rateInfo, silence, buffers, bgtrack } =
               [ sample_ buffers (bang unit) <#> Object.lookup bgtrack >>> case _ of
                   Just b -> buffer b
                   Nothing -> buffer silence
+              , bang $ bufferOffset baseFileOffsetInSeconds
               , oneOff
                   ( \i@{ beats: Beats beats } ->
                       if beats > 0.94 then Just i else Nothing
                   )
-                  rateInfo <#> (\ri -> onOff $ AudioOnOff { o: unwrap $ beatToTime ri tutorialStartOffset, x: _on })
+                  rateInfo <#> (\ri -> onOff $ AudioOnOff { o: (unwrap $ beatToTime ri startOffset), x: _on })
               ]
 
           )

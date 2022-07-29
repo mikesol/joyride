@@ -169,6 +169,7 @@ toplevel tli =
       { basicE: tutorialBasics
       , leapE: tutorialLeaps
       , longE: tutorialLongs
+      , baseFileOffsetInSeconds: 0.0
       , bgtrack: "tutorial"
       , isPreviewPage: false
       }
@@ -198,5 +199,6 @@ toplevel tli =
                   _ -> Nothing
               )
           , bgtrack: tv0.url
+          , baseFileOffsetInSeconds: 0.0
           }
           successful

@@ -17,7 +17,7 @@ import FRP.Event.Class (bang)
 import FRP.Event.Time as LocalTime
 import Foreign.Object as Object
 import Joyride.Audio.Long as LongA
-import Joyride.Constants.Tutorial (tutorialStartOffset)
+import Joyride.Constants.Audio (startOffset)
 import Joyride.FRP.Behavior (misbehavior)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Schedule (oneOff, scheduleCf)
@@ -129,29 +129,29 @@ tmpScore0 = Nil
 
 tmpScore :: List ScoreMorcel
 tmpScore =
-  -- { column: C10, appearsAt: (Beats (mb2info M1B1).t) + tutorialStartOffset, length: 1.25, tag: "shakuhachi0" }  :
-  { column: C10, appearsAt: (Beats (mb2info M29B1).t) + tutorialStartOffset, length: 1.25, tag: "shakuhachi0" }
-    : { column: C2, appearsAt: (Beats (mb2info M33B1).t) + tutorialStartOffset, length: 1.0, tag: "shakuhachi1" }
-    : { column: C10, appearsAt: (Beats (mb2info M36B1).t) + tutorialStartOffset, length: 1.25, tag: "shakuhachi2" }
-    : { column: C2, appearsAt: (Beats (mb2info M39B1).t) + tutorialStartOffset, length: 1.5, tag: "shakuhachi3" }
-    : { column: C10, appearsAt: (Beats (mb2info M42B1).t) + tutorialStartOffset, length: 1.75, tag: "shakuhachi0" }
-    : { column: C2, appearsAt: (Beats (mb2info M45B1).t) + tutorialStartOffset, length: 1.5, tag: "shakuhachi1" }
-    : { column: C10, appearsAt: (Beats (mb2info M48B1).t) + tutorialStartOffset, length: 1.25, tag: "shakuhachi2" }
-    : { column: C2, appearsAt: (Beats (mb2info M51B1).t) + tutorialStartOffset, length: 1.0, tag: "shakuhachi1" }
+  -- { column: C10, appearsAt: (Beats (mb2info M1B1).t) + startOffset, length: 1.25, tag: "shakuhachi0" }  :
+  { column: C10, appearsAt: (Beats (mb2info M29B1).t) + startOffset, length: 1.25, tag: "shakuhachi0" }
+    : { column: C2, appearsAt: (Beats (mb2info M33B1).t) + startOffset, length: 1.0, tag: "shakuhachi1" }
+    : { column: C10, appearsAt: (Beats (mb2info M36B1).t) + startOffset, length: 1.25, tag: "shakuhachi2" }
+    : { column: C2, appearsAt: (Beats (mb2info M39B1).t) + startOffset, length: 1.5, tag: "shakuhachi3" }
+    : { column: C10, appearsAt: (Beats (mb2info M42B1).t) + startOffset, length: 1.75, tag: "shakuhachi0" }
+    : { column: C2, appearsAt: (Beats (mb2info M45B1).t) + startOffset, length: 1.5, tag: "shakuhachi1" }
+    : { column: C10, appearsAt: (Beats (mb2info M48B1).t) + startOffset, length: 1.25, tag: "shakuhachi2" }
+    : { column: C2, appearsAt: (Beats (mb2info M51B1).t) + startOffset, length: 1.0, tag: "shakuhachi1" }
     --
-    : { column: C10, appearsAt: (Beats (mb2info M53B1).t) + tutorialStartOffset, length: 1.75, tag: "shakuhachi0" }
-    : { column: C2, appearsAt: (Beats (mb2info M55B1).t) + tutorialStartOffset, length: 1.5, tag: "shakuhachi1" }
-    : { column: C10, appearsAt: (Beats (mb2info M57B1).t) + tutorialStartOffset, length: 1.25, tag: "shakuhachi2" }
-    : { column: C2, appearsAt: (Beats (mb2info M59B1).t) + tutorialStartOffset, length: 1.0, tag: "shakuhachi1" }
-    : { column: C10, appearsAt: (Beats (mb2info M61B1).t) + tutorialStartOffset, length: 1.75, tag: "shakuhachi0" }
-    : { column: C2, appearsAt: (Beats (mb2info M63B1).t) + tutorialStartOffset, length: 1.5, tag: "shakuhachi1" }
-    : { column: C10, appearsAt: (Beats (mb2info M65B1).t) + tutorialStartOffset, length: 1.25, tag: "shakuhachi2" }
-    : { column: C2, appearsAt: (Beats (mb2info M67B1).t) + tutorialStartOffset, length: 1.0, tag: "shakuhachi1" }
+    : { column: C10, appearsAt: (Beats (mb2info M53B1).t) + startOffset, length: 1.75, tag: "shakuhachi0" }
+    : { column: C2, appearsAt: (Beats (mb2info M55B1).t) + startOffset, length: 1.5, tag: "shakuhachi1" }
+    : { column: C10, appearsAt: (Beats (mb2info M57B1).t) + startOffset, length: 1.25, tag: "shakuhachi2" }
+    : { column: C2, appearsAt: (Beats (mb2info M59B1).t) + startOffset, length: 1.0, tag: "shakuhachi1" }
+    : { column: C10, appearsAt: (Beats (mb2info M61B1).t) + startOffset, length: 1.75, tag: "shakuhachi0" }
+    : { column: C2, appearsAt: (Beats (mb2info M63B1).t) + startOffset, length: 1.5, tag: "shakuhachi1" }
+    : { column: C10, appearsAt: (Beats (mb2info M65B1).t) + startOffset, length: 1.25, tag: "shakuhachi2" }
+    : { column: C2, appearsAt: (Beats (mb2info M67B1).t) + startOffset, length: 1.0, tag: "shakuhachi1" }
     --
-    : { column: C10, appearsAt: (Beats (mb2info M69B1).t) + tutorialStartOffset, length: 1.75, tag: "shakuhachi0" }
-    : { column: C2, appearsAt: (Beats (mb2info M72B1).t) + tutorialStartOffset, length: 1.5, tag: "shakuhachi1" }
-    : { column: C10, appearsAt: (Beats (mb2info M75B1).t) + tutorialStartOffset, length: 1.25, tag: "shakuhachi2" }
-    : { column: C2, appearsAt: (Beats (mb2info M78B1).t) + tutorialStartOffset, length: 1.0, tag: "shakuhachi1" }
+    : { column: C10, appearsAt: (Beats (mb2info M69B1).t) + startOffset, length: 1.75, tag: "shakuhachi0" }
+    : { column: C2, appearsAt: (Beats (mb2info M72B1).t) + startOffset, length: 1.5, tag: "shakuhachi1" }
+    : { column: C10, appearsAt: (Beats (mb2info M75B1).t) + startOffset, length: 1.25, tag: "shakuhachi2" }
+    : { column: C2, appearsAt: (Beats (mb2info M78B1).t) + startOffset, length: 1.0, tag: "shakuhachi1" }
     --
-    : { column: C10, appearsAt: (Beats (mb2info M81B1).t) + tutorialStartOffset, length: 1.75, tag: "shakuhachi0" }
+    : { column: C10, appearsAt: (Beats (mb2info M81B1).t) + startOffset, length: 1.75, tag: "shakuhachi0" }
     : Nil

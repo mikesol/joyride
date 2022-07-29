@@ -97,6 +97,7 @@ type RideScore =
   { basicE :: forall lock payload. { | MakeBasics () } -> ASceneful lock payload
   , leapE :: forall lock payload. { | MakeLeaps () } -> ASceneful lock payload
   , longE :: forall lock payload. { | MakeLongs () } -> ASceneful lock payload
+  , baseFileOffsetInSeconds :: Number
   , bgtrack :: String
   }
 
@@ -234,6 +235,7 @@ ride
                           st <- run2 ctx
                             ( graph
                                 { basics: toEvent event.basicAudio
+                                , baseFileOffsetInSeconds: tscore.baseFileOffsetInSeconds
                                 , leaps: toEvent event.leapAudio
                                 , rateInfo: _.rateInfo <$> aStuff
                                 , buffers: refToBehavior tli.soundObj

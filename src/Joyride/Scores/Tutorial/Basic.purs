@@ -23,7 +23,7 @@ import FRP.Event (Event, keepLatest, memoize)
 import FRP.Event.Class (bang)
 import FRP.Event.Time as LocalTime
 import Joyride.Audio.Basic as BasicA
-import Joyride.Constants.Tutorial (tutorialStartOffset)
+import Joyride.Constants.Audio (startOffset)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Schedule (oneOff, scheduleCf)
 import Joyride.Ocarina (AudibleEnd(..))
@@ -180,4 +180,4 @@ fromBase2 = List.fromFoldable <<< map
       }
   )
   where
-  tso = unwrap tutorialStartOffset
+  tso = unwrap startOffset

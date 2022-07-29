@@ -36,6 +36,7 @@ import Effect.Class.Console as Log
 import Effect.Console (log)
 import Effect.Random (randomInt)
 import Effect.Ref as Ref
+import FRP.Behavior (sample)
 import FRP.Event (AnEvent, bang, fold, folded, fromEvent, keepLatest, mailboxed, mapAccum, memoize, sampleOn, toEvent)
 import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V, vbus)
@@ -46,6 +47,7 @@ import Joyride.App.Tutorial (tutorial)
 import Joyride.Editor.ADT (Landmark(..), LongLength(..), Marker(..))
 import Joyride.FRP.Aff (eventToAff)
 import Joyride.FRP.Beh (memoBeh)
+import Joyride.FRP.Behavior (howShouldIBehave)
 import Joyride.FRP.Rider (rider, toRide)
 import Joyride.FRP.Schedule (fireAndForget)
 import Joyride.Filestack.Filestack (init, picker)
@@ -74,6 +76,7 @@ smplCls s = oneOf [ bang $ D.Class := s ]
 
 infixr 4 sampleOn as 🙂
 infixr 4 biSampleOn as 😄
+infixr 4 sample as 😝
 
 newtype SpammedId = SpammedId { id :: Int, did :: String }
 
@@ -92,6 +95,7 @@ type Events t =
   ( importerScreenVisible :: t Boolean
   , chooserScreenVisible :: t Boolean
   , loadingScreenVisible :: t Boolean
+  , currentTime :: t (Effect Number)
   , previewScreenVisible :: t (Maybe PreviewScreenNeeds)
   , availableTracks :: t (Array { id :: String, data :: Track })
   -- achtung: this event is only for external modification
@@ -410,6 +414,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
         <<< memoBeh (Just <$> event.documentId) Nothing
     )
   ctor <- envy <<< mailboxed event.spamIdsOnSubscription
+  cTime <- envy <<< memoBeh event.currentTime (pure 0.0)
   let importerScreenVisible = event.importerScreenVisible <|> bang true
   let chooserScreenVisible = event.chooserScreenVisible <|> bang false
   let loadingScreenVisible = event.loadingScreenVisible <|> bang false
@@ -478,7 +483,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
             ( oneOf
                 [ bang $ D.Class := ""
                 , event.loadWave <#> \url -> D.Self := \s -> do
-                    makeWavesurfer Nothing Just
+                    ws <- makeWavesurfer Nothing Just
                       ( \i j x id t -> do
                           pushed.markerMoved { ix: i, offset: j, inArray: x, time: t, id }
                           pushed.atomicEventOperation $ case j of
@@ -489,7 +494,9 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                       )
                       (pushed.importerScreenVisible false)
                       s
-                      url >>= pushed.waveSurfer
+                      url
+                    pushed.waveSurfer ws
+                    pushed.currentTime (getCurrentTime ws)
                     pushed.loadingScreenVisible false
                 ]
             )
@@ -1082,7 +1089,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
         ( previewScreenVisible <#> \psv ->
             D.Class := "absolute w-screen h-screen" <> if isJust psv then "" else " hidden"
         )
-        [ (mostRecentData 🙂 ({ psv: _, mrd: _ } <$> previewScreenVisible)) # switcher \x ->
+        [ (fromEvent (howShouldIBehave (pure 0.0) (toEvent cTime) 😝 toEvent event.waveSurfer 🙂 toEvent mostRecentData 🙂 ({ psv: _, mrd: _, ws: _, ct: _ } <$> toEvent previewScreenVisible))) # switcher \x ->
             do
               let __ = spy "running switcher" x
               let vals = Array.fromFoldable $ Map.values $ snd x.mrd
@@ -1099,23 +1106,47 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                   )
                   { basicE: rideBasics $ sortBy (compare `on` _.marker1Time)
                       ( vals # filterMap case _ of
-                          EventV0 (BasicEventV0 be) -> Just be
+                          EventV0 (BasicEventV0 be) ->
+                            if be.marker1Time < x.ct then Nothing
+                            else Just
+                              ( be
+                                  { marker1Time = be.marker1Time - x.ct
+                                  , marker2Time = be.marker2Time - x.ct
+                                  , marker3Time = be.marker3Time - x.ct
+                                  , marker4Time = be.marker4Time - x.ct
+                                  }
+                              )
                           _ -> Nothing
                       )
                   , leapE: rideLeaps
                       ( spy "LEAPS"
                           ( vals # filterMap case _ of
-                              EventV0 (LeapEventV0 be) -> Just be
+                              EventV0 (LeapEventV0 be) ->
+                                if be.marker1Time < x.ct then Nothing
+                                else Just
+                                  ( be
+                                      { marker1Time = be.marker1Time - x.ct
+                                      , marker2Time = be.marker2Time - x.ct
+                                      }
+                                  )
                               _ -> Nothing
                           )
                       )
                   , longE: rideLongs
                       ( vals # filterMap case _ of
-                          EventV0 (LongEventV0 be) -> Just be
+                          EventV0 (LongEventV0 be) ->
+                            if be.marker1Time < x.ct then Nothing
+                            else Just
+                              ( be
+                                  { marker1Time = be.marker1Time - x.ct
+                                  , marker2Time = be.marker2Time - x.ct
+                                  }
+                              )
                           _ -> Nothing
                       )
                   , bgtrack: tv0.url
                   , isPreviewPage: true
+                  , baseFileOffsetInSeconds: x.ct
                   }
                   success
         ]
