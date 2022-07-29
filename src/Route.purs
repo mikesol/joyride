@@ -4,15 +4,19 @@ import Prelude
 
 import Data.Either (Either(..))
 import Data.Generic.Rep (class Generic)
-import Routing.Duplex (RouteDuplex', as, root, segment, string)
+import Data.Maybe (Maybe)
+import Data.Show.Generic (genericShow)
+import Routing.Duplex (RouteDuplex', as, optional, params, root, string)
 import Routing.Duplex.Generic as G
-import Routing.Duplex.Generic.Syntax ((/))
 import Routing.Duplex.Parser as P
 import Types (Player(..))
 
-data Route = Home | Session String String | SessionAndPlayer String String Player
+data Route = Session { ride :: Maybe String, track :: Maybe String }
 
 derive instance genericRoute :: Generic Route _
+
+instance showRoute :: Show Route where
+  show = genericShow
 
 _1234 :: RouteDuplex' String -> RouteDuplex' Player
 _1234 = as show \s -> do
@@ -26,7 +30,5 @@ _1234 = as show \s -> do
 
 route :: RouteDuplex' Route
 route = root $ G.sum
-  { "Home": G.noArgs
-  , "Session": string segment / string segment
-  , "SessionAndPlayer": string segment / string segment / _1234 segment
+  { "Session": params { ride: optional <<< string, track: optional <<< string }
   }

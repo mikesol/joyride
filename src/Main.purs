@@ -25,6 +25,7 @@ import Effect (Effect)
 import Effect.Aff (Aff, Milliseconds, ParAff, forkAff, joinFiber, launchAff_, never)
 import Effect.Class (liftEffect)
 import Effect.Class.Console as Log
+import Effect.Console (log)
 import Effect.Random as Random
 import Effect.Ref (new)
 import Effect.Ref as Ref
@@ -72,7 +73,7 @@ import Types (BufferName(..), Channel(..), ChannelChooser(..), CubeTexture, Cube
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
 import Web.HTML (window)
-import Web.HTML.Location (pathname)
+import Web.HTML.Location (pathname, search)
 import Web.HTML.Window (innerHeight, innerWidth, localStorage, location, toEventTarget)
 import Web.Storage.Storage as LS
 
@@ -107,19 +108,15 @@ renderingInfoMobile =
   }
 
 channelFromRoute :: Route -> Maybe String
-channelFromRoute Home = Nothing
-channelFromRoute (Session session _) = Just session
-channelFromRoute (SessionAndPlayer session _ _) = Just session
+channelFromRoute (Session { ride }) = ride
 
 trackFromRoute :: Route -> Maybe String
-trackFromRoute Home = Nothing
-trackFromRoute (Session _ trackId) = Just trackId
-trackFromRoute (SessionAndPlayer _ trackId _) = Just trackId
+trackFromRoute (Session { track }) = track
 
+-- player from route now always yields nothing
+-- todo: remove logic where this was significant
 playerFromRoute :: Route -> Maybe Player
-playerFromRoute Home = Nothing
-playerFromRoute (Session _ _) = Nothing
-playerFromRoute (SessionAndPlayer _ _ player) = Just player
+playerFromRoute (Session _) = Nothing
 
 type LeapUnsubscribes =
   { p1 :: Effect Unit
@@ -250,7 +247,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
         silence <- makeAudioBuffer ctx' (AudioBuffer 44100 [ replicate 1000 0.0 ])
         -- path parsing
         loc <- location w
-        pn <- pathname loc
+        pn <- append <$> pathname loc <*> search loc
         let parsed = parse route pn
         resizeListener <- eventListener \_ -> do
           ({ iw: _, ih: _ } <$> (Int.toNumber <$> innerWidth w) <*> (Int.toNumber <$> innerHeight w)) >>= resizeE.push
@@ -340,8 +337,10 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
           downloadedTextures <- forkAff (fromHomogeneous <$> parTraverse (loadAff ldr) (homogeneous textures))
           downloadedGLTFs <- forkAff (fromHomogeneous <$> parTraverse (GLTFLoader.loadAff gldr) (homogeneous models))
           downloadedCubeTextures <- forkAff (fromHomogeneous <$> parTraverse ((CubeTextureLoader.loadAffRecord cldr)) (map unwrap $ homogeneous cubeTextures))
+          liftEffect $ log $ "Parsed route: " <> show parsed
           -- "server" via pubnub
           let
+
             proposedChannel'' = do
               res <- hush parsed
               Tuple <$> channelFromRoute res <*> trackFromRoute res
