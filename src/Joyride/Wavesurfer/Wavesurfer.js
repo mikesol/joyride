@@ -158,7 +158,7 @@ export const makeWavesurfer =
 				}),
 				MarkersPlugin.create({
 					// hack to get draggable working. we delete the first element after
-					markers: [{ time: 0.0, color: "#00ffff", draggable: true }],
+					markers: [{ time: 0.0, color: "#00ffff", draggable: true, position: "top" }],
 				}),
 				CursorPlugin.create({
 					showTime: true,
@@ -274,7 +274,7 @@ export const associateEventDocumentIdWithMarker = (m) => (id) => () => {
 	m.el.$$documentId = id;
 };
 export const addMarker = (ws) => (i) => (j) => (p) => () => {
-	const m = ws.addMarker({ draggable: true, ...p });
+	const m = ws.addMarker({ draggable: true, position: "top", ...p });
 	m.el.$$joyrideIndex = i;
 	m.el.$$joyrideOffset = j;
 	m.el.$$realIndex = ws.markers.markers.length - 1;
