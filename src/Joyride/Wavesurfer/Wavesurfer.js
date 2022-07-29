@@ -204,6 +204,10 @@ export const makeWavesurfer =
 				ws.skipForward();
 			},
 
+			stop: function () {
+				ws.stop();
+			},
+
 			"toggle-mute": function () {
 				ws.toggleMute();
 			},
@@ -213,6 +217,7 @@ export const makeWavesurfer =
 				32: "play", // space
 				37: "back", // left
 				39: "forth", // right
+				40: "stop", // right
 			};
 			let action = map[e.keyCode];
 			if (action in GLOBAL_ACTIONS) {
