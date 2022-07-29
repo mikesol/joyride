@@ -779,8 +779,8 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                         soloState = fold (const not) e'.solo false <|> bang false
                                         defaultLabel = case itm of
                                           LBasic v -> fromMaybe ("Tile " <> show v.id) v.name
-                                          LLeap v ->  fromMaybe ("Leap " <> show v.id) v.name
-                                          LLong v ->  fromMaybe ("Long " <> show v.id) v.name
+                                          LLeap v -> fromMaybe ("Leap " <> show v.id) v.name
+                                          LLong v -> fromMaybe ("Long " <> show v.id) v.name
                                         label =
                                           ( e'.changeName <#> case _ of
                                               Just x -> x
@@ -1037,7 +1037,15 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                         , bang $
                                             D.OnClick := do
                                               pushed.loadingScreenVisible true *> launchAff_ do
-                                                evts <- getEventsAff firestoreDb trackId
+                                                evts <-
+                                                  sortBy
+                                                    ( compare `on`
+                                                        ( _.data >>> case _ of
+                                                            EventV0 (BasicEventV0 be) -> be.marker1Time
+                                                            EventV0 (LeapEventV0 be) -> be.marker1Time
+                                                            EventV0 (LongEventV0 be) -> be.marker1Time
+                                                        )
+                                                    ) <$> getEventsAff firestoreDb trackId
                                                 liftEffect $ pushed.atomicTrackOperation (const (TrackV0 aTra))
                                                 wsf <- forkAff $ eventToAff $ toEvent event.waveSurfer
                                                 liftEffect do
