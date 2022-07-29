@@ -818,7 +818,20 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                       , bang $ xdata "bs-target" ("#collapse" <> show id)
                                                       ]
                                                   )
-                                                  [ D.span_ [ text label, text_ " (Column ", text (show <$> column), text_ ")" ] ]
+                                                  [ D.span_ [ text label, text_ " (Column ", text (show <$> column), text_ ")" ]
+                                                  , D.span
+                                                      ( oneOf
+                                                          [ soloState <#> \st -> D.Class := ("text-white font-bold pl-2 " <> if st then "" else " hidden")
+                                                          ]
+                                                      )
+                                                      [ text_ "S" ]
+                                                  , D.span
+                                                      ( oneOf
+                                                          [ muteState <#> \st -> D.Class := ("text-white font-bold pl-2 " <> if st then "" else " hidden")
+                                                          ]
+                                                      )
+                                                      [ text_ "M" ]
+                                                  ]
                                               ]
                                           , D.div
                                               ( oneOf
