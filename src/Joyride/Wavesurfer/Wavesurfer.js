@@ -214,10 +214,10 @@ export const makeWavesurfer =
 		};
 		const evl = function (e) {
 			let map = {
-				32: "play", // space
+				38: "play", // up
 				37: "back", // left
 				39: "forth", // right
-				40: "stop", // right
+				40: "stop", // down
 			};
 			let action = map[e.keyCode];
 			if (action in GLOBAL_ACTIONS) {
