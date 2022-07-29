@@ -21,6 +21,7 @@ import FRP.Event.Class (bang)
 import FRP.Event.Time as LocalTime
 import Foreign.Object as Object
 import Joyride.Audio.Leap as LeapA
+import Joyride.Constants.Ride (rideStartOffset)
 import Joyride.FRP.Behavior (misbehavior)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Schedule (oneOff, scheduleCf)
@@ -43,15 +44,14 @@ lookAhead = Beats 0.1
 singleBeat
   :: { buffer :: Behavior BrowserAudioBuffer
      , silence :: BrowserAudioBuffer
-     , myBeat :: Beats
      }
   -> Event RateInfo
   -> AudibleEnd
-singleBeat { buffer, silence, myBeat: _ } riE = AudibleEnd
+singleBeat { buffer, silence } riE = AudibleEnd
   ( envy
       ( memoize
           ( oneOff identity
-              ( riE <#> (const $ Just $ Seconds 0.0) -- \ri ->    if ri.beats + lookAhead >= myBeat then Just (beatToTime ri myBeat)  else Nothing
+              ( riE <#> (const $ Just $ Seconds 0.0)
               )
           )
           \oa -> LeapA.leap
@@ -106,8 +106,7 @@ rideLeaps levs makeLeaps = fixed
         ( LeapW.leapWord
             ( makeLeaps `union` input `union`
                 { sound: singleBeat
-                    { myBeat: input.appearsAt + Beats 1.0
-                    , silence: makeLeaps.silence
+                    { silence: makeLeaps.silence
                     , buffer: misbehavior (Object.lookup "floorTom") makeLeaps.buffers
                     }
                 , uniqueId: input.uniqueId
@@ -134,8 +133,7 @@ rideLeaps levs makeLeaps = fixed
         ( LeapV.leap
             ( makeLeaps `union` input `union`
                 { sound: singleBeat
-                    { myBeat: input.appearsAt + Beats 1.0
-                    , silence: makeLeaps.silence
+                    { silence: makeLeaps.silence
                     , buffer: misbehavior (Object.lookup "floorTom") makeLeaps.buffers
                     }
                 , uniqueId: input.uniqueId
@@ -165,8 +163,8 @@ rideLeaps levs makeLeaps = fixed
             { uniqueId
             -- abs in case accidentally out of order
             -- divide by 4.0 to get roughly an extra bar back
-            , appearsAt: Beats $ logicalFirst - (abs (x.marker2Time - x.marker1Time) / 4.0)
-            , hitsLastPositionAt: Beats logicalLast
+            , appearsAt: (Beats $ logicalFirst - (abs (x.marker2Time - x.marker1Time) / 4.0)) + rideStartOffset
+            , hitsLastPositionAt: (Beats logicalLast) + rideStartOffset
             , column: int2Column x.column
             , position: x.position
             }

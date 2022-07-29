@@ -52,6 +52,7 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
     -- this is the event that we listen to to know when to stop playing audio
     -- we stop _eitehr_ when we get an internal played _or_ when one is reported
     -- over the wire
+    -- __ = spy "beats" makeBasic.beats
     played :: Event Beats
     played = oneOf
       [ -- either I was played

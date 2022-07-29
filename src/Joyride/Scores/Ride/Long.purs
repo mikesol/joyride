@@ -19,6 +19,7 @@ import FRP.Event.Class (bang)
 import FRP.Event.Time as LocalTime
 import Foreign.Object as Object
 import Joyride.Audio.Long as LongA
+import Joyride.Constants.Ride (rideStartOffset)
 import Joyride.FRP.Behavior (misbehavior)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Schedule (oneOff, scheduleCf)
@@ -40,12 +41,10 @@ lookAhead = Beats 0.1
 singleBeat
   :: { buffer :: Behavior BrowserAudioBuffer
      , silence :: BrowserAudioBuffer
-     , myBeat :: Beats
      }
   -> { on :: Event RateInfo, off :: Event RateInfo }
   -> AudibleEnd
--- myBeat is used for timed events but not for reactive ones like long
-singleBeat { buffer, silence, myBeat: _ } riE = AudibleEnd
+singleBeat { buffer, silence } riE = AudibleEnd
   ( LongA.long
       { buffer: sample_ (buffer) oaOn
       , silence
@@ -60,7 +59,7 @@ singleBeat { buffer, silence, myBeat: _ } riE = AudibleEnd
         -- start immediately if it is an onset
         I -> Just $ Seconds 0.0
         -- otherwise we need more finesse
-        O -> Just ri.time --if ri.beats + lookAhead >= myBeat then let ___ = spy ("ugh " <> ooo) {ri, myBeat} in Just (beatToTime ri myBeat) else Nothing
+        O -> Just ri.time
     )
   oaOn = doRi riE.on I
   oaOff = doRi riE.off O
@@ -96,8 +95,7 @@ rideLongs levs makeLongs = toScene
         ( LongV.long
             ( makeLongs `union` input `union`
                 { sound: singleBeat
-                    { myBeat: input.appearsAt + Beats 1.0
-                    , silence: makeLongs.silence
+                    { silence: makeLongs.silence
                     , buffer: misbehavior (bind input.tag <<< flip Object.lookup) makeLongs.buffers
                     }
                 , uniqueId: input.uniqueId
@@ -124,8 +122,8 @@ rideLongs levs makeLongs = toScene
             { uniqueId
             -- abs in case accidentally out of order
             -- divide by 4.0 to get roughly an extra bar back
-            , appearsAt: Beats $ logicalFirst - (abs (x.marker2Time - x.marker1Time) / 4.0)
-            , hitsLastPositionAt: Beats logicalLast
+            , appearsAt: (Beats $ logicalFirst - (abs (x.marker2Time - x.marker1Time) / 4.0)) + rideStartOffset
+            , hitsLastPositionAt: (Beats logicalLast) + rideStartOffset
             -- ugh, nicer way to do this in case there is no buffer for long press?
             , tag: x.audioURL
             , length: x.length
