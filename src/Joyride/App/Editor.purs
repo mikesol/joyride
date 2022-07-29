@@ -778,9 +778,9 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                         muteState = fold (const not) e'.mute false <|> bang false
                                         soloState = fold (const not) e'.solo false <|> bang false
                                         defaultLabel = case itm of
-                                          LBasic v -> "Tile " <> show v.id
-                                          LLeap v -> "Leap " <> show v.id
-                                          LLong v -> "Long " <> show v.id
+                                          LBasic v -> fromMaybe ("Tile " <> show v.id) v.name
+                                          LLeap v ->  fromMaybe ("Leap " <> show v.id) v.name
+                                          LLong v ->  fromMaybe ("Long " <> show v.id) v.name
                                         label =
                                           ( e'.changeName <#> case _ of
                                               Just x -> x
