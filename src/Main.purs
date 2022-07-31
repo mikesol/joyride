@@ -36,6 +36,7 @@ import FRP.Event.AnimationFrame (animationFrame)
 import FRP.Event.VBus (V)
 import Foreign.Object as Object
 import Heterogeneous.Folding (hfoldlWithIndex)
+import Joyride.App.Sandbox (sandbox)
 import Joyride.App.Toplevel (toplevel)
 import Joyride.Effect.Ref (readFromRecord, writeToRecord)
 import Joyride.EmitsTouchEvents (emitsTouchEvents)
@@ -174,6 +175,8 @@ getInFlightGameInfo (HasStarted inflight) = Just inflight
 updateKnownPlayerPointsUsingRide :: Ride -> KnownPlayers -> KnownPlayers
 updateKnownPlayerPointsUsingRide a b = (constructAppendableKnownPlayersFromRide a) <> b
 
+sandboxed = false :: Boolean
+
 main
   :: Models String
   -> Shaders
@@ -181,7 +184,7 @@ main
   -> Textures String
   -> Object.Object String
   -> Effect Unit
-main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) audio = launchAff_ do
+main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) audio = if sandboxed then runInBody sandbox else launchAff_ do
   -- firebsae
   fbApp <- firebaseAppAff
   fbAnalytics <- firebaseAnalyticsAff fbApp

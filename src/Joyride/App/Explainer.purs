@@ -207,12 +207,12 @@ explainerPage opts = vbussed
                     , DL.click $ bang (push.availableRides Nothing)
                     ]
                 )
-                [ text_ "<" ]
+                [ text_ "< Back" ]
             ]
-        , D.div (bang $ D.Class := "col-start-2 col-end-6 row-start-2 row-end-6 flex flex-col")
+        , D.div (bang $ D.Class := "col-start-2 col-end-6 row-start-2 row-end-6 flex flex-col justify-items-center overflow-scroll text-center")
             [ D.h2 (bang $ D.Class := headerCls) [ text_ "Choose a ride" ]
             , D.div (oneOf [])
-                [ ( availableRides # switcher \l' -> l' # maybe (envy empty) \l -> D.ul (bang $ D.Class := "flex w-full justify-center items-center")
+                [ ( availableRides # switcher \l' -> l' # maybe (envy empty) \l -> D.ul (bang $ D.Class := "")
                       ( l <#> \{ id, data: data' } ->
                           let
                             TrackV0 aTra = data'

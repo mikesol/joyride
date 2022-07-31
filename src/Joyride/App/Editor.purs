@@ -1034,76 +1034,74 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                 [ text_ "< Back" ]
             ]
         , D.div
-            (bang $ D.Class := "select-auto justify-self-center self-center row-start-2 row-end-6 col-start-2 col-end-6")
-            ( [ D.div
+            (bang $ D.Class := "col-start-2 col-end-6 row-start-2 row-end-6 flex flex-col justify-items-center overflow-scroll text-center")
+            ( [ D.h2
                   (bang $ D.Class := "pointer-events-auto text-center p-4 " <> headerCls)
-                  [ D.p_ [ text_ "Choose a project" ]
-                  ]
+                  [ text_ "Choose a project" ]
               ]
                 <>
-                  [ D.div (bang $ D.Class := "flex w-full justify-center items-center")
-                      [ ( event.availableTracks # switcher \l -> D.ul (bang $ D.Class := "flex w-full justify-center items-center")
-                            ( l <#> \{ id: trackId, data: TrackV0 aTra } -> D.li_
-                                [ D.button
-                                    ( oneOf
-                                        [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
-                                        , bang $
-                                            D.OnClick := do
-                                              pushed.loadingScreenVisible true *> launchAff_ do
-                                                evts <-
-                                                  sortBy
-                                                    ( compare `on`
-                                                        ( _.data >>> case _ of
-                                                            EventV0 (BasicEventV0 be) -> be.marker1Time
-                                                            EventV0 (LeapEventV0 be) -> be.marker1Time
-                                                            EventV0 (LongEventV0 be) -> be.marker1Time
-                                                        )
-                                                    ) <$> getEventsAff firestoreDb trackId
-                                                liftEffect $ pushed.atomicTrackOperation (const (TrackV0 aTra))
-                                                wsf <- forkAff $ eventToAff $ toEvent event.waveSurfer
-                                                liftEffect do
-                                                  pushed.loadWave aTra.url
-                                                  for_ aTra.title pushed.initialTitle
-                                                  pushed.initialPrivate aTra.private
-                                                  pushed.documentId trackId
-                                                ws <- joinFiber wsf
-                                                liftEffect do
-                                                  evts # traverseWithIndex_ \ix { id, data: evt } -> do
-                                                    liftEffect $ pushed.atomicEventOperation (Map.insert ix evt)
-                                                    case evt of
-                                                      EventV0 (BasicEventV0 be) -> do
-                                                        pushed.addBasic (Just id /\ be)
-                                                        m0 <- addMarker ws ix 0 { color: dC ix, label: "B1", time: be.marker1Time }
-                                                        m1 <- addMarker ws ix 1 { color: dC ix, label: "B2", time: be.marker2Time }
-                                                        m2 <- addMarker ws ix 2 { color: dC ix, label: "B3", time: be.marker3Time }
-                                                        m3 <- addMarker ws ix 3 { color: dC ix, label: "B4", time: be.marker4Time }
-                                                        associateEventDocumentIdWithMarker m0 id
-                                                        associateEventDocumentIdWithMarker m1 id
-                                                        associateEventDocumentIdWithMarker m2 id
-                                                        associateEventDocumentIdWithMarker m3 id
-                                                      EventV0 (LeapEventV0 be) -> do
-                                                        pushed.addLeap (Just id /\ be)
-                                                        m0 <- addMarker ws ix 0 { color: dC ix, label: "LSt", time: be.marker1Time }
-                                                        m1 <- addMarker ws ix 1 { color: dC ix, label: "LEd", time: be.marker2Time }
-                                                        associateEventDocumentIdWithMarker m0 id
-                                                        associateEventDocumentIdWithMarker m1 id
-                                                      EventV0 (LongEventV0 be) -> do
-                                                        pushed.addLongPress (Just id /\ be)
-                                                        m0 <- addMarker ws ix 0 { color: dC ix, label: "LSt", time: be.marker1Time }
-                                                        m1 <- addMarker ws ix 1 { color: dC ix, label: "LEd", time: be.marker2Time }
-                                                        associateEventDocumentIdWithMarker m0 id
-                                                        associateEventDocumentIdWithMarker m1 id
-                                                  pushed.chooserScreenVisible false
-                                                  pushed.importerScreenVisible false
-                                                  pushed.loadingScreenVisible false
-                                        ]
-                                    )
-                                    [ text_ (fromMaybe "Untitled Track" aTra.title) ]
-                                ]
-                            )
+                  [ ( event.availableTracks # switcher \l -> D.ul (bang $ D.Class := "")
+                        ( l <#> \{ id: trackId, data: TrackV0 aTra } -> D.li_
+                            [ D.button
+                                ( oneOf
+                                    [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                                    , bang $
+                                        D.OnClick := do
+                                          pushed.loadingScreenVisible true *> launchAff_ do
+                                            evts <-
+                                              sortBy
+                                                ( compare `on`
+                                                    ( _.data >>> case _ of
+                                                        EventV0 (BasicEventV0 be) -> be.marker1Time
+                                                        EventV0 (LeapEventV0 be) -> be.marker1Time
+                                                        EventV0 (LongEventV0 be) -> be.marker1Time
+                                                    )
+                                                ) <$> getEventsAff firestoreDb trackId
+                                            liftEffect $ pushed.atomicTrackOperation (const (TrackV0 aTra))
+                                            wsf <- forkAff $ eventToAff $ toEvent event.waveSurfer
+                                            liftEffect do
+                                              pushed.loadWave aTra.url
+                                              for_ aTra.title pushed.initialTitle
+                                              pushed.initialPrivate aTra.private
+                                              pushed.documentId trackId
+                                            ws <- joinFiber wsf
+                                            liftEffect do
+                                              evts # traverseWithIndex_ \ix { id, data: evt } -> do
+                                                liftEffect $ pushed.atomicEventOperation (Map.insert ix evt)
+                                                case evt of
+                                                  EventV0 (BasicEventV0 be) -> do
+                                                    pushed.addBasic (Just id /\ be)
+                                                    m0 <- addMarker ws ix 0 { color: dC ix, label: "B1", time: be.marker1Time }
+                                                    m1 <- addMarker ws ix 1 { color: dC ix, label: "B2", time: be.marker2Time }
+                                                    m2 <- addMarker ws ix 2 { color: dC ix, label: "B3", time: be.marker3Time }
+                                                    m3 <- addMarker ws ix 3 { color: dC ix, label: "B4", time: be.marker4Time }
+                                                    associateEventDocumentIdWithMarker m0 id
+                                                    associateEventDocumentIdWithMarker m1 id
+                                                    associateEventDocumentIdWithMarker m2 id
+                                                    associateEventDocumentIdWithMarker m3 id
+                                                  EventV0 (LeapEventV0 be) -> do
+                                                    pushed.addLeap (Just id /\ be)
+                                                    m0 <- addMarker ws ix 0 { color: dC ix, label: "LSt", time: be.marker1Time }
+                                                    m1 <- addMarker ws ix 1 { color: dC ix, label: "LEd", time: be.marker2Time }
+                                                    associateEventDocumentIdWithMarker m0 id
+                                                    associateEventDocumentIdWithMarker m1 id
+                                                  EventV0 (LongEventV0 be) -> do
+                                                    pushed.addLongPress (Just id /\ be)
+                                                    m0 <- addMarker ws ix 0 { color: dC ix, label: "LSt", time: be.marker1Time }
+                                                    m1 <- addMarker ws ix 1 { color: dC ix, label: "LEd", time: be.marker2Time }
+                                                    associateEventDocumentIdWithMarker m0 id
+                                                    associateEventDocumentIdWithMarker m1 id
+                                              pushed.chooserScreenVisible false
+                                              pushed.importerScreenVisible false
+                                              pushed.loadingScreenVisible false
+                                    ]
+                                )
+                                [ text_ (fromMaybe "Untitled Track" aTra.title) ]
+                            ]
                         )
-                      ]
+                    )
                   ]
+
             )
         ]
     , D.div
