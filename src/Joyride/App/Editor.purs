@@ -777,15 +777,16 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                       let
                                         muteState = fold (const not) e'.mute false <|> bang false
                                         soloState = fold (const not) e'.solo false <|> bang false
-                                        defaultLabel = case itm of
-                                          LBasic v -> fromMaybe ("Tile " <> show v.id) v.name
-                                          LLeap v -> fromMaybe ("Leap " <> show v.id) v.name
-                                          LLong v -> fromMaybe ("Long " <> show v.id) v.name
+                                        defaultLabel /\ prefix = case itm of
+                                          LBasic v -> fromMaybe ("Tile " <> show v.id) v.name /\ "♥"
+                                          LLeap v -> fromMaybe ("Leap " <> show v.id) v.name /\ "♠"
+                                          LLong v -> fromMaybe ("Long " <> show v.id) v.name /\ "♦"
+
                                         label =
-                                          ( e'.changeName <#> case _ of
+                                          ((prefix <> " ") <> _ ) <$> (( e'.changeName <#> case _ of
                                               Just x -> x
                                               Nothing -> defaultLabel
-                                          ) <|> bang defaultLabel
+                                          ) <|> bang defaultLabel)
                                         id /\ name /\ col /\ startIx /\ initialId /\ inSeq = case itm of
                                           LBasic v -> v.id /\ v.name /\ v.col /\ v.startIx /\ v.fbId /\ 4
                                           LLeap v -> v.id /\ v.name /\ v.col /\ v.startIx /\ v.fbId /\ 2
