@@ -178,26 +178,29 @@ toplevel tli =
       let
         vals = successful.events
         TrackV0 tv0 = successful.track
+        basicE = rideBasics (sortBy (compare `on` _.marker1Time)
+              ( vals # filterMap case _ of
+                  EventV0 (BasicEventV0 be) -> Just be
+                  _ -> Nothing
+              ))
+        leapE = rideLeaps
+              (sortBy (compare `on` _.marker1Time) ( vals # filterMap case _ of
+                  EventV0 (LeapEventV0 be) -> Just be
+                  _ -> Nothing
+              ))
+        longE = rideLongs
+              (sortBy (compare `on` _.marker1Time) ( vals # filterMap case _ of
+                  EventV0 (LongEventV0 be) -> Just be
+                  _ -> Nothing
+              ))
       in
         ride
           tli
           -- todo: this is a code dup with the editor
           -- merge
-          { basicE: rideBasics $ sortBy (compare `on` _.marker1Time)
-              ( vals # filterMap case _ of
-                  EventV0 (BasicEventV0 be) -> Just be
-                  _ -> Nothing
-              )
-          , leapE: rideLeaps
-              ( vals # filterMap case _ of
-                  EventV0 (LeapEventV0 be) -> Just be
-                  _ -> Nothing
-              )
-          , longE: rideLongs
-              ( vals # filterMap case _ of
-                  EventV0 (LongEventV0 be) -> Just be
-                  _ -> Nothing
-              )
+          { basicE
+          , leapE
+          , longE
           , bgtrack: tv0.url
           , baseFileOffsetInSeconds: 0.0
           }
