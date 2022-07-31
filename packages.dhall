@@ -85,7 +85,7 @@ let overrides =
           ]
         , repo = "https://github.com/mikesol/purescript-hyrule.git"
         --, version = "always-tmp"
-        , version = "mailboxed"
+        , version = "master"
         }
       }
 

@@ -18,7 +18,7 @@ import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, isJust, maybe)
 import Data.Monoid.Always (always)
 import Data.Monoid.Endo (Endo(..))
-import Data.Newtype (class Newtype, unwrap)
+import Data.Newtype (unwrap)
 import Data.Set as Set
 import Data.Tuple (Tuple(..), fst, snd)
 import Data.Tuple.Nested ((/\), type (/\))
@@ -32,7 +32,6 @@ import Deku.Listeners (click, slider)
 import Effect (Effect)
 import Effect.Aff (forkAff, joinFiber, launchAff_)
 import Effect.Class (liftEffect)
-import Effect.Class.Console as Log
 import Effect.Console (log)
 import Effect.Random (randomInt)
 import Effect.Ref as Ref
@@ -40,7 +39,6 @@ import FRP.Behavior (sample)
 import FRP.Event (AnEvent, bang, fold, folded, fromEvent, keepLatest, mailboxed, mapAccum, memoize, sampleOn, toEvent)
 import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V, vbus)
-import Foreign.Object (Object)
 import Foreign.Object as Object
 import Joyride.App.Loading (loadingPage)
 import Joyride.App.Tutorial (tutorial)
@@ -61,7 +59,6 @@ import Joyride.Style (buttonActiveCls, buttonCls, distinctColors, headerCls)
 import Joyride.UniqueNames (randomName)
 import Joyride.Wavesurfer.Wavesurfer (WaveSurfer, addMarker, associateEventDocumentIdWithMarker, associateEventDocumentIdWithSortedMarkerIdList, getCurrentTime, getDuration, hideMarker, makeWavesurfer, muteExcept, removeMarker, showMarker, zoom)
 import Ocarina.Interpret (context_, decodeAudioDataFromUri)
-import Ocarina.WebAPI (BrowserAudioBuffer)
 import Type.Proxy (Proxy(..))
 import Types (BasicEventV0', EventV0(..), Event_(..), LeapEventV0', LongEventV0', OpenEditor', Position(..), ToplevelInfo, Track(..), WantsTutorial')
 import Web.DOM.Node (firstChild, textContent)
@@ -77,16 +74,6 @@ smplCls s = oneOf [ bang $ D.Class := s ]
 infixr 4 sampleOn as 🙂
 infixr 4 biSampleOn as 😄
 infixr 4 sample as 😝
-
-newtype SpammedId = SpammedId { id :: Int, did :: String }
-
-derive instance Newtype SpammedId _
-
-instance Eq SpammedId where
-  eq = eq `on` (unwrap >>> _.id)
-
-instance Ord SpammedId where
-  compare = compare `on` (unwrap >>> _.id)
 
 type PreviewScreenNeeds = WantsTutorial'
 
@@ -107,7 +94,7 @@ type Events t =
   , loadWave :: t String
   , waveSurfer :: t WaveSurfer
   , documentId :: t String
-  , spamIdsOnSubscription :: t SpammedId
+  , spamIdsOnSubscription :: t { address :: Int, payload :: String }
   , markerMoved ::
       t
         { ix :: Int
@@ -327,6 +314,7 @@ defaultLongPress id startIx fbId be = LLong
   , col: be.column
   }
 
+ldc :: Int
 ldc = length distinctColors
 
 dC :: Int -> String
@@ -414,6 +402,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
         <<< memoBeh (Just <$> event.documentId) Nothing
     )
   ctor <- envy <<< mailboxed event.spamIdsOnSubscription
+  markerEvent <- envy <<< mailboxed (event.markerMoved <#> \i@{ ix } -> {address: ix, payload: i})
   cTime <- envy <<< memoBeh event.currentTime (pure 0.0)
   let importerScreenVisible = event.importerScreenVisible <|> bang true
   let chooserScreenVisible = event.chooserScreenVisible <|> bang false
@@ -854,7 +843,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                           [ text_ "Name" ]
                                                       , D.input
                                                           ( oneOf
-                                                              ( [ (Just <$> ctor (SpammedId { id, did: "nope" }) <|> bang Nothing) 😄 (Tuple <$> docEv) <#> \(mDid /\ updatedId) -> D.OnInput := cb \e -> for_
+                                                              ( [ (Just <$> ctor id <|> bang Nothing) 😄 (Tuple <$> docEv) <#> \(mDid /\ updatedId) -> D.OnInput := cb \e -> for_
                                                                     ( target e
                                                                         >>= fromEventTarget
                                                                     )
@@ -865,7 +854,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                                             p'.changeName nm
                                                                         )
                                                                         pushed.atomicEventOperation $ aChangeName { id, name: nm }
-                                                                        for_ (Tuple <$> mDid <*> (initialId <|> (unwrap >>> _.did <$> updatedId))) \(trackId /\ evId) -> do
+                                                                        for_ (Tuple <$> mDid <*> (initialId <|>  updatedId)) \(trackId /\ evId) -> do
                                                                           launchAff_ (updateEventNameAff firestoreDb trackId evId v)
 
                                                                     )
@@ -886,7 +875,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                           [ text_ "Column" ]
                                                       , D.input
                                                           ( oneOf
-                                                              [ (Just <$> ctor (SpammedId { id, did: "nope" }) <|> bang Nothing) 😄 (Tuple <$> docEv) <#> \(mDid /\ updatedId) -> D.OnInput := cb \e -> for_
+                                                              [ (Just <$> ctor id<|> bang Nothing) 😄 (Tuple <$> docEv) <#> \(mDid /\ updatedId) -> D.OnInput := cb \e -> for_
                                                                   ( target e
                                                                       >>= fromEventTarget
                                                                   )
@@ -895,7 +884,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                                       (always :: m Unit -> Effect Unit) do
                                                                         p'.changeColumn v
                                                                       pushed.atomicEventOperation $ aChangeColumn { id, column: v }
-                                                                      for_ (Tuple <$> mDid <*> (initialId <|> (unwrap >>> _.did <$> updatedId))) \(trackId /\ evId) -> do
+                                                                      for_ (Tuple <$> mDid <*> (initialId <|> updatedId )) \(trackId /\ evId) -> do
                                                                         launchAff_ (updateColumnAff firestoreDb trackId evId v)
                                                                   )
                                                               , bang $ D.Xtype := "number"
@@ -931,13 +920,13 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                           ]
                                                       , D.button
                                                           ( oneOf
-                                                              [ (Just <$> ctor (SpammedId { id, did: "nope" }) <|> bang Nothing) 😄 (Tuple <$> docEv) <#> \(mDid /\ updatedId) -> D.OnClick := cb \_ -> do
+                                                              [ (Just <$> ctor id <|> bang Nothing) 😄 (Tuple <$> docEv) <#> \(mDid /\ updatedId) -> D.OnClick := cb \_ -> do
                                                                   for_ (startIx .. (startIx + inSeq - 1)) \_ -> do
                                                                     -- do not increment as the list gets shorter and shorter so we are always removing at startIx
                                                                     removeMarker ws startIx
                                                                   (map (always :: m Unit -> Effect Unit) p'.delete) unit
                                                                   pushed.atomicEventOperation $ aDeleteEvent_ { id }
-                                                                  for_ (Tuple <$> mDid <*> (initialId <|> (unwrap >>> _.did <$> updatedId))) \(trackId /\ evId) -> do
+                                                                  for_ (Tuple <$> mDid <*> (initialId <|> updatedId)) \(trackId /\ evId) -> do
                                                                     launchAff_ (deleteEventAff firestoreDb trackId evId)
                                                               , bang $ D.Class := buttonCls <> " mr-2"
                                                               ]
