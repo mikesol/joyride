@@ -75,7 +75,7 @@ addEventAff fs id r = toAffE $ addEvent fs id (removeUndefineds (JSON.writeImpl 
 
 foreign import getEvent :: Firestore -> String -> String -> Effect (Promise Foreign)
 
-getEventAff :: Firestore -> String -> String -> Aff (Maybe Track)
+getEventAff :: Firestore -> String -> String -> Aff (Maybe Event_)
 getEventAff fs id0 id1 = do
   ds <- toAffE $ getEvent fs id0 id1
   case JSON.read ds of
