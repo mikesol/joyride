@@ -1077,7 +1077,9 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                       case JSON.read res >>= JSON.readJSON of
                                         Left err -> liftEffect (window >>= alert ("Parse error: " <> show err) >>= \_ -> pushed.loadingScreenVisible false)
                                         Right ({ track, events } :: { track :: Track, events :: Array Event_ }) -> do
-                                          doc <- addTrackAff firestoreDb track
+                                          cu <- liftEffect $ currentUser fbAuth
+                                          -- update owner if the export was from someone else
+                                          doc <- addTrackAff firestoreDb (maybe identity (\(User { uid }) -> aChangeOwner uid) cu track)
                                           myTrack <- getTrackAff firestoreDb doc.id
                                           for_ myTrack \(tk :: Track) -> do
                                             evs :: Array { id :: String, data :: Event_ } <- compact <$>
