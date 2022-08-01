@@ -41,6 +41,7 @@
 		"@capacitor/android": "^3.6.0",
 		"@capacitor/core": "^3.6.0",
 		"@capacitor/ios": "^3.6.0",
+		"file-select-dialog": "^1.5.4",
 		"filestack-js": "^3.25.0",
 		"firebase": "^9.8.3",
 		"google-one-tap": "^1.0.6",
