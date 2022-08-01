@@ -6,7 +6,7 @@ import Control.Alt ((<|>))
 import Control.Parallel (parTraverse)
 import Control.Plus (empty)
 import Control.Promise (toAffE)
-import Data.Array (length, sortBy, (!!), (..))
+import Data.Array (intercalate, length, sortBy, (!!), (..))
 import Data.Array as Array
 import Data.Either (Either(..))
 import Data.Filterable (compact, filterMap)
@@ -14,12 +14,15 @@ import Data.Foldable (for_, oneOf, traverse_)
 import Data.FoldableWithIndex (traverseWithIndex_)
 import Data.Function (on)
 import Data.Int (floor)
+import Data.Lens (set)
+import Data.Lens.Index (ix)
 import Data.Map (Map)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, isJust, maybe)
 import Data.Monoid.Always (always)
 import Data.Monoid.Endo (Endo(..))
 import Data.Newtype (unwrap)
+import Data.Number.Format (fixed, toStringWith)
 import Data.Set as Set
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..), fst, snd)
@@ -447,7 +450,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
         <<< memoBeh (Just <$> event.documentId) Nothing
     )
   ctor <- envy <<< mailboxed event.spamIdsOnSubscription
-  -- markerEvent <- envy <<< mailboxed (event.markerMoved <#> \i@{ ix } -> { address: ix, payload: i })
+  markerEvent <- envy <<< mailboxed (event.markerMoved <#> \i@{ ix } -> { address: ix, payload: i })
   cTime <- envy <<< memoBeh event.currentTime (pure 0.0)
   ctrlEvent <- envy <<< memoize
     ( oneOf
@@ -854,10 +857,10 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                   Just x -> x
                                   Nothing -> defaultLabel
                               ) <|> bang defaultLabel
-                            id /\ name /\ col /\ startIx /\ initialId /\ inSeq = case itm of
-                              LBasic v -> v.id /\ v.name /\ v.col /\ v.startIx /\ v.fbId /\ 4
-                              LLeap v -> v.id /\ v.name /\ v.col /\ v.startIx /\ v.fbId /\ 2
-                              LLong v -> v.id /\ v.name /\ v.col /\ v.startIx /\ v.fbId /\ 2
+                            id /\ name /\ col /\ startIx /\ initialId /\ inSeq /\ times = case itm of
+                              LBasic v -> v.id /\ v.name /\ v.col /\ v.startIx /\ v.fbId /\ 4 /\ [ (unwrap v.l1).at, (unwrap v.l2).at, (unwrap v.l3).at, (unwrap v.l4).at ]
+                              LLeap v -> v.id /\ v.name /\ v.col /\ v.startIx /\ v.fbId /\ 2 /\ [ (unwrap v.start).at, (unwrap v.end).at ]
+                              LLong v -> v.id /\ v.name /\ v.col /\ v.startIx /\ v.fbId /\ 2 /\ [ (unwrap v.start).at, (unwrap v.end).at ]
                             column = e'.changeColumn <|> bang col
                           ( bang $ insert $ D.div (oneOf [ bang $ D.Class := "accordion-item bg-zinc-900 border border-white" ])
                               [ D.h2
@@ -886,8 +889,8 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                           , bang $ xdata "bs-target" ("#collapse" <> show id)
                                           ]
                                       )
-                                      [ D.span (oneOf [ bang $ D.Style := "color: " <> dC id <> ";" ]) [ text_ (prefix <> " ") ]
-                                      , D.span_ [ text label, text_ " (Column ", text (show <$> column), text_ ")" ]
+                                      [ D.span (oneOf [ bang $ D.Class := "mr-2", bang $ D.Style := "color: " <> dC id <> ";" ]) [ text_ (prefix) ]
+                                      , D.span_ [ text label, text_ " (Column ", text (show <$> column), text_ ") ", text $ (bang times <|> fold (\{ offset, time } tmzz -> set (ix offset) time tmzz ) (markerEvent id) times) <#> \tmz -> " (" <> intercalate "," (map (toStringWith (fixed 2)) tmz) <> ")" ]
                                       , D.span
                                           ( oneOf
                                               [ soloState <#> \st -> D.Class := ("text-white font-bold pl-2 " <> if st then "" else " hidden")

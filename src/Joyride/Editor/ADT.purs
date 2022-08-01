@@ -1,11 +1,12 @@
 module Joyride.Editor.ADT where
 
-import Prelude
 
 import Data.Maybe (Maybe)
+import Data.Newtype (class Newtype)
 import Types (Position)
 
 newtype Marker = Marker { at :: Number }
+derive instance Newtype Marker _
 newtype LongLength = LongLength { len :: Number }
 
 data Landmark
