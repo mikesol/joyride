@@ -50,7 +50,7 @@ import Joyride.FRP.Rider (rider, toRide)
 import Joyride.FRP.Schedule (fireAndForget)
 import Joyride.Filestack.Filestack (init, picker)
 import Joyride.Firebase.Auth (User(..), currentUser, signInWithGoogle)
-import Joyride.Firebase.Firestore (addEventAff, addTrackAff, deleteEventAff, getEventsAff, getTracksAff, updateColumnAff, updateEventNameAff, updateMarker1TimeAff, updateMarker2TimeAff, updateMarker3TimeAff, updateMarker4TimeAff, updateTrackPrivateAff, updateTrackTitleAff)
+import Joyride.Firebase.Firestore (addEventAff, addTrackAff, deleteEventAff, forkTrackAff, getEventsAff, getTracksAff, updateColumnAff, updateEventNameAff, updateMarker1TimeAff, updateMarker2TimeAff, updateMarker3TimeAff, updateMarker4TimeAff, updateTrackPrivateAff, updateTrackTitleAff)
 import Joyride.QualifiedDo.Apply as QDA
 import Joyride.Scores.Ride.Basic (rideBasics)
 import Joyride.Scores.Ride.Leap (rideLeaps)
@@ -81,6 +81,7 @@ type Events :: forall k. (Type -> k) -> Row k
 type Events t =
   ( importerScreenVisible :: t Boolean
   , chooserScreenVisible :: t Boolean
+  , forkingScreenVisible :: t Boolean
   , loadingScreenVisible :: t Boolean
   , currentTime :: t (Effect Number)
   , previewScreenVisible :: t (Maybe PreviewScreenNeeds)
@@ -402,17 +403,18 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
         <<< memoBeh (Just <$> event.documentId) Nothing
     )
   ctor <- envy <<< mailboxed event.spamIdsOnSubscription
-  markerEvent <- envy <<< mailboxed (event.markerMoved <#> \i@{ ix } -> {address: ix, payload: i})
+  -- markerEvent <- envy <<< mailboxed (event.markerMoved <#> \i@{ ix } -> { address: ix, payload: i })
   cTime <- envy <<< memoBeh event.currentTime (pure 0.0)
   let importerScreenVisible = event.importerScreenVisible <|> bang true
   let chooserScreenVisible = event.chooserScreenVisible <|> bang false
+  let forkingScreenVisible = event.forkingScreenVisible <|> bang false
   let loadingScreenVisible = event.loadingScreenVisible <|> bang false
   let previewScreenVisible = event.previewScreenVisible <|> bang Nothing
   D.div
     (bang $ D.Class := "absolute w-screen h-screen bg-zinc-900")
     [ D.div
         ( oneOf
-            [ previewScreenVisible <#> \psv -> D.Class := "absolute w-screen bg-zinc-900" <> if isJust psv then " hidden" else ""
+            [ previewScreenVisible <#> \psv -> D.Class := "absolute w-screen h-screen max-h-screen bg-zinc-900" <> if isJust psv then " hidden" else ""
             ]
         )
         [ D.div
@@ -509,7 +511,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                 )
                 []
             ]
-        , D.div_
+        , D.div (oneOf [ bang $ D.Class := "overflow-scroll" ])
             [ envy $ memoize
                 ( oneOf
                     [ event.addBasic <#> CBasic
@@ -757,7 +759,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                               )
                               [ text_ "Save (sign in)" ]
                           ]
-                      D.div_
+                      D.div (oneOf [])
                         [ D.div (oneOf [ bang $ D.Class := "flex flex-row justify-around" ]) top
                         , D.div (oneOf [ bang $ D.Class := "accordion", bang $ D.Id := "accordionExample" ])
                             [ dyn $
@@ -772,10 +774,10 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                           LLong v -> fromMaybe ("Long " <> show v.id) v.name /\ "♦"
 
                                         label =
-                                          ((prefix <> " ") <> _ ) <$> (( e'.changeName <#> case _ of
+                                          ( e'.changeName <#> case _ of
                                               Just x -> x
                                               Nothing -> defaultLabel
-                                          ) <|> bang defaultLabel)
+                                          ) <|> bang defaultLabel
                                         id /\ name /\ col /\ startIx /\ initialId /\ inSeq = case itm of
                                           LBasic v -> v.id /\ v.name /\ v.col /\ v.startIx /\ v.fbId /\ 4
                                           LLeap v -> v.id /\ v.name /\ v.col /\ v.startIx /\ v.fbId /\ 2
@@ -808,7 +810,8 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                       , bang $ xdata "bs-target" ("#collapse" <> show id)
                                                       ]
                                                   )
-                                                  [ D.span_ [ text label, text_ " (Column ", text (show <$> column), text_ ")" ]
+                                                  [ D.span (oneOf [ bang $ D.Style := "color: " <> dC id <> ";" ]) [ text_ (prefix <> " ") ]
+                                                  , D.span_ [ text label, text_ " (Column ", text (show <$> column), text_ ")" ]
                                                   , D.span
                                                       ( oneOf
                                                           [ soloState <#> \st -> D.Class := ("text-white font-bold pl-2 " <> if st then "" else " hidden")
@@ -854,7 +857,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                                             p'.changeName nm
                                                                         )
                                                                         pushed.atomicEventOperation $ aChangeName { id, name: nm }
-                                                                        for_ (Tuple <$> mDid <*> (initialId <|>  updatedId)) \(trackId /\ evId) -> do
+                                                                        for_ (Tuple <$> mDid <*> (initialId <|> updatedId)) \(trackId /\ evId) -> do
                                                                           launchAff_ (updateEventNameAff firestoreDb trackId evId v)
 
                                                                     )
@@ -875,7 +878,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                           [ text_ "Column" ]
                                                       , D.input
                                                           ( oneOf
-                                                              [ (Just <$> ctor id<|> bang Nothing) 😄 (Tuple <$> docEv) <#> \(mDid /\ updatedId) -> D.OnInput := cb \e -> for_
+                                                              [ (Just <$> ctor id <|> bang Nothing) 😄 (Tuple <$> docEv) <#> \(mDid /\ updatedId) -> D.OnInput := cb \e -> for_
                                                                   ( target e
                                                                       >>= fromEventTarget
                                                                   )
@@ -884,7 +887,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                                       (always :: m Unit -> Effect Unit) do
                                                                         p'.changeColumn v
                                                                       pushed.atomicEventOperation $ aChangeColumn { id, column: v }
-                                                                      for_ (Tuple <$> mDid <*> (initialId <|> updatedId )) \(trackId /\ evId) -> do
+                                                                      for_ (Tuple <$> mDid <*> (initialId <|> updatedId)) \(trackId /\ evId) -> do
                                                                         launchAff_ (updateColumnAff firestoreDb trackId evId v)
                                                                   )
                                                               , bang $ D.Xtype := "number"
@@ -963,6 +966,20 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                 <>
                   [ D.div (bang $ D.Class := "flex w-full justify-center items-center")
                       [ D.button
+                          ( oneOf
+                              [ fromEvent signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> " mx-2 pointer-events-auto" <> if sina then "" else " hidden"
+                              , bang $ D.OnClick := do
+                                  pushed.loadingScreenVisible true
+                                  launchAff_ do
+                                    tracks <- getTracksAff fbAuth firestoreDb
+                                    liftEffect $ pushed.availableTracks tracks
+                                    liftEffect do
+                                      pushed.forkingScreenVisible true
+                                      pushed.loadingScreenVisible false
+                              ]
+                          )
+                          [ text_ "Fork project" ]
+                      , D.button
                           ( oneOf
                               [ fromEvent signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> " mx-2 pointer-events-auto" <> if sina then "" else " hidden"
                               , bang $ D.OnClick := do
@@ -1083,6 +1100,53 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                     associateEventDocumentIdWithMarker m1 id
                                               pushed.chooserScreenVisible false
                                               pushed.importerScreenVisible false
+                                              pushed.loadingScreenVisible false
+                                    ]
+                                )
+                                [ text_ (fromMaybe "Untitled Track" aTra.title) ]
+                            ]
+                        )
+                    )
+                  ]
+
+            )
+        ]
+    , D.div
+        ( forkingScreenVisible <#> \csv -> D.Class := "absolute w-screen h-screen grid grid-rows-6 grid-cols-6 bg-zinc-900" <> if csv then "" else " hidden"
+        )
+
+        [ D.div
+            (bang $ D.Class := "select-auto row-start-1 row-end-2 col-start-1 col-end-2")
+            [ D.button
+                ( oneOf
+                    [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                    , bang $ D.OnClick := pushed.forkingScreenVisible false
+                    ]
+                )
+                [ text_ "< Back" ]
+            ]
+        , D.div
+            (bang $ D.Class := "col-start-2 col-end-6 row-start-2 row-end-6 flex flex-col justify-items-center overflow-scroll text-center")
+            ( [ D.h2
+                  (bang $ D.Class := "pointer-events-auto text-center p-4 " <> headerCls)
+                  [ text_ "Fork a project" ]
+              ]
+                <>
+                  [ ( event.availableTracks # switcher \l -> D.ul (bang $ D.Class := "")
+                        ( l <#> \{ id: trackId, data: TrackV0 aTra } -> D.li_
+                            [ D.button
+                                ( oneOf
+                                    [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                                    , bang $
+                                        D.OnClick := do
+                                          pushed.loadingScreenVisible true *> launchAff_ do
+                                            forkTrackAff fbAuth firestoreDb trackId
+                                            -- as we have no listener, we get the tracks again
+                                            -- a bit expensive time-wise, but easier to handle?
+                                            tracks <- getTracksAff fbAuth firestoreDb
+                                            liftEffect $ pushed.availableTracks tracks
+                                            liftEffect do
+                                              pushed.forkingScreenVisible false
                                               pushed.loadingScreenVisible false
                                     ]
                                 )

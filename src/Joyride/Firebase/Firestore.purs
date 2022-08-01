@@ -34,6 +34,11 @@ foreign import addTrack :: Firestore -> Foreign -> Effect (Promise DocumentRefer
 addTrackAff :: Firestore -> Track -> Aff DocumentReference
 addTrackAff fs r = toAffE $ addTrack fs (removeUndefineds (JSON.writeImpl r))
 
+foreign import forkTrack :: FirebaseAuth -> Firestore -> String -> Effect (Promise Unit)
+
+forkTrackAff :: FirebaseAuth -> Firestore -> String -> Aff Unit
+forkTrackAff au fs r = toAffE $ forkTrack au fs r
+
 foreign import getTrack :: Firestore -> String -> Effect (Promise Foreign)
 
 getTrackAff :: Firestore -> String -> Aff (Maybe Track)

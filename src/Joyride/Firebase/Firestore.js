@@ -26,9 +26,22 @@ const COLUMN = "column";
 
 export const addTrack = (db) => (track) => () =>
 	import("firebase/firestore").then(({ collection, addDoc }) => {
-		console.log(track);
 		return addDoc(collection(db, TRACKS), track);
 	});
+
+export const forkTrack = (auth) => (db) => (trackID) => () =>
+	Promise.all([getTrack(db)(trackID)(), getEvents(db)(trackID)()])
+		.then(([track, events]) =>
+			Promise.all([
+				addTrack(db)({ owner: auth.currentUser.uid, ...track })(),
+				Promise.resolve(events)
+			])
+		)
+		.then(([doc, events]) =>
+			Promise.all([
+				...events.map((e) => addEvent(db)(doc.id)(e.data)()),
+			])
+		);
 
 export const getTrack = (db) => (trackID) => () =>
 	import("firebase/firestore").then(({ getDoc, doc }) => {

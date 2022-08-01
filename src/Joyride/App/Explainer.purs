@@ -23,6 +23,7 @@ import Effect.Class (liftEffect)
 import FRP.Event (Event, bang, fromEvent, keepLatest, mapAccum, memoize)
 import FRP.Event.Animate (animationFrameEvent)
 import FRP.Event.VBus (V)
+import Joyride.Firebase.Auth (signInWithGoogle)
 import Joyride.Firebase.Firestore (getPublicTracksAff)
 import Joyride.Firebase.Opaque (FirebaseAuth, Firestore)
 import Joyride.FullScreen as FullScreen
@@ -40,8 +41,10 @@ import Rito.Run as Rito.Run
 import Rito.Scene (Background(..), scene)
 import Type.Proxy (Proxy(..))
 import Types (CubeTextures, JMilliseconds(..), ThreeDI, Track(..), WindowDims)
+import Web.HTML (window)
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 import Web.HTML.HTMLCanvasElement as HTMLCanvasElement
+import Web.HTML.Window (alert)
 
 threeLoader
   :: { threeDI :: ThreeDI
@@ -189,6 +192,15 @@ explainerPage opts = vbussed
                         ]
                     )
                     [ text_ "Editor" ]
+                , D.button
+                    ( oneOf
+                        [ bang $ D.OnClick := do
+                            signInWithGoogle do
+                              window >>= alert "Sign in with google is temporarily unavailable. Please try again later."
+                        , fromEvent opts.signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> if sina then " hidden" else ""
+                        ]
+                    )
+                    [ text_ "Sign In" ]
                 , D.button
                     ( oneOf
                         [ fromEvent opts.signedInNonAnonymously <#> \na -> D.Class := buttonCls <> (if na then "" else " hidden")
