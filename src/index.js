@@ -1,6 +1,8 @@
 import "./style.css";
 import "./style.scss";
 import "tw-elements";
+import "openplayerjs/dist/openplayer.min.css";
+
 import { main } from "../output/Main";
 import { audio } from "./audio";
 import { shaders } from "./shaders";
