@@ -278,3 +278,32 @@ body {
   0% { opacity: 1.0; }
   100% { opacity: 0; }
 }
+
+/* audio */
+audio::-webkit-media-controls-panel {
+	background-color:rgb(24 24 27);
+		color: #fff;
+
+}
+audio::-webkit-media-controls-play-button {
+	background-color: #fff;
+	border-radius: 0.25rem;
+}
+audio::-webkit-media-controls-mute-button {
+	background-color: #fff;
+	border-radius: 0.25rem;
+}
+
+audio::-webkit-media-controls-timeline-container {
+	background-color: #fff;
+	color: #fff
+}
+
+
+audio::-webkit-media-controls-current-time-display {
+	color: #fff;
+}
+
+audio::-webkit-media-controls-time-remaining-display {
+	color: #fff;
+}

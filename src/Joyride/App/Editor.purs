@@ -153,6 +153,8 @@ aChangePrivate p (TrackV0 track) = (TrackV0 (track { private = p }))
 aChangeOwner :: String -> ChangeTrack
 aChangeOwner o (TrackV0 track) = (TrackV0 (track { owner = o }))
 
+foreign import styleAudio ::Effect Unit
+
 aAddBasic
   :: { id :: Int
      , name :: Maybe String
@@ -815,6 +817,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                       url
                     pushed.waveSurfer ws
                     pushed.currentTime (getCurrentTime ws)
+                    styleAudio
                     pushed.loadingScreenVisible false
                 ]
             )

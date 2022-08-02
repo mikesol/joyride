@@ -46,6 +46,7 @@
 		"firebase": "^9.8.3",
 		"google-one-tap": "^1.0.6",
 		"lil-gui": "^0.16.1",
+		"openplayerjs": "^2.11.0",
 		"pubnub": "^5.0.1",
 		"screenfull": "^6.0.1",
 		"three": "^0.140.0",
