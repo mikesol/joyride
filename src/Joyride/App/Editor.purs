@@ -6,7 +6,7 @@ import Control.Alt ((<|>))
 import Control.Parallel (parTraverse)
 import Control.Plus (empty)
 import Control.Promise (toAffE)
-import Data.Array (length, sortBy, (!!), (..))
+import Data.Array (intercalate, length, sortBy, (!!), (..))
 import Data.Array as Array
 import Data.Either (Either(..))
 import Data.Filterable (compact, filterMap)
@@ -14,12 +14,15 @@ import Data.Foldable (for_, oneOf, traverse_)
 import Data.FoldableWithIndex (traverseWithIndex_)
 import Data.Function (on)
 import Data.Int (floor)
+import Data.Lens (set)
+import Data.Lens.Index (ix)
 import Data.Map (Map)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, isJust, maybe)
 import Data.Monoid.Always (always)
 import Data.Monoid.Endo (Endo(..))
 import Data.Newtype (unwrap)
+import Data.Number.Format (fixed, toStringWith)
 import Data.Set as Set
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..), fst, snd)
@@ -356,10 +359,10 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                   } /\ Map.empty
               )
           in
-             fold
+            fold
               ( \a (t /\ e) -> case a of
-                                          Left ae -> t /\ ae e
-                                          Right at -> (at t) /\ e
+                  Left ae -> t /\ ae e
+                  Right at -> (at t) /\ e
               )
               (Left <$> (event.atomicEventOperation) <|> (Right <$> (bang (aChangeTitle (Just initialTitle)) <|> event.atomicTrackOperation)))
               bangor
@@ -418,11 +421,44 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                   (pure unit)
               }
           )
+        <<< rider
+          ( toRide
+              { event: event.waveSurfer 🙂
+                  ( Tuple <$> mapAccum
+                      ( case _ of
+                          Solo x -> \s -> let o = Set.insert x s in o /\ Left o
+                          UnSolo x -> \s -> let o = Set.delete x s in o /\ Left o
+                          Mute x -> \s -> s /\ Right (Right x)
+                          UnMute x -> \s -> s /\ Right (Left x)
+                      )
+                      ((event.solo <#> Solo) <|> (event.mute <#> Mute) <|> (event.unSolo <#> UnSolo) <|> (event.unMute <#> UnMute))
+                      Set.empty
+                  )
+              , push: \(a /\ ws) -> unwrap
+                  ( (always :: (Endo Function (Effect Unit)) -> (Endo Function (m Unit)))
+                      ( Endo \_ -> case a of
+                          Left s -> muteExcept ws (map (\(x /\ y) -> [ x, x + y ]) (Set.toUnfoldable s))
+                          Right (Right (startIx /\ inSeq)) -> for_ (startIx .. (startIx + inSeq - 1)) \ix -> do
+                            hideMarker ws ix
+                          Right (Left (startIx /\ inSeq)) -> for_ (startIx .. (startIx + inSeq - 1)) \ix -> do
+                            showMarker ws ix
+                      )
+                  )
+                  (pure unit)
+              }
+          )
         <<< memoBeh (Just <$> event.documentId) Nothing
     )
   ctor <- envy <<< mailboxed event.spamIdsOnSubscription
-  -- markerEvent <- envy <<< mailboxed (event.markerMoved <#> \i@{ ix } -> { address: ix, payload: i })
+  markerEvent <- envy <<< mailboxed (event.markerMoved <#> \i@{ ix } -> { address: ix, payload: i })
   cTime <- envy <<< memoBeh event.currentTime (pure 0.0)
+  ctrlEvent <- envy <<< memoize
+    ( oneOf
+        [ event.addBasic <#> CBasic
+        , event.addLeap <#> CLeap
+        , event.addLongPress <#> CLongPress
+        ]
+    )
   let importerScreenVisible = event.importerScreenVisible <|> bang true
   let chooserScreenVisible = event.chooserScreenVisible <|> bang false
   let forkingScreenVisible = event.forkingScreenVisible <|> bang false
@@ -477,11 +513,223 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
               m1 <- addMarker ws ix 1 { color: dC ix, label: "LEd", time: be.marker2Time }
               associateEventDocumentIdWithMarker m0 id
               associateEventDocumentIdWithMarker m1 id
+  let
+
+    store :: AnEvent m Landmark
+    store =
+      ( mapAccum
+          ( \a { id, startIx } -> case a of
+              CBasic (ms /\ be) -> { id: id + 1, startIx: startIx + 4 } /\ defaultBasic id startIx ms be
+              CLeap (ms /\ be) -> { id: id + 1, startIx: startIx + 2 } /\ defaultLeap id startIx ms be
+              CLongPress (ms /\ be) -> { id: id + 1, startIx: startIx + 2 } /\ defaultLongPress id startIx ms be
+          )
+          ctrlEvent
+          { id: 0, startIx: 0 }
+      )
+    markerIndices = bang (0 /\ 0) <|> fold
+      ( \a (b /\ c) -> (b + 1) /\ case a of
+          CBasic _ -> c + 4
+          CLeap _ -> c + 2
+          CLongPress _ -> c + 2
+      )
+      ctrlEvent
+      (0 /\ 0)
+    top =
+      [ D.button
+          ( oneOf
+              [ (Just <$> event.documentId <|> bang Nothing) 😄 markerIndices 😄 ({ ws: _, ixs: _, did: _ } <$> event.waveSurfer) <#> \{ ws, ixs: ix /\ _, did } -> D.OnClick := do
+                  ct <- getCurrentTime ws
+                  dur <- getDuration ws
+                  let time1 = min dur (0.0 + ct)
+                  let time2 = min dur (0.5 + ct)
+                  let time3 = min dur (1.0 + ct)
+                  let time4 = min dur (1.5 + ct)
+                  let
+                    endgame x = pushed.addBasic
+                      ( x /\
+                          { marker1Time: time1
+                          , marker1AudioURL: Nothing
+                          , marker2Time: time2
+                          , marker2AudioURL: Nothing
+                          , marker3Time: time3
+                          , marker3AudioURL: Nothing
+                          , marker4Time: time4
+                          , marker4AudioURL: Nothing
+                          , column: 7
+                          , name: Nothing
+                          , version: mempty
+
+                          }
+                      )
+                  m0 <- addMarker ws ix 0 { color: dC ix, label: "B1", time: time1 }
+                  m1 <- addMarker ws ix 1 { color: dC ix, label: "B2", time: time2 }
+                  m2 <- addMarker ws ix 2 { color: dC ix, label: "B3", time: time3 }
+                  m3 <- addMarker ws ix 3 { color: dC ix, label: "B4", time: time4 }
+                  pushed.atomicEventOperation $ aAddBasic
+                    { id: ix
+                    , name: Nothing
+                    , column: 7
+                    , marker1Time: time1
+                    , marker2Time: time2
+                    , marker3Time: time3
+                    , marker4Time: time4
+                    }
+                  did # maybe (endgame Nothing) \did' ->
+                    launchAff_ do
+                      evDid <- addEventAff firestoreDb did'
+                        ( EventV0 $ BasicEventV0
+                            { marker1Time: time1
+                            , marker1AudioURL: Nothing
+                            , marker2Time: time2
+                            , marker2AudioURL: Nothing
+                            , marker3Time: time3
+                            , marker3AudioURL: Nothing
+                            , marker4Time: time4
+                            , marker4AudioURL: Nothing
+                            , column: 7
+                            , name: Nothing
+                            , version: mempty
+                            }
+                        )
+                      liftEffect $ associateEventDocumentIdWithMarker m0 evDid.id *> associateEventDocumentIdWithMarker m1 evDid.id *> associateEventDocumentIdWithMarker m2 evDid.id *> associateEventDocumentIdWithMarker m3 evDid.id *> endgame (Just evDid.id)
+              , bang $ D.Class := buttonCls
+              ]
+          )
+          [ text_ "Add Tile" ]
+      , D.button
+          ( oneOf
+              [ (Just <$> event.documentId <|> bang Nothing) 😄 markerIndices 😄 ({ ws: _, ixs: _, did: _ } <$> event.waveSurfer) <#> \{ ws, ixs: ix /\ _, did } -> D.OnClick := do
+                  ct <- getCurrentTime ws
+                  dur <- getDuration ws
+                  let
+                    time1 = min dur (0.0 + ct)
+                    time2 = min dur (0.5 + ct)
+                    endgame position x = pushed.addLeap
+                      ( x /\
+                          { marker1Time: time1
+                          , audioURL: Nothing
+                          , marker2Time: time2
+                          , column: 7
+                          , position
+                          , name: Nothing
+                          , version: mempty
+
+                          }
+                      )
+                  m0 <- addMarker ws ix 0 { color: dC ix, label: "LSt", time: time1 }
+                  m1 <- addMarker ws ix 1 { color: dC ix, label: "LEd", time: time2 }
+                  position <- randomInt 0 3 <#> case _ of
+                    0 -> Position1
+                    1 -> Position2
+                    2 -> Position3
+                    _ -> Position4
+                  pushed.atomicEventOperation $ aAddLeap
+                    { id: ix
+                    , name: Nothing
+                    , column: 7
+                    , position
+                    , marker1Time: time1
+                    , marker2Time: time2
+                    }
+                  did # maybe (endgame position Nothing) \did' ->
+                    launchAff_ do
+                      evDid <- addEventAff firestoreDb did'
+                        ( EventV0 $ LeapEventV0
+                            { marker1Time: time1
+                            , audioURL: Nothing
+                            , marker2Time: time2
+                            , position
+                            , name: Nothing
+                            , column: 7
+                            , version: mempty
+                            }
+                        )
+                      liftEffect $ associateEventDocumentIdWithMarker m0 evDid.id *> associateEventDocumentIdWithMarker m1 evDid.id *> endgame position (Just evDid.id)
+              , bang $ D.Class := buttonCls
+              ]
+          )
+          [ text_ "Add Leap" ]
+      , D.button
+          ( oneOf
+              [ (Just <$> event.documentId <|> bang Nothing) 😄 markerIndices 😄 ({ ws: _, ixs: _, did: _ } <$> event.waveSurfer) <#> \{ ws, ixs: ix /\ _, did } -> D.OnClick := do
+                  ct <- getCurrentTime ws
+                  dur <- getDuration ws
+                  let
+                    time1 = min dur (0.0 + ct)
+                    time2 = min dur (0.5 + ct)
+                    endgame x = pushed.addLongPress
+                      ( x /\
+                          { marker1Time: time1
+                          , audioURL: Nothing
+                          , marker2Time: time2
+                          , length: 1.0
+                          , column: 7
+                          , name: Nothing
+                          , version: mempty
+
+                          }
+                      )
+                  m0 <- addMarker ws ix 0 { color: dC ix, label: "P1", time: time1 }
+                  m1 <- addMarker ws ix 1 { color: dC ix, label: "P2", time: time2 }
+                  pushed.atomicEventOperation $ aAddLongPress
+                    { id: ix
+                    , name: Nothing
+                    , column: 7
+                    , marker1Time: time1
+                    , marker2Time: time2
+                    , length: 1.0
+                    }
+                  did # maybe (endgame Nothing) \did' ->
+                    launchAff_ do
+                      evDid <- addEventAff firestoreDb did'
+                        ( EventV0 $ LongEventV0
+                            { marker1Time: time1
+                            , audioURL: Nothing
+                            , marker2Time: time2
+                            , length: 1.0
+                            , name: Nothing
+                            , column: 7
+                            , version: mempty
+                            }
+                        )
+                      liftEffect $ associateEventDocumentIdWithMarker m0 evDid.id *> associateEventDocumentIdWithMarker m1 evDid.id *> endgame (Just evDid.id)
+              , bang $ D.Class := buttonCls
+
+              ]
+          )
+          [ text_ "Add Long Press" ]
+      , D.button
+          ( oneOf
+              [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+              -- , bang $ D.OnClick := log "hello world"
+              , mostRecentData <#> \(TrackV0 ato /\ aeo) -> D.OnClick := do
+                  log "starting from most recent data"
+                  pushed.loadingScreenVisible true
+                  ctx <- context_
+                  launchAff_ do
+                    buffy <- decodeAudioDataFromUri ctx ato.url
+                    liftEffect do
+                      Ref.modify_ (Object.insert ato.url buffy) tli.soundObj
+                      pushed.previewScreenVisible $ Just wtut
+                      pushed.loadingScreenVisible false
+              ]
+          )
+          [ text_ "Preview" ]
+      , D.button
+          ( oneOf
+              [ bang $ D.OnClick := do
+                  signInWithGoogle do
+                    window >>= alert "Sign in with google is temporarily unavailable. Please try again later."
+              , fromEvent signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> if sina then " hidden" else ""
+              ]
+          )
+          [ text_ "Save (sign in)" ]
+      ]
   D.div
-    (bang $ D.Class := "absolute w-screen h-screen bg-zinc-900")
+    (bang $ D.Class := "absolute w-screen h-screen bg-zinc-900 overflow-hidden")
     [ D.div
         ( oneOf
-            [ previewScreenVisible <#> \psv -> D.Class := "absolute w-screen h-screen max-h-screen bg-zinc-900" <> if isJust psv then " hidden" else ""
+            [ previewScreenVisible <#> \psv -> D.Class := "absolute w-screen h-screen max-h-screen bg-zinc-900 flex flex-col overflow-hidden" <> if isJust psv then " hidden" else ""
             ]
         )
         [ D.div
@@ -590,289 +838,41 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                 )
                 []
             ]
+        , D.div (oneOf [ bang $ D.Class := "flex flex-row justify-around" ]) top
         , D.div (oneOf [ bang $ D.Class := "overflow-scroll" ])
-            [ envy $ memoize
-                ( oneOf
-                    [ event.addBasic <#> CBasic
-                    , event.addLeap <#> CLeap
-                    , event.addLongPress <#> CLongPress
-                    ]
-                )
-                \ctrlEvent -> envy
-                  $ rider
-                      ( toRide
-                          { event: event.waveSurfer 🙂
-                              ( Tuple <$> mapAccum
-                                  ( case _ of
-                                      Solo x -> \s -> let o = Set.insert x s in o /\ Left o
-                                      UnSolo x -> \s -> let o = Set.delete x s in o /\ Left o
-                                      Mute x -> \s -> s /\ Right (Right x)
-                                      UnMute x -> \s -> s /\ Right (Left x)
+            [ D.div (oneOf [ bang $ D.Class := "accordion", bang $ D.Id := "accordionExample" ])
+                [ dyn $
+                    (event.waveSurfer 🙂 ({ itm: _, ws: _ } <$> store)) <#>
+                      ( \{ itm, ws } -> keepLatest $ vbus (Proxy :: _ (V (SingleItem PlainOl))) \p' e' -> do
+                          let
+                            muteState = fold (const not) e'.mute false <|> bang false
+                            soloState = fold (const not) e'.solo false <|> bang false
+                            defaultLabel /\ prefix = case itm of
+                              LBasic v -> fromMaybe ("Tile " <> show v.id) v.name /\ "♥"
+                              LLeap v -> fromMaybe ("Leap " <> show v.id) v.name /\ "♠"
+                              LLong v -> fromMaybe ("Long " <> show v.id) v.name /\ "♦"
+
+                            label =
+                              ( e'.changeName <#> case _ of
+                                  Just x -> x
+                                  Nothing -> defaultLabel
+                              ) <|> bang defaultLabel
+                            id /\ name /\ col /\ startIx /\ initialId /\ inSeq /\ times = case itm of
+                              LBasic v -> v.id /\ v.name /\ v.col /\ v.startIx /\ v.fbId /\ 4 /\ [ (unwrap v.l1).at, (unwrap v.l2).at, (unwrap v.l3).at, (unwrap v.l4).at ]
+                              LLeap v -> v.id /\ v.name /\ v.col /\ v.startIx /\ v.fbId /\ 2 /\ [ (unwrap v.start).at, (unwrap v.end).at ]
+                              LLong v -> v.id /\ v.name /\ v.col /\ v.startIx /\ v.fbId /\ 2 /\ [ (unwrap v.start).at, (unwrap v.end).at ]
+                            column = e'.changeColumn <|> bang col
+                          ( bang $ insert $ D.div (oneOf [ bang $ D.Class := "accordion-item bg-zinc-900 border border-white" ])
+                              [ D.h2
+                                  ( oneOf
+                                      [ bang $ D.Class := "accordion-header bg-zinc-900 mb-0"
+                                      , bang $ D.Id := "heading" <> show id
+                                      ]
                                   )
-                                  ((event.solo <#> Solo) <|> (event.mute <#> Mute) <|> (event.unSolo <#> UnSolo) <|> (event.unMute <#> UnMute))
-                                  Set.empty
-                              )
-                          , push: \(a /\ ws) -> unwrap
-                              ( (always :: (Endo Function (Effect Unit)) -> (Endo Function (m Unit)))
-                                  ( Endo \_ -> case a of
-                                      Left s -> muteExcept ws (map (\(x /\ y) -> [ x, x + y ]) (Set.toUnfoldable s))
-                                      Right (Right (startIx /\ inSeq)) -> for_ (startIx .. (startIx + inSeq - 1)) \ix -> do
-                                        hideMarker ws ix
-                                      Right (Left (startIx /\ inSeq)) -> for_ (startIx .. (startIx + inSeq - 1)) \ix -> do
-                                        showMarker ws ix
-                                  )
-                              )
-                              (pure unit)
-                          }
-                      )
-                  $ bang do
-                      let
-
-                        store :: AnEvent m Landmark
-                        store =
-                          ( mapAccum
-                              ( \a { id, startIx } -> case a of
-                                  CBasic (ms /\ be) -> { id: id + 1, startIx: startIx + 4 } /\ defaultBasic id startIx ms be
-                                  CLeap (ms /\ be) -> { id: id + 1, startIx: startIx + 2 } /\ defaultLeap id startIx ms be
-                                  CLongPress (ms /\ be) -> { id: id + 1, startIx: startIx + 2 } /\ defaultLongPress id startIx ms be
-                              )
-                              ctrlEvent
-                              { id: 0, startIx: 0 }
-                          )
-                        markerIndices = bang (0 /\ 0) <|> fold
-                          ( \a (b /\ c) -> (b + 1) /\ case a of
-                              CBasic _ -> c + 4
-                              CLeap _ -> c + 2
-                              CLongPress _ -> c + 2
-                          )
-                          ctrlEvent
-                          (0 /\ 0)
-                        top =
-                          [ D.button
-                              ( oneOf
-                                  [ (Just <$> event.documentId <|> bang Nothing) 😄 markerIndices 😄 ({ ws: _, ixs: _, did: _ } <$> event.waveSurfer) <#> \{ ws, ixs: ix /\ _, did } -> D.OnClick := do
-                                      ct <- getCurrentTime ws
-                                      dur <- getDuration ws
-                                      let time1 = min dur (0.0 + ct)
-                                      let time2 = min dur (0.5 + ct)
-                                      let time3 = min dur (1.0 + ct)
-                                      let time4 = min dur (1.5 + ct)
-                                      let
-                                        endgame x = pushed.addBasic
-                                          ( x /\
-                                              { marker1Time: time1
-                                              , marker1AudioURL: Nothing
-                                              , marker2Time: time2
-                                              , marker2AudioURL: Nothing
-                                              , marker3Time: time3
-                                              , marker3AudioURL: Nothing
-                                              , marker4Time: time4
-                                              , marker4AudioURL: Nothing
-                                              , column: 7
-                                              , name: Nothing
-                                              , version: mempty
-
-                                              }
-                                          )
-                                      m0 <- addMarker ws ix 0 { color: dC ix, label: "B1", time: time1 }
-                                      m1 <- addMarker ws ix 1 { color: dC ix, label: "B2", time: time2 }
-                                      m2 <- addMarker ws ix 2 { color: dC ix, label: "B3", time: time3 }
-                                      m3 <- addMarker ws ix 3 { color: dC ix, label: "B4", time: time4 }
-                                      pushed.atomicEventOperation $ aAddBasic
-                                        { id: ix
-                                        , name: Nothing
-                                        , column: 7
-                                        , marker1Time: time1
-                                        , marker2Time: time2
-                                        , marker3Time: time3
-                                        , marker4Time: time4
-                                        }
-                                      did # maybe (endgame Nothing) \did' ->
-                                        launchAff_ do
-                                          evDid <- addEventAff firestoreDb did'
-                                            ( EventV0 $ BasicEventV0
-                                                { marker1Time: time1
-                                                , marker1AudioURL: Nothing
-                                                , marker2Time: time2
-                                                , marker2AudioURL: Nothing
-                                                , marker3Time: time3
-                                                , marker3AudioURL: Nothing
-                                                , marker4Time: time4
-                                                , marker4AudioURL: Nothing
-                                                , column: 7
-                                                , name: Nothing
-                                                , version: mempty
-                                                }
-                                            )
-                                          liftEffect $ associateEventDocumentIdWithMarker m0 evDid.id *> associateEventDocumentIdWithMarker m1 evDid.id *> associateEventDocumentIdWithMarker m2 evDid.id *> associateEventDocumentIdWithMarker m3 evDid.id *> endgame (Just evDid.id)
-                                  , bang $ D.Class := buttonCls
-                                  ]
-                              )
-                              [ text_ "Add Tile" ]
-                          , D.button
-                              ( oneOf
-                                  [ (Just <$> event.documentId <|> bang Nothing) 😄 markerIndices 😄 ({ ws: _, ixs: _, did: _ } <$> event.waveSurfer) <#> \{ ws, ixs: ix /\ _, did } -> D.OnClick := do
-                                      ct <- getCurrentTime ws
-                                      dur <- getDuration ws
-                                      let
-                                        time1 = min dur (0.0 + ct)
-                                        time2 = min dur (0.5 + ct)
-                                        endgame position x = pushed.addLeap
-                                          ( x /\
-                                              { marker1Time: time1
-                                              , audioURL: Nothing
-                                              , marker2Time: time2
-                                              , column: 7
-                                              , position
-                                              , name: Nothing
-                                              , version: mempty
-
-                                              }
-                                          )
-                                      m0 <- addMarker ws ix 0 { color: dC ix, label: "LSt", time: time1 }
-                                      m1 <- addMarker ws ix 1 { color: dC ix, label: "LEd", time: time2 }
-                                      position <- randomInt 0 3 <#> case _ of
-                                        0 -> Position1
-                                        1 -> Position2
-                                        2 -> Position3
-                                        _ -> Position4
-                                      pushed.atomicEventOperation $ aAddLeap
-                                        { id: ix
-                                        , name: Nothing
-                                        , column: 7
-                                        , position
-                                        , marker1Time: time1
-                                        , marker2Time: time2
-                                        }
-                                      did # maybe (endgame position Nothing) \did' ->
-                                        launchAff_ do
-                                          evDid <- addEventAff firestoreDb did'
-                                            ( EventV0 $ LeapEventV0
-                                                { marker1Time: time1
-                                                , audioURL: Nothing
-                                                , marker2Time: time2
-                                                , position
-                                                , name: Nothing
-                                                , column: 7
-                                                , version: mempty
-                                                }
-                                            )
-                                          liftEffect $ associateEventDocumentIdWithMarker m0 evDid.id *> associateEventDocumentIdWithMarker m1 evDid.id *> endgame position (Just evDid.id)
-                                  , bang $ D.Class := buttonCls
-                                  ]
-                              )
-                              [ text_ "Add Leap" ]
-                          , D.button
-                              ( oneOf
-                                  [ (Just <$> event.documentId <|> bang Nothing) 😄 markerIndices 😄 ({ ws: _, ixs: _, did: _ } <$> event.waveSurfer) <#> \{ ws, ixs: ix /\ _, did } -> D.OnClick := do
-                                      ct <- getCurrentTime ws
-                                      dur <- getDuration ws
-                                      let
-                                        time1 = min dur (0.0 + ct)
-                                        time2 = min dur (0.5 + ct)
-                                        endgame x = pushed.addLongPress
-                                          ( x /\
-                                              { marker1Time: time1
-                                              , audioURL: Nothing
-                                              , marker2Time: time2
-                                              , length: 1.0
-                                              , column: 7
-                                              , name: Nothing
-                                              , version: mempty
-
-                                              }
-                                          )
-                                      m0 <- addMarker ws ix 0 { color: dC ix, label: "P1", time: time1 }
-                                      m1 <- addMarker ws ix 1 { color: dC ix, label: "P2", time: time2 }
-                                      pushed.atomicEventOperation $ aAddLongPress
-                                        { id: ix
-                                        , name: Nothing
-                                        , column: 7
-                                        , marker1Time: time1
-                                        , marker2Time: time2
-                                        , length: 1.0
-                                        }
-                                      did # maybe (endgame Nothing) \did' ->
-                                        launchAff_ do
-                                          evDid <- addEventAff firestoreDb did'
-                                            ( EventV0 $ LongEventV0
-                                                { marker1Time: time1
-                                                , audioURL: Nothing
-                                                , marker2Time: time2
-                                                , length: 1.0
-                                                , name: Nothing
-                                                , column: 7
-                                                , version: mempty
-                                                }
-                                            )
-                                          liftEffect $ associateEventDocumentIdWithMarker m0 evDid.id *> associateEventDocumentIdWithMarker m1 evDid.id *> endgame (Just evDid.id)
-                                  , bang $ D.Class := buttonCls
-
-                                  ]
-                              )
-                              [ text_ "Add Long Press" ]
-                          , D.button
-                              ( oneOf
-                                  [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
-                                  -- , bang $ D.OnClick := log "hello world"
-                                  , mostRecentData <#> \(TrackV0 ato /\ aeo) -> D.OnClick := do
-                                      log "starting from most recent data"
-                                      pushed.loadingScreenVisible true
-                                      ctx <- context_
-                                      launchAff_ do
-                                        buffy <- decodeAudioDataFromUri ctx ato.url
-                                        liftEffect do
-                                          Ref.modify_ (Object.insert ato.url buffy) tli.soundObj
-                                          pushed.previewScreenVisible $ Just wtut
-                                          pushed.loadingScreenVisible false
-                                  ]
-                              )
-                              [ text_ "Preview" ]
-                          , D.button
-                              ( oneOf
-                                  [ bang $ D.OnClick := do
-                                      signInWithGoogle do
-                                        window >>= alert "Sign in with google is temporarily unavailable. Please try again later."
-                                  , fromEvent signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> if sina then " hidden" else ""
-                                  ]
-                              )
-                              [ text_ "Save (sign in)" ]
-                          ]
-                      D.div (oneOf [])
-                        [ D.div (oneOf [ bang $ D.Class := "flex flex-row justify-around" ]) top
-                        , D.div (oneOf [ bang $ D.Class := "accordion", bang $ D.Id := "accordionExample" ])
-                            [ dyn $
-                                (event.waveSurfer 🙂 ({ itm: _, ws: _ } <$> store)) <#>
-                                  ( \{ itm, ws } -> keepLatest $ vbus (Proxy :: _ (V (SingleItem PlainOl))) \p' e' -> do
-                                      let
-                                        muteState = fold (const not) e'.mute false <|> bang false
-                                        soloState = fold (const not) e'.solo false <|> bang false
-                                        defaultLabel /\ prefix = case itm of
-                                          LBasic v -> fromMaybe ("Tile " <> show v.id) v.name /\ "♥"
-                                          LLeap v -> fromMaybe ("Leap " <> show v.id) v.name /\ "♠"
-                                          LLong v -> fromMaybe ("Long " <> show v.id) v.name /\ "♦"
-
-                                        label =
-                                          ( e'.changeName <#> case _ of
-                                              Just x -> x
-                                              Nothing -> defaultLabel
-                                          ) <|> bang defaultLabel
-                                        id /\ name /\ col /\ startIx /\ initialId /\ inSeq = case itm of
-                                          LBasic v -> v.id /\ v.name /\ v.col /\ v.startIx /\ v.fbId /\ 4
-                                          LLeap v -> v.id /\ v.name /\ v.col /\ v.startIx /\ v.fbId /\ 2
-                                          LLong v -> v.id /\ v.name /\ v.col /\ v.startIx /\ v.fbId /\ 2
-                                        column = e'.changeColumn <|> bang col
-                                      ( bang $ insert $ D.div (oneOf [ bang $ D.Class := "accordion-item bg-zinc-900 border border-white" ])
-                                          [ D.h2
-                                              ( oneOf
-                                                  [ bang $ D.Class := "accordion-header bg-zinc-900 mb-0"
-                                                  , bang $ D.Id := "heading" <> show id
-                                                  ]
-                                              )
-                                              [ D.button
-                                                  ( oneOf
-                                                      [ bang $ D.Class :=
-                                                          """accordion-button-ms accordion-button
+                                  [ D.button
+                                      ( oneOf
+                                          [ bang $ D.Class :=
+                                              """accordion-button-ms accordion-button
       relative
       flex
       items-center
@@ -885,144 +885,143 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
       rounded-none
       transition
       focus:outline-none"""
-                                                      , bang $ xdata "bs-toggle" "collapse"
-                                                      , bang $ xdata "bs-target" ("#collapse" <> show id)
-                                                      ]
-                                                  )
-                                                  [ D.span (oneOf [ bang $ D.Style := "color: " <> dC id <> ";" ]) [ text_ (prefix <> " ") ]
-                                                  , D.span_ [ text label, text_ " (Column ", text (show <$> column), text_ ")" ]
-                                                  , D.span
-                                                      ( oneOf
-                                                          [ soloState <#> \st -> D.Class := ("text-white font-bold pl-2 " <> if st then "" else " hidden")
-                                                          ]
-                                                      )
-                                                      [ text_ "S" ]
-                                                  , D.span
-                                                      ( oneOf
-                                                          [ muteState <#> \st -> D.Class := ("text-white font-bold pl-2 " <> if st then "" else " hidden")
-                                                          ]
-                                                      )
-                                                      [ text_ "M" ]
-                                                  ]
+                                          , bang $ xdata "bs-toggle" "collapse"
+                                          , bang $ xdata "bs-target" ("#collapse" <> show id)
+                                          ]
+                                      )
+                                      [ D.span (oneOf [ bang $ D.Class := "mr-2", bang $ D.Style := "color: " <> dC id <> ";" ]) [ text_ (prefix) ]
+                                      , D.span_ [ text label, text_ " (Column ", text (show <$> column), text_ ") ", text $ (bang times <|> fold (\{ offset, time } tmzz -> set (ix offset) time tmzz ) (markerEvent id) times) <#> \tmz -> " (" <> intercalate "," (map (toStringWith (fixed 2)) tmz) <> ")" ]
+                                      , D.span
+                                          ( oneOf
+                                              [ soloState <#> \st -> D.Class := ("text-white font-bold pl-2 " <> if st then "" else " hidden")
                                               ]
-                                          , D.div
+                                          )
+                                          [ text_ "S" ]
+                                      , D.span
+                                          ( oneOf
+                                              [ muteState <#> \st -> D.Class := ("text-white font-bold pl-2 " <> if st then "" else " hidden")
+                                              ]
+                                          )
+                                          [ text_ "M" ]
+                                      ]
+                                  ]
+                              , D.div
+                                  ( oneOf
+                                      [ bang $ D.Id := "collapse" <> show id
+                                      , bang $ D.Class := ("accordion-collapse collapse" <> if id == 0 then " show" else "")
+                                      , bang $ xdata "bs-parent" "#accordionExample"
+                                      ]
+                                  )
+                                  [ D.div
+                                      ( oneOf
+                                          [ bang $ D.Class := "accordion-body bg-zinc-900 py-4 px-5"
+                                          ]
+                                      )
+                                      [ D.span (oneOf [ bang $ D.Class := "inline-block" ])
+                                          [ D.label
                                               ( oneOf
-                                                  [ bang $ D.Id := "collapse" <> show id
-                                                  , bang $ D.Class := ("accordion-collapse collapse" <> if id == 0 then " show" else "")
-                                                  , bang $ xdata "bs-parent" "#accordionExample"
+                                                  [ bang $ D.Class := "text-white ml-2" ]
+                                              )
+                                              [ text_ "Name" ]
+                                          , D.input
+                                              ( oneOf
+                                                  ( [ (Just <$> ctor id <|> bang Nothing) 😄 (Tuple <$> docEv) <#> \(mDid /\ updatedId) -> D.OnInput := cb \e -> for_
+                                                        ( target e
+                                                            >>= fromEventTarget
+                                                        )
+                                                        ( \x -> do
+                                                            v <- value x
+                                                            let nm = if v == "" then Nothing else Just v
+                                                            ( (always :: m Unit -> Effect Unit) do
+                                                                p'.changeName nm
+                                                            )
+                                                            pushed.atomicEventOperation $ aChangeName { id, name: nm }
+                                                            for_ (Tuple <$> mDid <*> (initialId <|> updatedId)) \(trackId /\ evId) -> do
+                                                              launchAff_ (updateEventNameAff firestoreDb trackId evId v)
+
+                                                        )
+                                                    , bang $ D.Class := "bg-inherit text-white mx-2 appearance-none border rounded py-2 px-2 leading-tight focus:outline-none focus:shadow-outline"
+                                                    , bang $ D.Placeholder := defaultLabel
+                                                    ] <> case name of
+                                                      Nothing -> []
+                                                      Just n -> [ bang $ D.Value := n ]
+                                                  )
+                                              )
+                                              []
+                                          ]
+                                      , D.span (oneOf [ bang $ D.Class := "inline-block" ])
+                                          [ D.label
+                                              ( oneOf
+                                                  [ bang $ D.Class := "text-white" ]
+                                              )
+                                              [ text_ "Column" ]
+                                          , D.input
+                                              ( oneOf
+                                                  [ (Just <$> ctor id <|> bang Nothing) 😄 (Tuple <$> docEv) <#> \(mDid /\ updatedId) -> D.OnInput := cb \e -> for_
+                                                      ( target e
+                                                          >>= fromEventTarget
+                                                      )
+                                                      ( \x -> do
+                                                          v <- floor <$> valueAsNumber x
+                                                          (always :: m Unit -> Effect Unit) do
+                                                            p'.changeColumn v
+                                                          pushed.atomicEventOperation $ aChangeColumn { id, column: v }
+                                                          for_ (Tuple <$> mDid <*> (initialId <|> updatedId)) \(trackId /\ evId) -> do
+                                                            launchAff_ (updateColumnAff firestoreDb trackId evId v)
+                                                      )
+                                                  , bang $ D.Xtype := "number"
+                                                  , bang $ D.Value := show col
+                                                  , bang $ D.Min := "1"
+                                                  , bang $ D.Max := "16"
+                                                  , bang $ D.Class := "bg-inherit text-white mx-2 appearance-none border rounded py-2 px-3 leading-tight focus:outline-none focus:shadow-outline"
                                                   ]
                                               )
-                                              [ D.div
-                                                  ( oneOf
-                                                      [ bang $ D.Class := "accordion-body bg-zinc-900 py-4 px-5"
-                                                      ]
-                                                  )
-                                                  [ D.span (oneOf [ bang $ D.Class := "inline-block" ])
-                                                      [ D.label
-                                                          ( oneOf
-                                                              [ bang $ D.Class := "text-white ml-2" ]
-                                                          )
-                                                          [ text_ "Name" ]
-                                                      , D.input
-                                                          ( oneOf
-                                                              ( [ (Just <$> ctor id <|> bang Nothing) 😄 (Tuple <$> docEv) <#> \(mDid /\ updatedId) -> D.OnInput := cb \e -> for_
-                                                                    ( target e
-                                                                        >>= fromEventTarget
-                                                                    )
-                                                                    ( \x -> do
-                                                                        v <- value x
-                                                                        let nm = if v == "" then Nothing else Just v
-                                                                        ( (always :: m Unit -> Effect Unit) do
-                                                                            p'.changeName nm
-                                                                        )
-                                                                        pushed.atomicEventOperation $ aChangeName { id, name: nm }
-                                                                        for_ (Tuple <$> mDid <*> (initialId <|> updatedId)) \(trackId /\ evId) -> do
-                                                                          launchAff_ (updateEventNameAff firestoreDb trackId evId v)
-
-                                                                    )
-                                                                , bang $ D.Class := "bg-inherit text-white mx-2 appearance-none border rounded py-2 px-2 leading-tight focus:outline-none focus:shadow-outline"
-                                                                , bang $ D.Placeholder := defaultLabel
-                                                                ] <> case name of
-                                                                  Nothing -> []
-                                                                  Just n -> [ bang $ D.Value := n ]
-                                                              )
-                                                          )
-                                                          []
-                                                      ]
-                                                  , D.span (oneOf [ bang $ D.Class := "inline-block" ])
-                                                      [ D.label
-                                                          ( oneOf
-                                                              [ bang $ D.Class := "text-white" ]
-                                                          )
-                                                          [ text_ "Column" ]
-                                                      , D.input
-                                                          ( oneOf
-                                                              [ (Just <$> ctor id <|> bang Nothing) 😄 (Tuple <$> docEv) <#> \(mDid /\ updatedId) -> D.OnInput := cb \e -> for_
-                                                                  ( target e
-                                                                      >>= fromEventTarget
-                                                                  )
-                                                                  ( \x -> do
-                                                                      v <- floor <$> valueAsNumber x
-                                                                      (always :: m Unit -> Effect Unit) do
-                                                                        p'.changeColumn v
-                                                                      pushed.atomicEventOperation $ aChangeColumn { id, column: v }
-                                                                      for_ (Tuple <$> mDid <*> (initialId <|> updatedId)) \(trackId /\ evId) -> do
-                                                                        launchAff_ (updateColumnAff firestoreDb trackId evId v)
-                                                                  )
-                                                              , bang $ D.Xtype := "number"
-                                                              , bang $ D.Value := show col
-                                                              , bang $ D.Min := "1"
-                                                              , bang $ D.Max := "16"
-                                                              , bang $ D.Class := "bg-inherit text-white mx-2 appearance-none border rounded py-2 px-3 leading-tight focus:outline-none focus:shadow-outline"
-                                                              ]
-                                                          )
-                                                          []
-                                                      ]
-                                                  , D.span (oneOf [ bang $ D.Class := "inline-block" ])
-                                                      [ D.button
-                                                          ( oneOf
-                                                              [ soloState <#> \ms -> D.Class := (if ms then buttonActiveCls else buttonCls) <> " mr-2"
-                                                              , click $ soloState <#> \ms -> do
-                                                                  (if ms then pushed.unSolo else pushed.solo) (startIx /\ inSeq)
-                                                                  (map (always :: m Unit -> Effect Unit) p'.solo) unit
-                                                              ]
-                                                          )
-                                                          [ D.span (oneOf []) [ text_ "Solo" ] ]
-                                                      , D.button
-                                                          ( oneOf
-                                                              [ muteState <#> \ms -> D.Class := (if ms then buttonActiveCls else buttonCls) <> " mr-2"
-                                                              , click $ muteState <#> \ms -> do
-                                                                  (if ms then pushed.unMute else pushed.mute) (startIx /\ inSeq)
-                                                                  (map (always :: m Unit -> Effect Unit) p'.mute) unit
-                                                              ]
-                                                          )
-                                                          [ D.span
-                                                              (oneOf [])
-                                                              [ text_ "Mute" ]
-                                                          ]
-                                                      , D.button
-                                                          ( oneOf
-                                                              [ (Just <$> ctor id <|> bang Nothing) 😄 (Tuple <$> docEv) <#> \(mDid /\ updatedId) -> D.OnClick := cb \_ -> do
-                                                                  for_ (startIx .. (startIx + inSeq - 1)) \_ -> do
-                                                                    -- do not increment as the list gets shorter and shorter so we are always removing at startIx
-                                                                    removeMarker ws startIx
-                                                                  (map (always :: m Unit -> Effect Unit) p'.delete) unit
-                                                                  pushed.atomicEventOperation $ aDeleteEvent_ { id }
-                                                                  for_ (Tuple <$> mDid <*> (initialId <|> updatedId)) \(trackId /\ evId) -> do
-                                                                    launchAff_ (deleteEventAff firestoreDb trackId evId)
-                                                              , bang $ D.Class := buttonCls <> " mr-2"
-                                                              ]
-                                                          )
-                                                          -- [ D.span (oneOf [ bang $ D.Class := "md:inline-block hidden" ]) [ text_ "Delete" ], D.span (oneOf [ bang $ D.Class := "md:hidden inline-block" ]) [ text_ "D" ] ]
-                                                          [ D.span (oneOf []) [ text_ "Delete" ] ]
-                                                      ]
-                                                  ]
-                                              ]
+                                              []
                                           ]
-                                      ) <|> (e'.delete $> remove)
-                                  )
-                            ]
-                        ]
+                                      , D.span (oneOf [ bang $ D.Class := "inline-block" ])
+                                          [ D.button
+                                              ( oneOf
+                                                  [ soloState <#> \ms -> D.Class := (if ms then buttonActiveCls else buttonCls) <> " mr-2"
+                                                  , click $ soloState <#> \ms -> do
+                                                      (if ms then pushed.unSolo else pushed.solo) (startIx /\ inSeq)
+                                                      (map (always :: m Unit -> Effect Unit) p'.solo) unit
+                                                  ]
+                                              )
+                                              [ D.span (oneOf []) [ text_ "Solo" ] ]
+                                          , D.button
+                                              ( oneOf
+                                                  [ muteState <#> \ms -> D.Class := (if ms then buttonActiveCls else buttonCls) <> " mr-2"
+                                                  , click $ muteState <#> \ms -> do
+                                                      (if ms then pushed.unMute else pushed.mute) (startIx /\ inSeq)
+                                                      (map (always :: m Unit -> Effect Unit) p'.mute) unit
+                                                  ]
+                                              )
+                                              [ D.span
+                                                  (oneOf [])
+                                                  [ text_ "Mute" ]
+                                              ]
+                                          , D.button
+                                              ( oneOf
+                                                  [ (Just <$> ctor id <|> bang Nothing) 😄 (Tuple <$> docEv) <#> \(mDid /\ updatedId) -> D.OnClick := cb \_ -> do
+                                                      for_ (startIx .. (startIx + inSeq - 1)) \_ -> do
+                                                        -- do not increment as the list gets shorter and shorter so we are always removing at startIx
+                                                        removeMarker ws startIx
+                                                      (map (always :: m Unit -> Effect Unit) p'.delete) unit
+                                                      pushed.atomicEventOperation $ aDeleteEvent_ { id }
+                                                      for_ (Tuple <$> mDid <*> (initialId <|> updatedId)) \(trackId /\ evId) -> do
+                                                        launchAff_ (deleteEventAff firestoreDb trackId evId)
+                                                  , bang $ D.Class := buttonCls <> " mr-2"
+                                                  ]
+                                              )
+                                              -- [ D.span (oneOf [ bang $ D.Class := "md:inline-block hidden" ]) [ text_ "Delete" ], D.span (oneOf [ bang $ D.Class := "md:hidden inline-block" ]) [ text_ "D" ] ]
+                                              [ D.span (oneOf []) [ text_ "Delete" ] ]
+                                          ]
+                                      ]
+                                  ]
+                              ]
+                          ) <|> (e'.delete $> remove)
+                      )
+                ]
             ]
         ]
     , D.div
@@ -1268,18 +1267,17 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                           _ -> Nothing
                       )
                   , leapE: rideLeaps
-                      (
-                          ( vals # filterMap case _ of
-                              EventV0 (LeapEventV0 be) ->
-                                if be.marker1Time < x.ct then Nothing
-                                else Just
-                                  ( be
-                                      { marker1Time = be.marker1Time - x.ct
-                                      , marker2Time = be.marker2Time - x.ct
-                                      }
-                                  )
-                              _ -> Nothing
-                          )
+                      ( ( vals # filterMap case _ of
+                            EventV0 (LeapEventV0 be) ->
+                              if be.marker1Time < x.ct then Nothing
+                              else Just
+                                ( be
+                                    { marker1Time = be.marker1Time - x.ct
+                                    , marker2Time = be.marker2Time - x.ct
+                                    }
+                                )
+                            _ -> Nothing
+                        )
                       )
                   , longE: rideLongs
                       ( vals # filterMap case _ of
