@@ -171,7 +171,7 @@ toplevel tli =
       , longE: tutorialLongs
       , baseFileOffsetInSeconds: 0.0
       , bgtrack: "tutorial"
-      , isPreviewPage: false
+      , isPreviewPage: Nothing
       }
       wantsTutorial
     TLSuccess successful ->

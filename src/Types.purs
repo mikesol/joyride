@@ -380,7 +380,7 @@ touchPointZ { barZSpacing } = go
   go Position4 = 0.0
 
 entryZ :: RenderingInfo -> Number
-entryZ { barZSpacing } = -4.0 * barZSpacing
+entryZ { barZSpacing } = -5.0 * barZSpacing
 
 type PlayerPositions =
   { p1x :: Number

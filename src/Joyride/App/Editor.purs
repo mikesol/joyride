@@ -705,7 +705,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
               [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
               -- , bang $ D.OnClick := log "hello world"
               , mostRecentData <#> \(TrackV0 ato /\ aeo) -> D.OnClick := do
-                  log "starting from most recent data"
+                  log $ "starting from most recent data: " <> (JSON.writeJSON { track: ato, evs: Array.fromFoldable $ Map.values aeo })
                   pushed.loadingScreenVisible true
                   ctx <- context_
                   launchAff_ do
@@ -1241,10 +1241,11 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
         ( previewScreenVisible <#> \psv ->
             D.Class := "absolute w-screen h-screen" <> if isJust psv then "" else " hidden"
         )
-        [ (fromEvent (howShouldIBehave (pure 0.0) (toEvent cTime) 😝 toEvent event.waveSurfer 🙂 toEvent mostRecentData 🙂 ({ psv: _, mrd: _, ws: _, ct: _ } <$> toEvent previewScreenVisible))) # switcher \x ->
+        [ (fromEvent (howShouldIBehave (pure 0.0) (toEvent cTime) 😝 (toEvent event.waveSurfer 🙂 (toEvent mostRecentData 🙂 ({ psv: _, mrd: _, ws: _, ct: _ } <$> toEvent previewScreenVisible))))) # switcher \x ->
             do
               let vals = Array.fromFoldable $ Map.values $ snd x.mrd
               let TrackV0 tv0 = fst x.mrd
+              let _ = spy "tv0 vals" (JSON.writeJSON { tv0, vals })
               case x.psv of
                 Nothing -> envy empty
                 Just success -> tutorial
@@ -1258,7 +1259,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                   { basicE: rideBasics $ sortBy (compare `on` _.marker1Time)
                       ( vals # filterMap case _ of
                           EventV0 (BasicEventV0 be) ->
-                            if be.marker1Time < x.ct then Nothing
+                            if be.marker4Time < x.ct then Nothing
                             else Just
                               ( be
                                   { marker1Time = be.marker1Time - x.ct
@@ -1272,7 +1273,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                   , leapE: rideLeaps
                       ( ( vals # filterMap case _ of
                             EventV0 (LeapEventV0 be) ->
-                              if be.marker1Time < x.ct then Nothing
+                              if be.marker2Time < x.ct then Nothing
                               else Just
                                 ( be
                                     { marker1Time = be.marker1Time - x.ct
@@ -1285,7 +1286,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                   , longE: rideLongs
                       ( vals # filterMap case _ of
                           EventV0 (LongEventV0 be) ->
-                            if be.marker1Time < x.ct then Nothing
+                            if be.marker2Time < x.ct then Nothing
                             else Just
                               ( be
                                   { marker1Time = be.marker1Time - x.ct
@@ -1295,7 +1296,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                           _ -> Nothing
                       )
                   , bgtrack: tv0.url
-                  , isPreviewPage: true
+                  , isPreviewPage: Just { startsAt: x.ct }
                   , baseFileOffsetInSeconds: x.ct
                   }
                   success

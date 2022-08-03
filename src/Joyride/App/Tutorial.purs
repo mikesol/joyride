@@ -11,10 +11,11 @@ import Data.Either (hush)
 import Data.Foldable (foldl, oneOf, oneOfMap, traverse_)
 import Data.Int (round)
 import Data.Map as Map
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), isJust, maybe)
 import Data.Monoid (guard)
 import Data.Newtype (over, unwrap)
 import Data.Number (pi)
+import Data.Number.Format (fixed, toStringWith)
 import Data.String as String
 import Data.Time.Duration (Milliseconds(..))
 import Data.Traversable (traverse)
@@ -64,7 +65,7 @@ twoPi = 2.0 * pi :: Number
 
 data FadeInstruction = FadeIn | FadeOut | FadeInOut | NoFade
 
-data CenterState = Preview | Intro | Tiles | Tilt | Leap | Long | End | Empty
+data CenterState = Preview {startsAt :: Number} | Intro | Tiles | Tilt | Leap | Long | End | Empty
 
 newtype Unsubscribe = Unsubscribe (Effect Unit)
 
@@ -95,7 +96,7 @@ type TutorialScore =
   , longE :: forall lock payload. { | MakeLongs () } -> ASceneful lock payload
   , bgtrack :: String
   , baseFileOffsetInSeconds :: Number
-  , isPreviewPage :: Boolean
+  , isPreviewPage :: Maybe { startsAt :: Number }
   }
 
 -- effect unit is unsub
@@ -167,7 +168,7 @@ tutorial
                         off
                     ]
                 )
-                [ text_ (if tscore.isPreviewPage then "Exit preview" else "Exit tutorial") ]
+                [ text_ (if isJust tscore.isPreviewPage then "Exit preview" else "Exit tutorial") ]
             ]
           startButton aStuff = do
             let
@@ -244,7 +245,7 @@ tutorial
                     )
                   t :: JMilliseconds <- coerce <$> cNow
                   optMeIn t
-            tutorialCenterMatter (bang (if tscore.isPreviewPage then Preview else Intro) <|> event.tutorialCenterState) push.tutorialCenterState { startCallback }
+            tutorialCenterMatter (bang (maybe Intro Preview tscore.isPreviewPage) <|> event.tutorialCenterState) push.tutorialCenterState { startCallback }
         envy $ fromEvent $ memoize
           ( makeAnimatedStuff
               ( biSampleOn
@@ -443,7 +444,10 @@ tutorial
       }
 
   tutorialCenterMatter currentState pushCurrentState { startCallback } = currentState # switcher \cs -> case cs of
-    Preview -> tutorialCenterMatterFrame "Preview your ride!" Nothing false "Start" FadeOut
+    Preview { startsAt } -> tutorialCenterMatterFrame "Preview your ride!" ( Just $ D.p_
+          [ D.span_ [ text_ $ "Starting at " <> (toStringWith (fixed 2) startsAt) <> " seconds." ]
+          ]
+      ) false "Start" FadeOut
       ( FullScreen.fullScreenFlow startCallback)
       pushCurrentState
     Intro -> tutorialCenterMatterFrame "Welcome to Joyride!" Nothing false "Start Tutorial" FadeOut
