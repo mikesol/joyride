@@ -177,7 +177,7 @@ rideBasics bevs makeBasics =
     mapWithIndex
       ( \uniqueId x ->
           { uniqueId
-          , appearsAt: (Beats $ (2.0 * x.marker1Time - x.marker2Time)) + startOffset
+          , appearsAt: (Beats $ ((3.0 * x.marker1Time) - (2.0 * x.marker2Time))) + startOffset
           , b0: (Beats $ x.marker1Time) + startOffset
           , b1: (Beats $ x.marker2Time) + startOffset
           , b2: (Beats $ x.marker3Time) + startOffset

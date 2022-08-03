@@ -162,8 +162,8 @@ rideLeaps levs makeLeaps = fixed
           in
             { uniqueId
             -- abs in case accidentally out of order
-            -- divide by 4.0 to get roughly an extra bar back
-            , appearsAt: (Beats $ logicalFirst - (abs (x.marker2Time - x.marker1Time) / 4.0)) + startOffset
+            -- divide by 2.0 to get roughly two extra bars back
+            , appearsAt: (Beats $ logicalFirst - (abs (x.marker2Time - x.marker1Time) / 2.0)) + startOffset
             , hitsLastPositionAt: (Beats logicalLast) + startOffset
             , column: int2Column x.column
             , position: x.position
