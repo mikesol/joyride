@@ -70,8 +70,6 @@ leap makeLeap = keepLatest $ bus \setPlayed iWasPlayed -> do
         , n24: 0.0
         , n34:
             let
-              -- for now, hardcode 1 beat after the appearance point
-              -- if too fast, slow down?
               o = calcSlope (unwrap makeLeap.appearsAt) (appearancePoint renderingInfo) (unwrap makeLeap.hitsLastPositionAt) (p4bar renderingInfo) (unwrap rateInfo.beats)
             in
               o - (leapZThickness / 2.0)

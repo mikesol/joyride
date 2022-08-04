@@ -10,7 +10,7 @@ import Data.Foldable (oneOfMap)
 import Data.FunctorWithIndex (mapWithIndex)
 import Data.List (List(..), span)
 import Data.List as List
-import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Maybe (Maybe(..))
 import Data.Number (abs)
 import Data.Time.Duration (Milliseconds(..))
 import FRP.Behavior (Behavior, sample_)

@@ -56,7 +56,7 @@ import Joyride.FRP.Rider (rider, toRide)
 import Joyride.FRP.Schedule (fireAndForget)
 import Joyride.Filestack.Filestack (init, picker)
 import Joyride.Firebase.Auth (User(..), currentUser, signInWithGoogle)
-import Joyride.Firebase.Firestore (DocumentReference, addEventAff, addTrackAff, deleteEventAff, forkTrackAff, getEventAff, getEventsAff, getTrack, getTrackAff, getTracksAff, updateColumnAff, updateEventNameAff, updateMarker1TimeAff, updateMarker2TimeAff, updateMarker3TimeAff, updateMarker4TimeAff, updateTrackPrivateAff, updateTrackTitleAff)
+import Joyride.Firebase.Firestore (DocumentReference, addEventAff, addTrackAff, deleteEventAff, forkTrackAff, getEventAff, getEventsAff, getTrackAff, getTracksAff, updateColumnAff, updateEventNameAff, updateMarker1TimeAff, updateMarker2TimeAff, updateMarker3TimeAff, updateMarker4TimeAff, updateTrackPrivateAff, updateTrackTitleAff)
 import Joyride.IO.File (fileList)
 import Joyride.QualifiedDo.Apply as QDA
 import Joyride.Scores.Ride.Basic (rideBasics)

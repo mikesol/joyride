@@ -53,9 +53,7 @@ leapWord makeLeap = do
         , n24: 0.0
         , n34:
             let
-              -- for now, hardcode 1 beat after the appearance point
-              -- if too fast, slow down?
-              o = calcSlope (unwrap makeLeap.appearsAt) (appearancePoint renderingInfo) (unwrap makeLeap.appearsAt + 1.0) (p1bar renderingInfo) (unwrap rateInfo.beats)
+              o = calcSlope (unwrap makeLeap.appearsAt) (appearancePoint renderingInfo) (unwrap makeLeap.hitsLastPositionAt) (p4bar renderingInfo) (unwrap rateInfo.beats)
             in
               o - (leapZThickness / 2.0)
         , n11: 0.01
@@ -96,7 +94,7 @@ leapWord makeLeap = do
     { rateInfo: _.rateInfo <$> makeLeap.animatedStuff
     , playerPositions: _.playerPositions <$> makeLeap.animatedStuff
     }
-  p1bar ri = touchPointZ ri Position1
+  p4bar ri = touchPointZ ri Position4
   appearancePoint ri = entryZ ri
   ratioEvent = map (\{ iw, ih } -> { iw, ih, r: iw / ih }) (bang makeLeap.initialDims <|> makeLeap.resizeEvent)
   leapZThickness = 0.2
