@@ -26,15 +26,15 @@ module.exports = {
 		new HtmlWebpackInjectPreload({
 			files: [
 				{
-					match: /\.png/,
+					match: /^(?!assets.*$).*\.png/,
 					attributes: { as: "image" },
 				},
 				{
-					match: /\.jpg/,
+					match: /^(?!assets.*$).*\.jpg/,
 					attributes: { as: "image" },
 				},
 				{
-					match: /\.mp3/,
+					match: /^(?!assets.*$).*\.mp3/,
 					attributes: { as: "audio" },
 				},
 			],
