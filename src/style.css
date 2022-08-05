@@ -307,3 +307,9 @@ audio::-webkit-media-controls-current-time-display {
 audio::-webkit-media-controls-time-remaining-display {
 	color: #fff;
 }
+
+/* safari hack */
+[contenteditable] {
+    -webkit-user-select: text;
+    user-select: text;
+}
