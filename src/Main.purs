@@ -186,7 +186,8 @@ main
 main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) audio = if sandboxed then runInBody sandbox else launchAff_ do
   -- firebsae
   fbApp <- firebaseAppAff
-  fbAnalytics <- firebaseAnalyticsAff fbApp
+  -- for now don't use analytics
+  -- fbAnalytics <- firebaseAnalyticsAff fbApp
   firestoreDb <- firestoreDbAff fbApp
   fbAuth <- firebaseAuthAff fbApp
   toAffE $ useFirebaseEmulatorInDevMode firestoreDb fbAuth
