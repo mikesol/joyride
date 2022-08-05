@@ -369,7 +369,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
               (Left <$> (event.atomicEventOperation) <|> (Right <$> (bang (aChangeTitle (Just initialTitle)) <|> event.atomicTrackOperation)))
               bangor
       )
-  -- ugh, too much initialization here...
+  let nextAttributableColumn = map snd $ fold (\_ (b /\ c) -> if b && c >= 10 then false /\ 9 else if not b && c <= 4 then true /\ 5 else  (b /\ ((if b then add else sub) c 1) )) (bang unit) (true /\ 7)
   mostRecentData <- envy <<< memoBeh mostRecentData'
     ( TrackV0
         { title: Nothing
@@ -845,8 +845,8 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
         , D.div (oneOf [ bang $ D.Class := "overflow-scroll" ])
             [ D.div (oneOf [ bang $ D.Class := "accordion", bang $ D.Id := "accordionExample" ])
                 [ dyn $
-                    (event.waveSurfer 🙂 ({ itm: _, ws: _ } <$> store)) <#>
-                      ( \{ itm, ws } -> keepLatest $ vbus (Proxy :: _ (V (SingleItem PlainOl))) \p' e' -> do
+                    (nextAttributableColumn 🙂 event.waveSurfer 🙂 ({ itm: _, ws: _, nac: _ } <$> store)) <#>
+                      ( \{ itm, ws, nac } -> keepLatest $ vbus (Proxy :: _ (V (SingleItem PlainOl))) \p' e' -> do
                           let
                             muteState = fold (const not) e'.mute false <|> bang false
                             soloState = fold (const not) e'.solo false <|> bang false

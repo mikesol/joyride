@@ -70,12 +70,6 @@ rideLongs :: forall lock payload. Array LongEventV0' -> { | MakeLongs () } -> AS
 rideLongs levs makeLongs = toScene
   ( roundRobinInstancedMesh { instancedMesh: makeLongs.threeDI.instancedMesh, mesh: makeLongs.threeDI.mesh, matrix4: makeLongs.threeDI.matrix4 } 100 (box { box: makeLongs.threeDI.boxGeometry })
       ( meshStandardMaterial
-          -- { map: textures.tilesZelligeHexCOL
-          -- , aoMap: textures.tilesZelligeHexAO
-          -- , displacementMap: textures.tilesZelligeHexDISP
-          -- , displacementScale: 0.1
-          -- , roughnessMap: textures.tilesZelligeHexGLOSS
-          -- }
           { meshStandardMaterial: makeLongs.threeDI.meshStandardMaterial
           , color: makeLongs.mkColor (RGB 0.49 0.83 0.45)
           , roughness: 0.1
