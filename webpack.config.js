@@ -33,10 +33,6 @@ module.exports = {
 					match: /^(?!assets.*$).*\.jpg/,
 					attributes: { as: "image" },
 				},
-				{
-					match: /^(?!assets.*$).*\.mp3/,
-					attributes: { as: "audio" },
-				},
 			],
 		}),
 		new webpack.EnvironmentPlugin({

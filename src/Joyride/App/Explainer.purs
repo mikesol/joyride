@@ -194,9 +194,7 @@ explainerPage opts = vbussed
                     [ text_ "Editor" ]
                 , D.button
                     ( oneOf
-                        [ bang (xdata "itp_support" "true")
-                        , bang $ D.Id := "g_id_onload"
-                        , bang $ D.OnClick := do
+                        [ bang $ D.OnClick := do
                             signInWithGoogle do
                               window >>= alert "Sign in with google is temporarily unavailable. Please try again later."
                         , fromEvent opts.signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> if sina then " hidden" else ""
