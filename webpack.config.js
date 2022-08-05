@@ -23,6 +23,17 @@ module.exports = {
 			LIL_GUI: "true",
 			FORCE_4: "false",
 		}),
+		// too many chunks made loading suck
+		// too few make one mega-huge module which leads to a steep initial load
+		// (bundle.js is 3.13 MiB when everything is together)
+		// try 3 for now, scale up if needed
+		// 3 produces the following sizes. they're still big, but they suck slightly less than 1:
+		//   bundle.js (1.4 MiB)
+    //   8.bundle.js (1.04 MiB)
+    //   277.bundle.js (711 KiB)
+		new webpack.optimize.LimitChunkCountPlugin({
+			maxChunks: 3,
+		}),
 	],
 	module: {
 		rules: [
