@@ -6,7 +6,6 @@ import Control.Plus (empty)
 import Data.Array (sortBy)
 import Data.Function (on)
 import Data.Map as Map
-import Control.Plus (empty)
 import Data.Maybe (Maybe(..))
 import Data.Number (pi)
 import Data.Time.Duration (Milliseconds)
@@ -67,7 +66,6 @@ type UIEvents = V
 data TopLevelDisplay
   = TLNeedsOrientation
   | TLWillNotWorkWithoutOrientation
-  | TLInitialLoad
   | TLExplainer
       { cubeTextures :: CubeTextures CTL.CubeTexture
       , models :: Models GLTFLoader.GLTF
@@ -95,7 +93,6 @@ derive instance Eq StartState
 
 instance Eq TopLevelDisplay where
   eq (TLExplainer _) (TLExplainer _) = true
-  eq TLInitialLoad TLInitialLoad = true
   eq TLLoading TLLoading = true
   eq TLRoomIsFull TLRoomIsFull = true
   eq TLGameHasStarted TLGameHasStarted = true
@@ -126,7 +123,7 @@ toplevel tli =
                   _, GetRulesOfGame s -> TLExplainer s
                   -- editor does not need to be loaded for now
                   -- change if that's the case
-                  false, _ -> TLInitialLoad
+                  false, _ -> TLLoading
                   -- should never reach
                   _, PageLoad -> TLLoading
                   _, StartingNegotiation -> TLLoading
@@ -149,7 +146,6 @@ toplevel tli =
   ) # switcher case _ of
     TLNeedsOrientation -> orientationPermissionPage { givePermission: tli.givePermission }
     TLWillNotWorkWithoutOrientation -> sorryNeedPermissionPage
-    TLInitialLoad -> envy empty
     TLExplainer { cubeTextures, threeDI, cNow, initialDims, firestoreDb, signedInNonAnonymously, signOut } -> explainerPage
       { ride: tli.ride
       , editor: tli.editor
