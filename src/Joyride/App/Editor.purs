@@ -719,7 +719,8 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
           [ text_ "Preview" ]
       , D.button
           ( oneOf
-              [ bang $ D.OnClick := do
+              [ bang $ D.Id := "google_sign_in"
+              , bang $ D.OnClick := do
                   signInWithGoogle do
                     window >>= alert "Sign in with google is temporarily unavailable. Please try again later."
               , fromEvent signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> if sina then " hidden" else ""
