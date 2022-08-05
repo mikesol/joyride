@@ -1,8 +1,10 @@
 require("dotenv").config();
 const path = require("path");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
+const HtmlWebpackInjectPreload = require("@principalstudio/html-webpack-inject-preload");
 const webpack = require("webpack");
 const CopyPlugin = require("copy-webpack-plugin");
+const FaviconsWebpackPlugin = require("favicons-webpack-plugin");
 
 module.exports = {
 	mode: "development",
@@ -13,11 +15,29 @@ module.exports = {
 		filename: "bundle.js",
 	},
 	plugins: [
+		new FaviconsWebpackPlugin(),
 		new CopyPlugin({
 			patterns: [{ from: path.resolve(__dirname, "src/models"), to: "models" }],
 		}),
 		new HtmlWebpackPlugin({
 			template: "index.html",
+			scriptLoading: "defer",
+		}),
+		new HtmlWebpackInjectPreload({
+			files: [
+				{
+					match: /\.png/,
+					attributes: { as: "image" },
+				},
+				{
+					match: /\.jpg/,
+					attributes: { as: "image" },
+				},
+				{
+					match: /\.mp3/,
+					attributes: { as: "audio" },
+				},
+			],
 		}),
 		new webpack.EnvironmentPlugin({
 			LIL_GUI: "true",
@@ -29,8 +49,8 @@ module.exports = {
 		// try 3 for now, scale up if needed
 		// 3 produces the following sizes. they're still big, but they suck slightly less than 1:
 		//   bundle.js (1.4 MiB)
-    //   8.bundle.js (1.04 MiB)
-    //   277.bundle.js (711 KiB)
+		//   8.bundle.js (1.04 MiB)
+		//   277.bundle.js (711 KiB)
 		new webpack.optimize.LimitChunkCountPlugin({
 			maxChunks: 3,
 		}),
