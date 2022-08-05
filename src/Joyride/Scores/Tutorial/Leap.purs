@@ -75,12 +75,6 @@ tutorialLeaps makeLeaps = fixed
           100
           (box { box: makeLeaps.threeDI.boxGeometry })
           ( meshStandardMaterial
-              -- { map: textures.tilesZelligeHexCOL
-              -- , aoMap: textures.tilesZelligeHexAO
-              -- , displacementMap: textures.tilesZelligeHexDISP
-              -- , displacementScale: 0.1
-              -- , roughnessMap: textures.tilesZelligeHexGLOSS
-              -- }
               { meshStandardMaterial: makeLeaps.threeDI.meshStandardMaterial
               , color: makeLeaps.mkColor (RGB 0.91 0.387 0.432)
               , roughness: 0.4

@@ -461,27 +461,27 @@ playerPosition' Player3 = _.p3p
 playerPosition' Player4 = _.p4p
 
 newtype Textures a = Textures
-  { hockeyAO :: a
-  , hockeyCOL :: a
-  , hockeyDISP :: a
-  , hockeyGLOSS :: a
-  , hockeyNRM :: a
-  , hockeyREFL :: a
-  , marble19COL :: a
-  , marble19GLOSS :: a
-  , marble19NRM :: a
-  , marble19REFL :: a
-  , marble21COL :: a
-  , marble21GLOSS :: a
-  , marble21NRM :: a
-  , marble21REFL :: a
-  , tilesZelligeHexAO :: a
-  , tilesZelligeHexBUMP :: a
-  , tilesZelligeHexCOL :: a
-  , tilesZelligeHexDISP :: a
-  , tilesZelligeHexGLOSS :: a
-  , tilesZelligeHexREFL :: a
-  , butterfly0 :: a
+  { -- hockeyAO :: a
+  -- , hockeyCOL :: a
+  -- , hockeyDISP :: a
+  -- , hockeyGLOSS :: a
+  -- , hockeyNRM :: a
+  -- , hockeyREFL :: a
+  -- , marble19COL :: a
+  -- , marble19GLOSS :: a
+  -- , marble19NRM :: a
+  -- , marble19REFL :: a
+  -- , marble21COL :: a
+  -- , marble21GLOSS :: a
+  -- , marble21NRM :: a
+  -- , marble21REFL :: a
+  -- , tilesZelligeHexAO :: a
+  -- , tilesZelligeHexBUMP :: a
+  -- , tilesZelligeHexCOL :: a
+  -- , tilesZelligeHexDISP :: a
+  -- , tilesZelligeHexGLOSS :: a
+  -- , tilesZelligeHexREFL :: a
+  -- , butterfly0 :: a
   }
 
 newtype CubeTexture a = CubeTexture
@@ -497,7 +497,7 @@ derive instance Newtype (CubeTexture a) _
 
 newtype CubeTextures a = CubeTextures
   { skybox :: a
-  , skybox2 :: a
+  -- , skybox2 :: a
   }
 
 derive instance Newtype (CubeTextures a) _
