@@ -2,7 +2,7 @@ module Joyride.App.Explainer where
 
 import Prelude
 
-import Bolson.Core (Element(..), dyn, envy, fixed)
+import Bolson.Core (Element(..), envy, fixed)
 import Control.Alt ((<|>))
 import Control.Plus (empty)
 import Data.Foldable (oneOf, oneOfMap, traverse_)
@@ -11,7 +11,7 @@ import Data.Newtype (unwrap)
 import Data.Number (cos, pi)
 import Data.Time.Duration (Milliseconds)
 import Data.Tuple.Nested (type (/\), (/\))
-import Deku.Attribute ((:=))
+import Deku.Attribute (xdata, (:=))
 import Deku.Control (switcher, text_)
 import Deku.Core (Nut, vbussed)
 import Deku.DOM as D
@@ -25,7 +25,7 @@ import FRP.Event.Animate (animationFrameEvent)
 import FRP.Event.VBus (V)
 import Joyride.Firebase.Auth (signInWithGoogle)
 import Joyride.Firebase.Firestore (getPublicTracksAff)
-import Joyride.Firebase.Opaque (FirebaseAuth, Firestore)
+import Joyride.Firebase.Opaque (Firestore)
 import Joyride.FullScreen as FullScreen
 import Joyride.Style (buttonCls, headerCls)
 import Joyride.Timing.CoordinatedNow (withCTime)
@@ -194,7 +194,9 @@ explainerPage opts = vbussed
                     [ text_ "Editor" ]
                 , D.button
                     ( oneOf
-                        [ bang $ D.OnClick := do
+                        [ bang (xdata "itp_support" "true")
+                        , bang $ D.Id := "g_id_onload"
+                        , bang $ D.OnClick := do
                             signInWithGoogle do
                               window >>= alert "Sign in with google is temporarily unavailable. Please try again later."
                         , fromEvent opts.signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> if sina then " hidden" else ""

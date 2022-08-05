@@ -153,7 +153,7 @@ aChangePrivate p (TrackV0 track) = (TrackV0 (track { private = p }))
 aChangeOwner :: String -> ChangeTrack
 aChangeOwner o (TrackV0 track) = (TrackV0 (track { owner = o }))
 
-foreign import styleAudio ::Effect Unit
+foreign import styleAudio :: Effect Unit
 
 aAddBasic
   :: { id :: Int
@@ -369,7 +369,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
               (Left <$> (event.atomicEventOperation) <|> (Right <$> (bang (aChangeTitle (Just initialTitle)) <|> event.atomicTrackOperation)))
               bangor
       )
-  let nextAttributableColumn = map snd $ fold (\_ (b /\ c) -> if b && c >= 10 then false /\ 9 else if not b && c <= 4 then true /\ 5 else  (b /\ ((if b then add else sub) c 1) )) (bang unit) (true /\ 7)
+  let nextAttributableColumn = map snd $ fold (\_ (b /\ c) -> if b && c >= 10 then false /\ 9 else if not b && c <= 4 then true /\ 5 else (b /\ ((if b then add else sub) c 1))) (bang unit) (true /\ 7)
   mostRecentData <- envy <<< memoBeh mostRecentData'
     ( TrackV0
         { title: Nothing
@@ -719,7 +719,9 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
           [ text_ "Preview" ]
       , D.button
           ( oneOf
-              [ bang $ D.OnClick := do
+              [ bang (xdata "itp_support" "true")
+              , bang $ D.Id := "g_id_onload"
+              , bang $ D.OnClick := do
                   signInWithGoogle do
                     window >>= alert "Sign in with google is temporarily unavailable. Please try again later."
               , fromEvent signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> if sina then " hidden" else ""
@@ -893,7 +895,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                           ]
                                       )
                                       [ D.span (oneOf [ bang $ D.Class := "mr-2", bang $ D.Style := "color: " <> dC id <> ";" ]) [ text_ (prefix) ]
-                                      , D.span_ [ text label, text_ " (Column ", text (show <$> column), text_ ") ", text $ (bang times <|> fold (\{ offset, time } tmzz -> set (ix offset) time tmzz ) (markerEvent id) times) <#> \tmz -> " (" <> intercalate "," (map (toStringWith (fixed 2)) tmz) <> ")" ]
+                                      , D.span_ [ text label, text_ " (Column ", text (show <$> column), text_ ") ", text $ (bang times <|> fold (\{ offset, time } tmzz -> set (ix offset) time tmzz) (markerEvent id) times) <#> \tmz -> " (" <> intercalate "," (map (toStringWith (fixed 2)) tmz) <> ")" ]
                                       , D.span
                                           ( oneOf
                                               [ soloState <#> \st -> D.Class := ("text-white font-bold pl-2 " <> if st then "" else " hidden")
