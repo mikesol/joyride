@@ -16,7 +16,6 @@ import Effect.Aff.AVar as AVar
 import Effect.Class (liftEffect)
 import FRP.Behavior (sampleBy, sample_)
 import FRP.Event (Event, bus, keepLatest, memoize, sampleOn)
-import FRP.Event.Class (bang)
 import FRP.Event.Time as LocalTime
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Rider (rider, toRide)
@@ -48,7 +47,7 @@ leap makeLeap = keepLatest $ bus \setPlayed iWasPlayed -> do
       <|> ((filter (\(HitLeapOtherPlayer { uniqueId }) -> makeLeap.uniqueId == uniqueId) otherPlayedMe) $> unit)
     rateInfoOnAtTouch = keepLatest (fireAndForget played $> animatedStuff.rateInfo)
     forRendering = sampleBy (#) makeLeap.renderingInfo
-      ( sampleOn (bang Nothing <|> fireAndForget (sample_ (coerce >>> Just <$> cInstant makeLeap.cnow) played))
+      ( sampleOn (pure Nothing <|> fireAndForget (sample_ (coerce >>> Just <$> cInstant makeLeap.cnow) played))
           ( sampleOn ratioEvent
               ( map
                   { rateInfo: _
@@ -97,28 +96,28 @@ leap makeLeap = keepLatest $ bus \setPlayed iWasPlayed -> do
   keepLatest $ memoize drawingMatrix' \drawingMatrix ->
     keepLatest $ memoize (filter (\(HitLeapOtherPlayer { player }) -> player /= makeLeap.myPlayer) otherPlayedMe) \hitLeapOtherPlayer -> rider
       ( toRide
-          -- we bang this as soon as the rider initializes, which is
+          -- we pure this as soon as the rider initializes, which is
           -- when the element is first painted on screen
           -- this is because the leap could be triggered at any moment after paint
-          { event: bang
+          { event: pure
               ( oneOf
-                  [ bang $ AudibleChildEnd
+                  [ pure $ AudibleChildEnd
                       ( sound
                           ((\(AudibleEnd e) -> e) (makeLeap.sound rateInfoOnAtTouch))
                       )
-                  , keepLatest $ (LocalTime.withTime (bang unit)) <#> \{ time } -> lowPrioritySchedule makeLeap.lpsCallback
+                  , keepLatest $ (LocalTime.withTime (pure unit)) <#> \{ time } -> lowPrioritySchedule makeLeap.lpsCallback
                       (JMilliseconds 10000.0 + (coerce $ unInstant time))
-                      (bang $ AudibleChildEnd silence)
+                      (pure $ AudibleChildEnd silence)
 
                   ]
               )
           , push: makeLeap.pushAudio
           }
       )
-      ( bang
+      ( pure
           ( ( singleInstance
                 ( oneOf
-                    [ bang $ P.matrix4 $ makeLeap.mkMatrix4 emptyMatrix
+                    [ pure $ P.matrix4 $ makeLeap.mkMatrix4 emptyMatrix
                     , P.matrix4 <<< makeLeap.mkMatrix4 <$> drawingMatrix
                     , let
                         f :: Event (_ -> Effect (Effect Unit))
@@ -141,13 +140,13 @@ leap makeLeap = keepLatest $ bus \setPlayed iWasPlayed -> do
                                             , translation: drawingMatrix <#> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
                                             , player: hbop.player
                                             }
-                                        sampleBy (#) (map coerce $ cInstant makeLeap.cnow) (bang hitLeapVisualForLabel)
+                                        sampleBy (#) (map coerce $ cInstant makeLeap.cnow) (pure hitLeapVisualForLabel)
                                     , push: makeLeap.pushLeapVisualForLabel
                                     }
                                 )
-                                (bang (\_ -> pure (pure unit)))
+                                (pure (\_ -> pure (pure unit)))
                           -- otherwise keep alive
-                          , sampleJIT makeLeap.animatedStuff $ bang \av _ -> do
+                          , sampleJIT makeLeap.animatedStuff $ pure \av _ -> do
                               launchAff_ do
                                 n <- liftEffect $ makeLeap.cnow
                                 { rateInfo, playerPositions } <- AVar.read av
@@ -217,7 +216,7 @@ leap makeLeap = keepLatest $ bus \setPlayed iWasPlayed -> do
     }
   p4bar ri = touchPointZ ri Position4
   appearancePoint ri = entryZ ri
-  ratioEvent = map (\{ iw, ih } -> { iw, ih, r: iw / ih }) (bang makeLeap.initialDims <|> makeLeap.resizeEvent)
+  ratioEvent = map (\{ iw, ih } -> { iw, ih, r: iw / ih }) (pure makeLeap.initialDims <|> makeLeap.resizeEvent)
   shrinkRate = 3.0
   leapYThickness = 0.04
   leapZThickness = 0.2

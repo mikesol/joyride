@@ -3,19 +3,19 @@ module Joyride.FRP.SampleOnSubscribe where
 import Prelude
 
 import Control.Alt ((<|>))
+import Control.Monad.ST.Class (class MonadST)
 import Control.Plus (class Plus, empty)
-import Data.Maybe (Maybe(..))
 import FRP.Behavior (ABehavior, sample_)
-import FRP.Event (AnEvent, bang)
+import FRP.Event (AnEvent)
 
-sampleOnSubscribe :: forall m. Applicative m => ABehavior (AnEvent m) ~> AnEvent m
-sampleOnSubscribe b = sample_ b (bang unit)
+sampleOnSubscribe :: forall s m. MonadST s m => ABehavior (AnEvent m) ~> AnEvent m
+sampleOnSubscribe b = sample_ b (pure unit)
 
 initializeWithEmpty
-  :: forall m f a
-   . Applicative m
+  :: forall s m f a
+   . MonadST s m
   => Plus f
   => Applicative f
   => AnEvent m a
   -> AnEvent m (f a)
-initializeWithEmpty e = bang empty <|> map pure e
+initializeWithEmpty e = pure empty <|> map pure e

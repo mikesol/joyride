@@ -29,7 +29,7 @@ import Effect.Random as Random
 import Effect.Ref (new)
 import Effect.Ref as Ref
 import FRP.Behavior (Behavior, sample_)
-import FRP.Event (Event, bang, create, filterMap, folded, subscribe)
+import FRP.Event (Event, create, filterMap, folded, subscribe)
 import FRP.Event as Event
 import FRP.Event.AnimationFrame (animationFrame)
 import FRP.Event.VBus (V)
@@ -690,7 +690,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
               track <- getTrackAff firestoreDb y
               pure $ maybe NoChannel (RideChannel x y) track
           _ <- liftEffect $
-            subscribe (filter identity $ oneOf [ bang (not hop), orientationPerm.event ]) \_ -> channelEvent.push proposedChannel'
+            subscribe (filter identity $ oneOf [ pure (not hop), orientationPerm.event ]) \_ -> channelEvent.push proposedChannel'
           _ <- liftEffect $
             subscribe (filter identity $ map not $ orientationPerm.event) \_ -> negotiation.push WillNotWorkWithoutOrientation
           pure unit

@@ -35,14 +35,11 @@ let overrides =
           , "web-uievents"
           ]
         , repo = "https://github.com/mikesol/purescript-rito.git"
-        , version = "v0.0.2"
+        , version = "v0.0.3"
         }
-        , bolson =
-        { dependencies =
-          [ "arrays"
-          ]
+      , bolson =
+        { dependencies = [ "arrays" ]
         , repo = "https://github.com/mikesol/purescript-bolson.git"
-        -- , version = "always-tmp"
         , version = "main"
         }
       , deku =
@@ -76,67 +73,62 @@ let overrides =
           , "web-html"
           ]
         , repo = "https://github.com/mikesol/purescript-deku.git"
-        --, version = "always-tmp"
         , version = "main"
         }
       , hyrule =
-        { dependencies =
-          [ "arrays"
-          ]
+        { dependencies = [ "arrays" ]
         , repo = "https://github.com/mikesol/purescript-hyrule.git"
-        --, version = "always-tmp"
         , version = "master"
         }
-
       , ocarina =
         { dependencies =
           [ "aff"
-  , "aff-promise"
-  , "arraybuffer-types"
-  , "avar"
-  , "bolson"
-  , "control"
-  , "convertable-options"
-  , "effect"
-  , "either"
-  , "exceptions"
-  , "hyrule"
-  , "fast-vect"
-  , "foldable-traversable"
-  , "foreign"
-  , "foreign-object"
-  , "homogeneous"
-  , "indexed-monad"
-  , "integers"
-  , "js-timers"
-  , "lists"
-  , "maybe"
-  , "newtype"
-  , "numbers"
-  , "ordered-collections"
-  , "prelude"
-  , "profunctor"
-  , "profunctor-lenses"
-  , "random"
-  , "refs"
-  , "safe-coerce"
-  , "simple-json"
-  , "sized-vectors"
-  , "tuples"
-  , "type-equality"
-  , "typelevel"
-  , "typelevel-prelude"
-  , "unsafe-coerce"
-  , "unsafe-reference"
-  , "variant"
-  , "web-events"
-  , "web-file"
-  , "web-html"
-  ]
+          , "aff-promise"
+          , "arraybuffer-types"
+          , "avar"
+          , "bolson"
+          , "control"
+          , "convertable-options"
+          , "effect"
+          , "either"
+          , "exceptions"
+          , "hyrule"
+          , "fast-vect"
+          , "foldable-traversable"
+          , "foreign"
+          , "foreign-object"
+          , "homogeneous"
+          , "indexed-monad"
+          , "integers"
+          , "js-timers"
+          , "lists"
+          , "maybe"
+          , "newtype"
+          , "numbers"
+          , "ordered-collections"
+          , "prelude"
+          , "profunctor"
+          , "profunctor-lenses"
+          , "random"
+          , "refs"
+          , "safe-coerce"
+          , "simple-json"
+          , "sized-vectors"
+          , "tuples"
+          , "type-equality"
+          , "typelevel"
+          , "typelevel-prelude"
+          , "unsafe-coerce"
+          , "unsafe-reference"
+          , "variant"
+          , "web-events"
+          , "web-file"
+          , "web-html"
+          ]
         , repo = "https://github.com/mikesol/purescript-ocarina.git"
-        --, version = "always-tmp"
         , version = "main"
         }
       }
 
 in  upstream // overrides
+

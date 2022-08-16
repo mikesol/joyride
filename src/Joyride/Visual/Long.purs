@@ -19,7 +19,6 @@ import Effect.Aff.AVar as AVar
 import Effect.Class (liftEffect)
 import FRP.Behavior (sampleBy, sample_)
 import FRP.Event (Event, keepLatest, mapAccum, memoize, sampleOn)
-import FRP.Event.Class (bang)
 import FRP.Event.Time as LocalTime
 import FRP.Event.VBus (V, vbus)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
@@ -60,7 +59,7 @@ long makeLong = keepLatest $ vbus (Proxy :: _ LongActions) \push event -> do
     rateInfoOnAtTouch = keepLatest (fireAndForget played $> animatedStuff.rateInfo)
     rateInfoOffAtTouch = keepLatest (fireAndForget released $> animatedStuff.rateInfo)
     forRendering = sampleBy (#) makeLong.renderingInfo
-      ( sampleOn (bang Nothing <|> (released $> Nothing) <|> sample_ ((coerce :: Milliseconds -> Number) >>> Just <$> cInstant makeLong.cnow) played)
+      ( sampleOn (pure Nothing <|> (released $> Nothing) <|> sample_ ((coerce :: Milliseconds -> Number) >>> Just <$> cInstant makeLong.cnow) played)
           ( sampleOn ratioEvent
               ( map
                   { animatedStuff: _
@@ -117,25 +116,25 @@ long makeLong = keepLatest $ vbus (Proxy :: _ LongActions) \push event -> do
     keepLatest $ memoize (filter (\(HitLongOtherPlayer { player }) -> player /= makeLong.myPlayer) otherPlayedMe) \hitLongOtherPlayer ->
       keepLatest $ memoize (filter (\(ReleaseLongOtherPlayer { player }) -> player /= makeLong.myPlayer) otherReleasedMe) \releaseLongOtherPlayer -> rider
         ( toRide
-            { event: bang
+            { event: pure
                 ( oneOf
-                    [ bang $ AudibleChildEnd
+                    [ pure $ AudibleChildEnd
                         ( sound
                             ((\(AudibleEnd e) -> e) (makeLong.sound { on: rateInfoOnAtTouch, off: rateInfoOffAtTouch }))
                         )
-                    , keepLatest $ (LocalTime.withTime (bang unit)) <#> \{ time } -> lowPrioritySchedule makeLong.lpsCallback
+                    , keepLatest $ (LocalTime.withTime (pure unit)) <#> \{ time } -> lowPrioritySchedule makeLong.lpsCallback
                         (JMilliseconds 10000.0 + (coerce $ unInstant time))
-                        (bang $ AudibleChildEnd silence)
+                        (pure $ AudibleChildEnd silence)
 
                     ]
                 )
             , push: makeLong.pushAudio
             }
         )
-        ( bang
+        ( pure
             ( ( singleInstance
                   ( oneOf
-                      [ bang $ P.matrix4 $ makeLong.mkMatrix4 emptyMatrix
+                      [ pure $ P.matrix4 $ makeLong.mkMatrix4 emptyMatrix
                       , P.matrix4 <<< makeLong.mkMatrix4 <$> (map snd drawingMatrix)
                       , let
                           callF ev = sampleJIT drawingMatrix' $ ev $> \av _ -> do
@@ -231,12 +230,12 @@ long makeLong = keepLatest $ vbus (Proxy :: _ LongActions) \push event -> do
                                               , translation: (map snd drawingMatrix) <#> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
                                               , player: hlop.player
                                               }
-                                          sampleBy (#) (map (coerce) $ cInstant makeLong.cnow) (bang hitLongVisualForLabel)
+                                          sampleBy (#) (map (coerce) $ cInstant makeLong.cnow) (pure hitLongVisualForLabel)
                                       , push: makeLong.pushHitLongVisualForLabel
                                       }
                                   )
                                   -- the cancelation is nullary here, so don't worry about changing
-                                  (bang (\_ -> pure (pure unit)))
+                                  (pure (\_ -> pure (pure unit)))
                             , -- a bit kludgy, we want to turn it off on release, but we're also using this to
                               -- send the visual information. in reality, they should be separate concerns.
                               -- but this is the most convenient way to get the visual information.
@@ -256,17 +255,17 @@ long makeLong = keepLatest $ vbus (Proxy :: _ LongActions) \push event -> do
                                               , translation: (map snd drawingMatrix) <#> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
                                               , player: rlop.player
                                               }
-                                          sampleBy (#) (map coerce $ cInstant makeLong.cnow) (bang releaseLongVisualForLabel)
+                                          sampleBy (#) (map coerce $ cInstant makeLong.cnow) (pure releaseLongVisualForLabel)
                                       , push: makeLong.pushReleaseLongVisualForLabel
                                       }
                                   )
                                   -- the cancelation is nullary here, so don't worry about changing
-                                  (callF (bang unit))
+                                  (callF (pure unit))
                             -- otherwise keep alive
                             -- todo: even though the sampling is JIT, we still have one extra calculation for the press
                             -- as drawingMatrix' is computed already for the render
                             -- is there any way to reuse that?
-                            , callF (bang unit)
+                            , callF (pure unit)
                             ]
                         in
                           if makeLong.isMobile then P.onTouchStart <$> map
@@ -301,7 +300,7 @@ long makeLong = keepLatest $ vbus (Proxy :: _ LongActions) \push event -> do
     }
   p4bar ri = touchPointZ ri Position4
   appearancePoint ri = entryZ ri
-  ratioEvent = map (\{ iw, ih } -> { iw, ih, r: iw / ih }) (bang makeLong.initialDims <|> makeLong.resizeEvent)
+  ratioEvent = map (\{ iw, ih } -> { iw, ih, r: iw / ih }) (pure makeLong.initialDims <|> makeLong.resizeEvent)
   longYThickness = 0.04
   otherPlayedMe = filter (\(HitLongOtherPlayer { uniqueId }) -> makeLong.uniqueId == uniqueId) makeLong.notifications.hitLong
   otherReleasedMe = filter (\(ReleaseLongOtherPlayer { uniqueId }) -> makeLong.uniqueId == uniqueId) makeLong.notifications.releaseLong

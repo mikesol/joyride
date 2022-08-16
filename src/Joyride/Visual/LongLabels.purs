@@ -12,7 +12,7 @@ import Deku.Control (text)
 import Deku.Core (ANut(..))
 import Deku.DOM as D
 import Effect (Effect)
-import FRP.Event (Event, bang, fromEvent, keepLatest, mapAccum)
+import FRP.Event (Event, fromEvent, keepLatest, mapAccum)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Rito.CSS.CSS2DObject (css2DObject)
 import Rito.Core (ACSS2DObject)
@@ -35,24 +35,24 @@ p2s Player4 = "Player 4"
 longLabels :: forall lock payload. MakeLongLabels -> ACSS2DObject lock payload
 longLabels mbl = dyn
   ( mbl.longTap <#> \(HitLongVisualForLabel e) ->
-      ( bang $ Insert $ css2DObject
+      ( pure $ Insert $ css2DObject
           { css2DObject: mbl.threeDI.css2DObject
           , nut: ANut
               ( D.span
-                  ( oneOfMap bang
+                  ( oneOfMap pure
                       [ D.Class := "text-zinc-100 fade-out"
                       ]
                   )
                   [ text $ oneOf
-                      [ bang (p2s e.player <> " Long on!")
+                      [ pure (p2s e.player <> " Long on!")
                       , (fromEvent mbl.longRelease) <#> \_ -> (p2s e.player <> " Long off!")
                       ]
                   ]
               )
           }
-          ( bang (P.positionZ 100.0) <|> keepLatest
+          ( pure (P.positionZ 100.0) <|> keepLatest
               ( map
-                  ( \{ x, y, z } -> oneOfMap bang
+                  ( \{ x, y, z } -> oneOfMap pure
                       [ P.positionX x
                       , P.positionY y
                       , P.positionZ z
@@ -72,6 +72,6 @@ longLabels mbl = dyn
         fromEvent
           ( lowPrioritySchedule mbl.lpsCallback
               (JMilliseconds 3000.0 + e.issuedAt)
-              (bang $ Remove)
+              (pure $ Remove)
           )
   )

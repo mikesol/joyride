@@ -2,6 +2,7 @@ module Joyride.Visual.LeapWord where
 
 import Prelude
 
+import Bolson.Core (envy)
 import Control.Alt ((<|>))
 import Data.Foldable (oneOf)
 import Data.Maybe (Maybe(..))
@@ -10,11 +11,10 @@ import Data.Number (pi)
 import Data.Time.Duration (Milliseconds(..))
 import Deku.Attribute ((:=))
 import Deku.Control (text_)
-import Deku.Core (ANut(..), envy)
+import Deku.Core (ANut(..))
 import Deku.DOM as D
 import FRP.Behavior (sampleBy, sample_)
 import FRP.Event (memoize, sampleOn)
-import FRP.Event.Class (bang)
 import Joyride.FRP.Schedule (fireAndForget)
 import Joyride.Timing.CoordinatedNow (cInstant)
 import Ocarina.Math (calcSlope)
@@ -32,7 +32,7 @@ leapWord makeLeap = do
   let
     played = makeLeap.someonePlayedMe
     forRendering = sampleBy (#) makeLeap.renderingInfo
-      ( sampleOn (bang Nothing <|> fireAndForget (sample_ ((coerce :: Milliseconds -> JMilliseconds) >>> Just <$> cInstant makeLeap.cnow) played))
+      ( sampleOn (pure Nothing <|> fireAndForget (sample_ ((coerce :: Milliseconds -> JMilliseconds) >>> Just <$> cInstant makeLeap.cnow) played))
           ( sampleOn ratioEvent
               ( map
                   { rateInfo: _
@@ -73,18 +73,18 @@ leapWord makeLeap = do
   envy $ memoize drawingMatrix' \drawingMatrix ->
     ( ( css3DObject
           { css3DObject: makeLeap.threeDI.css3DObject
-          , nut: ANut (D.span (bang $ D.Class := "text-white pointer-events-none") [ text_ makeLeap.text ])
+          , nut: ANut (D.span (pure $ D.Class := "text-white pointer-events-none") [ text_ makeLeap.text ])
           }
           ( oneOf
-              [ --bang $ P.matrix4 $ makeBasic.mkMatrix4 emptyMatrix
+              [ --pure $ P.matrix4 $ makeBasic.mkMatrix4 emptyMatrix
                 --, P.matrix4 <<< makeBasic.mkMatrix4 <$> drawingMatrix
                 P.positionX <<< _.n14 <$> drawingMatrix
-              , bang $ P.positionY 0.05
+              , pure $ P.positionY 0.05
               , P.positionZ <<< _.n34 <$> drawingMatrix
-              , (bang $ P.scaleX 0.00) <|> fireAndForget (drawingMatrix $> P.scaleX 0.006)
-              , (bang $ P.scaleY 0.00) <|> fireAndForget (drawingMatrix $> P.scaleY 0.006)
-              , (bang $ P.scaleZ 0.00) <|> fireAndForget (drawingMatrix $> P.scaleZ 0.006)
-              , bang $ P.rotateX (pi * -0.5)
+              , (pure $ P.scaleX 0.00) <|> fireAndForget (drawingMatrix $> P.scaleX 0.006)
+              , (pure $ P.scaleY 0.00) <|> fireAndForget (drawingMatrix $> P.scaleY 0.006)
+              , (pure $ P.scaleZ 0.00) <|> fireAndForget (drawingMatrix $> P.scaleZ 0.006)
+              , pure $ P.rotateX (pi * -0.5)
               ]
           )
       )
@@ -96,5 +96,5 @@ leapWord makeLeap = do
     }
   p4bar ri = touchPointZ ri Position4
   appearancePoint ri = entryZ ri
-  ratioEvent = map (\{ iw, ih } -> { iw, ih, r: iw / ih }) (bang makeLeap.initialDims <|> makeLeap.resizeEvent)
+  ratioEvent = map (\{ iw, ih } -> { iw, ih, r: iw / ih }) (pure makeLeap.initialDims <|> makeLeap.resizeEvent)
   leapZThickness = 0.2

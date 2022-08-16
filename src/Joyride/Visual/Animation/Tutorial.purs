@@ -15,7 +15,7 @@ import Data.Tuple (Tuple(..))
 import Data.Tuple.Nested ((/\))
 import Effect (Effect)
 import FRP.Behavior (Behavior, sampleBy)
-import FRP.Event (Event, EventIO, bang, keepLatest, mapAccum)
+import FRP.Event (Event, EventIO, keepLatest, mapAccum)
 import FRP.Event.VBus (V)
 import Joyride.Effect.Lowpass (lpf)
 import Joyride.FRP.BusT (vbust)
@@ -130,7 +130,7 @@ runThree opts = do
                         py = posAx AxisY
                         pz = posAx AxisZ
                       in
-                        oneOfMap bang
+                        oneOfMap pure
                           [ positionX px
                           , positionY (ri.cameraOffsetY + py)
                           , positionZ (ri.cameraOffsetZ + pz)
@@ -148,7 +148,7 @@ runThree opts = do
                   ( oneOf
                       [ (positionX <<< add n) <$> applyLPF (player == opts.myPlayer) (posAx AxisX)
                       , positionY <$> (sampleBy (\{ sphereOffsetY } py -> sphereOffsetY + py) opts.renderingInfo (posAx AxisY))
-                      , bang $ positionZ
+                      , pure $ positionZ
                           ( case player of
                               Player1 -> -4.0
                               Player2 -> -3.0
@@ -156,9 +156,9 @@ runThree opts = do
                               Player4 -> -1.0
                           )
                       , positionZ <$> posAx AxisZ
-                      , bang $ scaleX 0.02
-                      , bang $ scaleY 0.02
-                      , bang $ scaleZ 0.02
+                      , pure $ scaleX 0.02
+                      , pure $ scaleY 0.02
+                      , pure $ scaleZ 0.02
                       , case player of
                           Player1 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: sin (unwrap rate.time * pi * 0.1) * pi * 0.02, y: sin (unwrap rate.time * pi * 0.09) * pi * -0.03, z: cos (unwrap rate.time * pi * 0.07) * pi * 0.04 })
                           Player3 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: cos (unwrap rate.time * pi * 0.06) * pi * 0.02, y: sin (unwrap rate.time * pi * 0.11) * pi * 0.01, z: cos (unwrap rate.time * pi * 0.03) * pi * -0.03 })
@@ -169,7 +169,7 @@ runThree opts = do
                   []
             )
         myScene <- globalScenePortal1
-          ( scene { scene: opts.threeDI.scene } (bang $ P.background (CubeTexture (unwrap opts.cubeTextures).skybox))
+          ( scene { scene: opts.threeDI.scene } (pure $ P.background (CubeTexture (unwrap opts.cubeTextures).skybox))
               [ toScene $ group { group: opts.threeDI.group }
                   ( keepLatest $
                       ( mapAccum
@@ -186,7 +186,7 @@ runThree opts = do
                           fac = t / 1000.0
                         in
                           if false then empty
-                          else oneOfMap bang
+                          else oneOfMap pure
                             [ P.rotateX $ 0.001 * cos (fac * pi * 0.01)
                             , P.rotateY $ 0.001 * cos (fac * pi * 0.01)
                             , P.rotateZ $ 0.001 * cos (fac * pi * 0.01)
@@ -242,9 +242,9 @@ runThree opts = do
                                   [ positionX <$> applyLPF (player == opts.myPlayer) (posAx AxisX)
                                   , positionY <$> (sampleBy (\{ lightOffsetY } py -> (lightOffsetY + py)) opts.renderingInfo (posAx AxisY))
                                   , positionZ <$> posAx AxisZ
-                                  , bang $ P.decay normalDecay
-                                  , bang $ P.intensity normalIntensity
-                                  , bang $ P.distance normalDistance
+                                  , pure $ P.decay normalDecay
+                                  , pure $ P.intensity normalIntensity
+                                  , pure $ P.distance normalDistance
                                   ]
                               )
 
@@ -312,7 +312,7 @@ runThree opts = do
                           fac = t / 1000.0
                         in
                           if false then empty
-                          else oneOfMap bang
+                          else oneOfMap pure
                             [ P.rotateX $ 0.001 * cos (fac * pi * 0.01)
                             , P.rotateY $ 0.001 * cos (fac * pi * 0.01)
                             , P.rotateZ $ 0.001 * cos (fac * pi * 0.01)
@@ -337,9 +337,9 @@ runThree opts = do
                                   [ positionX <$> applyLPF (player == opts.myPlayer) (posAx AxisX)
                                   , positionY <$> (sampleBy (\{ lightOffsetY } py -> (lightOffsetY + py)) opts.renderingInfo (posAx AxisY))
                                   , positionZ <$> posAx AxisZ
-                                  , bang $ P.decay normalDecay
-                                  , bang $ P.intensity normalIntensity
-                                  , bang $ P.distance normalDistance
+                                  , pure $ P.decay normalDecay
+                                  , pure $ P.intensity normalIntensity
+                                  , pure $ P.distance normalDistance
                                   ]
                               )
 
@@ -355,7 +355,7 @@ runThree opts = do
               , webGLRenderer: opts.threeDI.webGLRenderer
               }
               ( oneOf
-                  [ bang (size { width: opts.initialDims.iw, height: opts.initialDims.ih })
+                  [ pure (size { width: opts.initialDims.iw, height: opts.initialDims.ih })
                   , opts.resizeE <#> \i -> size { width: i.iw, height: i.ih }
                   ]
               )
@@ -392,7 +392,7 @@ runThree opts = do
               }
               myWebGLRenderer
               ( oneOf
-                  [ bang render
+                  [ pure render
                   , mopts.rateInfo $> render
                   ]
               )
@@ -410,7 +410,7 @@ runThree opts = do
                   { canvas: opts.canvas, element, css2DRenderer: opts.threeDI.css2DRenderer }
                   ( oneOf
                       [ opts.resizeE <#> \i -> size { width: i.iw, height: i.ih }
-                      , bang render
+                      , pure render
                       , (mopts.rateInfo $> render)
                       ]
                   )
@@ -423,7 +423,7 @@ runThree opts = do
                   { canvas: opts.canvas, element, css3DRenderer: opts.threeDI.css3DRenderer }
                   ( oneOf
                       [ opts.resizeE <#> \i -> size { width: i.iw, height: i.ih }
-                      , bang render
+                      , pure render
                       , (mopts.rateInfo $> render)
                       ]
                   )

@@ -5,6 +5,7 @@ module Joyride.Visual.BasicWord where
 
 import Prelude
 
+import Bolson.Core (envy)
 import Control.Alt ((<|>))
 import Data.FastVect.FastVect (index)
 import Data.Foldable (oneOf)
@@ -16,11 +17,10 @@ import Data.Tuple (fst, snd)
 import Data.Tuple.Nested (type (/\), (/\))
 import Deku.Attribute ((:=))
 import Deku.Control (text)
-import Deku.Core (ANut(..), envy)
+import Deku.Core (ANut(..))
 import Deku.DOM as D
 import FRP.Behavior (sampleBy, sample_)
 import FRP.Event (Event, memoize, sampleOn, fromEvent)
-import FRP.Event.Class (bang)
 import Joyride.FRP.Dedup (dedup)
 import Joyride.FRP.Schedule (fireAndForget)
 import Joyride.Timing.CoordinatedNow (cInstant)
@@ -53,7 +53,7 @@ basicWord makeBasic = do
            , renderingInfo :: RenderingInfo
            }
     forRendering = sampleBy (#) makeBasic.renderingInfo
-      ( sampleOn (bang Nothing <|> fireAndForget (sample_ (coerce >>> Just <$> cInstant makeBasic.cnow) played))
+      ( sampleOn (pure Nothing <|> fireAndForget (sample_ (coerce >>> Just <$> cInstant makeBasic.cnow) played))
           ( sampleOn ratioEvent
               ( map
                   { rateInfo: _
@@ -105,18 +105,18 @@ basicWord makeBasic = do
     in
       ( ( css3DObject
             { css3DObject: makeBasic.threeDI.css3DObject
-            , nut: ANut (D.span (bang $ D.Class := "text-white pointer-events-none") [ text (dedup (fromEvent txt)) ])
+            , nut: ANut (D.span (pure $ D.Class := "text-white pointer-events-none") [ text (dedup (fromEvent txt)) ])
             }
             ( oneOf
-                [ --bang $ P.matrix4 $ makeBasic.mkMatrix4 emptyMatrix
+                [ --pure $ P.matrix4 $ makeBasic.mkMatrix4 emptyMatrix
                   --, P.matrix4 <<< makeBasic.mkMatrix4 <$> drawingMatrix
                   P.positionX <<< _.n14 <$> drawingMatrix
-                , bang $ P.positionY 0.05
+                , pure $ P.positionY 0.05
                 , P.positionZ <<< _.n34 <$> drawingMatrix
-                , (bang $ P.scaleX 0.00) <|> fireAndForget (drawingMatrix $> P.scaleX 0.006)
-                , (bang $ P.scaleY 0.00) <|> fireAndForget (drawingMatrix $> P.scaleY 0.006)
-                , (bang $ P.scaleZ 0.00) <|> fireAndForget (drawingMatrix $> P.scaleZ 0.006)
-                , bang $ P.rotateX (pi * -0.5)
+                , (pure $ P.scaleX 0.00) <|> fireAndForget (drawingMatrix $> P.scaleX 0.006)
+                , (pure $ P.scaleY 0.00) <|> fireAndForget (drawingMatrix $> P.scaleY 0.006)
+                , (pure $ P.scaleZ 0.00) <|> fireAndForget (drawingMatrix $> P.scaleZ 0.006)
+                , pure $ P.rotateX (pi * -0.5)
                 ]
             )
         )
@@ -135,5 +135,5 @@ basicWord makeBasic = do
   p3bar ri = touchPointZ ri Position3
   p4bar ri = touchPointZ ri Position4
   appearancePoint ri = entryZ ri
-  ratioEvent = map (\{ iw, ih } -> { iw, ih, r: iw / ih }) (bang makeBasic.initialDims <|> makeBasic.resizeEvent)
+  ratioEvent = map (\{ iw, ih } -> { iw, ih, r: iw / ih }) (pure makeBasic.initialDims <|> makeBasic.resizeEvent)
   basicZThickness = 0.2

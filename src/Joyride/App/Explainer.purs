@@ -11,8 +11,8 @@ import Data.Newtype (unwrap)
 import Data.Number (cos, pi)
 import Data.Time.Duration (Milliseconds)
 import Data.Tuple.Nested (type (/\), (/\))
-import Deku.Attribute (xdata, (:=))
-import Deku.Control (switcher, text_)
+import Deku.Attribute ((:=))
+import Deku.Control (switcher_, text_)
 import Deku.Core (Nut, vbussed)
 import Deku.DOM as D
 import Deku.Listeners (click)
@@ -20,7 +20,7 @@ import Deku.Listeners as DL
 import Effect (Effect)
 import Effect.Aff (launchAff_)
 import Effect.Class (liftEffect)
-import FRP.Event (Event, bang, fromEvent, keepLatest, mapAccum, memoize)
+import FRP.Event (Event, fromEvent, keepLatest, mapAccum, memoize)
 import FRP.Event.Animate (animationFrameEvent)
 import FRP.Event.VBus (V)
 import Joyride.Firebase.Auth (signInWithGoogle)
@@ -73,16 +73,16 @@ threeLoader opts = do
               , far: 100.0
               }
               ( oneOf
-                  [ bang $ positionX 0.0
-                  , bang $ positionY 0.0
-                  , bang $ positionZ 0.0
+                  [ pure $ positionX 0.0
+                  , pure $ positionY 0.0
+                  , pure $ positionZ 0.0
                   , opts.resizeE <#> \i -> P.aspect (i.iw / i.ih)
                   ]
               )
 
           )
           \myCamera -> globalScenePortal1
-            ( scene { scene: opts.threeDI.scene } (bang $ P.background (CubeTexture (unwrap opts.cubeTextures).skybox))
+            ( scene { scene: opts.threeDI.scene } (pure $ P.background (CubeTexture (unwrap opts.cubeTextures).skybox))
                 [ toScene $ group { group: opts.threeDI.group }
                     ( keepLatest $
                         ( mapAccum
@@ -96,7 +96,7 @@ threeLoader opts = do
                           let
                             fac = t / 1000.0
                           in
-                            oneOfMap bang
+                            oneOfMap pure
                               [ P.rotateX $ 0.001 * cos (fac * pi * 0.01)
                               , P.rotateY $ 0.001 * cos (fac * pi * 0.01)
                               , P.rotateZ $ 0.001 * cos (fac * pi * 0.01)
@@ -118,8 +118,8 @@ threeLoader opts = do
                     , webGLRenderer: opts.threeDI.webGLRenderer
                     }
                     ( oneOf
-                        [ bang (size { width: opts.initialDims.iw, height: opts.initialDims.ih })
-                        , bang render
+                        [ pure (size { width: opts.initialDims.iw, height: opts.initialDims.ih })
+                        , pure render
                         , animationTime $> render
                         , opts.resizeE <#> \i -> size { width: i.iw, height: i.ih }
                         ]
@@ -129,7 +129,7 @@ threeLoader opts = do
   opts.unsubscriber u
 
 filler :: Nut
-filler = D.div (bang $ D.Class := "grow") []
+filler = D.div (pure $ D.Class := "grow") []
 
 explainerPage
   :: { ride :: (String /\ Track) -> Effect Unit
@@ -155,19 +155,19 @@ explainerPage opts = vbussed
                )
            )
   )
-  \push event -> envy $ memoize (bang Nothing <|> event.availableRides) \availableRides -> D.div (oneOf [ bang (D.Class := "absolute") ])
-    [ D.div (oneOf [ bang (D.Class := "z-10 absolute grid grid-cols-3 grid-rows-3  place-items-center h-screen w-screen") ])
-        [ D.div (bang $ D.Class := "col-start-2 col-end-3 row-start-2 row-end-3 flex flex-col")
+  \push event -> envy $ memoize (pure Nothing <|> event.availableRides) \availableRides -> D.div (oneOf [ pure (D.Class := "absolute") ])
+    [ D.div (oneOf [ pure (D.Class := "z-10 absolute grid grid-cols-3 grid-rows-3  place-items-center h-screen w-screen") ])
+        [ D.div (pure $ D.Class := "col-start-2 col-end-3 row-start-2 row-end-3 flex flex-col")
             $
               let
                 buttonCls = "my-4 bg-transparent hover:bg-slate-300 text-white font-semibold hover:text-zinc-700 py-2 px-4 border border-slate-300 hover:border-transparent rounded"
               in
-                [ D.h1 (bang $ D.Class := "text-center " <> headerCls) [ text_ "Joyride" ]
+                [ D.h1 (pure $ D.Class := "text-center " <> headerCls) [ text_ "Joyride" ]
                 , D.button
                     ( oneOf
-                        [ bang $ D.Class := buttonCls
+                        [ pure $ D.Class := buttonCls
                         , DL.click
-                            ( (oneOf [ bang (pure unit), event.unsubscriber ]) <#>
+                            ( (oneOf [ pure (pure unit), event.unsubscriber ]) <#>
                                 FullScreen.fullScreenFlow <<< (opts.tutorial *> _)
                             )
                         ]
@@ -175,8 +175,8 @@ explainerPage opts = vbussed
                     [ text_ "Tutorial" ]
                 , D.button
                     ( oneOf
-                        [ bang $ D.Class := buttonCls
-                        , DL.click $ bang $ launchAff_ do
+                        [ pure $ D.Class := buttonCls
+                        , DL.click $ pure $ launchAff_ do
                             rides <- getPublicTracksAff opts.firestoreDb
                             liftEffect $ push.availableRides (Just rides)
                         ]
@@ -184,9 +184,9 @@ explainerPage opts = vbussed
                     [ text_ "Take a ride" ]
                 , D.button
                     ( oneOf
-                        [ bang $ D.Class := buttonCls
+                        [ pure $ D.Class := buttonCls
                         , DL.click
-                            ( (oneOf [ bang (pure unit), event.unsubscriber ]) <#>
+                            ( (oneOf [ pure (pure unit), event.unsubscriber ]) <#>
                                 FullScreen.fullScreenFlow <<< (opts.editor *> _)
                             )
                         ]
@@ -194,8 +194,8 @@ explainerPage opts = vbussed
                     [ text_ "Editor" ]
                 , D.button
                     ( oneOf
-                        [ bang $ D.Id := "google_sign_in"
-                        , bang $ D.OnClick := do
+                        [ pure $ D.Id := "google_sign_in"
+                        , pure $ D.OnClick := do
                             signInWithGoogle do
                               window >>= alert "Sign in with google is temporarily unavailable. Please try again later."
                         , fromEvent opts.signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> if sina then " hidden" else ""
@@ -205,7 +205,7 @@ explainerPage opts = vbussed
                 , D.button
                     ( oneOf
                         [ fromEvent opts.signedInNonAnonymously <#> \na -> D.Class := buttonCls <> (if na then "" else " hidden")
-                        , click $ bang opts.signOut
+                        , click $ pure opts.signOut
                         ]
                     )
                     [ text_ "Sign Out" ]
@@ -213,45 +213,44 @@ explainerPage opts = vbussed
                 ]
         ]
     , D.div (oneOf [ availableRides <#> \ar -> D.Class := "z-10 bg-zinc-900 absolute grid grid-cols-6 grid-rows-6 place-items-center h-screen w-screen " <> if isJust ar then "" else " hidden" ])
-        [ D.div (bang $ D.Class := "col-start-1 col-end-2 row-start-1 row-end-2")
+        [ D.div (pure $ D.Class := "col-start-1 col-end-2 row-start-1 row-end-2")
             [ D.button
                 ( oneOf
-                    [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
-                    , DL.click $ bang (push.availableRides Nothing)
+                    [ pure $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                    , DL.click $ pure (push.availableRides Nothing)
                     ]
                 )
                 [ text_ "< Back" ]
             ]
-        , D.div (bang $ D.Class := "col-start-2 col-end-6 row-start-2 row-end-6 flex flex-col justify-items-center overflow-scroll text-center")
-            [ D.h2 (bang $ D.Class := headerCls) [ text_ "Choose a ride" ]
-            , D.div (oneOf [])
-                [ ( availableRides # switcher \l' -> l' # maybe (envy empty) \l -> D.ul (bang $ D.Class := "")
-                      ( l <#> \{ id, data: data' } ->
-                          let
-                            TrackV0 aTra = data'
-                          in
-                            D.li_
-                              [ D.button
-                                  ( oneOf
-                                      [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
-                                      , DL.click
-                                          ( (oneOf [ bang (pure unit), event.unsubscriber ]) <#>
-                                              FullScreen.fullScreenFlow <<< (opts.ride (id /\ data') *> _)
-                                          )
-                                      ]
-                                  )
-                                  [ text_ (fromMaybe "Untitled Track" aTra.title) ]
-                              ]
-                      )
+        , D.div (pure $ D.Class := "col-start-2 col-end-6 row-start-2 row-end-6 flex flex-col justify-items-center overflow-scroll text-center")
+            [ D.h2 (pure $ D.Class := headerCls) [ text_ "Choose a ride" ]
+            , ( availableRides # switcher_ D.div \l' -> l' # maybe (envy empty) \l -> D.ul (pure $ D.Class := "")
+                  ( l <#> \{ id, data: data' } ->
+                      let
+                        TrackV0 aTra = data'
+                      in
+                        D.li_
+                          [ D.button
+                              ( oneOf
+                                  [ pure $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                                  , DL.click
+                                      ( (oneOf [ pure (pure unit), event.unsubscriber ]) <#>
+                                          FullScreen.fullScreenFlow <<< (opts.ride (id /\ data') *> _)
+                                      )
+                                  ]
+                              )
+                              [ text_ (fromMaybe "Untitled Track" aTra.title) ]
+                          ]
                   )
-                ]
+              )
+
             ]
         ]
     , filler
     , D.canvas
         ( oneOf
-            [ bang (D.Class := "absolute")
-            , bang $ D.Self := HTMLCanvasElement.fromElement >>> traverse_
+            [ pure (D.Class := "absolute")
+            , pure $ D.Self := HTMLCanvasElement.fromElement >>> traverse_
                 ( threeLoader <<<
                     { threeDI: opts.threeDI
                     , isMobile: opts.isMobile

@@ -2,7 +2,12 @@ module Joyride.App.Editor where
 
 import Prelude
 
+-- TODO: migrate to envy, dyn, and switcher in deku
+-- as these are unsafe
+import Bolson.Core (envy, dyn)
+import Bolson.Control (switcher)
 import Control.Alt ((<|>))
+import Control.Monad.ST.Class (class MonadST)
 import Control.Parallel (parTraverse)
 import Control.Plus (empty)
 import Control.Promise (toAffE)
@@ -29,8 +34,8 @@ import Data.Tuple (Tuple(..), fst, snd)
 import Data.Tuple.Nested ((/\), type (/\))
 import Debug (spy)
 import Deku.Attribute (class Attr, Attribute, cb, xdata, (:=))
-import Deku.Control (switcher, text, text_)
-import Deku.Core (class Korok, Domable, dyn, envy, insert, remove, vbussedUncurried)
+import Deku.Control (text, text_)
+import Deku.Core (class Korok, Domable, insert_, remove, vbussedUncurried)
 import Deku.DOM (Class)
 import Deku.DOM as D
 import Deku.Listeners (click, slider)
@@ -41,7 +46,7 @@ import Effect.Console (log)
 import Effect.Random (randomInt)
 import Effect.Ref as Ref
 import FRP.Behavior (sample)
-import FRP.Event (AnEvent, bang, fold, folded, fromEvent, keepLatest, mailboxed, mapAccum, memoize, sampleOn, toEvent)
+import FRP.Event (AnEvent, fold, folded, fromEvent, keepLatest, mailboxed, mapAccum, memoize, sampleOn, toEvent)
 import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V, vbus)
 import Foreign.Object as Object
@@ -80,8 +85,8 @@ import Web.HTML (window)
 import Web.HTML.HTMLInputElement (fromEventTarget, value, valueAsNumber)
 import Web.HTML.Window (alert)
 
-smplCls :: forall m elt. Applicative m => Attr elt Class String => String -> AnEvent m (Attribute elt)
-smplCls s = oneOf [ bang $ D.Class := s ]
+smplCls :: forall s m elt. MonadST s m => Attr elt Class String => String -> AnEvent m (Attribute elt)
+smplCls s = oneOf [ pure $ D.Class := s ]
 
 infixr 4 sampleOn as 🙂
 infixr 4 biSampleOn as 😄
@@ -351,7 +356,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
     mostRecentData' = keepLatest
       ( initialData <#> \{ initialTitle, url, initialPrivate } ->
           let
-            bangor =
+            pureor =
               ( TrackV0
                   { title: Nothing
                   , url
@@ -366,10 +371,10 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                   Left ae -> t /\ ae e
                   Right at -> (at t) /\ e
               )
-              (Left <$> (event.atomicEventOperation) <|> (Right <$> (bang (aChangeTitle (Just initialTitle)) <|> event.atomicTrackOperation)))
-              bangor
+              (Left <$> (event.atomicEventOperation) <|> (Right <$> (pure (aChangeTitle (Just initialTitle)) <|> event.atomicTrackOperation)))
+              pureor
       )
-  let nextAttributableColumn = map snd $ fold (\_ (b /\ c) -> if b && c >= 10 then false /\ 9 else if not b && c <= 4 then true /\ 5 else (b /\ ((if b then add else sub) c 1))) (bang unit) (true /\ 7)
+  let nextAttributableColumn = map snd $ fold (\_ (b /\ c) -> if b && c >= 10 then false /\ 9 else if not b && c <= 4 then true /\ 5 else (b /\ ((if b then add else sub) c 1))) (pure unit) (true /\ 7)
   mostRecentData <- envy <<< memoBeh mostRecentData'
     ( TrackV0
         { title: Nothing
@@ -402,7 +407,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
         <<< rider
           ( toRide
               { event: do
-                  mostRecentData 🙂 event.waveSurfer 🙂 fromEvent (folded $ map pure signedInNonAnonymously) 😄 ({ did: _, sina: _, ws: _, mrd: _ } <$> (Just <$> event.documentId <|> bang Nothing))
+                  mostRecentData 🙂 event.waveSurfer 🙂 fromEvent (folded $ map pure signedInNonAnonymously) 😄 ({ did: _, sina: _, ws: _, mrd: _ } <$> (Just <$> event.documentId <|> pure Nothing))
               , push: \{ did, sina, ws, mrd } -> unwrap
                   ( (always :: (Endo Function (Effect Unit)) -> (Endo Function (m Unit)))
                       ( Endo \_ -> case did, sina of
@@ -461,11 +466,11 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
         , event.addLongPress <#> CLongPress
         ]
     )
-  let importerScreenVisible = event.importerScreenVisible <|> bang true
-  let chooserScreenVisible = event.chooserScreenVisible <|> bang false
-  let forkingScreenVisible = event.forkingScreenVisible <|> bang false
-  let loadingScreenVisible = event.loadingScreenVisible <|> bang false
-  let previewScreenVisible = event.previewScreenVisible <|> bang Nothing
+  let importerScreenVisible = event.importerScreenVisible <|> pure true
+  let chooserScreenVisible = event.chooserScreenVisible <|> pure false
+  let forkingScreenVisible = event.forkingScreenVisible <|> pure false
+  let loadingScreenVisible = event.loadingScreenVisible <|> pure false
+  let previewScreenVisible = event.previewScreenVisible <|> pure Nothing
   let
     loadTrack :: String -> Track -> Array { id :: String, data :: Event_ } -> Aff Unit
     loadTrack trackId tracky@(TrackV0 aTra) evz = do
@@ -528,7 +533,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
           ctrlEvent
           { id: 0, startIx: 0 }
       )
-    markerIndices = bang (0 /\ 0) <|> fold
+    markerIndices = pure (0 /\ 0) <|> fold
       ( \a (b /\ c) -> (b + 1) /\ case a of
           CBasic _ -> c + 4
           CLeap _ -> c + 2
@@ -539,7 +544,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
     top =
       [ D.button
           ( oneOf
-              [ (Just <$> event.documentId <|> bang Nothing) 😄 markerIndices 😄 ({ ws: _, ixs: _, did: _ } <$> event.waveSurfer) <#> \{ ws, ixs: ix /\ _, did } -> D.OnClick := do
+              [ (Just <$> event.documentId <|> pure Nothing) 😄 markerIndices 😄 ({ ws: _, ixs: _, did: _ } <$> event.waveSurfer) <#> \{ ws, ixs: ix /\ _, did } -> D.OnClick := do
                   ct <- getCurrentTime ws
                   dur <- getDuration ws
                   let time1 = min dur (0.0 + ct)
@@ -594,13 +599,13 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                             }
                         )
                       liftEffect $ associateEventDocumentIdWithMarker m0 evDid.id *> associateEventDocumentIdWithMarker m1 evDid.id *> associateEventDocumentIdWithMarker m2 evDid.id *> associateEventDocumentIdWithMarker m3 evDid.id *> endgame (Just evDid.id)
-              , bang $ D.Class := buttonCls
+              , pure $ D.Class := buttonCls
               ]
           )
           [ text_ "Add Tile" ]
       , D.button
           ( oneOf
-              [ (Just <$> event.documentId <|> bang Nothing) 😄 markerIndices 😄 ({ ws: _, ixs: _, did: _ } <$> event.waveSurfer) <#> \{ ws, ixs: ix /\ _, did } -> D.OnClick := do
+              [ (Just <$> event.documentId <|> pure Nothing) 😄 markerIndices 😄 ({ ws: _, ixs: _, did: _ } <$> event.waveSurfer) <#> \{ ws, ixs: ix /\ _, did } -> D.OnClick := do
                   ct <- getCurrentTime ws
                   dur <- getDuration ws
                   let
@@ -647,13 +652,13 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                             }
                         )
                       liftEffect $ associateEventDocumentIdWithMarker m0 evDid.id *> associateEventDocumentIdWithMarker m1 evDid.id *> endgame position (Just evDid.id)
-              , bang $ D.Class := buttonCls
+              , pure $ D.Class := buttonCls
               ]
           )
           [ text_ "Add Leap" ]
       , D.button
           ( oneOf
-              [ (Just <$> event.documentId <|> bang Nothing) 😄 markerIndices 😄 ({ ws: _, ixs: _, did: _ } <$> event.waveSurfer) <#> \{ ws, ixs: ix /\ _, did } -> D.OnClick := do
+              [ (Just <$> event.documentId <|> pure Nothing) 😄 markerIndices 😄 ({ ws: _, ixs: _, did: _ } <$> event.waveSurfer) <#> \{ ws, ixs: ix /\ _, did } -> D.OnClick := do
                   ct <- getCurrentTime ws
                   dur <- getDuration ws
                   let
@@ -695,15 +700,15 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                             }
                         )
                       liftEffect $ associateEventDocumentIdWithMarker m0 evDid.id *> associateEventDocumentIdWithMarker m1 evDid.id *> endgame (Just evDid.id)
-              , bang $ D.Class := buttonCls
+              , pure $ D.Class := buttonCls
 
               ]
           )
           [ text_ "Add Long Press" ]
       , D.button
           ( oneOf
-              [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
-              -- , bang $ D.OnClick := log "hello world"
+              [ pure $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+              -- , pure $ D.OnClick := log "hello world"
               , mostRecentData <#> \(TrackV0 ato /\ aeo) -> D.OnClick := do
                   log $ "starting from most recent data: " <> (JSON.writeJSON { track: ato, evs: Array.fromFoldable $ Map.values aeo })
                   pushed.loadingScreenVisible true
@@ -719,8 +724,8 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
           [ text_ "Preview" ]
       , D.button
           ( oneOf
-              [ bang $ D.Id := "google_sign_in"
-              , bang $ D.OnClick := do
+              [ pure $ D.Id := "google_sign_in"
+              , pure $ D.OnClick := do
                   signInWithGoogle do
                     window >>= alert "Sign in with google is temporarily unavailable. Please try again later."
               , fromEvent signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> if sina then " hidden" else ""
@@ -729,7 +734,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
           [ text_ "Save (sign in)" ]
       ]
   D.div
-    (bang $ D.Class := "absolute w-screen h-screen bg-zinc-900 overflow-hidden")
+    (pure $ D.Class := "absolute w-screen h-screen bg-zinc-900 overflow-hidden")
     [ D.div
         ( oneOf
             [ previewScreenVisible <#> \psv -> D.Class := "absolute w-screen h-screen max-h-screen bg-zinc-900 flex flex-col overflow-hidden" <> if isJust psv then " hidden" else ""
@@ -737,22 +742,22 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
         )
         [ D.div
             ( oneOf
-                [ bang $ D.Class := "flex flex-row justify-between"
+                [ pure $ D.Class := "flex flex-row justify-between"
                 ]
             )
             [ D.button
                 ( oneOf
-                    [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
-                    -- , bang $ D.OnClick := log "hello world"
-                    , bang $ D.OnClick := do
+                    [ pure $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                    -- , pure $ D.OnClick := log "hello world"
+                    , pure $ D.OnClick := do
                         goBack
                     ]
                 )
                 [ text_ "<" ]
             , D.h2
                 ( oneOf
-                    [ bang $ D.Contenteditable := "true"
-                    , bang $ D.Class := headerCls <> " p-2"
+                    [ pure $ D.Contenteditable := "true"
+                    , pure $ D.Class := headerCls <> " p-2"
                     , docEv <#> \mDid -> D.OnInput := cb \e -> for_
                         ( target e
                             >>= Node.fromEventTarget
@@ -773,23 +778,23 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
             , D.span_
                 [ D.a
                     ( oneOf
-                        [ (bang Nothing <|> Just <$> mostRecentData) <#> \mrd -> D.Class := buttonCls <> " mx-2 pointer-events-auto" <> if isJust mrd then "" else " hidden"
-                        -- , bang $ D.OnClick := log "hello world"
+                        [ (pure Nothing <|> Just <$> mostRecentData) <#> \mrd -> D.Class := buttonCls <> " mx-2 pointer-events-auto" <> if isJust mrd then "" else " hidden"
+                        -- , pure $ D.OnClick := log "hello world"
                         , mostRecentData <#> \(tk /\ eez) -> D.Href := ("data:text/plain;charset=utf-8," <> fromMaybe "" (encodeURIComponent (JSON.writeJSON { track: tk, events: (Array.fromFoldable $ Map.values eez) })))
-                        , (bang Nothing <|> Just <$> event.initialTitle <|> (map (fst >>> (\(TrackV0 aTra) -> aTra.title)) mostRecentData)) <#> \fn -> D.Download := case fn of
+                        , (pure Nothing <|> Just <$> event.initialTitle <|> (map (fst >>> (\(TrackV0 aTra) -> aTra.title)) mostRecentData)) <#> \fn -> D.Download := case fn of
                             Just f -> f <> ".json"
                             Nothing -> "export.json"
 
                         ]
                     )
                     [ text_ "Export" ]
-                , D.span (bang $ D.Class := "text-white") [ text_ "Private?" ]
+                , D.span (pure $ D.Class := "text-white") [ text_ "Private?" ]
                 , D.input
                     ( oneOf
-                        [ bang $ D.Xtype := "checkbox"
+                        [ pure $ D.Xtype := "checkbox"
                         , fireAndForget mostRecentData <#> \(TrackV0 tr /\ _) -> D.Checked := if tr.private then "true" else "false"
-                        , bang $ D.Class := "w-4 h-4 text-blue-600 bg-gray-100 rounded border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                        -- , bang $ D.OnClick := log "hello world"
+                        , pure $ D.Class := "w-4 h-4 text-blue-600 bg-gray-100 rounded border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                        -- , pure $ D.OnClick := log "hello world"
                         , (docEv 😄 (Tuple <$> mostRecentData)) <#> \((TrackV0 tr /\ _) /\ mDid) -> D.OnClick := do
                             let changed = not tr.private
                             pushed.atomicTrackOperation (aChangePrivate changed)
@@ -802,7 +807,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
             ]
         , D.div
             ( oneOf
-                [ bang $ D.Class := ""
+                [ pure $ D.Class := ""
                 , event.loadWave <#> \url -> D.Self := \s -> do
                     ws <- makeWavesurfer Nothing Just
                       ( \i j x id t -> do
@@ -825,32 +830,32 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
             []
         , D.div
             ( oneOf
-                [ bang $ D.Id := "timeline"
-                , bang $ D.Class := ""
+                [ pure $ D.Id := "timeline"
+                , pure $ D.Class := ""
                 ]
             )
             []
         , D.div_
-            [ D.label (oneOf [ bang $ D.Class := "text-white" ]) [ text_ "Zoom" ]
+            [ D.label (oneOf [ pure $ D.Class := "text-white" ]) [ text_ "Zoom" ]
             , D.input
                 ( oneOf
-                    [ bang $ D.Min := "2"
-                    , bang $ D.Value := "2"
-                    , bang $ D.Max := "1000"
+                    [ pure $ D.Min := "2"
+                    , pure $ D.Value := "2"
+                    , pure $ D.Max := "1000"
                     , slider $ event.waveSurfer <#> zoom
                     ]
                 )
                 []
             ]
-        , D.div (oneOf [ bang $ D.Class := "flex flex-row justify-around" ]) top
-        , D.div (oneOf [ bang $ D.Class := "overflow-scroll" ])
-            [ D.div (oneOf [ bang $ D.Class := "accordion", bang $ D.Id := "accordionExample" ])
+        , D.div (oneOf [ pure $ D.Class := "flex flex-row justify-around" ]) top
+        , D.div (oneOf [ pure $ D.Class := "overflow-scroll" ])
+            [ D.div (oneOf [ pure $ D.Class := "accordion", pure $ D.Id := "accordionExample" ])
                 [ dyn $
                     (nextAttributableColumn 🙂 event.waveSurfer 🙂 ({ itm: _, ws: _, nac: _ } <$> store)) <#>
                       ( \{ itm, ws, nac } -> keepLatest $ vbus (Proxy :: _ (V (SingleItem PlainOl))) \p' e' -> do
                           let
-                            muteState = fold (const not) e'.mute false <|> bang false
-                            soloState = fold (const not) e'.solo false <|> bang false
+                            muteState = fold (const not) e'.mute false <|> pure false
+                            soloState = fold (const not) e'.solo false <|> pure false
                             defaultLabel /\ prefix = case itm of
                               LBasic v -> fromMaybe ("Tile " <> show v.id) v.name /\ "♥"
                               LLeap v -> fromMaybe ("Leap " <> show v.id) v.name /\ "♠"
@@ -860,22 +865,22 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                               ( e'.changeName <#> case _ of
                                   Just x -> x
                                   Nothing -> defaultLabel
-                              ) <|> bang defaultLabel
+                              ) <|> pure defaultLabel
                             id /\ name /\ col /\ startIx /\ initialId /\ inSeq /\ times = case itm of
                               LBasic v -> v.id /\ v.name /\ v.col /\ v.startIx /\ v.fbId /\ 4 /\ [ (unwrap v.l1).at, (unwrap v.l2).at, (unwrap v.l3).at, (unwrap v.l4).at ]
                               LLeap v -> v.id /\ v.name /\ v.col /\ v.startIx /\ v.fbId /\ 2 /\ [ (unwrap v.start).at, (unwrap v.end).at ]
                               LLong v -> v.id /\ v.name /\ v.col /\ v.startIx /\ v.fbId /\ 2 /\ [ (unwrap v.start).at, (unwrap v.end).at ]
-                            column = e'.changeColumn <|> bang col
-                          ( bang $ insert $ D.div (oneOf [ bang $ D.Class := "accordion-item bg-zinc-900 border border-white" ])
+                            column = e'.changeColumn <|> pure col
+                          ( pure $ insert_ $ D.div (oneOf [ pure $ D.Class := "accordion-item bg-zinc-900 border border-white" ])
                               [ D.h2
                                   ( oneOf
-                                      [ bang $ D.Class := "accordion-header bg-zinc-900 mb-0"
-                                      , bang $ D.Id := "heading" <> show id
+                                      [ pure $ D.Class := "accordion-header bg-zinc-900 mb-0"
+                                      , pure $ D.Id := "heading" <> show id
                                       ]
                                   )
                                   [ D.button
                                       ( oneOf
-                                          [ bang $ D.Class :=
+                                          [ pure $ D.Class :=
                                               """accordion-button-ms accordion-button
       relative
       flex
@@ -889,12 +894,12 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
       rounded-none
       transition
       focus:outline-none"""
-                                          , bang $ xdata "bs-toggle" "collapse"
-                                          , bang $ xdata "bs-target" ("#collapse" <> show id)
+                                          , pure $ xdata "bs-toggle" "collapse"
+                                          , pure $ xdata "bs-target" ("#collapse" <> show id)
                                           ]
                                       )
-                                      [ D.span (oneOf [ bang $ D.Class := "mr-2", bang $ D.Style := "color: " <> dC id <> ";" ]) [ text_ (prefix) ]
-                                      , D.span_ [ text label, text_ " (Column ", text (show <$> column), text_ ") ", text $ (bang times <|> fold (\{ offset, time } tmzz -> set (ix offset) time tmzz) (markerEvent id) times) <#> \tmz -> " (" <> intercalate "," (map (toStringWith (fixed 2)) tmz) <> ")" ]
+                                      [ D.span (oneOf [ pure $ D.Class := "mr-2", pure $ D.Style := "color: " <> dC id <> ";" ]) [ text_ (prefix) ]
+                                      , D.span_ [ text label, text_ " (Column ", text (show <$> column), text_ ") ", text $ (pure times <|> fold (\{ offset, time } tmzz -> set (ix offset) time tmzz) (markerEvent id) times) <#> \tmz -> " (" <> intercalate "," (map (toStringWith (fixed 2)) tmz) <> ")" ]
                                       , D.span
                                           ( oneOf
                                               [ soloState <#> \st -> D.Class := ("text-white font-bold pl-2 " <> if st then "" else " hidden")
@@ -911,25 +916,25 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                   ]
                               , D.div
                                   ( oneOf
-                                      [ bang $ D.Id := "collapse" <> show id
-                                      , bang $ D.Class := ("accordion-collapse collapse" <> if id == 0 then " show" else "")
-                                      , bang $ xdata "bs-parent" "#accordionExample"
+                                      [ pure $ D.Id := "collapse" <> show id
+                                      , pure $ D.Class := ("accordion-collapse collapse" <> if id == 0 then " show" else "")
+                                      , pure $ xdata "bs-parent" "#accordionExample"
                                       ]
                                   )
                                   [ D.div
                                       ( oneOf
-                                          [ bang $ D.Class := "accordion-body bg-zinc-900 py-4 px-5"
+                                          [ pure $ D.Class := "accordion-body bg-zinc-900 py-4 px-5"
                                           ]
                                       )
-                                      [ D.span (oneOf [ bang $ D.Class := "inline-block" ])
+                                      [ D.span (oneOf [ pure $ D.Class := "inline-block" ])
                                           [ D.label
                                               ( oneOf
-                                                  [ bang $ D.Class := "text-white ml-2" ]
+                                                  [ pure $ D.Class := "text-white ml-2" ]
                                               )
                                               [ text_ "Name" ]
                                           , D.input
                                               ( oneOf
-                                                  ( [ (Just <$> ctor id <|> bang Nothing) 😄 (Tuple <$> docEv) <#> \(mDid /\ updatedId) -> D.OnInput := cb \e -> for_
+                                                  ( [ (Just <$> ctor id <|> pure Nothing) 😄 (Tuple <$> docEv) <#> \(mDid /\ updatedId) -> D.OnInput := cb \e -> for_
                                                         ( target e
                                                             >>= fromEventTarget
                                                         )
@@ -944,24 +949,24 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                               launchAff_ (updateEventNameAff firestoreDb trackId evId v)
 
                                                         )
-                                                    , bang $ D.Class := "bg-inherit text-white mx-2 appearance-none border rounded py-2 px-2 leading-tight focus:outline-none focus:shadow-outline"
-                                                    , bang $ D.Placeholder := defaultLabel
+                                                    , pure $ D.Class := "bg-inherit text-white mx-2 appearance-none border rounded py-2 px-2 leading-tight focus:outline-none focus:shadow-outline"
+                                                    , pure $ D.Placeholder := defaultLabel
                                                     ] <> case name of
                                                       Nothing -> []
-                                                      Just n -> [ bang $ D.Value := n ]
+                                                      Just n -> [ pure $ D.Value := n ]
                                                   )
                                               )
                                               []
                                           ]
-                                      , D.span (oneOf [ bang $ D.Class := "inline-block" ])
+                                      , D.span (oneOf [ pure $ D.Class := "inline-block" ])
                                           [ D.label
                                               ( oneOf
-                                                  [ bang $ D.Class := "text-white" ]
+                                                  [ pure $ D.Class := "text-white" ]
                                               )
                                               [ text_ "Column" ]
                                           , D.input
                                               ( oneOf
-                                                  [ (Just <$> ctor id <|> bang Nothing) 😄 (Tuple <$> docEv) <#> \(mDid /\ updatedId) -> D.OnInput := cb \e -> for_
+                                                  [ (Just <$> ctor id <|> pure Nothing) 😄 (Tuple <$> docEv) <#> \(mDid /\ updatedId) -> D.OnInput := cb \e -> for_
                                                       ( target e
                                                           >>= fromEventTarget
                                                       )
@@ -973,16 +978,16 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                           for_ (Tuple <$> mDid <*> (initialId <|> updatedId)) \(trackId /\ evId) -> do
                                                             launchAff_ (updateColumnAff firestoreDb trackId evId v)
                                                       )
-                                                  , bang $ D.Xtype := "number"
-                                                  , bang $ D.Value := show col
-                                                  , bang $ D.Min := "1"
-                                                  , bang $ D.Max := "16"
-                                                  , bang $ D.Class := "bg-inherit text-white mx-2 appearance-none border rounded py-2 px-3 leading-tight focus:outline-none focus:shadow-outline"
+                                                  , pure $ D.Xtype := "number"
+                                                  , pure $ D.Value := show col
+                                                  , pure $ D.Min := "1"
+                                                  , pure $ D.Max := "16"
+                                                  , pure $ D.Class := "bg-inherit text-white mx-2 appearance-none border rounded py-2 px-3 leading-tight focus:outline-none focus:shadow-outline"
                                                   ]
                                               )
                                               []
                                           ]
-                                      , D.span (oneOf [ bang $ D.Class := "inline-block" ])
+                                      , D.span (oneOf [ pure $ D.Class := "inline-block" ])
                                           [ D.button
                                               ( oneOf
                                                   [ soloState <#> \ms -> D.Class := (if ms then buttonActiveCls else buttonCls) <> " mr-2"
@@ -1006,7 +1011,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                               ]
                                           , D.button
                                               ( oneOf
-                                                  [ (Just <$> ctor id <|> bang Nothing) 😄 (Tuple <$> docEv) <#> \(mDid /\ updatedId) -> D.OnClick := cb \_ -> do
+                                                  [ (Just <$> ctor id <|> pure Nothing) 😄 (Tuple <$> docEv) <#> \(mDid /\ updatedId) -> D.OnClick := cb \_ -> do
                                                       for_ (startIx .. (startIx + inSeq - 1)) \_ -> do
                                                         -- do not increment as the list gets shorter and shorter so we are always removing at startIx
                                                         removeMarker ws startIx
@@ -1014,10 +1019,10 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                       pushed.atomicEventOperation $ aDeleteEvent_ { id }
                                                       for_ (Tuple <$> mDid <*> (initialId <|> updatedId)) \(trackId /\ evId) -> do
                                                         launchAff_ (deleteEventAff firestoreDb trackId evId)
-                                                  , bang $ D.Class := buttonCls <> " mr-2"
+                                                  , pure $ D.Class := buttonCls <> " mr-2"
                                                   ]
                                               )
-                                              -- [ D.span (oneOf [ bang $ D.Class := "md:inline-block hidden" ]) [ text_ "Delete" ], D.span (oneOf [ bang $ D.Class := "md:hidden inline-block" ]) [ text_ "D" ] ]
+                                              -- [ D.span (oneOf [ pure $ D.Class := "md:inline-block hidden" ]) [ text_ "Delete" ], D.span (oneOf [ pure $ D.Class := "md:hidden inline-block" ]) [ text_ "D" ] ]
                                               [ D.span (oneOf []) [ text_ "Delete" ] ]
                                           ]
                                       ]
@@ -1033,24 +1038,24 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
         )
 
         [ D.div
-            (bang $ D.Class := "select-auto justify-self-center self-center row-start-3 row-end-5 col-start-2 col-end-6")
+            (pure $ D.Class := "select-auto justify-self-center self-center row-start-3 row-end-5 col-start-2 col-end-6")
             ( [ D.div
-                  (bang $ D.Class := "pointer-events-auto text-center p-4 " <> headerCls)
+                  (pure $ D.Class := "pointer-events-auto text-center p-4 " <> headerCls)
                   [ D.p_ [ text_ "Joyride editor" ]
                   ]
               ]
                 <>
 
                   [ D.div
-                      (bang $ D.Class := "pointer-events-auto text-center text-white p-4")
+                      (pure $ D.Class := "pointer-events-auto text-center text-white p-4")
                       [ text (fromEvent signedInNonAnonymously <#> \sina -> "Get started by importing an audio file" <> if sina then " or project." else ".") ]
                   ]
                 <>
-                  [ D.div (bang $ D.Class := "flex w-full justify-center items-center")
+                  [ D.div (pure $ D.Class := "flex w-full justify-center items-center")
                       [ D.button
                           ( oneOf
                               [ fromEvent signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> " mx-2 pointer-events-auto" <> if sina then "" else " hidden"
-                              , bang $ D.OnClick := do
+                              , pure $ D.OnClick := do
                                   pushed.loadingScreenVisible true
                                   launchAff_ do
                                     tracks <- getTracksAff fbAuth firestoreDb
@@ -1064,7 +1069,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                       , D.button
                           ( oneOf
                               [ fromEvent signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> " mx-2 pointer-events-auto" <> if sina then "" else " hidden"
-                              , bang $ D.OnClick := do
+                              , pure $ D.OnClick := do
                                   pushed.loadingScreenVisible true
                                   launchAff_ do
                                     fl <- toAffE fileList
@@ -1102,7 +1107,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                       , D.button
                           ( oneOf
                               [ fromEvent signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> " mx-2 pointer-events-auto" <> if sina then "" else " hidden"
-                              , bang $ D.OnClick := do
+                              , pure $ D.OnClick := do
                                   pushed.loadingScreenVisible true
                                   launchAff_ do
                                     tracks <- getTracksAff fbAuth firestoreDb
@@ -1115,8 +1120,8 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                           [ text_ "Open project" ]
                       , D.button
                           ( oneOf
-                              [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
-                              , bang $ D.OnClick := do
+                              [ pure $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                              , pure $ D.OnClick := do
                                   client <- init
                                   picker (\_ -> pure unit) (\_ _ -> pure unit) (\_ _ -> pure unit)
                                     ( \{ url } -> do
@@ -1151,28 +1156,28 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
         )
 
         [ D.div
-            (bang $ D.Class := "select-auto row-start-1 row-end-2 col-start-1 col-end-2")
+            (pure $ D.Class := "select-auto row-start-1 row-end-2 col-start-1 col-end-2")
             [ D.button
                 ( oneOf
-                    [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
-                    , bang $ D.OnClick := pushed.chooserScreenVisible false
+                    [ pure $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                    , pure $ D.OnClick := pushed.chooserScreenVisible false
                     ]
                 )
                 [ text_ "< Back" ]
             ]
         , D.div
-            (bang $ D.Class := "col-start-2 col-end-6 row-start-2 row-end-6 flex flex-col justify-items-center overflow-scroll text-center")
+            (pure $ D.Class := "col-start-2 col-end-6 row-start-2 row-end-6 flex flex-col justify-items-center overflow-scroll text-center")
             ( [ D.h2
-                  (bang $ D.Class := "pointer-events-auto text-center p-4 " <> headerCls)
+                  (pure $ D.Class := "pointer-events-auto text-center p-4 " <> headerCls)
                   [ text_ "Choose a project" ]
               ]
                 <>
-                  [ ( event.availableTracks # switcher \l -> D.ul (bang $ D.Class := "")
+                  [ ( event.availableTracks # switcher \l -> D.ul (pure $ D.Class := "")
                         ( l <#> \{ id: trackId, data: tracky@(TrackV0 aTra) } -> D.li_
                             [ D.button
                                 ( oneOf
-                                    [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
-                                    , bang $
+                                    [ pure $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                                    , pure $
                                         D.OnClick := do
                                           pushed.loadingScreenVisible true *> launchAff_ do
                                             evz <- getEventsAff firestoreDb trackId
@@ -1196,28 +1201,28 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
         )
 
         [ D.div
-            (bang $ D.Class := "select-auto row-start-1 row-end-2 col-start-1 col-end-2")
+            (pure $ D.Class := "select-auto row-start-1 row-end-2 col-start-1 col-end-2")
             [ D.button
                 ( oneOf
-                    [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
-                    , bang $ D.OnClick := pushed.forkingScreenVisible false
+                    [ pure $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                    , pure $ D.OnClick := pushed.forkingScreenVisible false
                     ]
                 )
                 [ text_ "< Back" ]
             ]
         , D.div
-            (bang $ D.Class := "col-start-2 col-end-6 row-start-2 row-end-6 flex flex-col justify-items-center overflow-scroll text-center")
+            (pure $ D.Class := "col-start-2 col-end-6 row-start-2 row-end-6 flex flex-col justify-items-center overflow-scroll text-center")
             ( [ D.h2
-                  (bang $ D.Class := "pointer-events-auto text-center p-4 " <> headerCls)
+                  (pure $ D.Class := "pointer-events-auto text-center p-4 " <> headerCls)
                   [ text_ "Fork a project" ]
               ]
                 <>
-                  [ ( event.availableTracks # switcher \l -> D.ul (bang $ D.Class := "")
+                  [ ( event.availableTracks # switcher \l -> D.ul (pure $ D.Class := "")
                         ( l <#> \{ id: trackId, data: TrackV0 aTra } -> D.li_
                             [ D.button
                                 ( oneOf
-                                    [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
-                                    , bang $
+                                    [ pure $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                                    , pure $
                                         D.OnClick := do
                                           pushed.loadingScreenVisible true *> launchAff_ do
                                             forkTrackAff fbAuth firestoreDb trackId

@@ -20,7 +20,6 @@ import Data.Tuple.Nested ((/\))
 import Effect (Effect)
 import FRP.Behavior (Behavior, sample_)
 import FRP.Event (Event, keepLatest, memoize)
-import FRP.Event.Class (bang)
 import FRP.Event.Time as LocalTime
 import Joyride.Audio.Basic as BasicA
 import Joyride.Constants.Audio (startOffset)
@@ -121,7 +120,7 @@ tutorialBasics makeBasics =
 
   where
   children :: forall a. (ACU -> Event a) -> Event (Event a)
-  children f = keepLatest (map (oneOfMap bang) (eventList f))
+  children f = keepLatest (map (oneOfMap pure) (eventList f))
 
   eventList :: forall a. (ACU -> Event a) -> Event (List (Event a))
   eventList f = scheduleCf (go f score) (_.rateInfo <$> makeBasics.animatedStuff)
@@ -143,9 +142,9 @@ tutorialBasics makeBasics =
             )
         )
     ) <|>
-      ( keepLatest $ (LocalTime.withTime (bang unit)) <#> \{ time } -> lowPrioritySchedule makeBasics.lpsCallback
+      ( keepLatest $ (LocalTime.withTime (pure unit)) <#> \{ time } -> lowPrioritySchedule makeBasics.lpsCallback
           (JMilliseconds 10000.0 + (coerce $ unInstant time))
-          (bang $ Remove)
+          (pure $ Remove)
       )
 
   go :: forall a. (ACU -> Event a) -> List ACU -> RateInfo -> Cofree ((->) RateInfo) (List (Event a))

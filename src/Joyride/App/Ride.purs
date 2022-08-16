@@ -2,6 +2,9 @@ module Joyride.App.Ride where
 
 import Prelude
 
+-- TODO: migrate envy and switcher to deku
+import Bolson.Core (envy)
+import Bolson.Control (switcher)
 import Control.Alt ((<|>))
 import Control.Monad.Except (runExcept, throwError)
 import Control.Plus (empty)
@@ -19,8 +22,8 @@ import Data.Time.Duration (Milliseconds(..))
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..), fst, snd)
 import Deku.Attribute (cb, (:=))
-import Deku.Control (switcher, text_)
-import Deku.Core (class Korok, Domable, Nut, envy, vbussed)
+import Deku.Control (text_)
+import Deku.Core (class Korok, Domable, Nut, vbussed)
 import Deku.DOM as D
 import Deku.Listeners (click)
 import Effect (Effect, foreachE)
@@ -31,7 +34,7 @@ import Effect.Now as LocalNow
 import Effect.Ref as Ref
 import Effect.Timer (clearInterval, setInterval)
 import FRP.Behavior (Behavior, sampleBy)
-import FRP.Event (AnEvent, Event, EventIO, bang, filterMap, fromEvent, hot, memoize, subscribe, toEvent)
+import FRP.Event (AnEvent, Event, EventIO, filterMap, fromEvent, hot, memoize, subscribe, toEvent)
 import FRP.Event.AnimationFrame (animationFrame)
 import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V)
@@ -60,7 +63,7 @@ import Rito.Matrix4 as M4
 import Safe.Coerce (coerce)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
-import Types (Beats(..), Event_, HitBasicMe, HitBasicOtherPlayer(..), HitBasicOverTheWire(..), HitLeapMe, HitLeapOtherPlayer(..), HitLeapOverTheWire(..), HitLongMe, HitLongOtherPlayer(..), HitLongOverTheWire(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, MakeLongs, Player(..), PlayerAction(..), PlayerPositionsF, RateInfo, ReleaseLongMe, ReleaseLongOtherPlayer(..), ReleaseLongOverTheWire(..), RenderingInfo, Seconds(..), StartStatus(..), Success', Track, WindowDims)
+import Types (Beats(..), HitBasicMe, HitBasicOtherPlayer(..), HitBasicOverTheWire(..), HitLeapMe, HitLeapOtherPlayer(..), HitLeapOverTheWire(..), HitLongMe, HitLongOtherPlayer(..), HitLongOverTheWire(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, MakeLongs, Player(..), PlayerAction(..), PlayerPositionsF, RateInfo, ReleaseLongMe, ReleaseLongOtherPlayer(..), ReleaseLongOverTheWire(..), RenderingInfo, Seconds(..), StartStatus(..), Success', WindowDims)
 import Web.DOM as Web.DOM
 import Web.Event.Event (target)
 import Web.HTML.HTMLCanvasElement as HTMLCanvasElement
@@ -167,11 +170,11 @@ ride
                     HasStarted (InFlightGameInfo t) -> pure t.startedAt
                 )
           -- stopButton :: Effect Unit -> Nut
-          stopButton (off :: Effect Unit) = D.div (oneOf [ bang $ D.Class := "mx-2" ])
+          stopButton (off :: Effect Unit) = D.div (oneOf [ pure $ D.Class := "mx-2" ])
             [ D.button
                 ( oneOf
-                    [ bang $ D.Class := "pointer-events-auto p-1 " <> buttonCls
-                    , bang $ D.OnClick := do
+                    [ pure $ D.Class := "pointer-events-auto p-1 " <> buttonCls
+                    , pure $ D.OnClick := do
                         off
                     ]
                 )
@@ -180,7 +183,7 @@ ride
           startButton aStuff = do
             let
               callback toSample = oneOf
-                [ bang $ D.Class := buttonCls <> " pointer-events-auto"
+                [ pure $ D.Class := buttonCls <> " pointer-events-auto"
 
                 ----- IMPORTANT -----
                 ----- IMPORTANT -----
@@ -200,7 +203,7 @@ ride
                 -- please move this comment if you move the bloc of code below and, if needed, copy it to other places where an audio context starts!!!!!
                 , fromEvent
                     $ sampleJIT toSample
-                    $ bang
+                    $ pure
                         \av -> D.OnClick := FullScreen.fullScreenFlow do
                           ricid <- requestIdleCallbackIsDefined
                           ctx <- context
@@ -263,14 +266,14 @@ ride
             vbussed (Proxy :: _ (V (TextArea Unlifted)))
               \nPush (nEvent :: { | TextArea (AnEvent m) }) ->
                 let
-                  requestName = bang false <|> (nEvent.requestName $> true)
-                  changeText = bang Nothing <|> (Just <$> nEvent.changeText)
+                  requestName = pure false <|> (nEvent.requestName $> true)
+                  changeText = pure Nothing <|> (Just <$> nEvent.changeText)
                   ___ = 0
                 in
                   requestName # switcher case _ of
-                    true -> D.div (bang $ D.Class := "mb-4 select-auto")
+                    true -> D.div (pure $ D.Class := "mb-4 select-auto")
                       [ D.input
-                          ( oneOfMap bang
+                          ( oneOfMap pure
                               [ D.Xtype := "text"
                               , D.Placeholder := "My name"
                               , D.Class := "pointer-events-auto shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
@@ -290,8 +293,8 @@ ride
                           (callback (toEvent changeText))
                           [ text_ "Start" ]
                       ]
-                    false -> D.div (bang $ D.Class := "select-auto")
-                      [ D.div (bang $ D.Class := "pointer-events-auto text-center text-white p-4")
+                    false -> D.div (pure $ D.Class := "select-auto")
+                      [ D.div (pure $ D.Class := "pointer-events-auto text-center text-white p-4")
                           let
                             url = "joyride.fm/?ride=" <> channelName <> "&track=" <> trackId
                           in
@@ -300,8 +303,8 @@ ride
                                 ]
                             , D.button
                                 ( oneOf
-                                    [ bang $ D.Class := "pointer-events-auto text-center text-xl bg-gray-800 hover:bg-gray-600 text-white mx-2 rounded"
-                                    , click $ bang $ launchAff_ do
+                                    [ pure $ D.Class := "pointer-events-auto text-center text-xl bg-gray-800 hover:bg-gray-600 text-white mx-2 rounded"
+                                    , click $ pure $ launchAff_ do
                                         liftEffect $ push.copiedToClipboard true
                                         writeTextAff ("https://" <> url)
                                         delay (Milliseconds 2000.0)
@@ -311,7 +314,7 @@ ride
                                 [ text_ "👉🏽 📋 👈🏽" ]
                             , D.p_ [ text_ "You can send the link to up to 3 people. When everyone has joined, or if you're playing alone, press Start!" ]
                             ]
-                      , D.div (bang $ D.Class := "flex w-full justify-center items-center")
+                      , D.div (pure $ D.Class := "flex w-full justify-center items-center")
                           $ case playerName of
                               Just _ ->
                                 [ D.button
@@ -322,7 +325,7 @@ ride
                               Nothing ->
                                 [ D.button
                                     ( oneOf
-                                        [ bang $ D.Class := buttonCls
+                                        [ pure $ D.Class := buttonCls
                                         , callback (toEvent changeText)
                                         ]
                                     )
@@ -330,8 +333,8 @@ ride
 
                                 , D.button
                                     ( oneOf
-                                        [ bang $ D.Class := buttonCls
-                                        , click $ bang $ nPush.requestName unit
+                                        [ pure $ D.Class := buttonCls
+                                        , click $ pure $ nPush.requestName unit
                                         ]
                                     )
                                     [ text_ "Start with name" ]
@@ -360,10 +363,10 @@ ride
           \animatedStuff -> D.div_
             [
               -- on/off
-              D.div (bang $ D.Class := "z-20 pointer-events-none absolute w-screen h-screen grid grid-rows-3 grid-cols-3")
-                [ D.div (bang $ D.Class := "row-start-1 row-end-2 col-start-1 col-end-4")
+              D.div (pure $ D.Class := "z-20 pointer-events-none absolute w-screen h-screen grid grid-rows-3 grid-cols-3")
+                [ D.div (pure $ D.Class := "row-start-1 row-end-2 col-start-1 col-end-4")
                     -- fromEvent because playerStatus is effectful
-                    [ D.div (bang $ D.Class := "mx-2 mt-2")
+                    [ D.div (pure $ D.Class := "mx-2 mt-2")
                         [ fromEvent (biSampleOn (toEvent (initializeWithEmpty event.iAmReady)) (map Tuple playerStatus))
                             -- we theoretically don't need to dedup because
                             -- the button should never redraw once we've started
@@ -398,23 +401,23 @@ ride
                       )
                   ) #
                     let
-                      frame x = D.div (bang $ D.Class := "z-10 pointer-events-auto absolute w-screen h-screen grid grid-rows-6 grid-cols-8 bg-zinc-900") [ D.div (bang $ D.Class := "col-start-2 col-end-8 row-start-3 row-end-5 bg-zinc-900") [ x ] ]
+                      frame x = D.div (pure $ D.Class := "z-10 pointer-events-auto absolute w-screen h-screen grid grid-rows-6 grid-cols-8 bg-zinc-900") [ D.div (pure $ D.Class := "col-start-2 col-end-8 row-start-3 row-end-5 bg-zinc-900") [ x ] ]
                     in
                       switcher case _ of
                         WaitingForMe -> frame (startButton animatedStuff)
-                        WaitingForOthers -> frame (D.span (bang $ D.Class := "text-lg text-white") [ text_ "Waiting for others to join" ])
+                        WaitingForOthers -> frame (D.span (pure $ D.Class := "text-lg text-white") [ text_ "Waiting for others to join" ])
                         Started _ -> envy empty
                 ]
 
             , D.div
-                (bang (D.Class := "absolute"))
+                (pure (D.Class := "absolute"))
                 [ D.canvas
                     ( oneOf
-                        [ bang (D.Class := "absolute")
+                        [ pure (D.Class := "absolute")
                         -- one gratuitous lookup as if all are ready then myPlayer
                         -- must be ready, but should be computationally fine
                         -- fireAndForget so that it only ever fires once
-                        , bang $ D.Self := HTMLCanvasElement.fromElement >>> traverse_
+                        , pure $ D.Self := HTMLCanvasElement.fromElement >>> traverse_
                             ( runThree <<<
                                 { threeDI: threeDI
                                 , css2DRendererElt: toEvent event.render2DElement
@@ -555,12 +558,12 @@ ride
                         ]
                     )
                     []
-                , D.div (oneOfMap bang [ D.Class := "absolute pointer-events-none", D.Self := push.render2DElement ]) []
-                , D.div (oneOfMap bang [ D.Class := "absolute pointer-events-none", D.Self := push.render3DElement ]) []
+                , D.div (oneOfMap pure [ D.Class := "absolute pointer-events-none", D.Self := push.render2DElement ]) []
+                , D.div (oneOfMap pure [ D.Class := "absolute pointer-events-none", D.Self := push.render3DElement ]) []
                 ]
             , D.div
                 ( oneOf
-                    [ bang $ D.Class := "z-1 snackbar text-white"
+                    [ pure $ D.Class := "z-1 snackbar text-white"
                     , filter not event.copiedToClipboard $> D.Class := "z-30 snackbar text-white"
                     , filter identity event.copiedToClipboard $> D.Class := "z-30 snackbar show text-white"
                     ]
@@ -615,7 +618,7 @@ ride
   makeJoined mp (KnownPlayers m) = D.ul_
     ( map
         ( \(Tuple p x) -> D.li_
-            [ D.span (bang $ D.Class := "text-white")
+            [ D.span (pure $ D.Class := "text-white")
                 [ text_ $
                     if p == mp then "You have joined!"
                     else
@@ -634,7 +637,7 @@ ride
   makePoints mp (KnownPlayers m) = D.ul_
     ( map
         ( \(Tuple p (InFlightGameInfo x)) -> D.li_
-            [ D.span (bang $ D.Class := "text-white")
+            [ D.span (pure $ D.Class := "text-white")
                 [ text_ $
                     ( if p == mp then
                         ( "You" <> case x.name of

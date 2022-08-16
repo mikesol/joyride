@@ -15,7 +15,6 @@ import Data.Number (abs)
 import Data.Time.Duration (Milliseconds(..))
 import FRP.Behavior (Behavior, sample_)
 import FRP.Event (Event, keepLatest)
-import FRP.Event.Class (bang)
 import FRP.Event.Time as LocalTime
 import Foreign.Object as Object
 import Joyride.Audio.Long as LongA
@@ -80,7 +79,7 @@ rideLongs levs makeLongs = toScene
   )
 
   where
-  children = keepLatest $ map (oneOfMap bang) eventList
+  children = keepLatest $ map (oneOfMap pure) eventList
   eventList = scheduleCf (go score) (_.rateInfo <$> makeLongs.animatedStuff)
 
   transform :: _ -> Event (Semaphore (InstanceId -> Instance lock payload))
@@ -97,9 +96,9 @@ rideLongs levs makeLongs = toScene
             )
         )
     ) <|>
-      ( keepLatest $ (LocalTime.withTime (bang unit)) <#> \{ time } -> lowPrioritySchedule makeLongs.lpsCallback
+      ( keepLatest $ (LocalTime.withTime (pure unit)) <#> \{ time } -> lowPrioritySchedule makeLongs.lpsCallback
           (JMilliseconds 10000.0 + (coerce $ unInstant time))
-          (bang $ Release)
+          (pure $ Release)
       )
   go Nil _ = Nil :< go Nil
   go l { beats } = do

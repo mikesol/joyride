@@ -13,13 +13,11 @@ import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.Profunctor (dimap)
 import Data.Time.Duration (Milliseconds(..))
-import Debug (spy)
 import Effect.Aff (launchAff_)
 import Effect.Aff.AVar as AVar
 import Effect.Class (liftEffect)
 import FRP.Behavior (sampleBy, sample_)
 import FRP.Event (Event, bus, keepLatest, memoize, sampleOn)
-import FRP.Event.Class (bang)
 import FRP.Event.Time as LocalTime
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Rider (rider, toRide)
@@ -64,7 +62,7 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
     -- when a tile-touch happens, we start emitting rate info to the audio engine
     rateInfoAtTouchForAudio :: Event RateInfo
     rateInfoAtTouchForAudio = compact
-      ( sampleOn (bang Nothing <|> (map Just played))
+      ( sampleOn (pure Nothing <|> (map Just played))
           ( animatedStuff.rateInfo <#> \ri p -> case p of
               -- only emit the rate info if the beat has not been touched
               -- or it has been touched a bit early
@@ -84,7 +82,7 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
            , renderingInfo :: RenderingInfo
            }
     forRendering = sampleBy (#) makeBasic.renderingInfo
-      ( sampleOn (bang Nothing <|> fireAndForget (sample_ (coerce >>> Just <$> cInstant makeBasic.cnow) played))
+      ( sampleOn (pure Nothing <|> fireAndForget (sample_ (coerce >>> Just <$> cInstant makeBasic.cnow) played))
           ( sampleOn ratioEvent
               ( map
                   { rateInfo: _
@@ -141,23 +139,23 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
   keepLatest $ memoize drawingMatrix' \drawingMatrix ->
     keepLatest $ memoize (filter (\(HitBasicOtherPlayer { player }) -> player /= makeBasic.myPlayer) otherPlayedMe) \hitBasicOtherPlayer -> rider
       ( toRide
-          { event: oneOfMap bang
+          { event: oneOfMap pure
               ( makeBasic.beats <#>
                   \{ audio } -> oneOf
-                    [ bang $ AudibleChildEnd
+                    [ pure $ AudibleChildEnd
                         ( sound
                             ((\(AudibleEnd e) -> e) (audio rateInfoAtTouchForAudio))
                         )
-                    , keepLatest $ (LocalTime.withTime (bang unit)) <#> \{ time } -> lowPrioritySchedule makeBasic.lpsCallback
+                    , keepLatest $ (LocalTime.withTime (pure unit)) <#> \{ time } -> lowPrioritySchedule makeBasic.lpsCallback
                         (JMilliseconds 10000.0 + (coerce $ unInstant time))
-                        (bang $ AudibleChildEnd silence)
+                        (pure $ AudibleChildEnd silence)
 
                     ]
               )
           , push: makeBasic.pushAudio
           }
       )
-      ( bang
+      ( pure
           ( ( mesh { mesh: makeBasic.threeDI.mesh } (box { box: makeBasic.threeDI.boxGeometry })
                 ( meshPhongMaterial
                     { meshPhongMaterial: makeBasic.threeDI.meshPhongMaterial
@@ -166,7 +164,7 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
                     empty
                 )
                 ( oneOf
-                    [ keepLatest $ (drawingMatrix <|> bang emptyMatrix) <#> \{ n11, n22, n33, n14, n24, n34 } -> oneOfMap bang
+                    [ keepLatest $ (drawingMatrix <|> pure emptyMatrix) <#> \{ n11, n22, n33, n14, n24, n34 } -> oneOfMap pure
                         [ P.scaleX n11
                         , P.scaleY n22
                         , P.scaleZ n33
@@ -194,14 +192,14 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
                                             , translation: drawingMatrix <#> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
                                             , player: hbop.player
                                             }
-                                        sampleBy (#) (map coerce (cInstant makeBasic.cnow)) (bang hitBasicVisualForLabel)
+                                        sampleBy (#) (map coerce (cInstant makeBasic.cnow)) (pure hitBasicVisualForLabel)
                                     , push: makeBasic.pushBasicVisualForLabel
                                     }
                                 )
-                                (bang (\_ -> pure (pure unit)))
+                                (pure (\_ -> pure (pure unit)))
                           -- otherwise keep alive
                           -- no need for an unsub, so just pure (pure unit)
-                          , sampleJIT makeBasic.animatedStuff $ bang \av _ -> pure (pure unit) <* launchAff_ do
+                          , sampleJIT makeBasic.animatedStuff $ pure \av _ -> pure (pure unit) <* launchAff_ do
                               n <- liftEffect $ makeBasic.cnow
                               { rateInfo, playerPositions } <- AVar.read av
                               let
@@ -281,7 +279,7 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
   p3bar ri = touchPointZ ri Position3
   p4bar ri = touchPointZ ri Position4
   appearancePoint ri = entryZ ri
-  ratioEvent = map (\{ iw, ih } -> { iw, ih, r: iw / ih }) (bang makeBasic.initialDims <|> makeBasic.resizeEvent)
+  ratioEvent = map (\{ iw, ih } -> { iw, ih, r: iw / ih }) (pure makeBasic.initialDims <|> makeBasic.resizeEvent)
   shrinkRate = 3.0
   basicYThickness = 0.04
   basicZThickness = 0.23

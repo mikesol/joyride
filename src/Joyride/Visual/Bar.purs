@@ -3,10 +3,9 @@ module Joyride.Visual.Bar where
 import Prelude
 
 import Control.Alt ((<|>))
-import Control.Plus (empty)
 import Data.Foldable (oneOf)
 import FRP.Behavior (Behavior, sampleBy)
-import FRP.Event (Event, bang)
+import FRP.Event (Event)
 import Joyride.Debug (debugX)
 import Joyride.FRP.Schedule (fireAndForget)
 import Rito.Color (Color, RGB(..))
@@ -38,8 +37,8 @@ makeBar { c3, threeDI, renderingInfo, initialIsMe, isMe, position, debug, rateE 
       (isMe <#> \i -> (P.color $ makeColor i))
   )
   ( oneOf
-      [ bang (positionX 0.0)
-      , bang (positionY 0.0)
+      [ pure (positionX 0.0)
+      , pure (positionY 0.0)
       , sampleBy (\ri _ -> positionZ (touchPointZ ri position)) renderingInfo (debugX debug rateE)
       , initializeWith scaleX 10.0
       , initializeWith scaleY 0.02
@@ -47,5 +46,5 @@ makeBar { c3, threeDI, renderingInfo, initialIsMe, isMe, position, debug, rateE 
       ]
   )
   where
-  initializeWith f x = bang (f 0.0) <|> fireAndForget (rateE $> f x)
+  initializeWith f x = pure (f 0.0) <|> fireAndForget (rateE $> f x)
   makeColor tf = c3 $ if tf then RGB 0.3 0.9 0.2 else RGB 1.0 1.0 1.0

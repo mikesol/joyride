@@ -12,7 +12,7 @@ import Deku.Control (text_)
 import Deku.Core (ANut(..))
 import Deku.DOM as D
 import Effect (Effect)
-import FRP.Event (Event, bang, fromEvent, keepLatest, mapAccum)
+import FRP.Event (Event, fromEvent, keepLatest, mapAccum)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.Ledger.Basic (basicOutcomeToString, beatsToBasicOutcome)
 import Rito.CSS.CSS2DObject (css2DObject)
@@ -35,11 +35,11 @@ p2s Player4 = "Player 4"
 basicLabels :: forall lock payload. MakeBasicLabels -> ACSS2DObject lock payload
 basicLabels mbl = dyn
   ( mbl.basicTap <#> \(HitBasicVisualForLabel e) ->
-      ( bang $ Insert $ css2DObject
+      ( pure $ Insert $ css2DObject
           { css2DObject: mbl.threeDI.css2DObject
           , nut: ANut
               ( D.span
-                  ( oneOfMap bang
+                  ( oneOfMap pure
                       [ D.Class := "text-zinc-100 fade-out"
                       ]
                   )
@@ -49,9 +49,9 @@ basicLabels mbl = dyn
                   ]
               )
           }
-          ( bang (P.positionZ 100.0) <|> keepLatest
+          ( pure (P.positionZ 100.0) <|> keepLatest
               ( map
-                  ( \{ x, y, z } -> oneOfMap bang
+                  ( \{ x, y, z } -> oneOfMap pure
                       [ P.positionX x
                       , P.positionY y
                       , P.positionZ z
@@ -71,6 +71,6 @@ basicLabels mbl = dyn
         fromEvent
           ( lowPrioritySchedule mbl.lpsCallback
               (JMilliseconds 3000.0 + e.issuedAt)
-              (bang $ Remove)
+              (pure $ Remove)
           )
   )

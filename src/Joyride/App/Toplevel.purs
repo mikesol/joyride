@@ -2,23 +2,18 @@ module Joyride.App.Toplevel where
 
 import Prelude
 
-import Control.Plus (empty)
+import Bolson.Control (switcher)
 import Data.Array (sortBy)
 import Data.Function (on)
-import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import Data.Number (pi)
 import Data.Time.Duration (Milliseconds)
 import Debug (spy)
-import Deku.Control (switcher)
-import Deku.Core (class Korok, Domable, envy)
+import Deku.Core (class Korok, Domable)
 import Effect (Effect)
-import Effect.Ref as Ref
-import FRP.Behavior (Behavior)
-import FRP.Event (Event, EventIO, filterMap, fromEvent)
+import FRP.Event (Event, filterMap, fromEvent)
 import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V)
-import Foreign.Object as Object
 import Joyride.App.Editor (editorPage)
 import Joyride.App.Explainer (explainerPage)
 import Joyride.App.GameHasStarted (gameHasStarted)
@@ -30,7 +25,7 @@ import Joyride.App.SorryNeedPermission (sorryNeedPermissionPage)
 import Joyride.App.Tutorial (tutorial)
 import Joyride.FRP.Dedup (dedup)
 import Joyride.FRP.StartingWith (startingWith)
-import Joyride.Firebase.Opaque (FirebaseAuth, Firestore)
+import Joyride.Firebase.Opaque (Firestore)
 import Joyride.Ocarina (AudibleChildEnd)
 import Joyride.Scores.Ride.Basic (rideBasics)
 import Joyride.Scores.Ride.Leap (rideLeaps)
@@ -38,12 +33,10 @@ import Joyride.Scores.Ride.Long (rideLongs)
 import Joyride.Scores.Tutorial.Basic (tutorialBasics)
 import Joyride.Scores.Tutorial.Leap (tutorialLeaps)
 import Joyride.Scores.Tutorial.Long (tutorialLongs)
-import Ocarina.WebAPI (BrowserAudioBuffer)
 import Rito.CubeTexture as CTL
 import Rito.GLTF as GLTFLoader
-import Types (CubeTextures, EventV0(..), HitBasicMe, HitLeapMe, HitLongMe, JMilliseconds, Models, Negotiation(..), OpenEditor', PlayerPositionsF, RateInfo, Event_(..), ReleaseLongMe, RenderingInfo, Success', ThreeDI, ToplevelInfo, Track(..), WantsTutorial', WindowDims)
+import Types (CubeTextures, EventV0(..), Event_(..), JMilliseconds, Models, Negotiation(..), OpenEditor', RateInfo, Success', ThreeDI, ToplevelInfo, Track(..), WantsTutorial', WindowDims)
 import Web.DOM as Web.DOM
-import Web.HTML.Window (RequestIdleCallbackId, Window)
 
 twoPi = 2.0 * pi :: Number
 

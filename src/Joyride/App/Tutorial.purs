@@ -2,6 +2,11 @@ module Joyride.App.Tutorial where
 
 import Prelude
 
+-- todo: transition to deku.switcher, as the bolson one
+-- is unsafe for composition
+-- here it is fine given the way it is currently used, but
+-- it's a ticking time bomb
+import Bolson.Control (switcher)
 import Control.Alt ((<|>))
 import Control.Monad.Except (runExcept, throwError)
 import Control.Plus (empty)
@@ -21,8 +26,8 @@ import Data.Time.Duration (Milliseconds(..))
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..), fst, snd)
 import Deku.Attribute ((:=))
-import Deku.Control (switcher, text_)
-import Deku.Core (class Korok, Domable, Nut, bussed, envy, vbussed)
+import Deku.Control (blank, envy_, text_)
+import Deku.Core (class Korok, Domable, Nut, bussed, vbussed)
 import Deku.DOM as D
 import Effect (Effect, foreachE)
 import Effect.Aff (delay, launchAff_)
@@ -31,7 +36,7 @@ import Effect.Now as LocalNow
 import Effect.Ref as Ref
 import Effect.Timer (clearInterval, setInterval)
 import FRP.Behavior (Behavior, sampleBy)
-import FRP.Event (Event, EventIO, bang, filterMap, fromEvent, toEvent, hot, memoize, subscribe)
+import FRP.Event (Event, EventIO, filterMap, fromEvent, toEvent, hot, memoize, subscribe)
 import FRP.Event.AnimationFrame (animationFrame)
 import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V)
@@ -65,7 +70,7 @@ twoPi = 2.0 * pi :: Number
 
 data FadeInstruction = FadeIn | FadeOut | FadeInOut | NoFade
 
-data CenterState = Preview {startsAt :: Number} | Intro | Tiles | Tilt | Leap | Long | End | Empty
+data CenterState = Preview { startsAt :: Number } | Intro | Tiles | Tilt | Leap | Long | End | Empty
 
 newtype Unsubscribe = Unsubscribe (Effect Unit)
 
@@ -160,11 +165,11 @@ tutorial
                     HasStarted (InFlightGameInfo t) -> pure t.startedAt
                 )
           -- stopButton :: Effect Unit -> Nut
-          stopButton off = D.div (oneOf [ bang $ D.Class := "mx-2" ])
+          stopButton off = D.div (oneOf [ pure $ D.Class := "mx-2" ])
             [ D.button
                 ( oneOf
-                    [ bang $ D.Class := "pointer-events-auto p-1 " <> buttonCls
-                    , bang $ D.OnClick := do
+                    [ pure $ D.Class := "pointer-events-auto p-1 " <> buttonCls
+                    , pure $ D.OnClick := do
                         off
                     ]
                 )
@@ -245,8 +250,9 @@ tutorial
                     )
                   t :: JMilliseconds <- coerce <$> cNow
                   optMeIn t
-            tutorialCenterMatter (bang (maybe Intro Preview tscore.isPreviewPage) <|> event.tutorialCenterState) push.tutorialCenterState { startCallback }
-        envy $ fromEvent $ memoize
+            tutorialCenterMatter (pure (maybe Intro Preview tscore.isPreviewPage) <|> event.tutorialCenterState) push.tutorialCenterState { startCallback }
+        -- todo: use Deku.do
+        envy_ D.div $ fromEvent $ memoize
           ( makeAnimatedStuff
               ( biSampleOn
                   ( fireAndForget
@@ -268,11 +274,11 @@ tutorial
           \animatedStuff -> D.div_
             [
               -- on/off
-              D.div (bang $ D.Class := "z-10 pointer-events-none absolute w-screen h-screen grid grid-rows-6 grid-cols-6")
-                [ D.div (bang $ D.Class := "row-start-1 row-end-3 col-start-1 col-end-3")
+              D.div (pure $ D.Class := "z-10 pointer-events-none absolute w-screen h-screen grid grid-rows-6 grid-cols-6")
+                [ D.div (pure $ D.Class := "row-start-1 row-end-3 col-start-1 col-end-3")
                     -- fromEvent because playerStatus is effectful
 
-                    [ D.div (bang $ D.Class := "mx-2 mt-2 ")
+                    [ D.div (pure $ D.Class := "mx-2 mt-2 ")
                         [ fromEvent (biSampleOn (toEvent (initializeWithEmpty event.iAmReady)) (map Tuple playerStatus))
                             -- we theoretically don't need to dedup because
                             -- the button should never redraw once we've started
@@ -281,28 +287,27 @@ tutorial
                                 Nothing -> makeJoined myPlayer oi
                                 Just (Unsubscribe _) -> makePoints myPlayer oi
                         ]
-                    , D.div_
-                        [ envy $ map stopButton
-                            (
-                                ( map
-                                    ( \(Unsubscribe u) -> u *> tli.goHome
-                                    )
-                                    (event.iAmReady)
-                                )
+                    , envy_ D.div
+                        ( map stopButton
+                            ( ( map
+                                  ( \(Unsubscribe u) -> u *> tli.goHome
+                                  )
+                                  (event.iAmReady)
+                              )
                             )
-                        ]
+                        )
                     ]
                 ]
             , startButton animatedStuff
             , D.div
-                (bang (D.Class := "absolute"))
+                (pure (D.Class := "absolute"))
                 [ D.canvas
                     ( oneOf
-                        [ bang (D.Class := "absolute w-screen h-screen")
+                        [ pure (D.Class := "absolute w-screen h-screen")
                         -- one gratuitous lookup as if all are ready then myPlayer
                         -- must be ready, but should be computationally fine
                         -- fireAndForget so that it only ever fires once
-                        , bang $ D.Self := HTMLCanvasElement.fromElement >>> traverse_
+                        , pure $ D.Self := HTMLCanvasElement.fromElement >>> traverse_
                             ( runThree <<<
                                 { threeDI: threeDI
                                 , css2DRendererElt: toEvent event.render2DElement
@@ -395,8 +400,8 @@ tutorial
                         ]
                     )
                     []
-                , D.div (oneOfMap bang [ D.Class := "absolute pointer-events-none", D.Self := push.render2DElement ]) []
-                , D.div (oneOfMap bang [ D.Class := "absolute pointer-events-none", D.Self := push.render3DElement ]) []
+                , D.div (oneOfMap pure [ D.Class := "absolute pointer-events-none", D.Self := push.render2DElement ]) []
+                , D.div (oneOfMap pure [ D.Class := "absolute pointer-events-none", D.Self := push.render3DElement ]) []
                 ]
             ]
   )
@@ -444,11 +449,15 @@ tutorial
       }
 
   tutorialCenterMatter currentState pushCurrentState { startCallback } = currentState # switcher \cs -> case cs of
-    Preview { startsAt } -> tutorialCenterMatterFrame "Preview your ride!" ( Just $ D.p_
+    Preview { startsAt } -> tutorialCenterMatterFrame "Preview your ride!"
+      ( Just $ D.p_
           [ D.span_ [ text_ $ "Starting at " <> (toStringWith (fixed 2) startsAt) <> " seconds." ]
           ]
-      ) false "Start" FadeOut
-      ( FullScreen.fullScreenFlow startCallback)
+      )
+      false
+      "Start"
+      FadeOut
+      (FullScreen.fullScreenFlow startCallback)
       pushCurrentState
     Intro -> tutorialCenterMatterFrame "Welcome to Joyride!" Nothing false "Start Tutorial" FadeOut
       ( FullScreen.fullScreenFlow
@@ -462,9 +471,9 @@ tutorial
     Tiles -> tutorialCenterMatterFrame "Points"
       ( Just $ D.p_
           [ D.span_ [ text_ "Earn points by touching the " ]
-          , D.span (bang $ D.Class := "italic") [ text_ "gray" ]
+          , D.span (pure $ D.Class := "italic") [ text_ "gray" ]
           , D.span_ [ text_ " tiles as soon as their edge touches the " ]
-          , D.span (bang $ D.Class := "italic") [ text_ "green" ]
+          , D.span (pure $ D.Class := "italic") [ text_ "green" ]
           , D.span_ [ text_ " line. You'll lose points if you're too early or late." ]
           ]
       )
@@ -494,7 +503,7 @@ tutorial
     Leap -> tutorialCenterMatterFrame "Leaps"
       ( Just $ D.p_
           [ D.span_ [ text_ "Leap to a new line by touching a " ]
-          , D.span (bang $ D.Class := "italic") [ text_ "red" ]
+          , D.span (pure $ D.Class := "italic") [ text_ "red" ]
           , D.span_ [ text_ " tile. The number indicates the position you'll jump to." ]
           ]
       )
@@ -510,7 +519,7 @@ tutorial
     Long -> tutorialCenterMatterFrame "Press"
       ( Just $ D.p_
           [ D.span_ [ text_ "Long-press the " ]
-          , D.span (bang $ D.Class := "italic") [ text_ "green" ]
+          , D.span (pure $ D.Class := "italic") [ text_ "green" ]
           , D.span_ [ text_ " tiles to earn points. The closer the tile is, the higher the points!" ]
           ]
       )
@@ -526,7 +535,7 @@ tutorial
     End -> tutorialCenterMatterFrame "That's it!" (Just $ D.p_ [ text_ "Play against up to four people! The ride is more fun when shared with friends 🤗" ]) true "Home >" FadeIn
       tli.goHome
       pushCurrentState
-    Empty -> envy empty
+    Empty -> blank
 
   tutorialFadeInAnimation = "tutorial-fade-in-animation"
   tutorialFadeOutAnimation = "tutorial-fade-out-animation"
@@ -535,7 +544,7 @@ tutorial
 
   tutorialCenterMatterFrame hd txt endBtnHack action fade cb pcenter = bussed \setFadeOut fadeOut' -> do
     let
-      fadeOut = bang identity <|> fadeOut'
+      fadeOut = pure identity <|> fadeOut'
     D.div
       ( fadeOut <#> \f ->
           D.Class :=
@@ -548,9 +557,9 @@ tutorial
             )
       )
       [ D.div
-          (bang $ D.Class := "select-auto justify-self-center self-center row-start-3 row-end-5 col-start-2 col-end-6 md:col-start-3 md:col-end-5")
+          (pure $ D.Class := "select-auto justify-self-center self-center row-start-3 row-end-5 col-start-2 col-end-6 md:col-start-3 md:col-end-5")
           ( [ D.div
-                (bang $ D.Class := "pointer-events-auto text-center p-4 " <> headerCls)
+                (pure $ D.Class := "pointer-events-auto text-center p-4 " <> headerCls)
                 [ D.p_ [ text_ hd ]
                 ]
             ]
@@ -558,18 +567,18 @@ tutorial
                 ( case txt of
                     Just x ->
                       [ D.div
-                          (bang $ D.Class := "pointer-events-auto text-center text-white p-4")
+                          (pure $ D.Class := "pointer-events-auto text-center text-white p-4")
                           [ x ]
                       ]
                     Nothing -> []
                 )
               <>
-                [ D.div (bang $ D.Class := "flex w-full justify-center items-center")
+                [ D.div (pure $ D.Class := "flex w-full justify-center items-center")
                     ( guard endBtnHack
                         [ D.button
                             ( oneOf
-                                [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
-                                , bang $
+                                [ pure $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                                , pure $
                                     D.OnClick :=
                                       let
                                         goodbye = pcenter Empty
@@ -582,8 +591,8 @@ tutorial
                         ] <>
                         [ D.button
                             ( oneOf
-                                [ bang $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
-                                , bang $
+                                [ pure $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                                , pure $
                                     D.OnClick :=
                                       let
                                         goodbye = pcenter Empty
@@ -608,7 +617,7 @@ tutorial
   makeJoined mp (KnownPlayers m) = D.ul_
     ( map
         ( \(Tuple p x) -> D.li_
-            [ D.span (bang $ D.Class := "text-white")
+            [ D.span (pure $ D.Class := "text-white")
                 [ text_ $
                     if p == mp then "You have joined!"
                     else
@@ -627,7 +636,7 @@ tutorial
   makePoints mp (KnownPlayers m) = D.ul_
     ( map
         ( \(Tuple p (InFlightGameInfo x)) -> D.li_
-            [ D.span (bang $ D.Class := "text-white")
+            [ D.span (pure $ D.Class := "text-white")
                 [ text_ $
                     ( if p == mp then
                         ( "You" <> case x.name of

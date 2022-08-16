@@ -15,7 +15,6 @@ import Data.Time.Duration (Milliseconds(..), Seconds(..))
 import Effect (Effect)
 import FRP.Behavior (Behavior, sample_)
 import FRP.Event (Event, keepLatest, memoize)
-import FRP.Event.Class (bang)
 import FRP.Event.Time as LocalTime
 import Foreign.Object as Object
 import Joyride.Audio.Leap as LeapA
@@ -89,13 +88,13 @@ tutorialLeaps makeLeaps = fixed
 
   where
   children :: forall a. (ScoreMorcelId -> Event a) -> Event (Event a)
-  children f = keepLatest $ map (oneOfMap bang) (eventList f)
+  children f = keepLatest $ map (oneOfMap pure) (eventList f)
   eventList :: forall a. (ScoreMorcelId -> Event a) -> Event (List (Event a))
   eventList f = scheduleCf (go f score) (_.rateInfo <$> makeLeaps.animatedStuff)
 
   transformLeapWord :: ScoreMorcelId -> Event (Child Void (CSS3DObject lock payload) Effect lock)
   transformLeapWord input =
-    ( bang $ Insert
+    ( pure $ Insert
         ( LeapW.leapWord
             ( makeLeaps `union` input `union`
                 { sound: singleBeat
@@ -117,9 +116,9 @@ tutorialLeaps makeLeaps = fixed
             )
         )
     ) <|>
-      ( keepLatest $ (LocalTime.withTime (bang unit)) <#> \{ time } -> lowPrioritySchedule makeLeaps.lpsCallback
+      ( keepLatest $ (LocalTime.withTime (pure unit)) <#> \{ time } -> lowPrioritySchedule makeLeaps.lpsCallback
           (JMilliseconds 10000.0 + (coerce $ unInstant time))
-          (bang $ Remove)
+          (pure $ Remove)
       )
 
   transform :: ScoreMorcelId -> Event (Semaphore (InstanceId -> Instance lock payload))
@@ -139,9 +138,9 @@ tutorialLeaps makeLeaps = fixed
             )
         )
     ) <|>
-      ( keepLatest $ (LocalTime.withTime (bang unit)) <#> \{ time } -> lowPrioritySchedule makeLeaps.lpsCallback
+      ( keepLatest $ (LocalTime.withTime (pure unit)) <#> \{ time } -> lowPrioritySchedule makeLeaps.lpsCallback
           (JMilliseconds 10000.0 + (coerce $ unInstant time))
-          (bang $ Release)
+          (pure $ Release)
       )
   go :: forall a. (ScoreMorcelId -> Event a) -> List ScoreMorcelId -> RateInfo -> Cofree ((->) RateInfo) (List (Event a))
   go f Nil _ = Nil :< go f Nil

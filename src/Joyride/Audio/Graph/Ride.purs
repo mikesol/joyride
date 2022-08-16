@@ -10,7 +10,6 @@ import Data.Number (pi, pow)
 import Data.Typelevel.Num (D2)
 import FRP.Behavior (Behavior, sample_)
 import FRP.Event (Event)
-import FRP.Event.Class (bang)
 import Foreign.Object as Object
 import Joyride.Constants.Audio (startOffset)
 import Joyride.FRP.Schedule (oneOff)
@@ -47,10 +46,10 @@ graph { bgtrack, basics, leaps, rateInfo, silence, buffers, baseFileOffsetInSeco
   , gain_ 1.0
       [ playBuf { buffer: silence }
           ( oneOf
-              [ sample_ buffers (bang unit) <#> Object.lookup bgtrack >>> case _ of
+              [ sample_ buffers (pure unit) <#> Object.lookup bgtrack >>> case _ of
                   Just b -> buffer b
                   Nothing -> buffer silence
-              , bang $ bufferOffset baseFileOffsetInSeconds
+              , pure $ bufferOffset baseFileOffsetInSeconds
               , oneOff
                   ( \i@{ beats } ->
                       if beats > startOffset then Just i else Nothing
