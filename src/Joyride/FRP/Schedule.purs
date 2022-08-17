@@ -8,10 +8,8 @@ import Control.Comonad.Cofree.Class (unwrapCofree)
 import Control.Monad.ST.Class (class MonadST, liftST)
 import Control.Monad.ST.Internal as Ref
 import Data.Compactable (compact)
-import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
-import Data.Tuple (fst)
-import Data.Tuple.Nested (type (/\), (/\))
+import Data.Tuple.Nested ((/\))
 import FRP.Event (AnEvent, makeEvent, mapAccum, subscribe)
 
 fireAndForget
@@ -44,20 +42,28 @@ emitUntil
   -> AnEvent m a
   -> AnEvent m b
 emitUntil aToB e = makeEvent \k -> do
-  r <- liftST $ Ref.new true
-  u <- liftST $ Ref.new (pure unit)
-  usu <- subscribe e \n -> do
-    l <- liftST $ Ref.read r
-    when l $ do
-      case aToB n of
-        Just b -> k b
-        Nothing -> do
-          void $ liftST $ Ref.write false r
-          join (liftST $ Ref.read u)
-          void $ liftST $ Ref.write (pure unit) u
-  void $ liftST $ Ref.write usu u
-  pure do
-    join (liftST $ Ref.read u)
+  o <- subscribe (withUnsubscribe e) \{ unsubscribe, value } ->
+    case aToB value of
+      Just b -> k b
+      Nothing -> unsubscribe
+  pure o
+
+withUnsubscribe :: forall s m a. MonadST s m =>  AnEvent m a -> AnEvent m {unsubscribe :: m Unit, value :: a}
+withUnsubscribe e = makeEvent \ff -> do
+  let f unsubscribe value = ff { unsubscribe, value }
+  active <- liftST $ Ref.new true
+  ro <- liftST $ Ref.new (pure unit)
+  let
+    cancel = do
+      _ <- liftST $ Ref.write false active
+      join (liftST $ Ref.read ro)
+    f' = f cancel
+    callback a = do
+      whenM (liftST $ Ref.read active) (f' a)
+  o <- subscribe e callback
+  (liftST $ Ref.read active) >>= case _ of
+    false -> o $> pure unit
+    true -> liftST $ Ref.write o ro $> o
 
 scheduleCf
   :: forall s m r val
