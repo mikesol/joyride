@@ -29,7 +29,7 @@ import Effect.Random as Random
 import Effect.Ref (new)
 import Effect.Ref as Ref
 import FRP.Behavior (Behavior, sample_)
-import FRP.Event (Event, create, filterMap, folded, subscribe)
+import FRP.Event (Event, backdoor, create, filterMap, folded, subscribe)
 import FRP.Event as Event
 import FRP.Event.AnimationFrame (animationFrame)
 import FRP.Event.VBus (V)
@@ -37,6 +37,7 @@ import Foreign.Object as Object
 import Heterogeneous.Folding (hfoldlWithIndex)
 import Joyride.App.Sandbox (sandbox)
 import Joyride.App.Toplevel (toplevel)
+import Joyride.Debug (altCreate, monkeyPatchCreateImpl)
 import Joyride.Effect.Ref (readFromRecord, writeToRecord)
 import Joyride.EmitsTouchEvents (emitsTouchEvents)
 import Joyride.FRP.Behavior (refToBehavior)
@@ -183,7 +184,7 @@ main
   -> Textures String
   -> Object.Object String
   -> Effect Unit
-main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) audio = if sandboxed then runInBody sandbox else launchAff_ do
+main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) audio = {-monkeyPatchCreateImpl backdoor altCreate *>-} if sandboxed then runInBody sandbox else launchAff_ do
   -- firebsae
   fbApp <- firebaseAppAff
   -- for now don't use analytics

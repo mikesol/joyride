@@ -57,6 +57,7 @@
   , "typelevel"
   , "unfoldable"
   , "unsafe-coerce"
+  , "unsafe-reference"
   , "variant"
   , "web-dom"
   , "web-events"
