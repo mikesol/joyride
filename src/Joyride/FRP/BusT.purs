@@ -7,10 +7,10 @@ import FRP.Event.VBus (class VBus, V, vbus)
 import Prim.RowList (class RowToList)
 
 vbust
-  :: forall proxy ri i s m p e o u
+  :: forall proxy ri i s m p e o
    . RowToList i ri
   => MonadST s m
-  => VBus ri p e u
+  => VBus ri p e m
   => proxy (V i)
   -> (({ | p } /\ { | e }) -> o)
   -> AnEvent m o

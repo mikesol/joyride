@@ -27,7 +27,7 @@ import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..), fst, snd)
 import Deku.Attribute ((:=))
 import Deku.Control (blank, envy_, text_)
-import Deku.Core (class Korok, Domable, Nut, bussed, vbussed)
+import Deku.Core (Domable, Nut, bussed, vbussed)
 import Deku.DOM as D
 import Effect (Effect, foreachE)
 import Effect.Aff (delay, launchAff_)
@@ -130,12 +130,11 @@ type TutorialEvents = V
   )
 
 tutorial
-  :: forall r s m lock payload
-   . Korok s m
-  => TutorialInfo r
+  :: forall r lock payload
+   . TutorialInfo r
   -> TutorialScore
   -> WantsTutorial'
-  -> Domable m lock payload
+  -> Domable lock payload
 tutorial
   tli
   tscore

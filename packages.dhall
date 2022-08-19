@@ -35,12 +35,12 @@ let overrides =
           , "web-uievents"
           ]
         , repo = "https://github.com/mikesol/purescript-rito.git"
-        , version = "v0.0.3"
+        , version = "purefunctor"
         }
       , bolson =
         { dependencies = [ "arrays" ]
         , repo = "https://github.com/mikesol/purescript-bolson.git"
-        , version = "main"
+        , version = "purefunctor"
         }
       , deku =
         { dependencies =
@@ -73,12 +73,12 @@ let overrides =
           , "web-html"
           ]
         , repo = "https://github.com/mikesol/purescript-deku.git"
-        , version = "main"
+        , version = "pure/unlift"
         }
       , hyrule =
         { dependencies = [ "arrays" ]
-        , repo = "https://github.com/mikesol/purescript-hyrule.git"
-        , version = "master"
+        , repo = "https://github.com/purefunctor/purescript-hyrule.git"
+        , version = "pure/zora"
         }
       , ocarina =
         { dependencies =

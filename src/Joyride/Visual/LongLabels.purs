@@ -32,12 +32,8 @@ p2s Player2 = "Player 2"
 p2s Player3 = "Player 3"
 p2s Player4 = "Player 4"
 
-longLabels :: forall lock payload. MakeLongLabels -> ACSS2DObject lock payload
-longLabels mbl = dyn
-  ( mbl.longTap <#> \(HitLongVisualForLabel e) ->
-      ( pure $ Insert $ css2DObject
-          { css2DObject: mbl.threeDI.css2DObject
-          , nut: ANut
+css2DNut :: MakeLongLabels -> HitLongVisualForLabel -> ANut
+css2DNut mbl (HitLongVisualForLabel e) = ANut
               ( D.span
                   ( oneOfMap pure
                       [ D.Class := "text-zinc-100 fade-out"
@@ -49,6 +45,13 @@ longLabels mbl = dyn
                       ]
                   ]
               )
+
+longLabels :: forall lock payload. MakeLongLabels -> ACSS2DObject lock payload
+longLabels mbl = dyn
+  ( mbl.longTap <#> \hlvfl@(HitLongVisualForLabel e) ->
+      ( pure $ Insert $ css2DObject
+          { css2DObject: mbl.threeDI.css2DObject
+          , nut: css2DNut mbl hlvfl
           }
           ( pure (P.positionZ 100.0) <|> keepLatest
               ( map
@@ -69,7 +72,6 @@ longLabels mbl = dyn
               )
           )
       ) <|>
-        fromEvent
           ( lowPrioritySchedule mbl.lpsCallback
               (JMilliseconds 3000.0 + e.issuedAt)
               (pure $ Remove)
