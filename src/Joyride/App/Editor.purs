@@ -2,10 +2,8 @@ module Joyride.App.Editor where
 
 import Prelude
 
--- TODO: migrate to envy, dyn, and switcher in deku
--- as these are unsafe
-import Bolson.Core (envy, dyn)
 import Bolson.Control (switcher)
+import Bolson.Core (envy, dyn)
 import Control.Alt ((<|>))
 import Control.Monad.ST.Class (class MonadST)
 import Control.Parallel (parTraverse)
@@ -35,7 +33,7 @@ import Data.Tuple.Nested ((/\), type (/\))
 import Debug (spy)
 import Deku.Attribute (class Attr, Attribute, cb, xdata, (:=))
 import Deku.Control (text, text_)
-import Deku.Core (class Korok, Domable, insert_, remove, vbussedUncurried)
+import Deku.Core (Domable, insert_, remove, vbussedUncurried)
 import Deku.DOM (Class)
 import Deku.DOM as D
 import Deku.Listeners (click, slider)
@@ -50,6 +48,7 @@ import FRP.Event (AnEvent, fold, folded, fromEvent, keepLatest, mailboxed, mapAc
 import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V, vbus)
 import Foreign.Object as Object
+import Hyrule.Zora (Zora)
 import JSURI (encodeURIComponent)
 import Joyride.App.Loading (loadingPage)
 import Joyride.App.Tutorial (tutorial)
@@ -341,16 +340,15 @@ dC :: Int -> String
 dC i = fromMaybe "#8b6f1f" (distinctColors !! (i `mod` ldc))
 
 editorPage
-  :: forall s m lock payload
-   . Korok s m
-  => ToplevelInfo
+  :: forall lock payload
+   . ToplevelInfo
   -> OpenEditor'
   -> WantsTutorial'
-  -> Domable m lock payload
+  -> Domable lock payload
 editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QDA.do
-  pushed /\ (event :: { | Events (AnEvent m) }) <- vbussedUncurried (Proxy :: _ (V (Events PlainOl)))
+  pushed /\ (event :: { | Events (AnEvent Zora) }) <- vbussedUncurried (Proxy :: _ (V (Events PlainOl)))
   let
-    initialData :: AnEvent m { initialTitle :: String, url :: String, initialPrivate :: Boolean }
+    initialData :: AnEvent Zora { initialTitle :: String, url :: String, initialPrivate :: Boolean }
     initialData = fireAndForget (event.initialPrivate 😄 event.loadWave 😄 ({ initialTitle: _, url: _, initialPrivate: _ } <$> event.initialTitle))
   let
     mostRecentData' = keepLatest
@@ -390,7 +388,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
           ( toRide
               { event: event.markerMoved 😄 (Tuple <$> event.documentId)
               , push: \(did /\ mm) -> unwrap
-                  ( (always :: (Endo Function (Effect Unit)) -> (Endo Function (m Unit)))
+                  ( (always :: (Endo Function (Effect Unit)) -> (Endo Function (Zora Unit)))
                       ( Endo \_ -> for_ mm.id \id -> do
                           let
                             fn = case mm.offset of
@@ -409,7 +407,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
               { event: do
                   mostRecentData 🙂 event.waveSurfer 🙂 fromEvent (folded $ map pure signedInNonAnonymously) 😄 ({ did: _, sina: _, ws: _, mrd: _ } <$> (Just <$> event.documentId <|> pure Nothing))
               , push: \{ did, sina, ws, mrd } -> unwrap
-                  ( (always :: (Endo Function (Effect Unit)) -> (Endo Function (m Unit)))
+                  ( (always :: (Endo Function (Effect Unit)) -> (Endo Function (Zora Unit)))
                       ( Endo \_ -> case did, sina of
                           -- we have gone from not signed in to signed in
                           -- create the document on firebase
@@ -442,7 +440,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                       Set.empty
                   )
               , push: \(a /\ ws) -> unwrap
-                  ( (always :: (Endo Function (Effect Unit)) -> (Endo Function (m Unit)))
+                  ( (always :: (Endo Function (Effect Unit)) -> (Endo Function (Zora Unit)))
                       ( Endo \_ -> case a of
                           Left s -> muteExcept ws (map (\(x /\ y) -> [ x, x + y ]) (Set.toUnfoldable s))
                           Right (Right (startIx /\ inSeq)) -> for_ (startIx .. (startIx + inSeq - 1)) \ix -> do
@@ -522,7 +520,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
               associateEventDocumentIdWithMarker m1 id
   let
 
-    store :: AnEvent m Landmark
+    store :: AnEvent Zora Landmark
     store =
       ( mapAccum
           ( \a { id, startIx } -> case a of
@@ -941,7 +939,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                         ( \x -> do
                                                             v <- value x
                                                             let nm = if v == "" then Nothing else Just v
-                                                            ( (always :: m Unit -> Effect Unit) do
+                                                            ( (always :: Zora Unit -> Effect Unit) do
                                                                 p'.changeName nm
                                                             )
                                                             pushed.atomicEventOperation $ aChangeName { id, name: nm }
@@ -972,7 +970,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                       )
                                                       ( \x -> do
                                                           v <- floor <$> valueAsNumber x
-                                                          (always :: m Unit -> Effect Unit) do
+                                                          (always :: Zora Unit -> Effect Unit) do
                                                             p'.changeColumn v
                                                           pushed.atomicEventOperation $ aChangeColumn { id, column: v }
                                                           for_ (Tuple <$> mDid <*> (initialId <|> updatedId)) \(trackId /\ evId) -> do
@@ -993,7 +991,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                   [ soloState <#> \ms -> D.Class := (if ms then buttonActiveCls else buttonCls) <> " mr-2"
                                                   , click $ soloState <#> \ms -> do
                                                       (if ms then pushed.unSolo else pushed.solo) (startIx /\ inSeq)
-                                                      (map (always :: m Unit -> Effect Unit) p'.solo) unit
+                                                      (map (always :: Zora Unit -> Effect Unit) p'.solo) unit
                                                   ]
                                               )
                                               [ D.span (oneOf []) [ text_ "Solo" ] ]
@@ -1002,7 +1000,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                   [ muteState <#> \ms -> D.Class := (if ms then buttonActiveCls else buttonCls) <> " mr-2"
                                                   , click $ muteState <#> \ms -> do
                                                       (if ms then pushed.unMute else pushed.mute) (startIx /\ inSeq)
-                                                      (map (always :: m Unit -> Effect Unit) p'.mute) unit
+                                                      (map (always :: Zora Unit -> Effect Unit) p'.mute) unit
                                                   ]
                                               )
                                               [ D.span
@@ -1015,7 +1013,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                       for_ (startIx .. (startIx + inSeq - 1)) \_ -> do
                                                         -- do not increment as the list gets shorter and shorter so we are always removing at startIx
                                                         removeMarker ws startIx
-                                                      (map (always :: m Unit -> Effect Unit) p'.delete) unit
+                                                      (map (always :: Zora Unit -> Effect Unit) p'.delete) unit
                                                       pushed.atomicEventOperation $ aDeleteEvent_ { id }
                                                       for_ (Tuple <$> mDid <*> (initialId <|> updatedId)) \(trackId /\ evId) -> do
                                                         launchAff_ (deleteEventAff firestoreDb trackId evId)

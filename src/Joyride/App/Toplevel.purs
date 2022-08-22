@@ -8,8 +8,7 @@ import Data.Function (on)
 import Data.Maybe (Maybe(..))
 import Data.Number (pi)
 import Data.Time.Duration (Milliseconds)
-import Debug (spy)
-import Deku.Core (class Korok, Domable)
+import Deku.Core (Domable)
 import Effect (Effect)
 import FRP.Event (Event, filterMap, fromEvent)
 import FRP.Event.Class (biSampleOn)
@@ -99,17 +98,13 @@ type Unlifted :: forall k. k -> k
 type Unlifted a = a
 
 toplevel
-  :: forall s m lock payload
-   . Korok s m
-  => ToplevelInfo
-  -> Domable m lock payload
+  :: forall lock payload
+   . ToplevelInfo
+  -> Domable lock payload
 toplevel tli =
   ( dedup
       ( map
           ( \{ loaded, negotiation } ->
-              let
-                __ = spy "inc" { loaded, negotiation }
-              in
                 case loaded, negotiation of
                   _, NeedsOrientation -> TLNeedsOrientation
                   _, WillNotWorkWithoutOrientation -> TLWillNotWorkWithoutOrientation

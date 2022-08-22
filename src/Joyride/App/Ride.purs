@@ -2,9 +2,8 @@ module Joyride.App.Ride where
 
 import Prelude
 
--- TODO: migrate envy and switcher to deku
-import Bolson.Core (envy)
 import Bolson.Control (switcher)
+import Bolson.Core (envy)
 import Control.Alt ((<|>))
 import Control.Monad.Except (runExcept, throwError)
 import Control.Plus (empty)
@@ -23,7 +22,7 @@ import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..), fst, snd)
 import Deku.Attribute (cb, (:=))
 import Deku.Control (text_)
-import Deku.Core (class Korok, Domable, Nut, vbussed)
+import Deku.Core (Domable, Nut, vbussed)
 import Deku.DOM as D
 import Deku.Listeners (click)
 import Effect (Effect, foreachE)
@@ -39,6 +38,7 @@ import FRP.Event.AnimationFrame (animationFrame)
 import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V)
 import Foreign.Object as Object
+import Hyrule.Zora (Zora)
 import Joyride.App.Clipboard (writeTextAff)
 import Joyride.App.RequestIdleCallbackIsDefined (requestIdleCallbackIsDefined)
 import Joyride.Audio.Graph.Ride (graph)
@@ -129,12 +129,11 @@ type RideEvents = V
   )
 
 ride
-  :: forall r s m lock payload
-   . Korok s m
-  => RideInfo r
+  :: forall r lock payload
+   . RideInfo r
   -> RideScore
   -> Success'
-  -> Domable m lock payload
+  -> Domable lock payload
 ride
   tli
   tscore
@@ -264,7 +263,7 @@ ride
                               optMeIn t nm
                 ]
             vbussed (Proxy :: _ (V (TextArea Unlifted)))
-              \nPush (nEvent :: { | TextArea (AnEvent m) }) ->
+              \nPush (nEvent :: { | TextArea (AnEvent Zora) }) ->
                 let
                   requestName = pure false <|> (nEvent.requestName $> true)
                   changeText = pure Nothing <|> (Just <$> nEvent.changeText)
