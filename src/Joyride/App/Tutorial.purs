@@ -2,10 +2,6 @@ module Joyride.App.Tutorial where
 
 import Prelude
 
--- todo: transition to deku.switcher, as the bolson one
--- is unsafe for composition
--- here it is fine given the way it is currently used, but
--- it's a ticking time bomb
 import Bolson.Control (switcher)
 import Control.Alt ((<|>))
 import Control.Monad.Except (runExcept, throwError)
@@ -44,6 +40,7 @@ import Foreign.Object as Object
 import Joyride.App.RequestIdleCallbackIsDefined (requestIdleCallbackIsDefined)
 import Joyride.Audio.Graph.Tutorial (graph)
 import Joyride.FRP.Behavior (refToBehavior)
+import Joyride.FRP.LowPrioritySchedule (schedulingIntervalInMS)
 import Joyride.FRP.Rate (timeFromRate)
 import Joyride.FRP.SampleOnSubscribe (initializeWithEmpty)
 import Joyride.FRP.Schedule (fireAndForget)
@@ -197,7 +194,7 @@ tutorial
                   ricid <- requestIdleCallbackIsDefined
                   ctx <- context
                   hk <- constant0Hack ctx
-                  ci <- setInterval 5000 do
+                  ci <- setInterval schedulingIntervalInMS do
                     Ref.read tli.icid >>= traverse_
                       (flip cancelIdleCallback tli.wdw)
                     let

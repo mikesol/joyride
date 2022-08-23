@@ -11,3 +11,6 @@ lowPrioritySchedule f n e = makeEvent \k -> do
   void $ subscribe e \i ->
     f n (k i)
   pure (pure unit)
+
+schedulingIntervalInMS :: Int
+schedulingIntervalInMS = 1000

@@ -44,6 +44,7 @@ import Joyride.App.RequestIdleCallbackIsDefined (requestIdleCallbackIsDefined)
 import Joyride.Audio.Graph.Ride (graph)
 import Joyride.FRP.Behavior (refToBehavior)
 import Joyride.FRP.Dedup (dedup)
+import Joyride.FRP.LowPrioritySchedule (schedulingIntervalInMS)
 import Joyride.FRP.Rate (timeFromRate)
 import Joyride.FRP.SampleJIT (sampleJIT)
 import Joyride.FRP.SampleOnSubscribe (initializeWithEmpty)
@@ -207,7 +208,7 @@ ride
                           ricid <- requestIdleCallbackIsDefined
                           ctx <- context
                           hk <- constant0Hack ctx
-                          ci <- setInterval 5000 do
+                          ci <- setInterval schedulingIntervalInMS do
                             Ref.read tli.icid >>= traverse_
                               (flip cancelIdleCallback tli.wdw)
                             let
