@@ -16,3 +16,4 @@ pubsub-debug.log
 ui-debug.log
 .env
 /purescript-backend-optimizer/**
+/output-es
