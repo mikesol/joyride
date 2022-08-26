@@ -10,7 +10,7 @@
 		"build": "npm run build-ps && rm -rf dist && mkdir dist && LIL_GUI=false FORCE_4=false webpack --mode=production",
 		"build:prod": "npm run build-ps:prod && rm -rf dist && mkdir dist && LIL_GUI=false FORCE_4=false PROD_EXPERIMENTAL=true webpack --mode=production",
 		"build:dev": "npm run build-ps && rm -rf dist && mkdir dist && LIL_GUI=false FORCE_4=false webpack",
-		"build:prod-no-min": "npm run build-ps && rm -rf dist && mkdir dist && LIL_GUI=false FORCE_4=false DISABLE_MINIMIZATION=true webpack --mode=production",
+		"build:prod-no-min": "npm run build-ps && rm -rf dist && mkdir dist && LIL_GUI=false FORCE_4=false DISABLE_MINIMIZATION=true PROD_EXPERIMENTAL=true webpack --mode=production",
 		"build-ps": "rm -rf .spago/rito && spago build",
 		"build-ps:prod": "rm -rf .spago/rito && spago -x prod.dhall build",
 		"test": "spago -x test.dhall test"
