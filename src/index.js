@@ -3,7 +3,7 @@ import "./style.scss";
 import "tw-elements";
 import "openplayerjs/dist/openplayer.min.css";
 
-import { main } from "../output/Main";
+import { main } from "PureScript";
 import { audio } from "./audio";
 import { shaders } from "./shaders";
 import { textures, cubeTextures } from "./textures";

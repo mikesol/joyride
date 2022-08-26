@@ -10,9 +10,16 @@ module.exports = {
 	mode: "development",
 	entry: "./src/index.js",
 	devtool: "source-map",
+	resolve: {
+		alias: {
+			PureScript: process.env.PROD_EXPERIMENTAL ? path.resolve(__dirname, 'output-es/Main/') : path.resolve(__dirname, 'output/Main/') ,
+		},
+	},
 	output: {
 		path: path.resolve(__dirname, "dist"),
 		filename: "bundle.js",
+	}, optimization: {
+		minimize: process.env.DISABLE_MINIMIZATION ? false : true,
 	},
 	plugins: [
 		new FaviconsWebpackPlugin(),
