@@ -1,0 +1,3 @@
+FRP.Event.applicativeEvent.pure arity=1
+FRP.Event.eventIsEvent.keepLatest arity=1
+FRP.Event.altEvent.alt arity=2
