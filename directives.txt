@@ -1,3 +1,15 @@
+FRP.Event.compactableEvent arity=1
+FRP.Event.filterableEvent arity=1
+FRP.Event.altEvent arity=1
+FRP.Event.plusEvent arity=1
+FRP.Event.applyEvent arity=1
+FRP.Event.applicativeEvent arity=1
+FRP.Event.eventIsEvent arity=1
+FRP.Event.semigroupEvent arity=2
+FRP.Event.monoidEvent arity=2
+FRP.Event.heytingAlgebraEvent arity=2
+FRP.Event.semiringEvent arity=2
+FRP.Event.ringEvent arity=2
 FRP.Event.applicativeEvent.pure arity=1
 FRP.Event.eventIsEvent.keepLatest arity=1
 FRP.Event.altEvent.alt arity=2
