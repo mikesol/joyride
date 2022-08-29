@@ -97,7 +97,8 @@ rideLongs levs makeLongs = toScene
         )
     ) <|>
       ( keepLatest $ (LocalTime.withTime (pure unit)) <#> \{ time } -> lowPrioritySchedule makeLongs.lpsCallback
-          (JMilliseconds 10000.0 + (coerce $ unInstant time))
+          -- make longer (20ms) because, well, it's long!
+          (JMilliseconds 20000.0 + (coerce $ unInstant time))
           (pure $ Release)
       )
   go Nil _ = Nil :< go Nil
