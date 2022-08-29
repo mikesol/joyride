@@ -231,22 +231,22 @@ newtype BufferName = BufferName String
 derive instance Newtype BufferName _
 
 normalizedColumn :: Column -> Number
-normalizedColumn C0 = 0.0 / 16.0
-normalizedColumn C1 = 1.0 / 16.0
-normalizedColumn C2 = 2.0 / 16.0
-normalizedColumn C3 = 3.0 / 16.0
-normalizedColumn C4 = 4.0 / 16.0
-normalizedColumn C5 = 5.0 / 16.0
-normalizedColumn C6 = 6.0 / 16.0
-normalizedColumn C7 = 7.0 / 16.0
-normalizedColumn C8 = 8.0 / 16.0
-normalizedColumn C9 = 9.0 / 16.0
-normalizedColumn C10 = 10.0 / 16.0
-normalizedColumn C11 = 11.0 / 16.0
-normalizedColumn C12 = 12.0 / 16.0
-normalizedColumn C13 = 13.0 / 16.0
-normalizedColumn C14 = 14.0 / 16.0
-normalizedColumn C15 = 15.0 / 16.0
+normalizedColumn C1 = 0.0 / 16.0
+normalizedColumn C2 = 1.0 / 16.0
+normalizedColumn C3 = 2.0 / 16.0
+normalizedColumn C4 = 3.0 / 16.0
+normalizedColumn C5 = 4.0 / 16.0
+normalizedColumn C6 = 5.0 / 16.0
+normalizedColumn C7 = 6.0 / 16.0
+normalizedColumn C8 = 7.0 / 16.0
+normalizedColumn C9 = 8.0 / 16.0
+normalizedColumn C10 = 9.0 / 16.0
+normalizedColumn C11 = 10.0 / 16.0
+normalizedColumn C12 = 11.0 / 16.0
+normalizedColumn C13 = 12.0 / 16.0
+normalizedColumn C14 = 13.0 / 16.0
+normalizedColumn C15 = 14.0 / 16.0
+normalizedColumn C16 = 15.0 / 16.0
 
 
 -- | Beats, or a temporal unit based on seconds modulated by a tempo.

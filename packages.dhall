@@ -45,7 +45,7 @@ let overrides =
       , joyride-types =
         { dependencies = [ "either" ]
         , repo = "https://github.com/mikesol/joyride-types.git"
-        , version = "v0.0.2"
+        , version = "v0.0.3"
         }
       , deku =
         { dependencies =

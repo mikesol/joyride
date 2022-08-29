@@ -1123,6 +1123,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                   client <- init
                                   picker (\_ -> pure unit) (\_ _ -> pure unit) (\_ _ -> pure unit)
                                     ( \{ url } -> do
+                                        log $ "Uploaded to: " <> url
                                         pushed.loadingScreenVisible true
                                         rn <- randomName
                                         let
