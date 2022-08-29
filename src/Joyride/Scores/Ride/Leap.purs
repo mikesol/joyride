@@ -35,7 +35,7 @@ import Rito.Geometries.Box (box)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.RoundRobin (InstanceId, Semaphore(..), roundRobinInstancedMesh)
 import Safe.Coerce (coerce)
-import Types (Beats(..), Column, HitLeapMe, JMilliseconds(..), LeapEventV0', MakeLeaps, Position(..), RateInfo, int2Column)
+import Types (Beats(..), Column, HitLeapMe, JMilliseconds(..), LeapEventV0', MakeLeaps, Position(..), RateInfo)
 
 lookAhead :: Beats
 lookAhead = Beats 0.1
@@ -158,7 +158,7 @@ rideLeaps levs makeLeaps = fixed
             -- divide by 2.0 to get roughly two extra bars back
             , appearsAt: (Beats $ logicalFirst - (abs (x.marker2Time - x.marker1Time) / 2.0)) + startOffset
             , hitsLastPositionAt: (Beats logicalLast) + startOffset
-            , column: int2Column x.column
+            , column: x.column
             , position: x.position
             }
       ) $ levs

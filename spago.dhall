@@ -27,6 +27,7 @@
   , "http-methods"
   , "hyrule"
   , "integers"
+  , "joyride-types"
   , "js-date"
   , "js-timers"
   , "js-uri"

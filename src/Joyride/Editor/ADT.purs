@@ -3,7 +3,7 @@ module Joyride.Editor.ADT where
 
 import Data.Maybe (Maybe)
 import Data.Newtype (class Newtype)
-import Types (Position)
+import Types (Column, Position)
 
 newtype Marker = Marker { at :: Number }
 derive instance Newtype Marker _
@@ -15,7 +15,7 @@ data Landmark
       , startIx :: Int
       , name :: Maybe String
       , fbId :: Maybe String
-      , col :: Int
+      , col :: Column
       , l1 :: Marker
       , l2 :: Marker
       , l3 :: Marker
@@ -24,7 +24,7 @@ data Landmark
   | LLeap
       { id :: Int
       , startIx :: Int
-      , col :: Int
+      , col :: Column
       , name :: Maybe String
       , fbId :: Maybe String
       , start :: Marker
@@ -34,7 +34,7 @@ data Landmark
   | LLong
       { id :: Int
       , startIx :: Int
-      , col :: Int
+      , col :: Column
       , name :: Maybe String
       , fbId :: Maybe String
       , start :: Marker

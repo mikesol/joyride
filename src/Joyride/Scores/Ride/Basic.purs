@@ -31,7 +31,7 @@ import Ocarina.WebAPI (BrowserAudioBuffer)
 import Record (union)
 import Rito.Core (ASceneful, CSS3DObject, Mesh, toScene)
 import Safe.Coerce (coerce)
-import Types (BasicEventV0', Beats(..), Column(..), HitBasicMe, JMilliseconds(..), MakeBasics, RateInfo, beatToTime, int2Column)
+import Types (BasicEventV0', Beats(..), Column(..), HitBasicMe, JMilliseconds(..), MakeBasics, RateInfo, beatToTime)
 
 type ACU =
   { appearsAt :: Beats
@@ -182,7 +182,7 @@ rideBasics bevs makeBasics =
           , b2: (Beats $ x.marker3Time) + startOffset
           , b3: (Beats $ x.marker4Time) + startOffset
           , text: pure ""
-          , column: int2Column x.column
+          , column: x.column
           }
       ) $ sortBy (compare `on` _.marker1Time) (List.fromFoldable bevs)
 

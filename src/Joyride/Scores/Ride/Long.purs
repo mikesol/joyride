@@ -32,7 +32,7 @@ import Rito.Geometries.Box (box)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.RoundRobin (InstanceId, Semaphore(..), roundRobinInstancedMesh)
 import Safe.Coerce (coerce)
-import Types (Beats(..), Column, JMilliseconds(..), LongEventV0', MakeLongs, RateInfo, Seconds(..), int2Column)
+import Types (Beats(..), Column, JMilliseconds(..), LongEventV0', MakeLongs, RateInfo, Seconds(..))
 
 lookAhead :: Beats
 lookAhead = Beats 0.1
@@ -120,7 +120,7 @@ rideLongs levs makeLongs = toScene
             -- ugh, nicer way to do this in case there is no buffer for long press?
             , tag: x.audioURL
             , length: x.length
-            , column: int2Column x.column
+            , column: x.column
             }
       ) levs
 

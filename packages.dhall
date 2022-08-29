@@ -42,6 +42,11 @@ let overrides =
         , repo = "https://github.com/mikesol/purescript-bolson.git"
         , version = "v0.1.1"
         }
+      , joyride-types =
+        { dependencies = [ "either" ]
+        , repo = "https://github.com/mikesol/joyride-types.git"
+        , version = "v0.0.1"
+        }
       , deku =
         { dependencies =
           [ "arrays"

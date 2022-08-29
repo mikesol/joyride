@@ -5,23 +5,16 @@ module Types
   , Shader
   , GalaxyAttributes
   , ToplevelInfo
-  , BasicEventV0'
-  , LeapEventV0'
-  , LongEventV0'
   , RenderingInfo
   , ChannelChooser(..)
   , Ride(..)
   , RideV0'
   , Track(..)
   , TrackV0'
-  , Event_(..)
-  , EventV0(..)
-  , Version
   , Models(..)
   , defaultRide
   , InFlightGameInfo'
   , RenderingInfo'
-  , Position(..)
   , Axis(..)
   , ThreeDI
   , CubeTextures(..)
@@ -32,7 +25,6 @@ module Types
   , KnownPlayers(..)
   , IAm(..)
   , touchPointZ
-  , Column(..)
   , Success'
   , WantsTutorial'
   , OpenEditor'
@@ -51,7 +43,6 @@ module Types
   , JMilliseconds(..)
   , Seconds(..)
   , RateInfo
-  , int2Column
   , beatToTime
   , allPlayers
   , allPositions
@@ -92,10 +83,12 @@ module Types
   , HitLeapVisualForLabel(..)
   , Negotiation(..)
   , InFlightGameInfo(..)
+  , module Joyride.Types
   ) where
 
 import Prelude
 
+import Joyride.Types
 import Control.Alt ((<|>))
 import Data.Array.NonEmpty (NonEmptyArray, fromNonEmpty)
 import Data.Either (Either(..))
@@ -105,7 +98,6 @@ import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype)
 import Data.NonEmpty ((:|))
-import Data.Reflectable (class Reflectable, reflectType)
 import Data.Show.Generic (genericShow)
 import Data.Time.Duration (Milliseconds)
 import Data.Tuple (Tuple(..))
@@ -189,28 +181,6 @@ instance JSON.WriteForeign Player where
 allPlayers :: NonEmptyArray Player
 allPlayers = fromNonEmpty $ Player1 :| [ Player2, Player3, Player4 ]
 
-data Position = Position1 | Position2 | Position3 | Position4
-
-derive instance Eq Position
-instance Show Position where
-  show = JSON.writeJSON
-
-instance JSON.ReadForeign Position where
-  readImpl i = do
-    ri <- JSON.readImpl i
-    case ri of
-      "Position1" -> pure Position1
-      "Position2" -> pure Position2
-      "Position3" -> pure Position3
-      "Position4" -> pure Position4
-      _ -> fail $ ForeignError ("No idea how to parse: " <> writeJSON i)
-
-instance JSON.WriteForeign Position where
-  writeImpl Position1 = JSON.writeImpl "Position1"
-  writeImpl Position2 = JSON.writeImpl "Position2"
-  writeImpl Position3 = JSON.writeImpl "Position3"
-  writeImpl Position4 = JSON.writeImpl "Position4"
-
 allPositions :: NonEmptyArray Position
 allPositions = fromNonEmpty $ Position1 :| [ Position2, Position3, Position4 ]
 
@@ -261,7 +231,6 @@ derive newtype instance Semiring Penalty
 newtype BufferName = BufferName String
 
 derive instance Newtype BufferName _
-data Column = C0 | C1 | C2 | C3 | C4 | C5 | C6 | C7 | C8 | C9 | C10 | C11 | C12 | C13 | C14 | C15
 
 normalizedColumn :: Column -> Number
 normalizedColumn C0 = 0.0 / 16.0
@@ -281,23 +250,6 @@ normalizedColumn C13 = 13.0 / 16.0
 normalizedColumn C14 = 14.0 / 16.0
 normalizedColumn C15 = 15.0 / 16.0
 
-int2Column :: Int -> Column
-int2Column 0 = C0
-int2Column 1 = C1
-int2Column 2 = C2
-int2Column 3 = C3
-int2Column 4 = C4
-int2Column 5 = C5
-int2Column 6 = C6
-int2Column 7 = C7
-int2Column 8 = C8
-int2Column 9 = C9
-int2Column 10 = C10
-int2Column 11 = C11
-int2Column 12 = C12
-int2Column 13 = C13
-int2Column 14 = C14
-int2Column _ = C15
 
 -- | Beats, or a temporal unit based on seconds modulated by a tempo.
 newtype Beats = Beats Number
@@ -1101,26 +1053,6 @@ type GalaxyAttributes =
   , aColor2 :: InstancedBufferAttribute
   }
 
-data Version (i :: Int) = Version Int
-
-instance Reflectable i Int => Show (Version i) where
-  show _ = "Version " <> show (reflectType (Proxy :: _ i))
-
-instance Semigroup (Version i) where
-  append a _ = a
-
-instance Reflectable i Int => Monoid (Version i) where
-  mempty = Version (reflectType (Proxy :: _ i))
-
-instance Reflectable i Int => JSON.ReadForeign (Version i) where
-  readImpl i' = do
-    i <- JSON.readImpl i'
-    let j = reflectType (Proxy :: _ i)
-    if i == j then pure (Version i) else fail (ForeignError $ "Expecting version " <> show j <> " but received " <> show i)
-
-instance Reflectable i Int => JSON.WriteForeign (Version i) where
-  writeImpl _ = JSON.writeImpl (reflectType (Proxy :: _ i))
-
 type RideV0' =
   { player1 :: Maybe String
   , player2 :: Maybe String
@@ -1154,65 +1086,12 @@ type TrackV0' =
   , version :: Version 0
   }
 
-instance JSON.ReadForeign EventV0 where
-  readImpl i = do
-    { _type } :: { _type :: String } <- JSON.readImpl i
-    case _type of
-      "Basic" -> BasicEventV0 <$> JSON.readImpl i
-      "Leap" -> LeapEventV0 <$> JSON.readImpl i
-      "Long" -> LongEventV0 <$> JSON.readImpl i
-      _ -> fail (ForeignError $ "Could not parse: " <> JSON.writeJSON i)
-
-instance JSON.WriteForeign EventV0 where
-  writeImpl (BasicEventV0 x) = JSON.writeImpl $ union { _type: "Basic" } x
-  writeImpl (LeapEventV0 x) = JSON.writeImpl $ union { _type: "Leap" } x
-  writeImpl (LongEventV0 x) = JSON.writeImpl $ union { _type: "Long" } x
 
 data Track = TrackV0 TrackV0'
 
 instance Show Track where
   show (TrackV0 t) = "TrackV0 <" <> show t <> ">"
 
-data Event_ = EventV0 EventV0
-
-type BasicEventV0' =
-  { marker1Time :: Number
-  , marker1AudioURL :: Maybe String
-  , marker2Time :: Number
-  , marker2AudioURL :: Maybe String
-  , marker3Time :: Number
-  , marker3AudioURL :: Maybe String
-  , marker4Time :: Number
-  , marker4AudioURL :: Maybe String
-  , column :: Int
-  , name :: Maybe String
-  , version :: Version 0
-  }
-
-type LeapEventV0' =
-  { marker1Time :: Number
-  , marker2Time :: Number
-  , audioURL :: Maybe String
-  , column :: Int
-  , position :: Position
-  , name :: Maybe String
-  , version :: Version 0
-  }
-
-type LongEventV0' =
-  { marker1Time :: Number
-  , marker2Time :: Number
-  , audioURL :: Maybe String
-  , length :: Number
-  , column :: Int
-  , name :: Maybe String
-  , version :: Version 0
-  }
-
-data EventV0
-  = BasicEventV0 BasicEventV0'
-  | LeapEventV0 LeapEventV0'
-  | LongEventV0 LongEventV0'
 
 defaultRide :: Ride
 defaultRide = RideV0
@@ -1254,12 +1133,6 @@ instance JSON.ReadForeign Track where
 
 instance JSON.WriteForeign Track where
   writeImpl (TrackV0 i) = JSON.writeImpl i
-
-instance JSON.ReadForeign Event_ where
-  readImpl i = EventV0 <$> (JSON.readImpl i)
-
-instance JSON.WriteForeign Event_ where
-  writeImpl (EventV0 i) = JSON.writeImpl i
 
 data ChannelChooser = NoChannel | RideChannel String String Track | TutorialChannel | EditorChannel
 

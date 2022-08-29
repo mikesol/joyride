@@ -11,7 +11,7 @@ import Control.Plus (empty)
 import Control.Promise (toAffE)
 import Data.Array (intercalate, length, sortBy, (!!), (..))
 import Data.Array as Array
-import Data.Either (Either(..))
+import Data.Either (Either(..), hush)
 import Data.Filterable (compact, filterMap)
 import Data.Foldable (for_, oneOf, traverse_)
 import Data.FoldableWithIndex (traverseWithIndex_)
@@ -30,7 +30,6 @@ import Data.Set as Set
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..), fst, snd)
 import Data.Tuple.Nested ((/\), type (/\))
-import Debug (spy)
 import Deku.Attribute (class Attr, Attribute, cb, xdata, (:=))
 import Deku.Control (text, text_)
 import Deku.Core (Domable, insert_, remove, vbussedUncurried)
@@ -67,12 +66,13 @@ import Joyride.Scores.Ride.Basic (rideBasics)
 import Joyride.Scores.Ride.Leap (rideLeaps)
 import Joyride.Scores.Ride.Long (rideLongs)
 import Joyride.Style (buttonActiveCls, buttonCls, distinctColors, headerCls)
+import Joyride.Types (Column(..), intToColumn)
 import Joyride.UniqueNames (randomName)
 import Joyride.Wavesurfer.Wavesurfer (WaveSurfer, addMarker, associateEventDocumentIdWithMarker, associateEventDocumentIdWithSortedMarkerIdList, getCurrentTime, getDuration, hideMarker, makeWavesurfer, muteExcept, removeMarker, showMarker, zoom)
 import Ocarina.Interpret (context_, decodeAudioDataFromUri)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
-import Types (BasicEventV0', EventV0(..), Event_(..), LeapEventV0', LongEventV0', OpenEditor', Position(..), ToplevelInfo, Track(..), WantsTutorial')
+import Types (BasicEventV0', Column, EventV0(..), Event_(..), LeapEventV0', LongEventV0', OpenEditor', Position(..), ToplevelInfo, Track(..), WantsTutorial')
 import Web.DOM.Node (firstChild, textContent)
 import Web.DOM.Node as Node
 import Web.Event.Event (EventType(..), target)
@@ -133,7 +133,7 @@ type Events t =
 type SingleItem :: forall k. (Type -> k) -> Row k
 type SingleItem t =
   ( changeName :: t (Maybe String)
-  , changeColumn :: t Int
+  , changeColumn :: t Column
   , solo :: t Unit
   , mute :: t Unit
   , delete :: t Unit
@@ -162,7 +162,7 @@ foreign import styleAudio :: Effect Unit
 aAddBasic
   :: { id :: Int
      , name :: Maybe String
-     , column :: Int
+     , column :: Column
      , marker1Time :: Number
      , marker2Time :: Number
      , marker3Time :: Number
@@ -190,7 +190,7 @@ aAddBasic t = Map.insert t.id
 aAddLeap
   :: { id :: Int
      , name :: Maybe String
-     , column :: Int
+     , column :: Column
      , marker1Time :: Number
      , marker2Time :: Number
      , position :: Position
@@ -213,7 +213,7 @@ aAddLeap t = Map.insert t.id
 aAddLongPress
   :: { id :: Int
      , name :: Maybe String
-     , column :: Int
+     , column :: Column
      , marker1Time :: Number
      , marker2Time :: Number
      , length :: Number
@@ -242,7 +242,7 @@ aChangeName { id, name } = Map.update
   )
   id
 
-aChangeColumn :: { id :: Int, column :: Int } -> ChangeEvent_
+aChangeColumn :: { id :: Int, column :: Column} -> ChangeEvent_
 aChangeColumn { id, column } = Map.update
   ( Just <<< case _ of
       EventV0 (BasicEventV0 be) -> EventV0 (BasicEventV0 (be { column = column }))
@@ -560,10 +560,9 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                           , marker3AudioURL: Nothing
                           , marker4Time: time4
                           , marker4AudioURL: Nothing
-                          , column: 7
+                          , column: C7
                           , name: Nothing
                           , version: mempty
-
                           }
                       )
                   m0 <- addMarker ws ix 0 { color: dC ix, label: "B1", time: time1 }
@@ -573,7 +572,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                   pushed.atomicEventOperation $ aAddBasic
                     { id: ix
                     , name: Nothing
-                    , column: 7
+                    , column: C7
                     , marker1Time: time1
                     , marker2Time: time2
                     , marker3Time: time3
@@ -591,7 +590,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                             , marker3AudioURL: Nothing
                             , marker4Time: time4
                             , marker4AudioURL: Nothing
-                            , column: 7
+                            , column: C7
                             , name: Nothing
                             , version: mempty
                             }
@@ -614,7 +613,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                           { marker1Time: time1
                           , audioURL: Nothing
                           , marker2Time: time2
-                          , column: 7
+                          , column: C7
                           , position
                           , name: Nothing
                           , version: mempty
@@ -631,7 +630,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                   pushed.atomicEventOperation $ aAddLeap
                     { id: ix
                     , name: Nothing
-                    , column: 7
+                    , column: C7
                     , position
                     , marker1Time: time1
                     , marker2Time: time2
@@ -645,7 +644,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                             , marker2Time: time2
                             , position
                             , name: Nothing
-                            , column: 7
+                            , column: C7
                             , version: mempty
                             }
                         )
@@ -668,7 +667,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                           , audioURL: Nothing
                           , marker2Time: time2
                           , length: 1.0
-                          , column: 7
+                          , column: C7
                           , name: Nothing
                           , version: mempty
 
@@ -679,7 +678,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                   pushed.atomicEventOperation $ aAddLongPress
                     { id: ix
                     , name: Nothing
-                    , column: 7
+                    , column: C7
                     , marker1Time: time1
                     , marker2Time: time2
                     , length: 1.0
@@ -693,7 +692,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                             , marker2Time: time2
                             , length: 1.0
                             , name: Nothing
-                            , column: 7
+                            , column: C7
                             , version: mempty
                             }
                         )
@@ -897,7 +896,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                           ]
                                       )
                                       [ D.span (oneOf [ pure $ D.Class := "mr-2", pure $ D.Style := "color: " <> dC id <> ";" ]) [ text_ (prefix) ]
-                                      , D.span_ [ text label, text_ " (Column ", text (show <$> column), text_ ") ", text $ (pure times <|> fold (\{ offset, time } tmzz -> set (ix offset) time tmzz) (markerEvent id) times) <#> \tmz -> " (" <> intercalate "," (map (toStringWith (fixed 2)) tmz) <> ")" ]
+                                      , D.span_ [ text label, text_ " (Column ", text (JSON.writeJSON <$> column), text_ ") ", text $ (pure times <|> fold (\{ offset, time } tmzz -> set (ix offset) time tmzz) (markerEvent id) times) <#> \tmz -> " (" <> intercalate "," (map (toStringWith (fixed 2)) tmz) <> ")" ]
                                       , D.span
                                           ( oneOf
                                               [ soloState <#> \st -> D.Class := ("text-white font-bold pl-2 " <> if st then "" else " hidden")
@@ -969,7 +968,8 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                           >>= fromEventTarget
                                                       )
                                                       ( \x -> do
-                                                          v <- floor <$> valueAsNumber x
+                                                          v' <- floor <$> valueAsNumber x
+                                                          let v =  fromMaybe C7 $ hush $ intToColumn v'
                                                           (always :: Zora Unit -> Effect Unit) do
                                                             p'.changeColumn v
                                                           pushed.atomicEventOperation $ aChangeColumn { id, column: v }
@@ -977,7 +977,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                             launchAff_ (updateColumnAff firestoreDb trackId evId v)
                                                       )
                                                   , pure $ D.Xtype := "number"
-                                                  , pure $ D.Value := show col
+                                                  , pure $ D.Value := JSON.writeJSON col
                                                   , pure $ D.Min := "1"
                                                   , pure $ D.Max := "16"
                                                   , pure $ D.Class := "bg-inherit text-white mx-2 appearance-none border rounded py-2 px-3 leading-tight focus:outline-none focus:shadow-outline"
@@ -1249,7 +1249,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
             do
               let vals = Array.fromFoldable $ Map.values $ snd x.mrd
               let TrackV0 tv0 = fst x.mrd
-              let _ = spy "tv0 vals" (JSON.writeJSON { tv0, vals })
+              -- let _ = spy "tv0 vals" (JSON.writeJSON { tv0, vals })
               case x.psv of
                 Nothing -> envy empty
                 Just success -> tutorial

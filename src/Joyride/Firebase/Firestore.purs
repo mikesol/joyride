@@ -14,7 +14,7 @@ import FRP.Event (Event, makeEvent)
 import Foreign (Foreign)
 import Joyride.Firebase.Opaque (FirebaseApp, FirebaseAuth, Firestore)
 import Simple.JSON as JSON
-import Types (Event_, Penalty(..), Player(..), Points(..), Ride(..), RideV0', Track, defaultRide)
+import Types (Column, Event_, Penalty(..), Player(..), Points(..), Ride(..), RideV0', Track, columnToInt, defaultRide)
 
 foreign import firestoreDb :: FirebaseApp -> Effect (Promise Firestore)
 
@@ -121,8 +121,8 @@ deleteNameAff a b c = toAffE $ deleteName a b c
 
 foreign import updateColumn :: Firestore -> String -> String -> Int -> Effect (Promise Unit)
 
-updateColumnAff :: Firestore -> String -> String -> Int -> Aff Unit
-updateColumnAff a b c d = toAffE $ updateColumn a b c d
+updateColumnAff :: Firestore -> String -> String -> Column -> Aff Unit
+updateColumnAff a b c d = toAffE $ updateColumn a b c (columnToInt d)
 
 foreign import deleteEvent :: Firestore -> String -> String -> Effect (Promise Unit)
 
