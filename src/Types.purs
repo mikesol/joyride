@@ -9,8 +9,6 @@ module Types
   , ChannelChooser(..)
   , Ride(..)
   , RideV0'
-  , Track(..)
-  , TrackV0'
   , Models(..)
   , defaultRide
   , InFlightGameInfo'
@@ -1078,20 +1076,6 @@ type RideV0' =
   , version :: Version 0
   }
 
-type TrackV0' =
-  { url :: String
-  , private :: Boolean
-  , title :: Maybe String
-  , owner :: String
-  , version :: Version 0
-  }
-
-
-data Track = TrackV0 TrackV0'
-
-instance Show Track where
-  show (TrackV0 t) = "TrackV0 <" <> show t <> ">"
-
 
 defaultRide :: Ride
 defaultRide = RideV0
@@ -1127,12 +1111,6 @@ instance JSON.ReadForeign Ride where
 
 instance JSON.WriteForeign Ride where
   writeImpl (RideV0 i) = JSON.writeImpl i
-
-instance JSON.ReadForeign Track where
-  readImpl i = TrackV0 <$> (JSON.readImpl i)
-
-instance JSON.WriteForeign Track where
-  writeImpl (TrackV0 i) = JSON.writeImpl i
 
 data ChannelChooser = NoChannel | RideChannel String String Track | TutorialChannel | EditorChannel
 
