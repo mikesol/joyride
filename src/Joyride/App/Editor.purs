@@ -6,7 +6,7 @@ import Bolson.Control (switcher)
 import Bolson.Core (envy, dyn)
 import Control.Alt ((<|>))
 import Control.Monad.ST.Class (class MonadST)
-import Control.Parallel (parTraverse)
+import Control.Parallel (parTraverse, parallel, sequential)
 import Control.Plus (empty)
 import Control.Promise (toAffE)
 import Data.Array (intercalate, length, sortBy, (!!), (..))
@@ -1087,7 +1087,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                           -- update owner if the export was from someone else
                                           doc <- addTrackAff firestoreDb (maybe identity (\(User { uid }) -> aChangeOwner uid) cu track)
                                           myTrack <- getTrackAff firestoreDb doc.id
-                                          for_ myTrack \(tk :: Track) -> do
+                                          sequential $ for_ myTrack \(tk :: Track) -> parallel do
                                             evs :: Array { id :: String, data :: Event_ } <- compact <$>
                                               ( events # traverse \e -> do
                                                   added :: DocumentReference <- addEventAff firestoreDb doc.id e
