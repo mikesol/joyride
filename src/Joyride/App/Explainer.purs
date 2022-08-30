@@ -4,14 +4,18 @@ import Prelude
 
 import Bolson.Core (Element(..), envy, fixed)
 import Control.Alt ((<|>))
+import Control.Parallel (parSequence, parTraverse, sequential)
 import Control.Plus (empty)
+import Data.Array (nubBy)
 import Data.Foldable (oneOf, oneOfMap, traverse_)
+import Data.Function (on)
 import Data.Maybe (Maybe(..), fromMaybe, isJust, maybe)
 import Data.Newtype (unwrap)
 import Data.Number (cos, pi)
 import Data.Time.Duration (Milliseconds)
 import Data.Tuple.Nested (type (/\), (/\))
 import Deku.Attribute ((:=))
+import Deku.Attributes (klass)
 import Deku.Control (switcher_, text_)
 import Deku.Core (Nut, vbussed)
 import Deku.DOM as D
@@ -24,8 +28,8 @@ import FRP.Event (Event, fromEvent, keepLatest, mapAccum, memoize)
 import FRP.Event.Animate (animationFrameEvent)
 import FRP.Event.VBus (V)
 import Joyride.Firebase.Auth (signInWithGoogle)
-import Joyride.Firebase.Firestore (getPublicTracksAff)
-import Joyride.Firebase.Opaque (Firestore)
+import Joyride.Firebase.Firestore (getPublicTracksAff, getTracksAff)
+import Joyride.Firebase.Opaque (FirebaseAuth, Firestore)
 import Joyride.FullScreen as FullScreen
 import Joyride.Style (buttonCls, headerCls)
 import Joyride.Timing.CoordinatedNow (withCTime)
@@ -143,6 +147,7 @@ explainerPage
      , initialDims :: WindowDims
      , threeDI :: ThreeDI
      , firestoreDb :: Firestore
+     , fbAuth :: FirebaseAuth
      , signedInNonAnonymously :: Event Boolean
      }
   -> Nut
@@ -175,9 +180,9 @@ explainerPage opts = vbussed
                     [ text_ "Tutorial" ]
                 , D.button
                     ( oneOf
-                        [ pure $ D.Class := buttonCls
-                        , DL.click $ pure $ launchAff_ do
-                            rides <- getPublicTracksAff opts.firestoreDb
+                        [ klass $ pure buttonCls
+                        , DL.click $ (fromEvent opts.signedInNonAnonymously) <#> \signedInNonAnon ->  launchAff_ do
+                            rides <- map (nubBy (compare `on` _.id) <<< join) $ parSequence [getPublicTracksAff opts.firestoreDb, if signedInNonAnon then getTracksAff opts.fbAuth opts.firestoreDb else pure [] ]
                             liftEffect $ push.availableRides (Just rides)
                         ]
                     )

@@ -84,9 +84,9 @@ module Types
   , module Joyride.Types
   ) where
 
+import Joyride.Types
 import Prelude
 
-import Joyride.Types
 import Control.Alt ((<|>))
 import Data.Array.NonEmpty (NonEmptyArray, fromNonEmpty)
 import Data.Either (Either(..))
@@ -828,6 +828,7 @@ data Negotiation
       , initialDims :: WindowDims
       , signOut :: Effect Unit
       , firestoreDb :: Firestore
+      , fbAuth :: FirebaseAuth
       , threeDI :: ThreeDI
       , cNow :: Effect Milliseconds
       , signedInNonAnonymously :: Event Boolean

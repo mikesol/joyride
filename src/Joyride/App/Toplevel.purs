@@ -24,7 +24,7 @@ import Joyride.App.SorryNeedPermission (sorryNeedPermissionPage)
 import Joyride.App.Tutorial (tutorial)
 import Joyride.FRP.Dedup (dedup)
 import Joyride.FRP.StartingWith (startingWith)
-import Joyride.Firebase.Opaque (Firestore)
+import Joyride.Firebase.Opaque (FirebaseAuth, Firestore)
 import Joyride.Ocarina (AudibleChildEnd)
 import Joyride.Scores.Ride.Basic (rideBasics)
 import Joyride.Scores.Ride.Leap (rideLeaps)
@@ -63,6 +63,7 @@ data TopLevelDisplay
       , models :: Models GLTFLoader.GLTF
       , threeDI :: ThreeDI
       , signOut :: Effect Unit
+      , fbAuth :: FirebaseAuth
       , firestoreDb :: Firestore
       , initialDims :: WindowDims
       , cNow :: Effect Milliseconds
@@ -134,7 +135,7 @@ toplevel tli =
   ) # switcher case _ of
     TLNeedsOrientation -> orientationPermissionPage { givePermission: tli.givePermission }
     TLWillNotWorkWithoutOrientation -> sorryNeedPermissionPage
-    TLExplainer { cubeTextures, threeDI, cNow, initialDims, firestoreDb, signedInNonAnonymously, signOut } -> explainerPage
+    TLExplainer { cubeTextures, threeDI, cNow, initialDims, firestoreDb, fbAuth, signedInNonAnonymously, signOut } -> explainerPage
       { ride: tli.ride
       , editor: tli.editor
       , tutorial: tli.tutorial
@@ -143,6 +144,7 @@ toplevel tli =
       , signOut
       , resizeE: tli.resizeE
       , initialDims
+      , fbAuth
       , firestoreDb
       , threeDI
       , cubeTextures

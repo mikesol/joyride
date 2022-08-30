@@ -458,6 +458,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                       { threeDI
                       , initialDims
                       , firestoreDb
+                      , fbAuth
                       , models: Models myGLTFs
                       , signOut: launchAff_ do
                           toAffE $ signOut fbAuth (pure unit)
