@@ -80,7 +80,6 @@ type RideInfo r =
   { loaded :: Event Boolean
   , isMobile :: Boolean
   , lpsCallback :: JMilliseconds -> Effect Unit -> Effect Unit
-  , playerPositions :: Behavior PlayerPositionsF
   , resizeE :: Event WindowDims
   , renderingInfo :: Behavior RenderingInfo
   , goHome :: Effect Unit
@@ -138,7 +137,7 @@ ride
 ride
   tli
   tscore
-  { player: myPlayer
+  success@{ player: myPlayer
   , textures
   , cubeTextures
   , trackId
@@ -595,7 +594,7 @@ ride
             }
         }
     )
-    tli.playerPositions
+    success.playerPositions
     rateInfo
 
   -- before we start, the rate will be 60 bps

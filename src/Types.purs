@@ -869,6 +869,7 @@ type Success' =
   , initialDims :: WindowDims
   , cNow :: Effect Milliseconds
   , threeDI :: ThreeDI
+  , playerPositions :: Behavior PlayerPositionsF
   , models :: Models GLTFLoader.GLTF
   , textures :: Textures Texture
   , cubeTextures :: CubeTextures CTL.CubeTexture
@@ -890,6 +891,7 @@ type WantsTutorial' =
   , longVerb :: BrowserAudioBuffer
   , initialDims :: WindowDims
   , galaxyAttributes :: GalaxyAttributes
+  , playerPositions :: Behavior PlayerPositionsF
   , cNow :: Effect Milliseconds
   , threeDI :: ThreeDI
   , textures :: Textures Texture
@@ -1131,7 +1133,6 @@ type ToplevelInfo =
   , editor :: Effect Unit
   , ride :: (String /\ Track) -> Effect Unit
   , lpsCallback :: JMilliseconds -> Effect Unit -> Effect Unit
-  , playerPositions :: Behavior PlayerPositionsF
   , resizeE :: Event WindowDims
   , renderingInfo :: Behavior RenderingInfo
   , goHome :: Effect Unit

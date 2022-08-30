@@ -58,7 +58,7 @@ import Rito.Matrix4 as M4
 import Safe.Coerce (coerce)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
-import Types (Beats(..), HitBasicMe, HitLeapMe, HitLongMe, InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, MakeLongs, Player(..), PlayerPositionsF, RateInfo, ReleaseLongMe, RenderingInfo, Seconds(..), StartStatus(..), WantsTutorial', WindowDims)
+import Types (Beats(..), HitBasicMe, HitLeapMe, HitLongMe, InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, MakeLongs, Player(..), RateInfo, ReleaseLongMe, RenderingInfo, Seconds(..), StartStatus(..), WantsTutorial', WindowDims)
 import Web.DOM as Web.DOM
 import Web.HTML.HTMLCanvasElement as HTMLCanvasElement
 import Web.HTML.Window (RequestIdleCallbackId, Window, cancelIdleCallback, requestIdleCallback)
@@ -75,7 +75,6 @@ type TutorialInfo r =
   { loaded :: Event Boolean
   , isMobile :: Boolean
   , lpsCallback :: JMilliseconds -> Effect Unit -> Effect Unit
-  , playerPositions :: Behavior PlayerPositionsF
   , resizeE :: Event WindowDims
   , renderingInfo :: Behavior RenderingInfo
   , goHome :: Effect Unit
@@ -135,7 +134,7 @@ tutorial
 tutorial
   tli
   tscore
-  { player: myPlayer
+  wt@{ player: myPlayer
   , textures
   , initialDims
   , models
@@ -425,7 +424,7 @@ tutorial
             }
         }
     )
-    tli.playerPositions
+    wt.playerPositions
     rateInfo
 
   -- before we start, the rate will be 60 bps
