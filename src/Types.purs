@@ -84,7 +84,7 @@ module Types
   , module Joyride.Types
   ) where
 
-import Joyride.Types
+import Joyride.Types (BasicEventV0', Column(..), EventV0(..), Event_(..), LeapEventV0', LongEventV0', Position(..), Track(..), TrackV0', Version(..), columnToInt, intToColumn)
 import Prelude
 
 import Control.Alt ((<|>))
@@ -102,8 +102,8 @@ import Data.Tuple (Tuple(..))
 import Data.Tuple.Nested (type (/\))
 import Effect (Effect)
 import Effect.Ref as Ref
-import FRP.Behavior (Behavior)
-import FRP.Event (EventIO, Event)
+import FRP.Behavior (ABehavior)
+import FRP.Event.EffectFn (EventIO, Event)
 import Foreign (ForeignError(..), fail)
 import Foreign.Object as Object
 import Joyride.Firebase.Opaque (FirebaseAuth, Firestore)
@@ -121,7 +121,6 @@ import Rito.Texture (Texture)
 import Rito.Vector3 (Vector3')
 import Simple.JSON (undefined, writeJSON)
 import Simple.JSON as JSON
-import Type.Proxy (Proxy(..))
 import Web.HTML.Window (RequestIdleCallbackId, Window)
 
 type CanvasInfo = { x :: Number, y :: Number } /\ Number
@@ -410,6 +409,7 @@ playerPosition' Player2 = _.p2p
 playerPosition' Player3 = _.p3p
 playerPosition' Player4 = _.p4p
 
+newtype Textures :: forall k. k -> Type
 newtype Textures a = Textures
   { -- hockeyAO :: a
   -- , hockeyCOL :: a
@@ -487,7 +487,7 @@ type MakeBasic r =
 
 type MakeBasics r =
   ( initialDims :: WindowDims
-  , renderingInfo :: Behavior RenderingInfo
+  , renderingInfo :: ABehavior Event RenderingInfo
   , resizeEvent :: Event WindowDims
   , isMobile :: Boolean
   , threeDI :: ThreeDI
@@ -498,7 +498,7 @@ type MakeBasics r =
   , pushAudio :: Event AudibleChildEnd -> Effect Unit
   , mkColor :: RGB -> Color
   , animatedStuff :: Event { rateInfo :: RateInfo, playerPositions :: PlayerPositions }
-  , buffers :: Behavior (Object.Object BrowserAudioBuffer)
+  , buffers :: ABehavior Event (Object.Object BrowserAudioBuffer)
   , silence :: BrowserAudioBuffer
   , debug :: Boolean
   , pushBasic :: EventIO HitBasicMe
@@ -578,7 +578,7 @@ type MakeLong r =
 
 type MakeLongs r =
   ( initialDims :: WindowDims
-  , renderingInfo :: Behavior RenderingInfo
+  , renderingInfo :: ABehavior Event RenderingInfo
   , resizeEvent :: Event WindowDims
   , cnow :: Effect Milliseconds
   , isMobile :: Boolean
@@ -589,7 +589,7 @@ type MakeLongs r =
   , pushAudio :: Event AudibleChildEnd -> Effect Unit
   , mkColor :: RGB -> Color
   , animatedStuff :: Event { rateInfo :: RateInfo, playerPositions :: PlayerPositions }
-  , buffers :: Behavior (Object.Object BrowserAudioBuffer)
+  , buffers :: ABehavior Event (Object.Object BrowserAudioBuffer)
   , silence :: BrowserAudioBuffer
   , debug :: Boolean
   , pushHitLong :: EventIO HitLongMe
@@ -739,7 +739,7 @@ type MakeLeapWord r =
 
 type MakeLeaps r =
   ( initialDims :: WindowDims
-  , renderingInfo :: Behavior RenderingInfo
+  , renderingInfo :: ABehavior Event RenderingInfo
   , resizeEvent :: Event WindowDims
   , threeDI :: ThreeDI
   , isMobile :: Boolean
@@ -750,7 +750,7 @@ type MakeLeaps r =
   , pushAudio :: Event AudibleChildEnd -> Effect Unit
   , mkColor :: RGB -> Color
   , animatedStuff :: Event { rateInfo :: RateInfo, playerPositions :: PlayerPositions }
-  , buffers :: Behavior (Object.Object BrowserAudioBuffer)
+  , buffers :: ABehavior Event (Object.Object BrowserAudioBuffer)
   , silence :: BrowserAudioBuffer
   , debug :: Boolean
   , pushLeap :: EventIO HitLeapMe
@@ -869,7 +869,7 @@ type Success' =
   , initialDims :: WindowDims
   , cNow :: Effect Milliseconds
   , threeDI :: ThreeDI
-  , playerPositions :: Behavior PlayerPositionsF
+  , playerPositions :: ABehavior Event PlayerPositionsF
   , models :: Models GLTFLoader.GLTF
   , textures :: Textures Texture
   , cubeTextures :: CubeTextures CTL.CubeTexture
@@ -891,7 +891,7 @@ type WantsTutorial' =
   , longVerb :: BrowserAudioBuffer
   , initialDims :: WindowDims
   , galaxyAttributes :: GalaxyAttributes
-  , playerPositions :: Behavior PlayerPositionsF
+  , playerPositions :: ABehavior Event PlayerPositionsF
   , cNow :: Effect Milliseconds
   , threeDI :: ThreeDI
   , textures :: Textures Texture
@@ -1134,7 +1134,7 @@ type ToplevelInfo =
   , ride :: (String /\ Track) -> Effect Unit
   , lpsCallback :: JMilliseconds -> Effect Unit -> Effect Unit
   , resizeE :: Event WindowDims
-  , renderingInfo :: Behavior RenderingInfo
+  , renderingInfo :: ABehavior Event RenderingInfo
   , goHome :: Effect Unit
   , givePermission :: Boolean -> Effect Unit
   , pushBasic :: EventIO HitBasicMe

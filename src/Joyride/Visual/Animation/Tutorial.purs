@@ -2,7 +2,7 @@ module Joyride.Visual.Animation.Tutorial where
 
 import Prelude
 
-import Bolson.Core (Element(..), envy, fixed)
+import Bolson.EffectFn.Core (Element(..), envy, fixed)
 import Control.Alt ((<|>))
 import Control.Plus (empty)
 import Data.Array.NonEmpty (toArray)
@@ -14,9 +14,9 @@ import Data.Number (cos, pi, sin)
 import Data.Tuple (Tuple(..))
 import Data.Tuple.Nested ((/\))
 import Effect (Effect)
-import FRP.Behavior (Behavior, sampleBy)
-import FRP.Event (Event, EventIO, keepLatest, mapAccum)
-import FRP.Event.VBus (V)
+import FRP.Behavior (ABehavior, sampleBy)
+import FRP.Event.EffectFn (Event, EventIO, keepLatest, mapAccum)
+import FRP.Event.EffectFn.VBus (V)
 import Joyride.Effect.Lowpass (lpf)
 import Joyride.FRP.BusT (vbust)
 import Joyride.FRP.Dedup (dedup)
@@ -72,7 +72,7 @@ runThree
      , textures :: Textures Texture
      , models :: Models GLTF
      , cubeTextures :: CubeTextures CubeTexture
-     , renderingInfo :: Behavior RenderingInfo
+     , renderingInfo :: ABehavior Event RenderingInfo
      , animatedStuff ::
          Event
            { rateInfo :: RateInfo

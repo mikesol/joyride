@@ -2,7 +2,7 @@ module Joyride.Scores.Ride.Basic where
 
 import Prelude
 
-import Bolson.Core (Child(..), dyn, envy, fixed)
+import Bolson.EffectFn.Core (Child(..), dyn, envy, fixed)
 import Control.Alt ((<|>))
 import Control.Comonad.Cofree (Cofree, (:<))
 import Control.Plus (empty)
@@ -17,9 +17,9 @@ import Data.List as List
 import Data.Maybe (Maybe(..))
 import Data.Time.Duration (Milliseconds(..), Seconds(..))
 import Effect (Effect)
-import FRP.Behavior (Behavior, sample_)
-import FRP.Event (Event, keepLatest, memoize)
-import FRP.Event.Time as LocalTime
+import FRP.Behavior (ABehavior, sample_)
+import FRP.Event.EffectFn (Event, keepLatest, memoize)
+import FRP.Event.EffectFn.Time as LocalTime
 import Joyride.Audio.Basic as BasicA
 import Joyride.Constants.Audio (startOffset)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
@@ -50,7 +50,7 @@ lookAhead :: Beats
 lookAhead = Beats 0.1
 
 singleBeat
-  :: { buffer :: Behavior BrowserAudioBuffer
+  :: { buffer :: ABehavior Event BrowserAudioBuffer
      , silence :: BrowserAudioBuffer
      , myBeat :: Beats
      }
@@ -92,7 +92,7 @@ severalBeats { b0, b1, b2, b3, silence } = singleBeat (f $ b0)
   where
   f
     :: Beats
-    -> { buffer :: Behavior BrowserAudioBuffer
+    -> { buffer :: ABehavior Event BrowserAudioBuffer
        , silence :: BrowserAudioBuffer
        , myBeat :: Beats
        }
@@ -117,7 +117,7 @@ rideBasics bevs makeBasics =
   eventList :: forall a. (ACU -> Event a) -> Event (List (Event a))
   eventList f = scheduleCf (go f score) (_.rateInfo <$> makeBasics.animatedStuff)
 
-  transformBasic :: ACU -> Event (Child Void (Mesh lock payload) Effect lock)
+  transformBasic :: ACU -> Event (Child Void (Mesh lock payload) lock)
   transformBasic input =
     ( map Insert
         ( BasicV.basic
@@ -140,7 +140,7 @@ rideBasics bevs makeBasics =
           (pure $ Remove)
       )
 
-  transformBasicWord :: ACU -> Event (Child Void (CSS3DObject lock payload) Effect lock)
+  transformBasicWord :: ACU -> Event (Child Void (CSS3DObject lock payload) lock)
   transformBasicWord input =
     ( pure $ Insert
         ( BasicW.basicWord

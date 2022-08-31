@@ -4,7 +4,7 @@ import Prelude
 
 import Data.Maybe (Maybe(..))
 import Data.Tuple.Nested ((/\))
-import FRP.Event (Event, mapAccum)
+import FRP.Event.EffectFn (Event, mapAccum)
 
 lpf :: Number -> Event Number -> Event Number
 lpf lowpassFactor = flip

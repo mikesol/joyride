@@ -2,7 +2,7 @@ module Joyride.Visual.LeapWord where
 
 import Prelude
 
-import Bolson.Core (envy)
+import Bolson.EffectFn.Core (envy)
 import Control.Alt ((<|>))
 import Data.Foldable (oneOf)
 import Data.Maybe (Maybe(..))
@@ -14,7 +14,7 @@ import Deku.Control (text_)
 import Deku.Core (ANut(..))
 import Deku.DOM as D
 import FRP.Behavior (sampleBy, sample_)
-import FRP.Event (memoize, sampleOn)
+import FRP.Event.EffectFn (memoize, sampleOn)
 import Joyride.FRP.Schedule (fireAndForget)
 import Joyride.Timing.CoordinatedNow (cInstant)
 import Ocarina.Math (calcSlope)

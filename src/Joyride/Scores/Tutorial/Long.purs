@@ -11,9 +11,9 @@ import Data.FunctorWithIndex (mapWithIndex)
 import Data.List (List(..), span, (:))
 import Data.Maybe (Maybe(..))
 import Data.Time.Duration (Milliseconds(..))
-import FRP.Behavior (Behavior, sample_)
-import FRP.Event (Event, keepLatest)
-import FRP.Event.Time as LocalTime
+import FRP.Behavior (ABehavior, sample_)
+import FRP.Event.EffectFn (Event, keepLatest)
+import FRP.Event.EffectFn.Time as LocalTime
 import Foreign.Object as Object
 import Joyride.Audio.Long as LongA
 import Joyride.Constants.Audio (startOffset)
@@ -37,7 +37,7 @@ lookAhead :: Beats
 lookAhead = Beats 0.1
 
 singleBeat
-  :: { buffer :: Behavior BrowserAudioBuffer
+  :: { buffer :: ABehavior Event BrowserAudioBuffer
      , silence :: BrowserAudioBuffer
      , myBeat :: Beats
      }

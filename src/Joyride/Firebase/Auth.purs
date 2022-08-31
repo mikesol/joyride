@@ -24,7 +24,7 @@ import Effect.Aff (Aff, Error, error, launchAff_, throwError)
 import Effect.Class (liftEffect)
 import Effect.Class.Console as Log
 import Effect.Ref as Ref
-import FRP.Event (Event, makeEvent)
+import FRP.Event.EffectFn (Event, makeEvent)
 import Foreign (Foreign)
 import Joyride.Firebase.Opaque (FirebaseApp, FirebaseAuth)
 import Simple.JSON as JSON

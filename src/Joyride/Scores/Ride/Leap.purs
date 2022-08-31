@@ -2,7 +2,7 @@ module Joyride.Scores.Ride.Leap where
 
 import Prelude
 
-import Bolson.Core (Child(..), envy, fixed)
+import Bolson.EffectFn.Core (Child(..), envy, fixed)
 import Control.Alt ((<|>))
 import Control.Comonad.Cofree (Cofree, (:<))
 import Control.Plus (empty)
@@ -14,10 +14,9 @@ import Data.List as List
 import Data.Maybe (Maybe(..))
 import Data.Number (abs)
 import Data.Time.Duration (Milliseconds(..), Seconds(..))
-import Effect (Effect)
-import FRP.Behavior (Behavior, sample_)
-import FRP.Event (Event, keepLatest, memoize)
-import FRP.Event.Time as LocalTime
+import FRP.Behavior (ABehavior, sample_)
+import FRP.Event.EffectFn (Event, keepLatest, memoize)
+import FRP.Event.EffectFn.Time as LocalTime
 import Foreign.Object as Object
 import Joyride.Audio.Leap as LeapA
 import Joyride.Constants.Audio (startOffset)
@@ -41,7 +40,7 @@ lookAhead :: Beats
 lookAhead = Beats 0.1
 
 singleBeat
-  :: { buffer :: Behavior BrowserAudioBuffer
+  :: { buffer :: ABehavior Event BrowserAudioBuffer
      , silence :: BrowserAudioBuffer
      }
   -> Event RateInfo
@@ -93,7 +92,7 @@ rideLeaps levs makeLeaps = fixed
   eventList :: forall a. (ScoreMorcelId -> Event a) -> Event (List (Event a))
   eventList f = scheduleCf (go f score) (_.rateInfo <$> makeLeaps.animatedStuff)
 
-  transformLeapWord :: ScoreMorcelId -> Event (Child Void (CSS3DObject lock payload) Effect lock)
+  transformLeapWord :: ScoreMorcelId -> Event (Child Void (CSS3DObject lock payload) lock)
   transformLeapWord input =
     ( pure $ Insert
         ( LeapW.leapWord

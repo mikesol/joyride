@@ -6,7 +6,7 @@ import Bolson.Control (switcher)
 import Bolson.Core (envy, dyn)
 import Control.Alt ((<|>))
 import Control.Monad.ST.Class (class MonadST)
-import Control.Parallel (parTraverse, parallel, sequential)
+import Control.Parallel (parTraverse, parTraverse_, parallel, sequential)
 import Control.Plus (empty)
 import Control.Promise (toAffE)
 import Data.Array (intercalate, length, sortBy, (!!), (..))
@@ -43,7 +43,8 @@ import Effect.Console (log)
 import Effect.Random (randomInt)
 import Effect.Ref as Ref
 import FRP.Behavior (sample)
-import FRP.Event (AnEvent, fold, folded, fromEvent, keepLatest, mailboxed, mapAccum, memoize, sampleOn, toEvent)
+import FRP.Event.EffectFn as EFFN
+import FRP.Event (AnEvent, fold, fromEvent, folded, keepLatest, mailboxed, mapAccum, memoize, sampleOn, toEvent)
 import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V, vbus)
 import Foreign.Object as Object
@@ -52,11 +53,11 @@ import JSURI (encodeURIComponent)
 import Joyride.App.Loading (loadingPage)
 import Joyride.App.Tutorial (tutorial)
 import Joyride.Editor.ADT (Landmark(..), LongLength(..), Marker(..))
-import Joyride.FRP.Aff (eventToAff)
-import Joyride.FRP.Beh (memoBeh)
-import Joyride.FRP.Behavior (howShouldIBehave)
-import Joyride.FRP.Rider (rider, toRide)
-import Joyride.FRP.Schedule (fireAndForget)
+import Joyride.FRP.FRPD.Aff (eventToAff)
+import Joyride.FRP.FRPD.Beh (memoBeh)
+import Joyride.FRP.FRPD.Behavior (howShouldIBehave)
+import Joyride.FRP.FRPD.Rider (rider, toRide)
+import Joyride.FRP.FRPD.Schedule (fireAndForget)
 import Joyride.Filestack.Filestack (init, picker)
 import Joyride.Firebase.Auth (User(..), currentUser, signInWithGoogle)
 import Joyride.Firebase.Firestore (DocumentReference, addEventAff, addTrackAff, deleteEventAff, forkTrackAff, getEventAff, getEventsAff, getTrackAff, getTracksAff, updateColumnAff, updateEventNameAff, updateMarker1TimeAff, updateMarker2TimeAff, updateMarker3TimeAff, updateMarker4TimeAff, updateTrackPrivateAff, updateTrackTitleAff)
@@ -405,7 +406,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
         <<< rider
           ( toRide
               { event: do
-                  mostRecentData 🙂 event.waveSurfer 🙂 fromEvent (folded $ map pure signedInNonAnonymously) 😄 ({ did: _, sina: _, ws: _, mrd: _ } <$> (Just <$> event.documentId <|> pure Nothing))
+                  mostRecentData 🙂 event.waveSurfer 🙂 (folded $ map pure (EFFN.fromEvent signedInNonAnonymously)) 😄 ({ did: _, sina: _, ws: _, mrd: _ } <$> (Just <$> event.documentId <|> pure Nothing))
               , push: \{ did, sina, ws, mrd } -> unwrap
                   ( (always :: (Endo Function (Effect Unit)) -> (Endo Function (Zora Unit)))
                       ( Endo \_ -> case did, sina of
@@ -725,7 +726,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
               , pure $ D.OnClick := do
                   signInWithGoogle do
                     window >>= alert "Sign in with google is temporarily unavailable. Please try again later."
-              , fromEvent signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> if sina then " hidden" else ""
+              , EFFN.fromEvent signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> if sina then " hidden" else ""
               ]
           )
           [ text_ "Save (sign in)" ]
@@ -1046,13 +1047,13 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
 
                   [ D.div
                       (pure $ D.Class := "pointer-events-auto text-center text-white p-4")
-                      [ text (fromEvent signedInNonAnonymously <#> \sina -> "Get started by importing an audio file" <> if sina then " or project." else ".") ]
+                      [ text (EFFN.fromEvent signedInNonAnonymously <#> \sina -> "Get started by importing an audio file" <> if sina then " or project." else ".") ]
                   ]
                 <>
                   [ D.div (pure $ D.Class := "flex w-full justify-center items-center")
                       [ D.button
                           ( oneOf
-                              [ fromEvent signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> " mx-2 pointer-events-auto" <> if sina then "" else " hidden"
+                              [ EFFN.fromEvent signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> " mx-2 pointer-events-auto" <> if sina then "" else " hidden"
                               , pure $ D.OnClick := do
                                   pushed.loadingScreenVisible true
                                   launchAff_ do
@@ -1066,7 +1067,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                           [ text_ "Fork project" ]
                       , D.button
                           ( oneOf
-                              [ fromEvent signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> " mx-2 pointer-events-auto" <> if sina then "" else " hidden"
+                              [ EFFN.fromEvent signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> " mx-2 pointer-events-auto" <> if sina then "" else " hidden"
                               , pure $ D.OnClick := do
                                   pushed.loadingScreenVisible true
                                   launchAff_ do
@@ -1087,7 +1088,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                           -- update owner if the export was from someone else
                                           doc <- addTrackAff firestoreDb (maybe identity (\(User { uid }) -> aChangeOwner uid) cu track)
                                           myTrack <- getTrackAff firestoreDb doc.id
-                                          sequential $ for_ myTrack \(tk :: Track) -> parallel do
+                                          myTrack # parTraverse_ \(tk :: Track) -> do
                                             evs :: Array { id :: String, data :: Event_ } <- compact <$>
                                               ( events # traverse \e -> do
                                                   added :: DocumentReference <- addEventAff firestoreDb doc.id e
@@ -1104,7 +1105,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                           [ text_ "Import project" ]
                       , D.button
                           ( oneOf
-                              [ fromEvent signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> " mx-2 pointer-events-auto" <> if sina then "" else " hidden"
+                              [ EFFN.fromEvent signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> " mx-2 pointer-events-auto" <> if sina then "" else " hidden"
                               , pure $ D.OnClick := do
                                   pushed.loadingScreenVisible true
                                   launchAff_ do

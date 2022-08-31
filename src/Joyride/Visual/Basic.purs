@@ -17,8 +17,8 @@ import Effect.Aff (launchAff_)
 import Effect.Aff.AVar as AVar
 import Effect.Class (liftEffect)
 import FRP.Behavior (sampleBy, sample_)
-import FRP.Event (Event, bus, keepLatest, memoize, sampleOn)
-import FRP.Event.Time as LocalTime
+import FRP.Event.EffectFn (Event, bus, keepLatest, memoize, sampleOn)
+import FRP.Event.EffectFn.Time as LocalTime
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Rider (rider, toRide)
 import Joyride.FRP.SampleJIT (sampleJIT)

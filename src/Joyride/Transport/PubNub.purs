@@ -10,7 +10,7 @@ import Effect (Effect)
 import Effect.Aff (Aff)
 import Effect.Class (liftEffect)
 import Effect.Exception (error)
-import FRP.Event (Event, create)
+import FRP.Event.EffectFn (Event, create)
 import Foreign (Foreign)
 import Simple.JSON (readImpl, writeImpl)
 import Simple.JSON as JSON

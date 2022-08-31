@@ -10,7 +10,7 @@ import Effect (Effect)
 import Effect.Aff (Aff, error, launchAff_, throwError, try)
 import Effect.Class (liftEffect)
 import Effect.Ref as Ref
-import FRP.Event (Event, makeEvent)
+import FRP.Event.EffectFn (Event, makeEvent)
 import Foreign (Foreign)
 import Joyride.Firebase.Opaque (FirebaseApp, FirebaseAuth, Firestore)
 import Simple.JSON as JSON

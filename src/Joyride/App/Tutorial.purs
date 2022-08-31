@@ -31,9 +31,9 @@ import Effect.Class (liftEffect)
 import Effect.Now as LocalNow
 import Effect.Ref as Ref
 import Effect.Timer (clearInterval, setInterval)
-import FRP.Behavior (Behavior, sampleBy)
-import FRP.Event (Event, EventIO, filterMap, fromEvent, toEvent, hot, memoize, subscribe)
-import FRP.Event.AnimationFrame (animationFrame)
+import FRP.Behavior (ABehavior, sampleBy)
+import FRP.Event.EffectFn (Event, EventIO, filterMap, fromEvent, toEvent, hot, memoize, subscribe)
+import FRP.Event.EffectFn.AnimationFrame (animationFrame)
 import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V)
 import Foreign.Object as Object
@@ -42,7 +42,6 @@ import Joyride.Audio.Graph.Tutorial (graph)
 import Joyride.FRP.Behavior (refToBehavior)
 import Joyride.FRP.LowPrioritySchedule (schedulingIntervalInMS)
 import Joyride.FRP.Rate (timeFromRate)
-import Joyride.FRP.SampleOnSubscribe (initializeWithEmpty)
 import Joyride.FRP.Schedule (fireAndForget)
 import Joyride.FullScreen as FullScreen
 import Joyride.Ocarina (AudibleChildEnd)
@@ -76,7 +75,7 @@ type TutorialInfo r =
   , isMobile :: Boolean
   , lpsCallback :: JMilliseconds -> Effect Unit -> Effect Unit
   , resizeE :: Event WindowDims
-  , renderingInfo :: Behavior RenderingInfo
+  , renderingInfo :: ABehavior Event RenderingInfo
   , goHome :: Effect Unit
   , pushBasic :: EventIO HitBasicMe
   , pushLeap :: EventIO HitLeapMe
@@ -134,19 +133,20 @@ tutorial
 tutorial
   tli
   tscore
-  wt@{ player: myPlayer
-  , textures
-  , initialDims
-  , models
-  , cubeTextures
-  , cNow
-  , galaxyAttributes
-  , longVerb
-  , shaders
-  , threeDI
-  , playerStatus
-  , optMeIn
-  } =
+  wt@
+    { player: myPlayer
+    , textures
+    , initialDims
+    , models
+    , cubeTextures
+    , cNow
+    , galaxyAttributes
+    , longVerb
+    , shaders
+    , threeDI
+    , playerStatus
+    , optMeIn
+    } =
   ( vbussed (Proxy :: _ TutorialEvents) \push event ->
       do
         let
@@ -209,10 +209,7 @@ tutorial
                           tli.unschedule
                         pure unit
                     if ricid then (requestIdleCallback { timeout: 0 } icb tli.wdw <#> Just >>= flip Ref.write tli.icid) else icb
-                  afE <- hot
-                    ( withACTime ctx animationFrame <#>
-                        _.acTime
-                    )
+                  afE <- hot (withACTime ctx animationFrame <#> _.acTime)
                   withRate <-
                     hot
                       $ timeFromRate cNow
@@ -274,7 +271,7 @@ tutorial
                     -- fromEvent because playerStatus is effectful
 
                     [ D.div (pure $ D.Class := "mx-2 mt-2 ")
-                        [ fromEvent (biSampleOn (toEvent (initializeWithEmpty event.iAmReady)) (map Tuple playerStatus))
+                        [ fromEvent (biSampleOn (toEvent (pure empty <|> map pure event.iAmReady)) (map Tuple playerStatus))
                             -- we theoretically don't need to dedup because
                             -- the button should never redraw once we've started
                             -- if there's flicker, dedup

@@ -28,11 +28,11 @@ import Effect.Console (log)
 import Effect.Random as Random
 import Effect.Ref (new)
 import Effect.Ref as Ref
-import FRP.Behavior (Behavior, sample_)
-import FRP.Event (Event, create, filterMap, folded, subscribe)
-import FRP.Event as Event
-import FRP.Event.AnimationFrame (animationFrame)
-import FRP.Event.VBus (V)
+import FRP.Behavior (ABehavior, Behavior, sample_)
+import FRP.Event.EffectFn (Event, create, filterMap, folded, subscribe)
+import FRP.Event.EffectFn as Event
+import FRP.Event.EffectFn.AnimationFrame (animationFrame)
+import FRP.Event.EffectFn.VBus (V)
 import Foreign.Object as Object
 import Heterogeneous.Folding (hfoldlWithIndex)
 import Joyride.App.Sandbox (sandbox)
@@ -737,7 +737,7 @@ updateKnownPlayerPoints player outcome knownPlayers = do
     )
     knownPlayers
 
-magicLeaps :: Ref.Ref LeapUnsubscribes -> Effect Milliseconds -> Ref.Ref PlayerPositionsF -> Behavior RenderingInfo -> forall r. { player :: Player, newPosition :: Position | r } -> Effect Unit
+magicLeaps :: Ref.Ref LeapUnsubscribes -> Effect Milliseconds -> Ref.Ref PlayerPositionsF -> ABehavior Event RenderingInfo -> forall r. { player :: Player, newPosition :: Position | r } -> Effect Unit
 magicLeaps leapUnsubscribesRef mappedCNow pPos renderingInfoBehavior pnp = do
   wholeRec <- Ref.read pPos
   oldPosition <- case pnp.player of
@@ -750,7 +750,7 @@ magicLeaps leapUnsubscribesRef mappedCNow pPos renderingInfoBehavior pnp = do
   magicLeap leapUnsubscribesRef mappedCNow pPos renderingInfoBehavior pnp
   for_ movedPlayer \player -> magicLeap leapUnsubscribesRef mappedCNow pPos renderingInfoBehavior { player, newPosition: oldPosition }
 
-magicLeap :: Ref.Ref LeapUnsubscribes -> Effect Milliseconds -> Ref.Ref PlayerPositionsF -> Behavior RenderingInfo -> forall r. { player :: Player, newPosition :: Position | r } -> Effect Unit
+magicLeap :: Ref.Ref LeapUnsubscribes -> Effect Milliseconds -> Ref.Ref PlayerPositionsF -> ABehavior Event RenderingInfo -> forall r. { player :: Player, newPosition :: Position | r } -> Effect Unit
 magicLeap leapUnsubscribesRef mappedCNow pPos renderingInfoBehavior hl = do
   leapUnsubscribes <- Ref.read leapUnsubscribesRef
   case hl.player of

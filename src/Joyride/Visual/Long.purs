@@ -18,9 +18,9 @@ import Effect.Aff (joinFiber, launchAff, launchAff_)
 import Effect.Aff.AVar as AVar
 import Effect.Class (liftEffect)
 import FRP.Behavior (sampleBy, sample_)
-import FRP.Event (Event, keepLatest, mapAccum, memoize, sampleOn)
-import FRP.Event.Time as LocalTime
-import FRP.Event.VBus (V, vbus)
+import FRP.Event.EffectFn (Event, keepLatest, mapAccum, memoize, sampleOn)
+import FRP.Event.EffectFn.Time as LocalTime
+import FRP.Event.EffectFn.VBus (V, vbus)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Rider (rider, toRide)
 import Joyride.FRP.SampleJIT (sampleJIT)

@@ -8,8 +8,8 @@ import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.Number (pi, pow)
 import Data.Typelevel.Num (D2)
-import FRP.Behavior (Behavior, sample_)
-import FRP.Event (Event)
+import FRP.Behavior (ABehavior, sample_)
+import FRP.Event.EffectFn (Event)
 import Foreign.Object as Object
 import Joyride.Constants.Audio (startOffset)
 import Joyride.FRP.Schedule (oneOff)
@@ -31,7 +31,7 @@ graph
      , leaps :: Event (Event AudibleChildEnd)
      , longs :: Event (Event AudibleChildEnd)
      , rateInfo :: Event RateInfo
-     , buffers :: Behavior (Object.Object BrowserAudioBuffer)
+     , buffers :: ABehavior Event (Object.Object BrowserAudioBuffer)
      , longVerb :: BrowserAudioBuffer
      , bgtrack :: String
      , silence :: BrowserAudioBuffer

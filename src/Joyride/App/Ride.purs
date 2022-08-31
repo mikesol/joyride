@@ -32,9 +32,10 @@ import Effect.Class (liftEffect)
 import Effect.Now as LocalNow
 import Effect.Ref as Ref
 import Effect.Timer (clearInterval, setInterval)
-import FRP.Behavior (Behavior, sampleBy)
-import FRP.Event (AnEvent, Event, EventIO, filterMap, fromEvent, hot, memoize, subscribe, toEvent)
-import FRP.Event.AnimationFrame (animationFrame)
+import FRP.Behavior (ABehavior, sampleBy)
+import FRP.Event.EffectFn (Event, Event, EventIO, filterMap, fromEvent, hot, memoize, subscribe, toEvent)
+import FRP.Event as FRPE
+import FRP.Event.EffectFn.AnimationFrame (animationFrame)
 import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V)
 import Foreign.Object as Object
@@ -47,7 +48,6 @@ import Joyride.FRP.Dedup (dedup)
 import Joyride.FRP.LowPrioritySchedule (schedulingIntervalInMS)
 import Joyride.FRP.Rate (timeFromRate)
 import Joyride.FRP.SampleJIT (sampleJIT)
-import Joyride.FRP.SampleOnSubscribe (initializeWithEmpty)
 import Joyride.FRP.Schedule (fireAndForget)
 import Joyride.FullScreen as FullScreen
 import Joyride.Ocarina (AudibleChildEnd)
@@ -64,7 +64,7 @@ import Rito.Matrix4 as M4
 import Safe.Coerce (coerce)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
-import Types (Beats(..), HitBasicMe, HitBasicOtherPlayer(..), HitBasicOverTheWire(..), HitLeapMe, HitLeapOtherPlayer(..), HitLeapOverTheWire(..), HitLongMe, HitLongOtherPlayer(..), HitLongOverTheWire(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, MakeLongs, Player(..), PlayerAction(..), PlayerPositionsF, RateInfo, ReleaseLongMe, ReleaseLongOtherPlayer(..), ReleaseLongOverTheWire(..), RenderingInfo, Seconds(..), StartStatus(..), Success', WindowDims)
+import Types (Beats(..), HitBasicMe, HitBasicOtherPlayer(..), HitBasicOverTheWire(..), HitLeapMe, HitLeapOtherPlayer(..), HitLeapOverTheWire(..), HitLongMe, HitLongOtherPlayer(..), HitLongOverTheWire(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, MakeLongs, Player(..), PlayerAction(..), RateInfo, ReleaseLongMe, ReleaseLongOtherPlayer(..), ReleaseLongOverTheWire(..), RenderingInfo, Seconds(..), StartStatus(..), Success', WindowDims)
 import Web.DOM as Web.DOM
 import Web.Event.Event (target)
 import Web.HTML.HTMLCanvasElement as HTMLCanvasElement
@@ -81,7 +81,7 @@ type RideInfo r =
   , isMobile :: Boolean
   , lpsCallback :: JMilliseconds -> Effect Unit -> Effect Unit
   , resizeE :: Event WindowDims
-  , renderingInfo :: Behavior RenderingInfo
+  , renderingInfo :: ABehavior Event RenderingInfo
   , goHome :: Effect Unit
   , pushBasic :: EventIO HitBasicMe
   , pushLeap :: EventIO HitLeapMe
@@ -263,7 +263,7 @@ ride
                               optMeIn t nm
                 ]
             vbussed (Proxy :: _ (V (TextArea Unlifted)))
-              \nPush (nEvent :: { | TextArea (AnEvent Zora) }) ->
+              \nPush (nEvent :: { | TextArea (FRPE.AnEvent Zora) }) ->
                 let
                   requestName = pure false <|> (nEvent.requestName $> true)
                   changeText = pure Nothing <|> (Just <$> nEvent.changeText)
@@ -366,7 +366,7 @@ ride
                 [ D.div (pure $ D.Class := "row-start-1 row-end-2 col-start-1 col-end-4")
                     -- fromEvent because playerStatus is effectful
                     [ D.div (pure $ D.Class := "mx-2 mt-2")
-                        [ fromEvent (biSampleOn (toEvent (initializeWithEmpty event.iAmReady)) (map Tuple playerStatus))
+                        [ fromEvent (biSampleOn (toEvent (pure empty <|> map pure event.iAmReady)) (map Tuple playerStatus))
                             -- we theoretically don't need to dedup because
                             -- the button should never redraw once we've started
                             -- if there's flicker, dedup

@@ -5,7 +5,7 @@ module Joyride.Visual.BasicWord where
 
 import Prelude
 
-import Bolson.Core (envy)
+import Bolson.EffectFn.Core (envy)
 import Control.Alt ((<|>))
 import Data.FastVect.FastVect (index)
 import Data.Foldable (oneOf)
@@ -20,7 +20,7 @@ import Deku.Control (text)
 import Deku.Core (ANut(..))
 import Deku.DOM as D
 import FRP.Behavior (sampleBy, sample_)
-import FRP.Event (Event, memoize, sampleOn, fromEvent)
+import FRP.Event.EffectFn (Event, memoize, sampleOn, fromEvent)
 import Joyride.FRP.Dedup (dedup)
 import Joyride.FRP.Schedule (fireAndForget)
 import Joyride.Timing.CoordinatedNow (cInstant)
@@ -105,7 +105,7 @@ basicWord makeBasic = do
     in
       ( ( css3DObject
             { css3DObject: makeBasic.threeDI.css3DObject
-            , nut: ANut (D.span (pure $ D.Class := "text-white pointer-events-none") [ text (dedup (fromEvent txt)) ])
+            , nut: ANut (D.span (pure $ D.Class := "text-white pointer-events-none") [ text (fromEvent (dedup txt)) ])
             }
             ( oneOf
                 [ --pure $ P.matrix4 $ makeBasic.mkMatrix4 emptyMatrix

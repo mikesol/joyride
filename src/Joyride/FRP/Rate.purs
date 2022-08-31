@@ -8,15 +8,15 @@ import Data.Time.Duration (Milliseconds(..))
 import Data.Tuple.Nested ((/\))
 -- import Debug (spy)
 import Effect (Effect)
-import FRP.Behavior (Behavior, sampleBy)
-import FRP.Event (Event, mapAccum)
+import FRP.Behavior (ABehavior, sampleBy)
+import FRP.Event.EffectFn (Event, mapAccum)
 import Joyride.Timing.CoordinatedNow (cInstant)
 import Safe.Coerce (coerce)
 import Types (Beats(..), JMilliseconds(..), RateInfo, Seconds(..))
 
 timeFromRate
   :: Effect Milliseconds
-  -> Behavior { rate :: Number }
+  -> ABehavior Event { rate :: Number }
   -> Event { real :: Seconds }
   -> Event RateInfo
 timeFromRate ems clengthB afE = mapAccum

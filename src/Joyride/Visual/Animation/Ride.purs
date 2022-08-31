@@ -2,34 +2,29 @@ module Joyride.Visual.Animation.Ride where
 
 import Prelude
 
-import Bolson.Core (Element(..), envy, fixed)
+import Bolson.EffectFn.Core (Element(..), envy, fixed)
 import Control.Alt ((<|>))
 import Control.Plus (empty)
 import Data.Array.NonEmpty (toArray)
 import Data.Filterable (filter)
 import Data.Foldable (oneOf, oneOfMap)
 import Data.Maybe (Maybe(..))
-import Data.Monoid (guard)
 import Data.Newtype (unwrap)
 import Data.Number (cos, pi, sin)
 import Data.Tuple (Tuple(..))
 import Data.Tuple.Nested ((/\))
-import Data.Variant (inj)
 import Effect (Effect)
-import FRP.Behavior (Behavior, sampleBy)
-import FRP.Event (Event, EventIO, keepLatest, mapAccum)
-import FRP.Event.VBus (V)
-import Foreign.Object (fromHomogeneous)
+import FRP.Behavior (ABehavior, sampleBy)
+import FRP.Event.EffectFn (Event, EventIO, keepLatest, mapAccum)
+import FRP.Event.EffectFn.VBus (V)
 import Joyride.Effect.Lowpass (lpf)
 import Joyride.FRP.BusT (vbust)
 import Joyride.FRP.Dedup (dedup)
 import Joyride.QualifiedDo.Apply as QDA
-import Joyride.Shaders.Galaxy (galaxyParams)
 import Joyride.Visual.Bar (makeBar)
 import Joyride.Visual.BasicLabels (basicLabels)
 import Joyride.Visual.LeapLabels (leapLabels)
 import Joyride.Visual.LongLabels (longLabels)
-import Rito.Blending (Blending(..))
 import Rito.Cameras.PerspectiveCamera (perspectiveCamera)
 import Rito.Color (RGB(..), color)
 import Rito.Core (ASceneful, Renderer(..), cameraToGroup, effectComposerToRenderer, plain, toGroup, toScene)
@@ -37,14 +32,11 @@ import Rito.CubeTexture (CubeTexture)
 import Rito.Euler (euler)
 import Rito.GLTF (GLTF)
 import Rito.GLTF as GLTF
-import Rito.Geometries.Plane (plane)
 import Rito.Group (group)
-import Rito.InstancedMesh (instancedMesh')
 import Rito.Lights.AmbientLight (ambientLight)
 import Rito.Lights.PointLight (pointLight)
-import Rito.Materials.ShaderMaterial (shaderMaterial)
 import Rito.Portal (globalCameraPortal1, globalEffectComposerPortal1, globalScenePortal1, globalWebGLRendererPortal1)
-import Rito.Properties (aspect, background, decay, distance, intensity, rotateX, rotateY, rotateZ, rotationFromEuler, uniform) as P
+import Rito.Properties (aspect, background, decay, distance, intensity, rotateX, rotateY, rotateZ, rotationFromEuler) as P
 import Rito.Properties (positionX, positionY, positionZ, render, scaleX, scaleY, scaleZ, size)
 import Rito.Renderers.CSS2D (css2DRenderer)
 import Rito.Renderers.CSS3D (css3DRenderer)
@@ -59,7 +51,7 @@ import Rito.Scene (Background(..), scene)
 import Rito.Texture (Texture)
 import Rito.Vector2 (vector2)
 import Type.Proxy (Proxy(..))
-import Types (Axis(..), CubeTextures, GalaxyAttributes, HitBasicMe, HitBasicVisualForLabel, HitLeapVisualForLabel, HitLongVisualForLabel, JMilliseconds, Models, Player(..), PlayerPositions, Position(..), RateInfo, ReleaseLongVisualForLabel, RenderingInfo, Seconds(..), Shaders, Textures, ThreeDI, WindowDims, allPlayers, allPositions, playerPosition)
+import Types (Axis(..), CubeTextures, GalaxyAttributes, HitBasicMe, HitBasicVisualForLabel, HitLeapVisualForLabel, HitLongVisualForLabel, JMilliseconds, Models, Player(..), PlayerPositions, Position(..), RateInfo, ReleaseLongVisualForLabel, RenderingInfo, Shaders, Textures, ThreeDI, WindowDims, allPlayers, allPositions, playerPosition)
 import Web.DOM as Web.DOM
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 
@@ -80,7 +72,7 @@ runThree
      , myPlayer :: Player
      , textures :: Textures Texture
      , cubeTextures :: CubeTextures CubeTexture
-     , renderingInfo :: Behavior RenderingInfo
+     , renderingInfo :: ABehavior Event RenderingInfo
      , animatedStuff ::
          Event
            { rateInfo :: RateInfo

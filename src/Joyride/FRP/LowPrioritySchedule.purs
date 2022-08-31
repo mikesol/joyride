@@ -3,7 +3,7 @@ module Joyride.FRP.LowPrioritySchedule where
 import Prelude
 
 import Effect (Effect)
-import FRP.Event (Event, subscribe, makeEvent)
+import FRP.Event.EffectFn (Event, subscribe, makeEvent)
 
 lowPrioritySchedule
   :: forall n. (n -> Effect Unit -> Effect Unit) -> n -> Event ~> Event

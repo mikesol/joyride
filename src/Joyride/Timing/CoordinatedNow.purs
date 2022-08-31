@@ -18,8 +18,8 @@ import Effect.Class.Console as Log
 import Effect.Now (now)
 import Effect.Ref as Ref
 import Effect.Timer (clearInterval, setInterval)
-import FRP.Behavior (Behavior, behavior)
-import FRP.Event (Event, makeEvent, subscribe)
+import FRP.Behavior (ABehavior, behavior)
+import FRP.Event.EffectFn (Event, makeEvent, subscribe)
 import Simple.JSON as JSON
 
 toN :: Instant -> Number
@@ -83,5 +83,5 @@ withCTime ct e = makeEvent \k ->
     time <- ct
     k { time, value }
 
-cInstant :: Effect Milliseconds -> Behavior Milliseconds
+cInstant :: Effect Milliseconds -> ABehavior Event Milliseconds
 cInstant ms = behavior \e -> map (\{ value, time: t } -> value t) (withCTime ms e)

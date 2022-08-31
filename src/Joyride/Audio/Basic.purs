@@ -4,7 +4,7 @@ import Prelude
 
 import Control.Alt ((<|>))
 import Data.Typelevel.Num (D2)
-import FRP.Event (Event)
+import FRP.Event.EffectFn (Event)
 import Joyride.Ocarina (offAt, onAt)
 import Ocarina.Control (gain_, playBuf)
 import Ocarina.Core (Audible)

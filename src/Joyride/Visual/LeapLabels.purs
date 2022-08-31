@@ -2,7 +2,7 @@ module Joyride.Visual.LeapLabels where
 
 import Prelude
 
-import Bolson.Core (Child(..), dyn)
+import Bolson.EffectFn.Core (Child(..), dyn)
 import Control.Alt ((<|>))
 import Data.Foldable (oneOfMap)
 import Data.Maybe (Maybe(..))
@@ -12,7 +12,7 @@ import Deku.Control (text_)
 import Deku.Core (ANut(..))
 import Deku.DOM as D
 import Effect (Effect)
-import FRP.Event (Event, fromEvent, keepLatest, mapAccum)
+import FRP.Event.EffectFn (Event, keepLatest, mapAccum)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Rito.CSS.CSS2DObject (css2DObject)
 import Rito.Core (ACSS2DObject)

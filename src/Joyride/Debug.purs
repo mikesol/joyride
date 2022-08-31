@@ -10,7 +10,7 @@ import Data.Foldable (traverse_)
 import Debug (traceM)
 import Effect (Effect)
 import Effect.Unsafe (unsafePerformEffect)
-import FRP.Event (Create(..), Event, Backdoor, makeEvent, sampleOn_)
+import FRP.Event.EffectFn (Create(..), Event, Backdoor, makeEvent, sampleOn_)
 import Unsafe.Reference (unsafeRefEq)
 
 debugX :: forall a. Boolean -> Event a -> Event Unit

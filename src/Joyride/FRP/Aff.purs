@@ -8,7 +8,7 @@ import Effect.Aff (Aff, Canceler(..), Milliseconds(..), error, killFiber, launch
 import Effect.Class (liftEffect)
 import Effect.Ref as Ref
 import Effect.Timer (clearTimeout, setTimeout)
-import FRP.Event (Event, makeEvent, subscribe)
+import FRP.Event.EffectFn (Event, makeEvent, subscribe)
 
 -- if the cancelers cancels, theoretically we don't need to unsubscribe
 -- as nothing will be firing

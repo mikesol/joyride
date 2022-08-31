@@ -2,21 +2,22 @@ module Joyride.FRP.Behavior where
 
 import Prelude
 
-import Control.Monad.ST.Class (class MonadST, liftST)
+import Control.Monad.ST.Class (liftST)
 import Control.Monad.ST.Internal as RRef
 import Data.Compactable (compact)
 import Data.Maybe (Maybe(..))
+import Effect (Effect)
 import Effect.Ref as Ref
-import FRP.Behavior (ABehavior, Behavior, behavior, sampleBy, step)
-import FRP.Event (AnEvent, makeEvent, subscribe)
+import FRP.Behavior (ABehavior, behavior, sampleBy)
+import FRP.Event.EffectFn (Event, makeEvent, subscribe)
 
 -- | Turns a mutable reference into a behavior
-refToBehavior :: Ref.Ref ~> Behavior
+refToBehavior :: Ref.Ref ~> ABehavior Event
 refToBehavior r = behavior \e -> makeEvent \k -> subscribe e \f -> Ref.read r >>=
   (k <<< f)
 
 -- | A behavior that mutes values based on a predicate. It's sort of like filter map.
-misbehavior :: forall m a b. Applicative m => (a -> Maybe b) -> ABehavior (AnEvent m) a -> ABehavior (AnEvent m) b
+misbehavior :: forall a b. (a -> Maybe b) -> ABehavior Event a -> ABehavior Event b
 misbehavior mab bv = behavior \e -> compact $ sampleBy
   ( \a f -> case mab a of
       Nothing -> Nothing
@@ -25,7 +26,7 @@ misbehavior mab bv = behavior \e -> compact $ sampleBy
   bv
   e
 
-howShouldIBehave :: forall s m a. MonadST s m => m a -> AnEvent m (m a) -> ABehavior (AnEvent m) a
+howShouldIBehave :: forall a. Effect a -> Event (Effect a) -> ABehavior Event a
 howShouldIBehave m e1 = behavior \e2 -> makeEvent \k -> do
   r <- liftST $ RRef.new m
   u0 <- subscribe e1 \m' -> void $ liftST $ RRef.write m' r

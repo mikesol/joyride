@@ -5,7 +5,7 @@ import Prelude
 import Effect.Aff (joinFiber, launchAff, launchAff_)
 import Effect.Aff.AVar as AVar
 import Effect.Class (liftEffect)
-import FRP.Event (Event, subscribe, makeEvent)
+import FRP.Event.EffectFn (Event, subscribe, makeEvent)
 
 -- | Samples the first event JIT when the second event is actually used.
 -- | This is like sampleOn, but it defers the sampling until the avar is consumed.

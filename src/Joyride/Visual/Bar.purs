@@ -4,8 +4,8 @@ import Prelude
 
 import Control.Alt ((<|>))
 import Data.Foldable (oneOf)
-import FRP.Behavior (Behavior, sampleBy)
-import FRP.Event (Event)
+import FRP.Behavior (ABehavior, sampleBy)
+import FRP.Event.EffectFn (Event)
 import Joyride.Debug (debugX)
 import Joyride.FRP.Schedule (fireAndForget)
 import Rito.Color (Color, RGB(..))
@@ -20,7 +20,7 @@ import Types (Position, RateInfo, RenderingInfo, ThreeDI, touchPointZ)
 makeBar
   :: forall lock payload
    . { c3 :: RGB -> Color
-     , renderingInfo :: Behavior RenderingInfo
+     , renderingInfo :: ABehavior Event RenderingInfo
      , position :: Position
      , threeDI :: ThreeDI
      , initialIsMe :: Boolean

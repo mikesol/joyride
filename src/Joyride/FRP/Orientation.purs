@@ -8,7 +8,7 @@ import Data.Profunctor (lcmap)
 import Data.Time.Duration (Milliseconds(..))
 import Effect (Effect)
 import Effect.Ref as Ref
-import FRP.Event (Event, create)
+import FRP.Event.EffectFn (Event, create)
 import Safe.Coerce (coerce)
 import Types (GTP, JMilliseconds(..), Orientation, Player, PlayerAction(..), RateInfo)
 import Unsafe.Coerce (unsafeCoerce)

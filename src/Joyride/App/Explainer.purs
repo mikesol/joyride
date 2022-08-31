@@ -2,9 +2,10 @@ module Joyride.App.Explainer where
 
 import Prelude
 
-import Bolson.Core (Element(..), envy, fixed)
+import Bolson.Core (Element(..), envy)
+import Bolson.EffectFn.Core as BEFFN
 import Control.Alt ((<|>))
-import Control.Parallel (parSequence, parTraverse, sequential)
+import Control.Parallel (parSequence)
 import Control.Plus (empty)
 import Data.Array (nubBy)
 import Data.Foldable (oneOf, oneOfMap, traverse_)
@@ -24,7 +25,8 @@ import Deku.Listeners as DL
 import Effect (Effect)
 import Effect.Aff (launchAff_)
 import Effect.Class (liftEffect)
-import FRP.Event (Event, fromEvent, keepLatest, mapAccum, memoize)
+import FRP.Event (keepLatest, mapAccum, memoize)
+import FRP.Event.EffectFn as EFFN
 import FRP.Event.Animate (animationFrameEvent)
 import FRP.Event.VBus (V)
 import Joyride.Firebase.Auth (signInWithGoogle)
@@ -55,7 +57,7 @@ threeLoader
      , isMobile :: Boolean
      , unsubscriber :: Effect Unit -> Effect Unit
      , cubeTextures :: CubeTextures CubeTexture
-     , resizeE :: Event WindowDims
+     , resizeE :: EFFN.Event WindowDims
      , initialDims :: WindowDims
      , cnow :: Effect Milliseconds
      , canvas :: HTMLCanvasElement
@@ -63,7 +65,7 @@ threeLoader
   -> Effect Unit
 threeLoader opts = do
   u <- Rito.Run.run
-    ( envy $ memoize
+    ( BEFFN.envy $ EFFN.memoize
         ( _.time
             >>> unwrap
             >>> JMilliseconds <$> withCTime opts.cnow animationFrameEvent
@@ -114,7 +116,7 @@ threeLoader opts = do
                 ]
             )
             \myScene ->
-              fixed
+              BEFFN.fixed
                 [ plain $ webGLRendererToRenderer $ webGLRenderer
                     myScene
                     myCamera
@@ -141,14 +143,14 @@ explainerPage
      , editor :: Effect Unit
      , isMobile :: Boolean
      , signOut :: Effect Unit
-     , resizeE :: Event WindowDims
+     , resizeE :: EFFN.Event WindowDims
      , cnow :: Effect Milliseconds
      , cubeTextures :: CubeTextures CubeTexture
      , initialDims :: WindowDims
      , threeDI :: ThreeDI
      , firestoreDb :: Firestore
      , fbAuth :: FirebaseAuth
-     , signedInNonAnonymously :: Event Boolean
+     , signedInNonAnonymously :: EFFN.Event Boolean
      }
   -> Nut
 explainerPage opts = vbussed
@@ -181,7 +183,7 @@ explainerPage opts = vbussed
                 , D.button
                     ( oneOf
                         [ klass $ pure buttonCls
-                        , DL.click $ (fromEvent opts.signedInNonAnonymously) <#> \signedInNonAnon ->  launchAff_ do
+                        , DL.click $ (EFFN.fromEvent opts.signedInNonAnonymously) <#> \signedInNonAnon ->  launchAff_ do
                             rides <- map (nubBy (compare `on` _.id) <<< join) $ parSequence [getPublicTracksAff opts.firestoreDb, if signedInNonAnon then getTracksAff opts.fbAuth opts.firestoreDb else pure [] ]
                             liftEffect $ push.availableRides (Just rides)
                         ]
@@ -203,13 +205,13 @@ explainerPage opts = vbussed
                         , pure $ D.OnClick := do
                             signInWithGoogle do
                               window >>= alert "Sign in with google is temporarily unavailable. Please try again later."
-                        , fromEvent opts.signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> if sina then " hidden" else ""
+                        , EFFN.fromEvent opts.signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> if sina then " hidden" else ""
                         ]
                     )
                     [ text_ "Sign In" ]
                 , D.button
                     ( oneOf
-                        [ fromEvent opts.signedInNonAnonymously <#> \na -> D.Class := buttonCls <> (if na then "" else " hidden")
+                        [ EFFN.fromEvent opts.signedInNonAnonymously <#> \na -> D.Class := buttonCls <> (if na then "" else " hidden")
                         , click $ pure opts.signOut
                         ]
                     )

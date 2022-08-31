@@ -10,6 +10,7 @@ import Data.Number (pi)
 import Data.Time.Duration (Milliseconds)
 import Deku.Core (Domable)
 import Effect (Effect)
+import FRP.Event.EffectFn as EFFN
 import FRP.Event (Event, filterMap, fromEvent)
 import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V)
@@ -22,7 +23,7 @@ import Joyride.App.Ride (ride)
 import Joyride.App.RoomIsFull (roomIsFull)
 import Joyride.App.SorryNeedPermission (sorryNeedPermissionPage)
 import Joyride.App.Tutorial (tutorial)
-import Joyride.FRP.Dedup (dedup)
+import Joyride.FRP.FRPD.Dedup (dedup)
 import Joyride.FRP.StartingWith (startingWith)
 import Joyride.Firebase.Opaque (FirebaseAuth, Firestore)
 import Joyride.Ocarina (AudibleChildEnd)
@@ -67,7 +68,7 @@ data TopLevelDisplay
       , firestoreDb :: Firestore
       , initialDims :: WindowDims
       , cNow :: Effect Milliseconds
-      , signedInNonAnonymously :: Event Boolean
+      , signedInNonAnonymously :: EFFN.Event Boolean
       }
   | TLLoading
   | TLGameHasStarted
@@ -126,9 +127,9 @@ toplevel tli =
                   true, OpenEditor s -> TLOpenEditor s
           )
           ( biSampleOn
-              (startingWith PageLoad $ fromEvent tli.negotiation)
+              (startingWith PageLoad $ EFFN.fromEvent tli.negotiation)
               ( map { loaded: _, negotiation: _ }
-                  (startingWith false $ fromEvent tli.loaded)
+                  (startingWith false $ EFFN.fromEvent tli.loaded)
               )
           )
       )
