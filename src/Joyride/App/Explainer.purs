@@ -24,7 +24,7 @@ import Deku.Listeners as DL
 import Effect (Effect)
 import Effect.Aff (launchAff_)
 import Effect.Class (liftEffect)
-import FRP.Event (Event, fromEvent, keepLatest, mapAccum, memoize)
+import FRP.Event (Event, keepLatest, mapAccum, memoize)
 import FRP.Event.Animate (animationFrameEvent)
 import FRP.Event.VBus (V)
 import Joyride.Firebase.Auth (signInWithGoogle)
@@ -181,8 +181,8 @@ explainerPage opts = vbussed
                 , D.button
                     ( oneOf
                         [ klass $ pure buttonCls
-                        , DL.click $ (fromEvent opts.signedInNonAnonymously) <#> \signedInNonAnon ->  launchAff_ do
-                            rides <- map (nubBy (compare `on` _.id) <<< join) $ parSequence [getPublicTracksAff opts.firestoreDb, if signedInNonAnon then getTracksAff opts.fbAuth opts.firestoreDb else pure [] ]
+                        , DL.click $ (opts.signedInNonAnonymously) <#> \signedInNonAnon -> launchAff_ do
+                            rides <- map (nubBy (compare `on` _.id) <<< join) $ parSequence [ getPublicTracksAff opts.firestoreDb, if signedInNonAnon then getTracksAff opts.fbAuth opts.firestoreDb else pure [] ]
                             liftEffect $ push.availableRides (Just rides)
                         ]
                     )
@@ -203,13 +203,13 @@ explainerPage opts = vbussed
                         , pure $ D.OnClick := do
                             signInWithGoogle do
                               window >>= alert "Sign in with google is temporarily unavailable. Please try again later."
-                        , fromEvent opts.signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> if sina then " hidden" else ""
+                        , opts.signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> if sina then " hidden" else ""
                         ]
                     )
                     [ text_ "Sign In" ]
                 , D.button
                     ( oneOf
-                        [ fromEvent opts.signedInNonAnonymously <#> \na -> D.Class := buttonCls <> (if na then "" else " hidden")
+                        [ opts.signedInNonAnonymously <#> \na -> D.Class := buttonCls <> (if na then "" else " hidden")
                         , click $ pure opts.signOut
                         ]
                     )

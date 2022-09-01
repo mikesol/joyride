@@ -117,7 +117,7 @@ rideBasics bevs makeBasics =
   eventList :: forall a. (ACU -> Event a) -> Event (List (Event a))
   eventList f = scheduleCf (go f score) (_.rateInfo <$> makeBasics.animatedStuff)
 
-  transformBasic :: ACU -> Event (Child Void (Mesh lock payload) Effect lock)
+  transformBasic :: ACU -> Event (Child Void (Mesh lock payload) lock)
   transformBasic input =
     ( map Insert
         ( BasicV.basic
@@ -140,7 +140,7 @@ rideBasics bevs makeBasics =
           (pure $ Remove)
       )
 
-  transformBasicWord :: ACU -> Event (Child Void (CSS3DObject lock payload) Effect lock)
+  transformBasicWord :: ACU -> Event (Child Void (CSS3DObject lock payload) lock)
   transformBasicWord input =
     ( pure $ Insert
         ( BasicW.basicWord

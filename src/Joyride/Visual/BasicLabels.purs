@@ -12,7 +12,7 @@ import Deku.Control (text_)
 import Deku.Core (ANut(..))
 import Deku.DOM as D
 import Effect (Effect)
-import FRP.Event (Event, fromEvent, keepLatest, mapAccum)
+import FRP.Event (Event, keepLatest, mapAccum)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.Ledger.Basic (basicOutcomeToString, beatsToBasicOutcome)
 import Rito.CSS.CSS2DObject (css2DObject)

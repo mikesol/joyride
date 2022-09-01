@@ -33,12 +33,11 @@ import Effect.Now as LocalNow
 import Effect.Ref as Ref
 import Effect.Timer (clearInterval, setInterval)
 import FRP.Behavior (Behavior, sampleBy)
-import FRP.Event (AnEvent, Event, EventIO, filterMap, fromEvent, hot, memoize, subscribe, toEvent)
+import FRP.Event (Event, EventIO, filterMap, hot, memoize, subscribe)
 import FRP.Event.AnimationFrame (animationFrame)
 import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V)
 import Foreign.Object as Object
-import Hyrule.Zora (Zora)
 import Joyride.App.Clipboard (writeTextAff)
 import Joyride.App.RequestIdleCallbackIsDefined (requestIdleCallbackIsDefined)
 import Joyride.Audio.Graph.Ride (graph)
@@ -64,7 +63,7 @@ import Rito.Matrix4 as M4
 import Safe.Coerce (coerce)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
-import Types (Beats(..), HitBasicMe, HitBasicOtherPlayer(..), HitBasicOverTheWire(..), HitLeapMe, HitLeapOtherPlayer(..), HitLeapOverTheWire(..), HitLongMe, HitLongOtherPlayer(..), HitLongOverTheWire(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, MakeLongs, Player(..), PlayerAction(..), PlayerPositionsF, RateInfo, ReleaseLongMe, ReleaseLongOtherPlayer(..), ReleaseLongOverTheWire(..), RenderingInfo, Seconds(..), StartStatus(..), Success', WindowDims)
+import Types (Beats(..), HitBasicMe, HitBasicOtherPlayer(..), HitBasicOverTheWire(..), HitLeapMe, HitLeapOtherPlayer(..), HitLeapOverTheWire(..), HitLongMe, HitLongOtherPlayer(..), HitLongOverTheWire(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, MakeLongs, Player(..), PlayerAction(..), RateInfo, ReleaseLongMe, ReleaseLongOtherPlayer(..), ReleaseLongOverTheWire(..), RenderingInfo, Seconds(..), StartStatus(..), Success', WindowDims)
 import Web.DOM as Web.DOM
 import Web.Event.Event (target)
 import Web.HTML.HTMLCanvasElement as HTMLCanvasElement
@@ -137,22 +136,23 @@ ride
 ride
   tli
   tscore
-  success@{ player: myPlayer
-  , textures
-  , cubeTextures
-  , trackId
-  , models
-  , cNow
-  , galaxyAttributes
-  , shaders
-  , playerName
-  , channelName
-  , initialDims
-  , threeDI
-  , pubNubEvent
-  , playerStatus
-  , optMeIn
-  } =
+  success@
+    { player: myPlayer
+    , textures
+    , cubeTextures
+    , trackId
+    , models
+    , cNow
+    , galaxyAttributes
+    , shaders
+    , playerName
+    , channelName
+    , initialDims
+    , threeDI
+    , pubNubEvent
+    , playerStatus
+    , optMeIn
+    } =
   ( vbussed (Proxy :: _ RideEvents) \push event ->
       do
         let
@@ -200,8 +200,7 @@ ride
                 -- it CANNOT be in Aff, even an Aff that is theoretically in the same tick
                 -- this will put it in some sort of defered structure like a setTimeout, which means that it won't start on iOS
                 -- please move this comment if you move the bloc of code below and, if needed, copy it to other places where an audio context starts!!!!!
-                , fromEvent
-                    $ sampleJIT toSample
+                , sampleJIT toSample
                     $ pure
                         \av -> D.OnClick := FullScreen.fullScreenFlow do
                           ricid <- requestIdleCallbackIsDefined
@@ -236,9 +235,9 @@ ride
                           iu0 <- subscribe withRate.event push.rateInfo
                           st <- run2 ctx
                             ( graph
-                                { basics: toEvent event.basicAudio
+                                { basics: event.basicAudio
                                 , baseFileOffsetInSeconds: tscore.baseFileOffsetInSeconds
-                                , leaps: toEvent event.leapAudio
+                                , leaps: event.leapAudio
                                 , rateInfo: _.rateInfo <$> aStuff
                                 , buffers: refToBehavior tli.soundObj
                                 , silence: tli.silence
@@ -263,7 +262,7 @@ ride
                               optMeIn t nm
                 ]
             vbussed (Proxy :: _ (V (TextArea Unlifted)))
-              \nPush (nEvent :: { | TextArea (AnEvent Zora) }) ->
+              \nPush (nEvent :: { | TextArea (Event) }) ->
                 let
                   requestName = pure false <|> (nEvent.requestName $> true)
                   changeText = pure Nothing <|> (Just <$> nEvent.changeText)
@@ -289,7 +288,7 @@ ride
                           )
                           []
                       , D.button
-                          (callback (toEvent changeText))
+                          (callback (changeText))
                           [ text_ "Start" ]
                       ]
                     false -> D.div (pure $ D.Class := "select-auto")
@@ -317,7 +316,7 @@ ride
                           $ case playerName of
                               Just _ ->
                                 [ D.button
-                                    (callback (toEvent changeText))
+                                    (callback (changeText))
                                     [ text_ "Start" ]
 
                                 ]
@@ -325,7 +324,7 @@ ride
                                 [ D.button
                                     ( oneOf
                                         [ pure $ D.Class := buttonCls
-                                        , callback (toEvent changeText)
+                                        , callback (changeText)
                                         ]
                                     )
                                     [ text_ "Start" ]
@@ -340,7 +339,7 @@ ride
 
                                 ]
                       ]
-        envy $ fromEvent $ memoize
+        envy $ memoize
           ( makeAnimatedStuff
               ( biSampleOn
                   ( fireAndForget
@@ -356,7 +355,7 @@ ride
                               )
                       )
                   )
-                  (toEvent event.rateInfo <#> \ri { startTime, myTime } -> adjustRateInfoBasedOnActualStart myTime startTime ri)
+                  (event.rateInfo <#> \ri { startTime, myTime } -> adjustRateInfoBasedOnActualStart myTime startTime ri)
               )
           )
           \animatedStuff -> D.div_
@@ -366,7 +365,7 @@ ride
                 [ D.div (pure $ D.Class := "row-start-1 row-end-2 col-start-1 col-end-4")
                     -- fromEvent because playerStatus is effectful
                     [ D.div (pure $ D.Class := "mx-2 mt-2")
-                        [ fromEvent (biSampleOn (toEvent (initializeWithEmpty event.iAmReady)) (map Tuple playerStatus))
+                        [ (biSampleOn ((initializeWithEmpty event.iAmReady)) (map Tuple playerStatus))
                             -- we theoretically don't need to dedup because
                             -- the button should never redraw once we've started
                             -- if there's flicker, dedup
@@ -376,19 +375,18 @@ ride
                         ]
                     , D.div_
                         [ envy $ map stopButton
-                            (
-                                ( map
-                                    ( \(Unsubscribe u) -> u *> tli.goHome
-                                    )
-                                    (event.iAmReady)
-                                )
+                            ( ( map
+                                  ( \(Unsubscribe u) -> u *> tli.goHome
+                                  )
+                                  (event.iAmReady)
+                              )
                             )
                         ]
 
                     ]
                 ]
             , D.div_
-                [ ( fromEvent
+                [ ( 
                       ( dedup
                           ( playerStatus <#>
                               \m -> case allAreReady m of
@@ -419,8 +417,8 @@ ride
                         , pure $ D.Self := HTMLCanvasElement.fromElement >>> traverse_
                             ( runThree <<<
                                 { threeDI: threeDI
-                                , css2DRendererElt: toEvent event.render2DElement
-                                , css3DRendererElt: toEvent event.render3DElement
+                                , css2DRendererElt: event.render2DElement
+                                , css3DRendererElt: event.render3DElement
                                 , isMobile: tli.isMobile
                                 , galaxyAttributes
                                 , shaders

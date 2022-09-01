@@ -32,7 +32,7 @@ import Effect.Now as LocalNow
 import Effect.Ref as Ref
 import Effect.Timer (clearInterval, setInterval)
 import FRP.Behavior (Behavior, sampleBy)
-import FRP.Event (Event, EventIO, filterMap, fromEvent, toEvent, hot, memoize, subscribe)
+import FRP.Event (Event, EventIO, filterMap, hot, memoize, subscribe)
 import FRP.Event.AnimationFrame (animationFrame)
 import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V)
@@ -134,19 +134,20 @@ tutorial
 tutorial
   tli
   tscore
-  wt@{ player: myPlayer
-  , textures
-  , initialDims
-  , models
-  , cubeTextures
-  , cNow
-  , galaxyAttributes
-  , longVerb
-  , shaders
-  , threeDI
-  , playerStatus
-  , optMeIn
-  } =
+  wt@
+    { player: myPlayer
+    , textures
+    , initialDims
+    , models
+    , cubeTextures
+    , cNow
+    , galaxyAttributes
+    , longVerb
+    , shaders
+    , threeDI
+    , playerStatus
+    , optMeIn
+    } =
   ( vbussed (Proxy :: _ TutorialEvents) \push event ->
       do
         let
@@ -222,9 +223,9 @@ tutorial
                   iu0 <- subscribe withRate.event push.rateInfo
                   st <- run2 ctx
                     ( graph
-                        { basics: toEvent event.basicAudio
-                        , leaps: toEvent event.leapAudio
-                        , longs: toEvent event.longAudio
+                        { basics: event.basicAudio
+                        , leaps: event.leapAudio
+                        , longs: event.longAudio
                         , rateInfo: _.rateInfo <$> aStuff
                         , buffers: refToBehavior tli.soundObj
                         , silence: tli.silence
@@ -247,7 +248,7 @@ tutorial
                   optMeIn t
             tutorialCenterMatter (pure (maybe Intro Preview tscore.isPreviewPage) <|> event.tutorialCenterState) push.tutorialCenterState { startCallback }
         -- todo: use Deku.do
-        envy_ D.div $ fromEvent $ memoize
+        envy_ D.div $ memoize
           ( makeAnimatedStuff
               ( biSampleOn
                   ( fireAndForget
@@ -263,7 +264,7 @@ tutorial
                               )
                       )
                   )
-                  (toEvent event.rateInfo <#> \ri { startTime, myTime } -> adjustRateInfoBasedOnActualStart myTime startTime ri)
+                  (event.rateInfo <#> \ri { startTime, myTime } -> adjustRateInfoBasedOnActualStart myTime startTime ri)
               )
           )
           \animatedStuff -> D.div_
@@ -271,10 +272,9 @@ tutorial
               -- on/off
               D.div (pure $ D.Class := "z-10 pointer-events-none absolute w-screen h-screen grid grid-rows-6 grid-cols-6")
                 [ D.div (pure $ D.Class := "row-start-1 row-end-3 col-start-1 col-end-3")
-                    -- fromEvent because playerStatus is effectful
 
                     [ D.div (pure $ D.Class := "mx-2 mt-2 ")
-                        [ fromEvent (biSampleOn (toEvent (initializeWithEmpty event.iAmReady)) (map Tuple playerStatus))
+                        [ (biSampleOn ((initializeWithEmpty event.iAmReady)) (map Tuple playerStatus))
                             -- we theoretically don't need to dedup because
                             -- the button should never redraw once we've started
                             -- if there's flicker, dedup
@@ -305,8 +305,8 @@ tutorial
                         , pure $ D.Self := HTMLCanvasElement.fromElement >>> traverse_
                             ( runThree <<<
                                 { threeDI: threeDI
-                                , css2DRendererElt: toEvent event.render2DElement
-                                , css3DRendererElt: toEvent event.render3DElement
+                                , css2DRendererElt: event.render2DElement
+                                , css3DRendererElt: event.render3DElement
                                 , isMobile: tli.isMobile
                                 , galaxyAttributes
                                 , shaders

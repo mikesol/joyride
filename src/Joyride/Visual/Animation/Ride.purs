@@ -471,4 +471,4 @@ runThree opts = do
   applyLPF :: Boolean -> Event Number -> Event Number
   applyLPF false = identity
   applyLPF true = lpf lowpassFactor
-  lowpassFactor = 0.65
+  lowpassFactor = 0.25

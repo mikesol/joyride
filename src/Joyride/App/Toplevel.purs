@@ -10,7 +10,7 @@ import Data.Number (pi)
 import Data.Time.Duration (Milliseconds)
 import Deku.Core (Domable)
 import Effect (Effect)
-import FRP.Event (Event, filterMap, fromEvent)
+import FRP.Event (Event, filterMap)
 import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V)
 import Joyride.App.Editor (editorPage)
@@ -126,9 +126,9 @@ toplevel tli =
                   true, OpenEditor s -> TLOpenEditor s
           )
           ( biSampleOn
-              (startingWith PageLoad $ fromEvent tli.negotiation)
+              (startingWith PageLoad $ tli.negotiation)
               ( map { loaded: _, negotiation: _ }
-                  (startingWith false $ fromEvent tli.loaded)
+                  (startingWith false $ tli.loaded)
               )
           )
       )

@@ -5,7 +5,6 @@ import Prelude
 import Bolson.Control (switcher)
 import Bolson.Core (envy, dyn)
 import Control.Alt ((<|>))
-import Control.Monad.ST.Class (class MonadST)
 import Control.Parallel (parTraverse, parallel, sequential)
 import Control.Plus (empty)
 import Control.Promise (toAffE)
@@ -22,8 +21,6 @@ import Data.Lens.Index (ix)
 import Data.Map (Map)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, isJust, maybe)
-import Data.Monoid.Always (always)
-import Data.Monoid.Endo (Endo(..))
 import Data.Newtype (unwrap)
 import Data.Number.Format (fixed, toStringWith)
 import Data.Set as Set
@@ -43,11 +40,11 @@ import Effect.Console (log)
 import Effect.Random (randomInt)
 import Effect.Ref as Ref
 import FRP.Behavior (sample)
-import FRP.Event (AnEvent, fold, folded, fromEvent, keepLatest, mailboxed, mapAccum, memoize, sampleOn, toEvent)
+import FRP.Event (Event, fold, folded, keepLatest, mailboxed, mapAccum, memoize, sampleOn)
 import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V, vbus)
 import Foreign.Object as Object
-import Hyrule.Zora (Zora)
+
 import JSURI (encodeURIComponent)
 import Joyride.App.Loading (loadingPage)
 import Joyride.App.Tutorial (tutorial)
@@ -84,7 +81,7 @@ import Web.HTML (window)
 import Web.HTML.HTMLInputElement (fromEventTarget, value, valueAsNumber)
 import Web.HTML.Window (alert)
 
-smplCls :: forall s m elt. MonadST s m => Attr elt Class String => String -> AnEvent m (Attribute elt)
+smplCls :: forall elt. Attr elt Class String => String -> Event (Attribute elt)
 smplCls s = oneOf [ pure $ D.Class := s ]
 
 infixr 4 sampleOn as 🙂
@@ -242,7 +239,7 @@ aChangeName { id, name } = Map.update
   )
   id
 
-aChangeColumn :: { id :: Int, column :: Column} -> ChangeEvent_
+aChangeColumn :: { id :: Int, column :: Column } -> ChangeEvent_
 aChangeColumn { id, column } = Map.update
   ( Just <<< case _ of
       EventV0 (BasicEventV0 be) -> EventV0 (BasicEventV0 (be { column = column }))
@@ -346,9 +343,9 @@ editorPage
   -> WantsTutorial'
   -> Domable lock payload
 editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QDA.do
-  pushed /\ (event :: { | Events (AnEvent Zora) }) <- vbussedUncurried (Proxy :: _ (V (Events PlainOl)))
+  pushed /\ (event :: { | Events (Event) }) <- vbussedUncurried (Proxy :: _ (V (Events PlainOl)))
   let
-    initialData :: AnEvent Zora { initialTitle :: String, url :: String, initialPrivate :: Boolean }
+    initialData :: Event { initialTitle :: String, url :: String, initialPrivate :: Boolean }
     initialData = fireAndForget (event.initialPrivate 😄 event.loadWave 😄 ({ initialTitle: _, url: _, initialPrivate: _ } <$> event.initialTitle))
   let
     mostRecentData' = keepLatest
@@ -387,43 +384,35 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
         <<< rider
           ( toRide
               { event: event.markerMoved 😄 (Tuple <$> event.documentId)
-              , push: \(did /\ mm) -> unwrap
-                  ( (always :: (Endo Function (Effect Unit)) -> (Endo Function (Zora Unit)))
-                      ( Endo \_ -> for_ mm.id \id -> do
-                          let
-                            fn = case mm.offset of
-                              0 -> updateMarker1TimeAff
-                              1 -> updateMarker2TimeAff
-                              2 -> updateMarker3TimeAff
-                              _ -> updateMarker4TimeAff
-                          launchAff_ $ fn firestoreDb did id mm.time
-                      )
-                  )
-                  (pure unit)
+              , push: \(did /\ mm) -> for_ mm.id \id -> do
+                  let
+                    fn = case mm.offset of
+                      0 -> updateMarker1TimeAff
+                      1 -> updateMarker2TimeAff
+                      2 -> updateMarker3TimeAff
+                      _ -> updateMarker4TimeAff
+                  launchAff_ $ fn firestoreDb did id mm.time
               }
           )
         <<< rider
           ( toRide
               { event: do
-                  mostRecentData 🙂 event.waveSurfer 🙂 fromEvent (folded $ map pure signedInNonAnonymously) 😄 ({ did: _, sina: _, ws: _, mrd: _ } <$> (Just <$> event.documentId <|> pure Nothing))
-              , push: \{ did, sina, ws, mrd } -> unwrap
-                  ( (always :: (Endo Function (Effect Unit)) -> (Endo Function (Zora Unit)))
-                      ( Endo \_ -> case did, sina of
-                          -- we have gone from not signed in to signed in
-                          -- create the document on firebase
-                          Nothing, [ true, false ] -> currentUser fbAuth >>= traverse_ \(User u) -> launchAff_ do
-                            added <- addTrackAff firestoreDb (aChangeOwner u.uid (fst mrd))
-                            liftEffect $ pushed.documentId added.id
-                            forIdAttribution <- Map.toUnfoldable (snd mrd) # parTraverse \(id /\ data') -> do
-                              addedEvent <- addEventAff firestoreDb added.id data'
-                              pure { ix: id, id: addedEvent.id }
-                            liftEffect $ associateEventDocumentIdWithSortedMarkerIdList ws forIdAttribution
-                          -- ignore other stuff
-                          -- if this proves to be too general, make it more nuanced
-                          _, _ -> pure unit
-                      )
+                  mostRecentData 🙂 event.waveSurfer 🙂 (folded $ map pure signedInNonAnonymously) 😄 ({ did: _, sina: _, ws: _, mrd: _ } <$> (Just <$> event.documentId <|> pure Nothing))
+              , push: \{ did, sina, ws, mrd } -> 
+                  ( case did, sina of
+                      -- we have gone from not signed in to signed in
+                      -- create the document on firebase
+                      Nothing, [ true, false ] -> currentUser fbAuth >>= traverse_ \(User u) -> launchAff_ do
+                        added <- addTrackAff firestoreDb (aChangeOwner u.uid (fst mrd))
+                        liftEffect $ pushed.documentId added.id
+                        forIdAttribution <- Map.toUnfoldable (snd mrd) # parTraverse \(id /\ data') -> do
+                          addedEvent <- addEventAff firestoreDb added.id data'
+                          pure { ix: id, id: addedEvent.id }
+                        liftEffect $ associateEventDocumentIdWithSortedMarkerIdList ws forIdAttribution
+                      -- ignore other stuff
+                      -- if this proves to be too general, make it more nuanced
+                      _, _ -> pure unit
                   )
-                  (pure unit)
               }
           )
         <<< rider
@@ -439,17 +428,14 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                       ((event.solo <#> Solo) <|> (event.mute <#> Mute) <|> (event.unSolo <#> UnSolo) <|> (event.unMute <#> UnMute))
                       Set.empty
                   )
-              , push: \(a /\ ws) -> unwrap
-                  ( (always :: (Endo Function (Effect Unit)) -> (Endo Function (Zora Unit)))
-                      ( Endo \_ -> case a of
-                          Left s -> muteExcept ws (map (\(x /\ y) -> [ x, x + y ]) (Set.toUnfoldable s))
-                          Right (Right (startIx /\ inSeq)) -> for_ (startIx .. (startIx + inSeq - 1)) \ix -> do
-                            hideMarker ws ix
-                          Right (Left (startIx /\ inSeq)) -> for_ (startIx .. (startIx + inSeq - 1)) \ix -> do
-                            showMarker ws ix
-                      )
+              , push: \(a /\ ws) -> 
+                  ( case a of
+                      Left s -> muteExcept ws (map (\(x /\ y) -> [ x, x + y ]) (Set.toUnfoldable s))
+                      Right (Right (startIx /\ inSeq)) -> for_ (startIx .. (startIx + inSeq - 1)) \ix -> do
+                        hideMarker ws ix
+                      Right (Left (startIx /\ inSeq)) -> for_ (startIx .. (startIx + inSeq - 1)) \ix -> do
+                        showMarker ws ix
                   )
-                  (pure unit)
               }
           )
         <<< memoBeh (Just <$> event.documentId) Nothing
@@ -482,7 +468,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
               )
           )
           evz
-      wsf <- forkAff $ eventToAff $ toEvent event.waveSurfer
+      wsf <- forkAff $ eventToAff $ event.waveSurfer
       liftEffect do
         pushed.loadWave aTra.url
         for_ aTra.title pushed.initialTitle
@@ -520,7 +506,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
               associateEventDocumentIdWithMarker m1 id
   let
 
-    store :: AnEvent Zora Landmark
+    store :: Event Landmark
     store =
       ( mapAccum
           ( \a { id, startIx } -> case a of
@@ -725,7 +711,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
               , pure $ D.OnClick := do
                   signInWithGoogle do
                     window >>= alert "Sign in with google is temporarily unavailable. Please try again later."
-              , fromEvent signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> if sina then " hidden" else ""
+              , signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> if sina then " hidden" else ""
               ]
           )
           [ text_ "Save (sign in)" ]
@@ -938,9 +924,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                         ( \x -> do
                                                             v <- value x
                                                             let nm = if v == "" then Nothing else Just v
-                                                            ( (always :: Zora Unit -> Effect Unit) do
-                                                                p'.changeName nm
-                                                            )
+                                                            p'.changeName nm
                                                             pushed.atomicEventOperation $ aChangeName { id, name: nm }
                                                             for_ (Tuple <$> mDid <*> (initialId <|> updatedId)) \(trackId /\ evId) -> do
                                                               launchAff_ (updateEventNameAff firestoreDb trackId evId v)
@@ -969,9 +953,8 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                       )
                                                       ( \x -> do
                                                           v' <- floor <$> valueAsNumber x
-                                                          let v =  fromMaybe C7 $ hush $ intToColumn v'
-                                                          (always :: Zora Unit -> Effect Unit) do
-                                                            p'.changeColumn v
+                                                          let v = fromMaybe C7 $ hush $ intToColumn v'
+                                                          p'.changeColumn v
                                                           pushed.atomicEventOperation $ aChangeColumn { id, column: v }
                                                           for_ (Tuple <$> mDid <*> (initialId <|> updatedId)) \(trackId /\ evId) -> do
                                                             launchAff_ (updateColumnAff firestoreDb trackId evId v)
@@ -991,7 +974,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                   [ soloState <#> \ms -> D.Class := (if ms then buttonActiveCls else buttonCls) <> " mr-2"
                                                   , click $ soloState <#> \ms -> do
                                                       (if ms then pushed.unSolo else pushed.solo) (startIx /\ inSeq)
-                                                      (map (always :: Zora Unit -> Effect Unit) p'.solo) unit
+                                                      p'.solo unit
                                                   ]
                                               )
                                               [ D.span (oneOf []) [ text_ "Solo" ] ]
@@ -1000,7 +983,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                   [ muteState <#> \ms -> D.Class := (if ms then buttonActiveCls else buttonCls) <> " mr-2"
                                                   , click $ muteState <#> \ms -> do
                                                       (if ms then pushed.unMute else pushed.mute) (startIx /\ inSeq)
-                                                      (map (always :: Zora Unit -> Effect Unit) p'.mute) unit
+                                                      p'.mute unit
                                                   ]
                                               )
                                               [ D.span
@@ -1013,7 +996,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                       for_ (startIx .. (startIx + inSeq - 1)) \_ -> do
                                                         -- do not increment as the list gets shorter and shorter so we are always removing at startIx
                                                         removeMarker ws startIx
-                                                      (map (always :: Zora Unit -> Effect Unit) p'.delete) unit
+                                                      p'.delete unit
                                                       pushed.atomicEventOperation $ aDeleteEvent_ { id }
                                                       for_ (Tuple <$> mDid <*> (initialId <|> updatedId)) \(trackId /\ evId) -> do
                                                         launchAff_ (deleteEventAff firestoreDb trackId evId)
@@ -1046,13 +1029,13 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
 
                   [ D.div
                       (pure $ D.Class := "pointer-events-auto text-center text-white p-4")
-                      [ text (fromEvent signedInNonAnonymously <#> \sina -> "Get started by importing an audio file" <> if sina then " or project." else ".") ]
+                      [ text ( signedInNonAnonymously <#> \sina -> "Get started by importing an audio file" <> if sina then " or project." else ".") ]
                   ]
                 <>
                   [ D.div (pure $ D.Class := "flex w-full justify-center items-center")
                       [ D.button
                           ( oneOf
-                              [ fromEvent signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> " mx-2 pointer-events-auto" <> if sina then "" else " hidden"
+                              [  signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> " mx-2 pointer-events-auto" <> if sina then "" else " hidden"
                               , pure $ D.OnClick := do
                                   pushed.loadingScreenVisible true
                                   launchAff_ do
@@ -1066,7 +1049,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                           [ text_ "Fork project" ]
                       , D.button
                           ( oneOf
-                              [ fromEvent signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> " mx-2 pointer-events-auto" <> if sina then "" else " hidden"
+                              [  signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> " mx-2 pointer-events-auto" <> if sina then "" else " hidden"
                               , pure $ D.OnClick := do
                                   pushed.loadingScreenVisible true
                                   launchAff_ do
@@ -1104,7 +1087,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                           [ text_ "Import project" ]
                       , D.button
                           ( oneOf
-                              [ fromEvent signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> " mx-2 pointer-events-auto" <> if sina then "" else " hidden"
+                              [  signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> " mx-2 pointer-events-auto" <> if sina then "" else " hidden"
                               , pure $ D.OnClick := do
                                   pushed.loadingScreenVisible true
                                   launchAff_ do
@@ -1246,7 +1229,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
         ( previewScreenVisible <#> \psv ->
             D.Class := "absolute w-screen h-screen" <> if isJust psv then "" else " hidden"
         )
-        [ (fromEvent (howShouldIBehave (pure 0.0) (toEvent cTime) 😝 (toEvent event.waveSurfer 🙂 (toEvent mostRecentData 🙂 ({ psv: _, mrd: _, ws: _, ct: _ } <$> toEvent previewScreenVisible))))) # switcher \x ->
+        [ ( (howShouldIBehave (pure 0.0) ( cTime) 😝 ( event.waveSurfer 🙂 ( mostRecentData 🙂 ({ psv: _, mrd: _, ws: _, ct: _ } <$>  previewScreenVisible))))) # switcher \x ->
             do
               let vals = Array.fromFoldable $ Map.values $ snd x.mrd
               let TrackV0 tv0 = fst x.mrd
