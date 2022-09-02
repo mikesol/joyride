@@ -17,7 +17,6 @@ import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.Time.Duration (Milliseconds(..), Seconds(..))
 import Data.Tuple.Nested ((/\))
-import Effect (Effect)
 import FRP.Behavior (Behavior, sample_)
 import FRP.Event (Event, keepLatest, memoize)
 import FRP.Event.Time as LocalTime
@@ -125,7 +124,7 @@ tutorialBasics makeBasics =
   eventList :: forall a. (ACU -> Event a) -> Event (List (Event a))
   eventList f = scheduleCf (go f score) (_.rateInfo <$> makeBasics.animatedStuff)
 
-  transformBasic :: ACU -> Event (Child Void (Mesh lock payload) Effect lock)
+  transformBasic :: ACU -> Event (Child Void (Mesh lock payload) lock)
   transformBasic input =
     ( map Insert
         ( BasicV.basic

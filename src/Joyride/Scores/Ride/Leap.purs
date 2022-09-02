@@ -93,7 +93,7 @@ rideLeaps levs makeLeaps = fixed
   eventList :: forall a. (ScoreMorcelId -> Event a) -> Event (List (Event a))
   eventList f = scheduleCf (go f score) (_.rateInfo <$> makeLeaps.animatedStuff)
 
-  transformLeapWord :: ScoreMorcelId -> Event (Child Void (CSS3DObject lock payload) Effect lock)
+  transformLeapWord :: ScoreMorcelId -> Event (Child Void (CSS3DObject lock payload) lock)
   transformLeapWord input =
     ( pure $ Insert
         ( LeapW.leapWord

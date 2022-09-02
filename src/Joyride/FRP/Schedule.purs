@@ -5,25 +5,23 @@ import Prelude
 import Control.Comonad (extract)
 import Control.Comonad.Cofree (Cofree)
 import Control.Comonad.Cofree.Class (unwrapCofree)
-import Control.Monad.ST.Class (class MonadST, liftST)
+import Control.Monad.ST.Class (liftST)
 import Control.Monad.ST.Internal as Ref
 import Data.Compactable (compact)
 import Data.Maybe (Maybe(..))
 import Data.Tuple.Nested ((/\))
-import FRP.Event (AnEvent, makeEvent, mapAccum, subscribe)
+import Effect (Effect)
+import FRP.Event (Event, makeEvent, mapAccum, subscribe)
 
 fireAndForget
-  :: forall s m
-   . MonadST s m
-  => AnEvent m ~> AnEvent m
+  :: Event ~> Event
 fireAndForget = oneOff Just
 
 oneOff
-  :: forall s m a b
-   . MonadST s m
-  => (a -> Maybe b)
-  -> AnEvent m a
-  -> AnEvent m b
+  :: forall a b
+   . (a -> Maybe b)
+  -> Event a
+  -> Event b
 oneOff f e = compact $ emitUntil identity
   ( mapAccum
       ( \a b -> case f a, b of
@@ -36,11 +34,10 @@ oneOff f e = compact $ emitUntil identity
   )
 
 emitUntil
-  :: forall s m a b
-   . MonadST s m
-  => (a -> Maybe b)
-  -> AnEvent m a
-  -> AnEvent m b
+  :: forall a b
+   . (a -> Maybe b)
+  -> Event a
+  -> Event b
 emitUntil aToB e = makeEvent \k -> do
   o <- subscribe (withUnsubscribe e) \{ unsubscribe, value } ->
     case aToB value of
@@ -48,7 +45,7 @@ emitUntil aToB e = makeEvent \k -> do
       Nothing -> unsubscribe
   pure o
 
-withUnsubscribe :: forall s m a. MonadST s m =>  AnEvent m a -> AnEvent m {unsubscribe :: m Unit, value :: a}
+withUnsubscribe :: forall a. Event a -> Event {unsubscribe :: Effect Unit, value :: a}
 withUnsubscribe e = makeEvent \ff -> do
   let f unsubscribe value = ff { unsubscribe, value }
   active <- liftST $ Ref.new true
@@ -66,11 +63,10 @@ withUnsubscribe e = makeEvent \ff -> do
     true -> liftST $ Ref.write o ro $> o
 
 scheduleCf
-  :: forall s m r val
-   . MonadST s m
-  => (r -> Cofree ((->) r) val)
-  -> AnEvent m r
-  -> AnEvent m val
+  :: forall r val
+   . (r -> Cofree ((->) r) val)
+  -> Event r
+  -> Event val
 scheduleCf ll e = makeEvent \k -> do
   r <- liftST $ Ref.new ll
   u <- liftST $ Ref.new (pure unit)

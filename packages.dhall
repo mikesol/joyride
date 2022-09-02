@@ -35,12 +35,12 @@ let overrides =
           , "web-uievents"
           ]
         , repo = "https://github.com/mikesol/purescript-rito.git"
-        , version = "v0.1.1"
+        , version = "main"
         }
       , bolson =
         { dependencies = [ "arrays" ]
         , repo = "https://github.com/mikesol/purescript-bolson.git"
-        , version = "v0.1.1"
+        , version = "main"
         }
       , joyride-types =
         { dependencies = [ "either" ]
@@ -78,12 +78,12 @@ let overrides =
           , "web-html"
           ]
         , repo = "https://github.com/mikesol/purescript-deku.git"
-        , version = "v0.6.1"
+        , version = "main"
         }
       , hyrule =
         { dependencies = [ "arrays" ]
         , repo = "https://github.com/mikesol/purescript-hyrule.git"
-        , version = "v2.1.0"
+        , version = "master"
         }
       , ocarina =
         { dependencies =
@@ -131,9 +131,10 @@ let overrides =
           , "web-html"
           ]
         , repo = "https://github.com/mikesol/purescript-ocarina.git"
-        , version = "v1.3.1"
+        , version = "main"
         }
       }
 
 in  upstream // overrides
+
 

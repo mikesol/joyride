@@ -12,7 +12,7 @@ import Deku.Control (text)
 import Deku.Core (ANut(..))
 import Deku.DOM as D
 import Effect (Effect)
-import FRP.Event (Event, fromEvent, keepLatest, mapAccum)
+import FRP.Event (Event, keepLatest, mapAccum)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Rito.CSS.CSS2DObject (css2DObject)
 import Rito.Core (ACSS2DObject)
@@ -41,7 +41,7 @@ css2DNut mbl (HitLongVisualForLabel e) = ANut
                   )
                   [ text $ oneOf
                       [ pure (p2s e.player <> " Long on!")
-                      , (fromEvent mbl.longRelease) <#> \_ -> (p2s e.player <> " Long off!")
+                      , (mbl.longRelease) <#> \_ -> (p2s e.player <> " Long off!")
                       ]
                   ]
               )

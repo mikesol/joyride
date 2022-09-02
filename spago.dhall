@@ -33,7 +33,6 @@
   , "js-uri"
   , "lists"
   , "maybe"
-  , "monoid-extras"
   , "newtype"
   , "nonempty"
   , "now"

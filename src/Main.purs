@@ -40,7 +40,6 @@ import Joyride.App.Toplevel (toplevel)
 import Joyride.Effect.Ref (readFromRecord, writeToRecord)
 import Joyride.EmitsTouchEvents (emitsTouchEvents)
 import Joyride.FRP.Behavior (refToBehavior)
-import Joyride.FRP.Burning (burning)
 import Joyride.FRP.Dedup (dedup)
 import Joyride.FRP.Keypress (posFromKeypress, xForKeyboard)
 import Joyride.FRP.Orientation (hasOrientationPermission, posFromOrientation, xForTouch)
@@ -214,7 +213,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
       -- in the current architecture,
       -- we never unsubscribe from this, as it is at the top level
       -- if moved down to internal scopes, we need to run the unsubscribe when it moves out of scope!
-      signedInNonAnonymously <- burning false signedInNonAnonymously'.event
+      signedInNonAnonymously <- Event.burning false signedInNonAnonymously'.event
       -- timing
       myCNow <- cnow
       let mappedCNow = _.time <$> myCNow.cnow

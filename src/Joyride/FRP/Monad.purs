@@ -2,7 +2,8 @@ module Joyride.FRP.Monad where
 
 import Prelude
 
-import FRP.Event (AnEvent, makeEvent)
+import Effect (Effect)
+import FRP.Event (Event, makeEvent)
 
-mToEvent :: forall m. Monad m => m ~> AnEvent m
+mToEvent :: Effect ~> Event
 mToEvent e = makeEvent \k -> (e >>= k) *> pure (pure unit)
