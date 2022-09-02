@@ -30,7 +30,11 @@ import Joyride.Scores.Tutorial.Base as Base
 import Joyride.Visual.Basic as BasicV
 import Ocarina.WebAPI (BrowserAudioBuffer)
 import Record (union)
-import Rito.Core (ASceneful, Mesh, toScene)
+import Rito.Color (RGB(..))
+import Rito.Core (ASceneful, Instance, Mesh, toScene)
+import Rito.Geometries.Box (box)
+import Rito.Materials.MeshPhongMaterial (meshPhongMaterial)
+import Rito.RoundRobin (InstanceId, Semaphore(..), roundRobinInstancedMesh)
 import Safe.Coerce (coerce)
 import Types (Beats(..), Column(..), JMilliseconds(..), MakeBasics, RateInfo, beatToTime)
 
@@ -113,7 +117,22 @@ severalBeats { b0, b1, b2, b3, silence } = singleBeat (f $ b0)
 tutorialBasics :: forall lock payload. { | MakeBasics () } -> ASceneful lock payload
 tutorialBasics makeBasics =
   ( fixed
-      [ toScene $ dyn (children transformBasic)
+      [ toScene
+          ( roundRobinInstancedMesh
+              { instancedMesh: makeBasics.threeDI.instancedMesh
+              , matrix4: makeBasics.threeDI.matrix4
+              , mesh: makeBasics.threeDI.mesh
+              }
+              100
+              (box { box: makeBasics.threeDI.boxGeometry })
+              ( meshPhongMaterial
+                  { meshPhongMaterial: makeBasics.threeDI.meshPhongMaterial
+                  , color: makeBasics.mkColor (RGB 0.798 0.927 0.778)
+                  }
+                  empty
+              )
+              (children transformBasic)
+          )
       ]
   )
 
@@ -124,9 +143,9 @@ tutorialBasics makeBasics =
   eventList :: forall a. (ACU -> Event a) -> Event (List (Event a))
   eventList f = scheduleCf (go f score) (_.rateInfo <$> makeBasics.animatedStuff)
 
-  transformBasic :: ACU -> Event (Child Void (Mesh lock payload) lock)
+  transformBasic :: ACU -> Event (Semaphore (InstanceId -> Instance lock payload))
   transformBasic input =
-    ( map Insert
+    ( map Acquire
         ( BasicV.basic
             ( makeBasics `union`
                 { myInfo:
@@ -147,7 +166,7 @@ tutorialBasics makeBasics =
     ) <|>
       ( keepLatest $ (LocalTime.withTime (pure unit)) <#> \{ time } -> lowPrioritySchedule makeBasics.lpsCallback
           (JMilliseconds 10000.0 + (coerce $ unInstant time))
-          (pure $ Remove)
+          (pure $ Release)
       )
 
   go :: forall a. (ACU -> Event a) -> List ACU -> RateInfo -> Cofree ((->) RateInfo) (List (Event a))

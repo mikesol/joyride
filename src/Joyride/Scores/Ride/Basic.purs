@@ -28,7 +28,11 @@ import Joyride.Visual.Basic as BasicV
 import Joyride.Visual.BasicWord as BasicW
 import Ocarina.WebAPI (BrowserAudioBuffer)
 import Record (union)
-import Rito.Core (ASceneful, CSS3DObject, Mesh, toScene)
+import Rito.Color (RGB(..))
+import Rito.Core (ASceneful, CSS3DObject, Instance, Mesh, toScene)
+import Rito.Geometries.Box (box)
+import Rito.Materials.MeshPhongMaterial (meshPhongMaterial)
+import Rito.RoundRobin (InstanceId, Semaphore(..), roundRobinInstancedMesh)
 import Safe.Coerce (coerce)
 import Types (BasicEventV0', Beats(..), Column(..), HitBasicMe, JMilliseconds(..), MakeBasics, RateInfo, beatToTime)
 
@@ -104,7 +108,22 @@ severalBeats { b0, b1, b2, b3, silence } = singleBeat (f $ b0)
 rideBasics :: forall lock payload. Array BasicEventV0' -> { | MakeBasics () } -> ASceneful lock payload
 rideBasics bevs makeBasics =
   ( fixed
-      [ toScene $ dyn (children transformBasic)
+      [ toScene
+          ( roundRobinInstancedMesh
+              { instancedMesh: makeBasics.threeDI.instancedMesh
+              , matrix4: makeBasics.threeDI.matrix4
+              , mesh: makeBasics.threeDI.mesh
+              }
+              100
+              (box { box: makeBasics.threeDI.boxGeometry })
+              ( meshPhongMaterial
+                  { meshPhongMaterial: makeBasics.threeDI.meshPhongMaterial
+                  , color: makeBasics.mkColor (RGB 0.798 0.927 0.778)
+                  }
+                  empty
+              )
+              (children transformBasic)
+          )
       -- , toScene $ dyn (children transformBasicWord)
       ]
   )
@@ -116,9 +135,9 @@ rideBasics bevs makeBasics =
   eventList :: forall a. (ACU -> Event a) -> Event (List (Event a))
   eventList f = scheduleCf (go f score) (_.rateInfo <$> makeBasics.animatedStuff)
 
-  transformBasic :: ACU -> Event (Child Void (Mesh lock payload) lock)
+  transformBasic :: ACU -> Event (Semaphore (InstanceId -> Instance lock payload))
   transformBasic input =
-    ( map Insert
+    ( map Acquire
         ( BasicV.basic
             ( makeBasics `union` input `union`
                 { myInfo:
@@ -140,7 +159,7 @@ rideBasics bevs makeBasics =
       -- longer semaphore cuz screen time is longer for certain ictuses
       ( keepLatest $ (LocalTime.withTime (pure unit)) <#> \{ time } -> lowPrioritySchedule makeBasics.lpsCallback
           (JMilliseconds 15000.0 + (coerce $ unInstant time))
-          (pure $ Remove)
+          (pure $ Release)
       )
 
   transformBasicWord :: ACU -> Event (Child Void (CSS3DObject lock payload) lock)
