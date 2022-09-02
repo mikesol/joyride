@@ -248,7 +248,6 @@ normalizedColumn C14 = 13.0 / 16.0
 normalizedColumn C15 = 14.0 / 16.0
 normalizedColumn C16 = 15.0 / 16.0
 
-
 -- | Beats, or a temporal unit based on seconds modulated by a tempo.
 newtype Beats = Beats Number
 
@@ -478,10 +477,12 @@ type MakeBasicWord r =
   )
 
 type MakeBasic r =
-  ( column :: Column
-  , appearsAt :: Beats
-  , uniqueId :: Int
-  , beats :: Vect 4 { startsAt :: Beats, audio :: Event RateInfo -> AudibleEnd }
+  ( myInfo ::
+      { column :: Column
+      , appearsAt :: Beats
+      , uniqueId :: Int
+      , beats :: Vect 4 { startsAt :: Beats, audio :: Event RateInfo -> AudibleEnd }
+      }
   | MakeBasics r
   )
 
@@ -1078,7 +1079,6 @@ type RideV0' =
   , open :: Boolean
   , version :: Version 0
   }
-
 
 defaultRide :: Ride
 defaultRide = RideV0

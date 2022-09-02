@@ -3,7 +3,6 @@ module Joyride.Visual.Basic where
 import Prelude
 
 import Control.Alt ((<|>))
-import Control.Plus (empty)
 import Data.Compactable (compact)
 import Data.DateTime.Instant (unInstant)
 import Data.FastVect.FastVect (index)
@@ -28,13 +27,10 @@ import Joyride.Timing.CoordinatedNow (cInstant)
 import Joyride.Visual.EmptyMatrix (emptyMatrix)
 import Ocarina.Core (silence, sound)
 import Ocarina.Math (calcSlope)
-import Rito.Color (RGB(..))
-import Rito.Core (AMesh)
-import Rito.Geometries.Box (box)
-import Rito.Materials.MeshPhongMaterial (meshPhongMaterial)
+import Rito.Core (Instance)
 import Rito.Matrix4 (Matrix4')
-import Rito.Mesh (mesh)
 import Rito.Properties as P
+import Rito.RoundRobin (InstanceId, singleInstance)
 import Safe.Coerce (coerce)
 import Type.Proxy (Proxy(..))
 import Types (Beats, HitBasicMe(..), HitBasicOtherPlayer(..), HitBasicVisualForLabel(..), JMilliseconds(..), MakeBasic, Position(..), RateInfo, RenderingInfo, entryZ, normalizedColumn, playerPosition', touchPointZ)
@@ -44,7 +40,7 @@ import Web.UIEvent.MouseEvent as MouseEvent
 basic
   :: forall r lock payload
    . { | MakeBasic r }
-  -> Event (AMesh lock payload)
+  -> Event (InstanceId -> Instance lock payload)
 basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
   let
     -- this is the event that we listen to to know when to stop playing audio
@@ -56,7 +52,7 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
       [ -- either I was played
         map (unwrap >>> _.logicalBeat) iWasPlayed
       -- or another player was played
-      , map (unwrap >>> _.logicalBeat) (filter (\(HitBasicOtherPlayer { uniqueId }) -> makeBasic.uniqueId == uniqueId) otherPlayedMe)
+      , map (unwrap >>> _.logicalBeat) (filter (\(HitBasicOtherPlayer { uniqueId }) -> makeBasic.myInfo.uniqueId == uniqueId) otherPlayedMe)
       ]
 
     -- when a tile-touch happens, we start emitting rate info to the audio engine
@@ -103,12 +99,12 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
        , endTime
        , renderingInfo
        } ->
-        { n14: ((renderingInfo.halfAmbitus * (2.0 * (normalizedColumn makeBasic.column) - 1.0)) * ratio.r)
+        { n14: ((renderingInfo.halfAmbitus * (2.0 * (normalizedColumn makeBasic.myInfo.column) - 1.0)) * ratio.r)
         , n24: 0.0
         , n34:
             let
               o
-                | rateInfo.beats < p1.startsAt = calcSlope (unwrap makeBasic.appearsAt) (appearancePoint renderingInfo) (unwrap p1.startsAt) (p1bar renderingInfo) (unwrap rateInfo.beats)
+                | rateInfo.beats < p1.startsAt = calcSlope (unwrap makeBasic.myInfo.appearsAt) (appearancePoint renderingInfo) (unwrap p1.startsAt) (p1bar renderingInfo) (unwrap rateInfo.beats)
                 | rateInfo.beats < p2.startsAt = calcSlope (unwrap p1.startsAt) (p1bar renderingInfo) (unwrap p2.startsAt) (p2bar renderingInfo) (unwrap rateInfo.beats)
                 | rateInfo.beats < p3.startsAt = calcSlope (unwrap p2.startsAt) (p2bar renderingInfo) (unwrap p3.startsAt) (p3bar renderingInfo) (unwrap rateInfo.beats)
                 | rateInfo.beats < p4.startsAt = calcSlope (unwrap p3.startsAt) (p3bar renderingInfo) (unwrap p4.startsAt) (p4bar renderingInfo) (unwrap rateInfo.beats)
@@ -140,7 +136,7 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
     keepLatest $ memoize (filter (\(HitBasicOtherPlayer { player }) -> player /= makeBasic.myPlayer) otherPlayedMe) \hitBasicOtherPlayer -> rider
       ( toRide
           { event: oneOfMap pure
-              ( makeBasic.beats <#>
+              ( makeBasic.myInfo.beats <#>
                   \{ audio } -> oneOf
                     [ pure $ AudibleChildEnd
                         ( sound
@@ -156,22 +152,10 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
           }
       )
       ( pure
-          ( ( mesh { mesh: makeBasic.threeDI.mesh } (box { box: makeBasic.threeDI.boxGeometry })
-                ( meshPhongMaterial
-                    { meshPhongMaterial: makeBasic.threeDI.meshPhongMaterial
-                    , color: makeBasic.mkColor (RGB 0.798 0.927 0.778)
-                    }
-                    empty
-                )
+          ( ( singleInstance
                 ( oneOf
-                    [ keepLatest $ (drawingMatrix <|> pure emptyMatrix) <#> \{ n11, n22, n33, n14, n24, n34 } -> oneOfMap pure
-                        [ P.scaleX n11
-                        , P.scaleY n22
-                        , P.scaleZ n33
-                        , P.positionX n14
-                        , P.positionY n24
-                        , P.positionZ n34
-                        ]
+                    [ pure $ P.matrix4 $ makeBasic.mkMatrix4 emptyMatrix
+                    , P.matrix4 <<< makeBasic.mkMatrix4 <$> drawingMatrix
                     , let
                         f = oneOf
                           [ -- if I touched this, turn off the listener
@@ -211,7 +195,7 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
                                   Position4 -> p4
                               let
                                 broadcastInfo =
-                                  { uniqueId: makeBasic.uniqueId
+                                  { uniqueId: makeBasic.myInfo.uniqueId
                                   , position: pos
                                   , hitAt: rateInfo.beats
                                   , issuedAt: coerce n
@@ -270,10 +254,10 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
     { rateInfo: _.rateInfo <$> makeBasic.animatedStuff
     , playerPositions: _.playerPositions <$> makeBasic.animatedStuff
     }
-  p1 = index (Proxy :: _ 0) makeBasic.beats
-  p2 = index (Proxy :: _ 1) makeBasic.beats
-  p3 = index (Proxy :: _ 2) makeBasic.beats
-  p4 = index (Proxy :: _ 3) makeBasic.beats
+  p1 = index (Proxy :: _ 0) makeBasic.myInfo.beats
+  p2 = index (Proxy :: _ 1) makeBasic.myInfo.beats
+  p3 = index (Proxy :: _ 2) makeBasic.myInfo.beats
+  p4 = index (Proxy :: _ 3) makeBasic.myInfo.beats
   p1bar ri = touchPointZ ri Position1
   p2bar ri = touchPointZ ri Position2
   p3bar ri = touchPointZ ri Position3
@@ -286,4 +270,12 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
   shrinkMe endTime basicThickness ri = case endTime of
     Nothing -> basicThickness
     Just (JMilliseconds startTime) -> let (JMilliseconds currentTime) = ri.epochTime in max 0.0 (basicThickness - (basicThickness * shrinkRate * (currentTime - startTime) / 1000.0))
-  otherPlayedMe = filter (\(HitBasicOtherPlayer { uniqueId }) -> makeBasic.uniqueId == uniqueId) makeBasic.notifications.hitBasic
+  otherPlayedMe = filter (\(HitBasicOtherPlayer { uniqueId }) -> makeBasic.myInfo.uniqueId == uniqueId) makeBasic.notifications.hitBasic
+
+--  mesh { mesh: makeBasic.threeDI.mesh } (box { box: makeBasic.threeDI.boxGeometry })
+--                 ( meshPhongMaterial
+--                     { meshPhongMaterial: makeBasic.threeDI.meshPhongMaterial
+--                     , color: makeBasic.mkColor (RGB 0.798 0.927 0.778)
+--                     }
+--                     empty
+--                 )
