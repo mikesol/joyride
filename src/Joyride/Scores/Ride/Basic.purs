@@ -16,7 +16,6 @@ import Data.List (List(..), sortBy, span, (:))
 import Data.List as List
 import Data.Maybe (Maybe(..))
 import Data.Time.Duration (Milliseconds(..), Seconds(..))
-import Effect (Effect)
 import FRP.Behavior (Behavior, sample_)
 import FRP.Event (Event, keepLatest, memoize)
 import FRP.Event.Time as LocalTime
@@ -122,14 +121,18 @@ rideBasics bevs makeBasics =
     ( map Insert
         ( BasicV.basic
             ( makeBasics `union` input `union`
-                { beats: severalBeats
-                    { b0: input.b0
-                    , b1: input.b1
-                    , b2: input.b2
-                    , b3: input.b3
-                    , silence: makeBasics.silence
+                { myInfo:
+                    { beats: severalBeats
+                        { b0: input.b0
+                        , b1: input.b1
+                        , b2: input.b2
+                        , b3: input.b3
+                        , silence: makeBasics.silence
+                        }
+                    , uniqueId: input.uniqueId
+                    , appearsAt: input.appearsAt
+                    , column: input.column
                     }
-                , uniqueId: input.uniqueId
                 }
             )
         )
@@ -144,18 +147,24 @@ rideBasics bevs makeBasics =
   transformBasicWord input =
     ( pure $ Insert
         ( BasicW.basicWord
-            ( makeBasics `union` input `union`
-                { beats: severalBeats
-                    { b0: input.b0
-                    , b1: input.b1
-                    , b2: input.b2
-                    , b3: input.b3
-                    , silence: makeBasics.silence
+            ( makeBasics `union`
+
+                { myInfo:
+                    { beats: severalBeats
+                        { b0: input.b0
+                        , b1: input.b1
+                        , b2: input.b2
+                        , b3: input.b3
+                        , silence: makeBasics.silence
+                        }
+                    , uniqueId: input.uniqueId
+                    , appearsAt: input.appearsAt
+                    , column: input.column
                     }
-                , uniqueId: input.uniqueId
                 , text: input.text
                 -- empty for now, fill this in later
                 , someonePlayedMe: (empty :: Event HitBasicMe)
+
                 }
             )
         )

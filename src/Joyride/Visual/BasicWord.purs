@@ -75,13 +75,13 @@ basicWord makeBasic = do
        } -> do
         let
           o
-            | rateInfo.beats < p1.startsAt = index (Proxy :: _ 0) makeBasic.text /\ calcSlope (unwrap makeBasic.appearsAt) (appearancePoint renderingInfo) (unwrap p1.startsAt) (p1bar renderingInfo) (unwrap rateInfo.beats)
+            | rateInfo.beats < p1.startsAt = index (Proxy :: _ 0) makeBasic.text /\ calcSlope (unwrap makeBasic.myInfo.appearsAt) (appearancePoint renderingInfo) (unwrap p1.startsAt) (p1bar renderingInfo) (unwrap rateInfo.beats)
             | rateInfo.beats < p2.startsAt = index (Proxy :: _ 1) makeBasic.text /\ calcSlope (unwrap p1.startsAt) (p1bar renderingInfo) (unwrap p2.startsAt) (p2bar renderingInfo) (unwrap rateInfo.beats)
             | rateInfo.beats < p3.startsAt = index (Proxy :: _ 2) makeBasic.text /\ calcSlope (unwrap p2.startsAt) (p2bar renderingInfo) (unwrap p3.startsAt) (p3bar renderingInfo) (unwrap rateInfo.beats)
             | rateInfo.beats < p4.startsAt = index (Proxy :: _ 3) makeBasic.text /\ calcSlope (unwrap p3.startsAt) (p3bar renderingInfo) (unwrap p4.startsAt) (p4bar renderingInfo) (unwrap rateInfo.beats)
             | otherwise = index (Proxy :: _ 3) makeBasic.text /\ calcSlope (unwrap p4.startsAt) (p4bar renderingInfo) (unwrap p4.startsAt + 0.2) (p4bar renderingInfo + 0.5) (unwrap rateInfo.beats)
         fst o /\
-          { n14: ((renderingInfo.halfAmbitus * (2.0 * (normalizedColumn makeBasic.column) - 1.0)) * ratio.r)
+          { n14: ((renderingInfo.halfAmbitus * (2.0 * (normalizedColumn makeBasic.myInfo.column) - 1.0)) * ratio.r)
           , n24: 0.0
           , n34: snd o - (basicZThickness / 2.0)
           , n11: 0.01
@@ -126,10 +126,10 @@ basicWord makeBasic = do
     { rateInfo: _.rateInfo <$> makeBasic.animatedStuff
     , playerPositions: _.playerPositions <$> makeBasic.animatedStuff
     }
-  p1 = index (Proxy :: _ 0) makeBasic.beats
-  p2 = index (Proxy :: _ 1) makeBasic.beats
-  p3 = index (Proxy :: _ 2) makeBasic.beats
-  p4 = index (Proxy :: _ 3) makeBasic.beats
+  p1 = index (Proxy :: _ 0) makeBasic.myInfo.beats
+  p2 = index (Proxy :: _ 1) makeBasic.myInfo.beats
+  p3 = index (Proxy :: _ 2) makeBasic.myInfo.beats
+  p4 = index (Proxy :: _ 3) makeBasic.myInfo.beats
   p1bar ri = touchPointZ ri Position1
   p2bar ri = touchPointZ ri Position2
   p3bar ri = touchPointZ ri Position3

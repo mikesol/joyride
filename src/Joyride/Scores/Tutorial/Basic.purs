@@ -128,15 +128,19 @@ tutorialBasics makeBasics =
   transformBasic input =
     ( map Insert
         ( BasicV.basic
-            ( makeBasics `union` input `union`
-                { beats: severalBeats
-                    { b0: input.b0
-                    , b1: input.b1
-                    , b2: input.b2
-                    , b3: input.b3
-                    , silence: makeBasics.silence
+            ( makeBasics `union`
+                { myInfo:
+                    { beats: severalBeats
+                        { b0: input.b0
+                        , b1: input.b1
+                        , b2: input.b2
+                        , b3: input.b3
+                        , silence: makeBasics.silence
+                        }
+                    , uniqueId: input.uniqueId
+                    , appearsAt: input.appearsAt
+                    , column: input.column
                     }
-                , uniqueId: input.uniqueId
                 }
             )
         )
