@@ -4,12 +4,13 @@ import Prelude
 
 import Bolson.Core (Element(..), envy, fixed)
 import Control.Alt ((<|>))
-import Control.Parallel (parSequence, parTraverse, sequential)
+import Control.Parallel (parSequence)
 import Control.Plus (empty)
 import Data.Array (nubBy)
 import Data.Foldable (oneOf, oneOfMap, traverse_)
 import Data.Function (on)
 import Data.Maybe (Maybe(..), fromMaybe, isJust, maybe)
+import Data.Monoid (guard)
 import Data.Newtype (unwrap)
 import Data.Number (cos, pi)
 import Data.Time.Duration (Milliseconds)
@@ -28,7 +29,7 @@ import FRP.Event (Event, keepLatest, mapAccum, memoize)
 import FRP.Event.Animate (animationFrameEvent)
 import FRP.Event.VBus (V)
 import Joyride.Firebase.Auth (signInWithGoogle)
-import Joyride.Firebase.Firestore (getPublicTracksAff, getTracksAff)
+import Joyride.Firebase.Firestore (getPublicTracksAff, getTracksAff, getWhitelistedTracksAff)
 import Joyride.Firebase.Opaque (FirebaseAuth, Firestore)
 import Joyride.FullScreen as FullScreen
 import Joyride.Style (buttonCls, headerCls)
@@ -182,7 +183,11 @@ explainerPage opts = vbussed
                     ( oneOf
                         [ klass $ pure buttonCls
                         , DL.click $ (opts.signedInNonAnonymously) <#> \signedInNonAnon -> launchAff_ do
-                            rides <- map (nubBy (compare `on` _.id) <<< join) $ parSequence [ getPublicTracksAff opts.firestoreDb, if signedInNonAnon then getTracksAff opts.fbAuth opts.firestoreDb else pure [] ]
+                            rides <- map (nubBy (compare `on` _.id) <<< join) $ parSequence
+                              [ getPublicTracksAff opts.firestoreDb
+                              , guard signedInNonAnon (getTracksAff opts.fbAuth opts.firestoreDb)
+                              , guard signedInNonAnon (getWhitelistedTracksAff opts.fbAuth opts.firestoreDb)
+                              ]
                             liftEffect $ push.availableRides (Just rides)
                         ]
                     )

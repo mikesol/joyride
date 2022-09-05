@@ -99,6 +99,21 @@ export const getTracks = (auth) => (db) => () =>
 		});
 	});
 
+export const getWhitelistedTracks = (auth) => (db) => () =>
+	import("firebase/firestore").then(({ query, getDocs, collection, where }) => {
+		const q = query(
+			collection(db, TRACKS),
+			where("whitelist", "array-contains", auth.currentUser.uid)
+		);
+		return getDocs(q).then((querySnapshot) => {
+			const data = [];
+			querySnapshot.forEach((doc) => {
+				data.push({ id: doc.id, data: doc.data() });
+			});
+			return data;
+		});
+	});
+
 export const getPublicTracks = (db) => () =>
 	import("firebase/firestore").then(
 		({ query, getDocs, collection, where, limit }) => {
@@ -251,19 +266,19 @@ export const listenToRemoteChannelChanges = (db) => (rideID) => (pub) => () =>
 
 export const sendMyPointsAndPenaltiesToFirebaseImpl =
 	(db) =>
-	(auth) =>
-	(rideID) =>
-	(keyPoints) =>
-	(keyPenalty) =>
-	(points) =>
-	(penalties) =>
-	() =>
-		import("firebase/firestore").then(({ updateDoc, doc }) => {
-			const update = {};
-			if (!auth.currentUser) {
-				return Promise.reject(new Error("No current user"));
-			}
-			update[keyPoints] = points;
-			update[keyPenalty] = penalties;
-			return updateDoc(doc(db, RIDES, rideID), update);
-		});
+		(auth) =>
+			(rideID) =>
+				(keyPoints) =>
+					(keyPenalty) =>
+						(points) =>
+							(penalties) =>
+								() =>
+									import("firebase/firestore").then(({ updateDoc, doc }) => {
+										const update = {};
+										if (!auth.currentUser) {
+											return Promise.reject(new Error("No current user"));
+										}
+										update[keyPoints] = points;
+										update[keyPenalty] = penalties;
+										return updateDoc(doc(db, RIDES, rideID), update);
+									});

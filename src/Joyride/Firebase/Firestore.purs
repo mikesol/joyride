@@ -109,6 +109,15 @@ getTracksAff fa fs = do
     Right r -> pure r
     Left e -> throwError (error (show e))
 
+foreign import getWhitelistedTracks :: FirebaseAuth -> Firestore -> Effect (Promise Foreign)
+
+getWhitelistedTracksAff :: FirebaseAuth -> Firestore -> Aff (Array { id :: String, data :: Track })
+getWhitelistedTracksAff fa fs = do
+  ds <- toAffE $ getWhitelistedTracks fa fs
+  case JSON.read ds of
+    Right r -> pure r
+    Left e -> throwError (error (show e))
+
 foreign import updateEventName :: Firestore -> String -> String -> String -> Effect (Promise Unit)
 
 updateEventNameAff :: Firestore -> String -> String -> String -> Aff Unit
