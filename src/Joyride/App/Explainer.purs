@@ -7,7 +7,7 @@ import Control.Alt ((<|>))
 import Control.Parallel (parSequence)
 import Control.Plus (empty)
 import Data.Array (nubBy)
-import Data.Foldable (oneOf, oneOfMap, traverse_)
+import Data.Foldable (for_, oneOf, oneOfMap, traverse_)
 import Data.Function (on)
 import Data.Maybe (Maybe(..), fromMaybe, isJust, maybe)
 import Data.Monoid (guard)
@@ -28,7 +28,7 @@ import Effect.Class (liftEffect)
 import FRP.Event (Event, keepLatest, mapAccum, memoize)
 import FRP.Event.Animate (animationFrameEvent)
 import FRP.Event.VBus (V)
-import Joyride.Firebase.Auth (signInWithGoogle)
+import Joyride.Firebase.Auth (User(..), currentUser, signInWithGoogle)
 import Joyride.Firebase.Firestore (getPublicTracksAff, getTracksAff, getWhitelistedTracksAff)
 import Joyride.Firebase.Opaque (FirebaseAuth, Firestore)
 import Joyride.FullScreen as FullScreen
@@ -168,7 +168,16 @@ explainerPage opts = vbussed
               let
                 buttonCls = "my-4 bg-transparent hover:bg-slate-300 text-white font-semibold hover:text-zinc-700 py-2 px-4 border border-slate-300 hover:border-transparent rounded"
               in
-                [ D.h1 (pure $ D.Class := "text-center " <> headerCls) [ text_ "Joyride" ]
+                [ D.h1
+                    ( oneOf
+                        [ pure $ D.Class := "text-center " <> headerCls
+                        , click $ opts.signedInNonAnonymously <#> \signedInNonAnon -> when signedInNonAnon do
+                            cu <- currentUser opts.fbAuth
+                            for_ cu \(User { uid }) ->
+                              window >>= alert uid
+                        ]
+                    )
+                    [ text_ "Joyride" ]
                 , D.button
                     ( oneOf
                         [ pure $ D.Class := buttonCls
