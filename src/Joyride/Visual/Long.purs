@@ -21,13 +21,16 @@ import FRP.Behavior (sampleBy, sample_)
 import FRP.Event (Event, keepLatest, mapAccum, memoize, sampleOn)
 import FRP.Event.Time as LocalTime
 import FRP.Event.VBus (V, vbus)
+import Joyride.Constants.Visual as Visual.Constants
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Rider (rider, toRide)
 import Joyride.FRP.SampleJIT (sampleJIT)
 import Joyride.FRP.Schedule (fireAndForget)
+import Joyride.Ocarina (AudibleChildEnd(..), AudibleEnd(..))
 import Joyride.Timing.CoordinatedNow (cInstant)
 import Joyride.Visual.EmptyMatrix (emptyMatrix)
-import Joyride.Ocarina (AudibleChildEnd(..), AudibleEnd(..))
+import Ocarina.Core (silence, sound)
+import Ocarina.Math (calcSlope)
 import Record (union)
 import Rito.Core (Instance)
 import Rito.Properties as P
@@ -35,8 +38,6 @@ import Rito.RoundRobin (InstanceId, singleInstance)
 import Safe.Coerce (coerce)
 import Type.Proxy (Proxy(..))
 import Types (HitLongMe(..), HitLongOtherPlayer(..), HitLongVisualForLabel(..), JMilliseconds(..), MakeLong, Position(..), ReleaseLongMe(..), ReleaseLongOtherPlayer(..), ReleaseLongVisualForLabel(..), entryZ, normalizedColumn, playerPosition', touchPointZ)
-import Ocarina.Core (silence, sound)
-import Ocarina.Math (calcSlope)
 import Web.TouchEvent.Touch as Touch
 import Web.UIEvent.MouseEvent as MouseEvent
 
@@ -301,6 +302,6 @@ long makeLong = keepLatest $ vbus (Proxy :: _ LongActions) \push event -> do
   p1bar ri = touchPointZ ri Position1
   p4bar ri = touchPointZ ri Position4
   ratioEvent = map (\{ iw, ih } -> { iw, ih, r: iw / ih }) (pure makeLong.initialDims <|> makeLong.resizeEvent)
-  longYThickness = 0.04
+  longYThickness = Visual.Constants.basicYThickness
   otherPlayedMe = filter (\(HitLongOtherPlayer { uniqueId }) -> makeLong.uniqueId == uniqueId) makeLong.notifications.hitLong
   otherReleasedMe = filter (\(ReleaseLongOtherPlayer { uniqueId }) -> makeLong.uniqueId == uniqueId) makeLong.notifications.releaseLong

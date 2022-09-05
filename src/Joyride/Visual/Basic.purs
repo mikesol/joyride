@@ -18,6 +18,7 @@ import Effect.Class (liftEffect)
 import FRP.Behavior (sampleBy, sample_)
 import FRP.Event (Event, bus, keepLatest, memoize, sampleOn)
 import FRP.Event.Time as LocalTime
+import Joyride.Constants.Visual as Visual.Constants
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Rider (rider, toRide)
 import Joyride.FRP.SampleJIT (sampleJIT)
@@ -265,7 +266,7 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
   appearancePoint ri = entryZ ri
   ratioEvent = map (\{ iw, ih } -> { iw, ih, r: iw / ih }) (pure makeBasic.initialDims <|> makeBasic.resizeEvent)
   shrinkRate = 3.0
-  basicYThickness = 0.04
+  basicYThickness = Visual.Constants.basicYThickness
   basicZThickness = 0.23
   shrinkMe endTime basicThickness ri = case endTime of
     Nothing -> basicThickness

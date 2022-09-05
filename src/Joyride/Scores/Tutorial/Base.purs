@@ -8,6 +8,8 @@ import Data.List (List(..), (:))
 import Data.Tuple.Nested (type (/\), (/\))
 import Types (Column(..))
 
+tutorialColumnOffset = C1
+
 data BeatNumber = B1
   | B2 | B3 | B4
 data MeasureNumber

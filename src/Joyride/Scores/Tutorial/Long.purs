@@ -21,7 +21,7 @@ import Joyride.FRP.Behavior (misbehavior)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Schedule (oneOff, scheduleCf)
 import Joyride.Ocarina (AudibleEnd(..))
-import Joyride.Scores.Tutorial.Base (MeasureNumberBeatNumber(..), mb2info)
+import Joyride.Scores.Tutorial.Base (MeasureNumberBeatNumber(..), mb2info, tutorialColumnOffset)
 import Joyride.Visual.Long as LongV
 import Ocarina.WebAPI (BrowserAudioBuffer)
 import Record (union)
@@ -87,7 +87,7 @@ tutorialLongs makeLongs = toScene
   transform input =
     ( map Acquire
         ( LongV.long
-            ( makeLongs `union` input `union`
+            ( 
                 { sound: singleBeat
                     { myBeat: input.hitsFirstPositionAt + Beats 1.0
                     , silence: makeLongs.silence
@@ -95,7 +95,9 @@ tutorialLongs makeLongs = toScene
                     }
                 , uniqueId: input.uniqueId
                 , hitsLastPositionAt: input.hitsFirstPositionAt + Beats 5.0
-                }
+                -- TODO: add this to score instead of hardcoded here
+                , column: (input.column <> tutorialColumnOffset) -- shift everything over by 1 after numbering changes
+                } `union` makeLongs `union` input
             )
         )
     ) <|>

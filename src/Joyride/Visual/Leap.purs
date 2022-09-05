@@ -6,6 +6,7 @@ import Control.Alt ((<|>))
 import Data.DateTime.Instant (unInstant)
 import Data.Filterable (filter)
 import Data.Foldable (oneOf)
+import Joyride.Constants.Visual as Visual.Constants
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.Profunctor (dimap)
@@ -218,7 +219,7 @@ leap makeLeap = keepLatest $ bus \setPlayed iWasPlayed -> do
   p4bar ri = touchPointZ ri Position4
   ratioEvent = map (\{ iw, ih } -> { iw, ih, r: iw / ih }) (pure makeLeap.initialDims <|> makeLeap.resizeEvent)
   shrinkRate = 3.0
-  leapYThickness = 0.04
+  leapYThickness = Visual.Constants.basicYThickness
   leapZThickness = 0.2
   shrinkMe endTime leapThickness ri = case endTime of
     Nothing -> leapThickness

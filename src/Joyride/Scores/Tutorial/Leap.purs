@@ -23,7 +23,7 @@ import Joyride.FRP.Behavior (misbehavior)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Schedule (oneOff, scheduleCf)
 import Joyride.Ocarina (AudibleEnd(..))
-import Joyride.Scores.Tutorial.Base (MeasureNumberBeatNumber(..), mb2info)
+import Joyride.Scores.Tutorial.Base (MeasureNumberBeatNumber(..), mb2info, tutorialColumnOffset)
 import Joyride.Visual.Leap as LeapV
 import Joyride.Visual.LeapWord as LeapW
 import Ocarina.WebAPI (BrowserAudioBuffer)
@@ -82,13 +82,14 @@ tutorialLeaps makeLeaps = fixed
           )
           (children transform)
       )
-   , toScene $ dyn (children transformLeapWord)
+  , toScene $ dyn (children transformLeapWord)
 
   ]
 
   where
   children :: forall a. (ScoreMorcelId -> Event a) -> Event (Event a)
   children f = keepLatest $ map (oneOfMap pure) (eventList f)
+
   eventList :: forall a. (ScoreMorcelId -> Event a) -> Event (List (Event a))
   eventList f = scheduleCf (go f score) (_.rateInfo <$> makeLeaps.animatedStuff)
 
@@ -96,23 +97,25 @@ tutorialLeaps makeLeaps = fixed
   transformLeapWord input =
     ( pure $ Insert
         ( LeapW.leapWord
-            ( makeLeaps `union` input `union`
+            ( 
                 { sound: singleBeat
                     { myBeat: input.hitsFirstPositionAt + Beats 1.0
                     , silence: makeLeaps.silence
                     , buffer: misbehavior (Object.lookup "floorTom") makeLeaps.buffers
                     }
+                -- TODO: add this to score instead of hardcoded here
+                , column: (input.column <> tutorialColumnOffset) -- shift everything over by 1 after numbering changes
                 , uniqueId: input.uniqueId
                 , newPosition: input.position
                 , hitsLastPositionAt: input.hitsFirstPositionAt + Beats 5.0
                 , text: case input.position of
-                  Position1 -> "1"
-                  Position2 -> "2"
-                  Position3 -> "3"
-                  Position4 -> "4"
+                    Position1 -> "1"
+                    Position2 -> "2"
+                    Position3 -> "3"
+                    Position4 -> "4"
                 -- empty for now, fill this in later
                 , someonePlayedMe: (empty :: Event HitLeapMe)
-                }
+                } `union` makeLeaps `union` input
             )
         )
     ) <|>
@@ -142,6 +145,7 @@ tutorialLeaps makeLeaps = fixed
           (JMilliseconds 10000.0 + (coerce $ unInstant time))
           (pure $ Release)
       )
+
   go :: forall a. (ScoreMorcelId -> Event a) -> List ScoreMorcelId -> RateInfo -> Cofree ((->) RateInfo) (List (Event a))
   go f Nil _ = Nil :< go f Nil
   go f l { beats } = do

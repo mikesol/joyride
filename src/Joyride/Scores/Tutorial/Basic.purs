@@ -25,7 +25,7 @@ import Joyride.Constants.Audio (startOffset)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Schedule (oneOff, scheduleCf)
 import Joyride.Ocarina (AudibleEnd(..))
-import Joyride.Scores.Tutorial.Base (mb2info)
+import Joyride.Scores.Tutorial.Base (mb2info, tutorialColumnOffset)
 import Joyride.Scores.Tutorial.Base as Base
 import Joyride.Visual.Basic as BasicV
 import Ocarina.WebAPI (BrowserAudioBuffer)
@@ -158,7 +158,8 @@ tutorialBasics makeBasics =
                         }
                     , uniqueId: input.uniqueId
                     , appearsAt: input.appearsAt
-                    , column: input.column
+                    -- TODO: add this to score instead of hardcoded here
+                    , column: (input.column <> tutorialColumnOffset) -- shift everything over by 1 after numbering changes
                     }
                 }
             )
