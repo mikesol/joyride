@@ -35,7 +35,7 @@ import Safe.Coerce (coerce)
 import Types (Beats(..), Column, JMilliseconds(..), LongEventV0', MakeLongs, RateInfo, Seconds(..))
 
 lookAhead :: Beats
-lookAhead = Beats 0.1
+lookAhead = Beats 2.0
 
 singleBeat
   :: { buffer :: Behavior BrowserAudioBuffer
@@ -104,7 +104,7 @@ rideLongs levs makeLongs = toScene
   go Nil _ = Nil :< go Nil
   go l { beats } = do
     let
-      { init, rest } = span (\{ appearsAt } -> appearsAt <= beats + lookAhead) l
+      { init, rest } = span (\{ hitsFirstPositionAt } -> hitsFirstPositionAt <= beats + lookAhead) l
     (transform <$> init) :< go rest
   score =
     List.fromFoldable $ mapWithIndex
@@ -116,7 +116,7 @@ rideLongs levs makeLongs = toScene
             { uniqueId
             -- abs in case accidentally out of order
             -- divide by 2.0 to get roughly two extra bars back
-            , appearsAt: (Beats $ logicalFirst - (abs (x.marker2Time - x.marker1Time) / 2.0)) + startOffset
+            , hitsFirstPositionAt: (Beats $ logicalFirst) + startOffset
             , hitsLastPositionAt: (Beats logicalLast) + startOffset
             -- ugh, nicer way to do this in case there is no buffer for long press?
             , tag: x.audioURL
@@ -126,7 +126,7 @@ rideLongs levs makeLongs = toScene
       ) levs
 
 type ScoreMorcel =
-  { appearsAt :: Beats
+  { hitsFirstPositionAt :: Beats
   , hitsLastPositionAt :: Beats
   , column :: Column
   , length :: Number

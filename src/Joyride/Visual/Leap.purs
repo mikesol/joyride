@@ -69,7 +69,7 @@ leap makeLeap = keepLatest $ bus \setPlayed iWasPlayed -> do
         , n24: 0.0
         , n34:
             let
-              o = calcSlope (unwrap makeLeap.appearsAt) (appearancePoint renderingInfo) (unwrap makeLeap.hitsLastPositionAt) (p4bar renderingInfo) (unwrap rateInfo.beats)
+              o = calcSlope (unwrap makeLeap.hitsFirstPositionAt) (p1bar renderingInfo) (unwrap makeLeap.hitsLastPositionAt) (p4bar renderingInfo) (unwrap rateInfo.beats)
             in
               o - (leapZThickness / 2.0)
         , n11:
@@ -214,8 +214,8 @@ leap makeLeap = keepLatest $ bus \setPlayed iWasPlayed -> do
     { rateInfo: _.rateInfo <$> makeLeap.animatedStuff
     , playerPositions: _.playerPositions <$> makeLeap.animatedStuff
     }
+  p1bar ri = touchPointZ ri Position1
   p4bar ri = touchPointZ ri Position4
-  appearancePoint ri = entryZ ri
   ratioEvent = map (\{ iw, ih } -> { iw, ih, r: iw / ih }) (pure makeLeap.initialDims <|> makeLeap.resizeEvent)
   shrinkRate = 3.0
   leapYThickness = 0.04

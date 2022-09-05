@@ -84,7 +84,7 @@ module Types
   , module Joyride.Types
   ) where
 
-import Joyride.Types
+import Joyride.Types (BasicEventV0', Column(..), EventV0(..), Event_(..), LeapEventV0', LongEventV0', Position(..), Track(..), TrackV0', Version(..), Whitelist(..), columnToInt, intToColumn)
 import Prelude
 
 import Control.Alt ((<|>))
@@ -121,7 +121,6 @@ import Rito.Texture (Texture)
 import Rito.Vector3 (Vector3')
 import Simple.JSON (undefined, writeJSON)
 import Simple.JSON as JSON
-import Type.Proxy (Proxy(..))
 import Web.HTML.Window (RequestIdleCallbackId, Window)
 
 type CanvasInfo = { x :: Number, y :: Number } /\ Number
@@ -410,6 +409,7 @@ playerPosition' Player2 = _.p2p
 playerPosition' Player3 = _.p3p
 playerPosition' Player4 = _.p4p
 
+newtype Textures :: forall k. k -> Type
 newtype Textures a = Textures
   { -- hockeyAO :: a
   -- , hockeyCOL :: a
@@ -570,7 +570,7 @@ derive instance Newtype HitBasicVisualForLabel _
 --------- long
 type MakeLong r =
   ( column :: Column
-  , appearsAt :: Beats
+  , hitsFirstPositionAt :: Beats
   , hitsLastPositionAt :: Beats
   , uniqueId :: Int
   , length :: Number
@@ -720,7 +720,7 @@ derive instance Newtype ReleaseLongVisualForLabel _
 --------- leap
 type MakeLeap r =
   ( column :: Column
-  , appearsAt :: Beats
+  , hitsFirstPositionAt :: Beats
   , hitsLastPositionAt :: Beats
   , uniqueId :: Int
   , sound :: Event RateInfo -> AudibleEnd
@@ -732,7 +732,7 @@ type MakeLeapWord r =
   ( someonePlayedMe :: Event HitLeapMe
   , text :: String
   , column :: Column
-  , appearsAt :: Beats
+  , hitsFirstPositionAt :: Beats
   , hitsLastPositionAt :: Beats
   , uniqueId :: Int
   , newPosition :: Position

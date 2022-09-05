@@ -38,7 +38,7 @@ import Safe.Coerce (coerce)
 import Types (Beats(..), Column, HitLeapMe, JMilliseconds(..), LeapEventV0', MakeLeaps, Position(..), RateInfo)
 
 lookAhead :: Beats
-lookAhead = Beats 0.1
+lookAhead = Beats 2.0
 
 singleBeat
   :: { buffer :: Behavior BrowserAudioBuffer
@@ -144,7 +144,7 @@ rideLeaps levs makeLeaps = fixed
   go f Nil _ = Nil :< go f Nil
   go f l { beats } = do
     let
-      { init, rest } = span (\{ appearsAt } -> appearsAt <= beats + lookAhead) l
+      { init, rest } = span (\{ hitsFirstPositionAt } -> hitsFirstPositionAt <= beats + lookAhead) l
     (f <$> init) :< go f rest
   score =
     List.fromFoldable $ mapWithIndex
@@ -156,7 +156,7 @@ rideLeaps levs makeLeaps = fixed
             { uniqueId
             -- abs in case accidentally out of order
             -- divide by 2.0 to get roughly two extra bars back
-            , appearsAt: (Beats $ logicalFirst - (abs (x.marker2Time - x.marker1Time) / 2.0)) + startOffset
+            , hitsFirstPositionAt: (Beats $ logicalFirst) + startOffset
             , hitsLastPositionAt: (Beats logicalLast) + startOffset
             , column: x.column
             , position: x.position
@@ -164,7 +164,7 @@ rideLeaps levs makeLeaps = fixed
       ) $ levs
 
 type ScoreMorcel' r =
-  { appearsAt :: Beats
+  { hitsFirstPositionAt :: Beats
   , hitsLastPositionAt :: Beats
   , column :: Column
   , position :: Position
