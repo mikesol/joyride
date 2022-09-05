@@ -247,6 +247,7 @@ normalizedColumn C13 = 12.0 / 16.0
 normalizedColumn C14 = 13.0 / 16.0
 normalizedColumn C15 = 14.0 / 16.0
 normalizedColumn C16 = 15.0 / 16.0
+normalizedColumn C17 = 16.0 / 16.0
 
 -- | Beats, or a temporal unit based on seconds modulated by a tempo.
 newtype Beats = Beats Number

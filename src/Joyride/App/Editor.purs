@@ -548,7 +548,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                           , marker3AudioURL: Nothing
                           , marker4Time: time4
                           , marker4AudioURL: Nothing
-                          , column: C7
+                          , column: C9
                           , name: Nothing
                           , version: mempty
                           }
@@ -560,7 +560,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                   pushed.atomicEventOperation $ aAddBasic
                     { id: ix
                     , name: Nothing
-                    , column: C7
+                    , column: C9
                     , marker1Time: time1
                     , marker2Time: time2
                     , marker3Time: time3
@@ -578,7 +578,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                             , marker3AudioURL: Nothing
                             , marker4Time: time4
                             , marker4AudioURL: Nothing
-                            , column: C7
+                            , column: C9
                             , name: Nothing
                             , version: mempty
                             }
@@ -601,7 +601,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                           { marker1Time: time1
                           , audioURL: Nothing
                           , marker2Time: time2
-                          , column: C7
+                          , column: C9
                           , position
                           , name: Nothing
                           , version: mempty
@@ -618,7 +618,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                   pushed.atomicEventOperation $ aAddLeap
                     { id: ix
                     , name: Nothing
-                    , column: C7
+                    , column: C9
                     , position
                     , marker1Time: time1
                     , marker2Time: time2
@@ -632,7 +632,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                             , marker2Time: time2
                             , position
                             , name: Nothing
-                            , column: C7
+                            , column: C9
                             , version: mempty
                             }
                         )
@@ -655,7 +655,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                           , audioURL: Nothing
                           , marker2Time: time2
                           , length: 1.0
-                          , column: C7
+                          , column: C9
                           , name: Nothing
                           , version: mempty
 
@@ -666,7 +666,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                   pushed.atomicEventOperation $ aAddLongPress
                     { id: ix
                     , name: Nothing
-                    , column: C7
+                    , column: C9
                     , marker1Time: time1
                     , marker2Time: time2
                     , length: 1.0
@@ -680,7 +680,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                             , marker2Time: time2
                             , length: 1.0
                             , name: Nothing
-                            , column: C7
+                            , column: C9
                             , version: mempty
                             }
                         )
@@ -955,7 +955,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                       )
                                                       ( \x -> do
                                                           v' <- floor <$> valueAsNumber x
-                                                          let v = fromMaybe C7 $ hush $ intToColumn v'
+                                                          let v = fromMaybe C9 $ hush $ intToColumn v'
                                                           p'.changeColumn v
                                                           pushed.atomicEventOperation $ aChangeColumn { id, column: v }
                                                           for_ (Tuple <$> mDid <*> (initialId <|> updatedId)) \(trackId /\ evId) -> do
@@ -964,7 +964,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                   , pure $ D.Xtype := "number"
                                                   , pure $ D.Value := JSON.writeJSON col
                                                   , pure $ D.Min := "1"
-                                                  , pure $ D.Max := "16"
+                                                  , pure $ D.Max := "17"
                                                   , pure $ D.Class := "bg-inherit text-white mx-2 appearance-none border rounded py-2 px-3 leading-tight focus:outline-none focus:shadow-outline"
                                                   ]
                                               )
