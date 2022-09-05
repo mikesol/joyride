@@ -44,7 +44,6 @@ import FRP.Event (Event, fold, folded, keepLatest, mailboxed, mapAccum, memoize,
 import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V, vbus)
 import Foreign.Object as Object
-
 import JSURI (encodeURIComponent)
 import Joyride.App.Loading (loadingPage)
 import Joyride.App.Tutorial (tutorial)
@@ -63,7 +62,7 @@ import Joyride.Scores.Ride.Basic (rideBasics)
 import Joyride.Scores.Ride.Leap (rideLeaps)
 import Joyride.Scores.Ride.Long (rideLongs)
 import Joyride.Style (buttonActiveCls, buttonCls, distinctColors, headerCls)
-import Joyride.Types (Column(..), intToColumn)
+import Joyride.Types (Column(..), Whitelist(..), intToColumn)
 import Joyride.UniqueNames (randomName)
 import Joyride.Wavesurfer.Wavesurfer (WaveSurfer, addMarker, associateEventDocumentIdWithMarker, associateEventDocumentIdWithSortedMarkerIdList, getCurrentTime, getDuration, hideMarker, makeWavesurfer, muteExcept, removeMarker, showMarker, zoom)
 import Ocarina.Interpret (context_, decodeAudioDataFromUri)
@@ -103,6 +102,7 @@ type Events t =
   -- the listener for edited content shouldn't loop back to the element, otherwise we'll get an unnecessary gnarly feedback loop
   , initialTitle :: t String
   , initialPrivate :: t Boolean
+  , initialWhitelist :: t Whitelist
   , atomicTrackOperation :: t (Track -> Track)
   , atomicEventOperation :: t (Map Int Event_ -> Map Int Event_)
   , loadWave :: t String
@@ -345,11 +345,11 @@ editorPage
 editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QDA.do
   pushed /\ (event :: { | Events (Event) }) <- vbussedUncurried (Proxy :: _ (V (Events PlainOl)))
   let
-    initialData :: Event { initialTitle :: String, url :: String, initialPrivate :: Boolean }
-    initialData = fireAndForget (event.initialPrivate 😄 event.loadWave 😄 ({ initialTitle: _, url: _, initialPrivate: _ } <$> event.initialTitle))
+    initialData :: Event { initialTitle :: String, url :: String, initialPrivate :: Boolean, initialWhitelist :: Whitelist }
+    initialData = fireAndForget ({ initialTitle: _, url: _, initialPrivate: _, initialWhitelist: _ } <$> event.initialTitle <*> event.loadWave <*> event.initialPrivate <*> event.initialWhitelist)
   let
     mostRecentData' = keepLatest
-      ( initialData <#> \{ initialTitle, url, initialPrivate } ->
+      ( initialData <#> \{ initialTitle, url, initialPrivate, initialWhitelist } ->
           let
             pureor =
               ( TrackV0
@@ -357,6 +357,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                   , url
                   , private: initialPrivate
                   , version: mempty
+                  , whitelist: initialWhitelist
                   , owner: ""
                   } /\ Map.empty
               )
@@ -376,6 +377,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
         , url: ""
         , private: false
         , version: mempty
+        , whitelist: Whitelist []
         , owner: ""
         } /\ Map.empty
     )
@@ -398,7 +400,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
           ( toRide
               { event: do
                   mostRecentData 🙂 event.waveSurfer 🙂 (folded $ map pure signedInNonAnonymously) 😄 ({ did: _, sina: _, ws: _, mrd: _ } <$> (Just <$> event.documentId <|> pure Nothing))
-              , push: \{ did, sina, ws, mrd } -> 
+              , push: \{ did, sina, ws, mrd } ->
                   ( case did, sina of
                       -- we have gone from not signed in to signed in
                       -- create the document on firebase
@@ -428,7 +430,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                       ((event.solo <#> Solo) <|> (event.mute <#> Mute) <|> (event.unSolo <#> UnSolo) <|> (event.unMute <#> UnMute))
                       Set.empty
                   )
-              , push: \(a /\ ws) -> 
+              , push: \(a /\ ws) ->
                   ( case a of
                       Left s -> muteExcept ws (map (\(x /\ y) -> [ x, x + y ]) (Set.toUnfoldable s))
                       Right (Right (startIx /\ inSeq)) -> for_ (startIx .. (startIx + inSeq - 1)) \ix -> do
@@ -835,7 +837,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
             [ D.div (oneOf [ pure $ D.Class := "accordion", pure $ D.Id := "accordionExample" ])
                 [ dyn $
                     (nextAttributableColumn 🙂 event.waveSurfer 🙂 ({ itm: _, ws: _, nac: _ } <$> store)) <#>
-                      ( \{ itm, ws, nac } -> keepLatest $ vbus (Proxy :: _ (V (SingleItem PlainOl))) \p' e' -> do
+                      ( \{ itm, ws } -> keepLatest $ vbus (Proxy :: _ (V (SingleItem PlainOl))) \p' e' -> do
                           let
                             muteState = fold (const not) e'.mute false <|> pure false
                             soloState = fold (const not) e'.solo false <|> pure false
@@ -1029,13 +1031,13 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
 
                   [ D.div
                       (pure $ D.Class := "pointer-events-auto text-center text-white p-4")
-                      [ text ( signedInNonAnonymously <#> \sina -> "Get started by importing an audio file" <> if sina then " or project." else ".") ]
+                      [ text (signedInNonAnonymously <#> \sina -> "Get started by importing an audio file" <> if sina then " or project." else ".") ]
                   ]
                 <>
                   [ D.div (pure $ D.Class := "flex w-full justify-center items-center")
                       [ D.button
                           ( oneOf
-                              [  signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> " mx-2 pointer-events-auto" <> if sina then "" else " hidden"
+                              [ signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> " mx-2 pointer-events-auto" <> if sina then "" else " hidden"
                               , pure $ D.OnClick := do
                                   pushed.loadingScreenVisible true
                                   launchAff_ do
@@ -1049,7 +1051,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                           [ text_ "Fork project" ]
                       , D.button
                           ( oneOf
-                              [  signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> " mx-2 pointer-events-auto" <> if sina then "" else " hidden"
+                              [ signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> " mx-2 pointer-events-auto" <> if sina then "" else " hidden"
                               , pure $ D.OnClick := do
                                   pushed.loadingScreenVisible true
                                   launchAff_ do
@@ -1087,7 +1089,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                           [ text_ "Import project" ]
                       , D.button
                           ( oneOf
-                              [  signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> " mx-2 pointer-events-auto" <> if sina then "" else " hidden"
+                              [ signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> " mx-2 pointer-events-auto" <> if sina then "" else " hidden"
                               , pure $ D.OnClick := do
                                   pushed.loadingScreenVisible true
                                   launchAff_ do
@@ -1119,7 +1121,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                           if (cu.isAnonymous == false) then launchAff_ do
                                             docRef <- addTrackAff firestoreDb
                                               ( TrackV0
-                                                  { url, title: Just rn, owner: cu.uid, private: false, version: mempty }
+                                                  { url, title: Just rn, owner: cu.uid, private: false, version: mempty, whitelist: Whitelist [] }
                                               )
                                             liftEffect $ (pushed.documentId docRef.id *> endgame)
                                           else endgame
@@ -1229,7 +1231,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
         ( previewScreenVisible <#> \psv ->
             D.Class := "absolute w-screen h-screen" <> if isJust psv then "" else " hidden"
         )
-        [ ( (howShouldIBehave (pure 0.0) ( cTime) 😝 ( event.waveSurfer 🙂 ( mostRecentData 🙂 ({ psv: _, mrd: _, ws: _, ct: _ } <$>  previewScreenVisible))))) # switcher \x ->
+        [ ((howShouldIBehave (pure 0.0) (cTime) 😝 (event.waveSurfer 🙂 (mostRecentData 🙂 ({ psv: _, mrd: _, ws: _, ct: _ } <$> previewScreenVisible))))) # switcher \x ->
             do
               let vals = Array.fromFoldable $ Map.values $ snd x.mrd
               let TrackV0 tv0 = fst x.mrd
