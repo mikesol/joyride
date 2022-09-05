@@ -5,7 +5,7 @@ import Prelude
 import Bolson.Control (switcher)
 import Bolson.Core (envy, dyn)
 import Control.Alt ((<|>))
-import Control.Parallel (parTraverse, parallel, sequential)
+import Control.Parallel (parTraverse, parTraverse_)
 import Control.Plus (empty)
 import Control.Promise (toAffE)
 import Data.Array (intercalate, length, sortBy, (!!), (..))
@@ -24,7 +24,6 @@ import Data.Maybe (Maybe(..), fromMaybe, isJust, maybe)
 import Data.Newtype (unwrap)
 import Data.Number.Format (fixed, toStringWith)
 import Data.Set as Set
-import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..), fst, snd)
 import Data.Tuple.Nested ((/\), type (/\))
 import Deku.Attribute (class Attr, Attribute, cb, xdata, (:=))
@@ -475,6 +474,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
         pushed.loadWave aTra.url
         for_ aTra.title pushed.initialTitle
         pushed.initialPrivate aTra.private
+        pushed.initialWhitelist aTra.whitelist
         -- THIS HAS TO COME AFTER INITIALIZATIONS ABOVE
         -- code smell... refactor
         pushed.atomicTrackOperation (const tracky)
@@ -1072,9 +1072,9 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                           -- update owner if the export was from someone else
                                           doc <- addTrackAff firestoreDb (maybe identity (\(User { uid }) -> aChangeOwner uid) cu track)
                                           myTrack <- getTrackAff firestoreDb doc.id
-                                          sequential $ for_ myTrack \(tk :: Track) -> parallel do
+                                          myTrack # parTraverse_ \(tk :: Track) -> do
                                             evs :: Array { id :: String, data :: Event_ } <- compact <$>
-                                              ( events # traverse \e -> do
+                                              ( events # parTraverse \e -> do
                                                   added :: DocumentReference <- addEventAff firestoreDb doc.id e
                                                   eAff <- getEventAff firestoreDb doc.id (added.id)
                                                   pure (eAff <#> { id: added.id, data: _ })
