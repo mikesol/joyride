@@ -312,7 +312,7 @@ tutorial
                                 , galaxyAttributes
                                 , shaders
                                 , renderingInfo: tli.renderingInfo
-                                , columnPusher: tli.columnPusher.push
+                                , columnPusher: tli.columnPusher
                                 , lowPriorityCb: tli.lpsCallback
                                 , myPlayer
                                 , debug: tli.debug
@@ -320,10 +320,11 @@ tutorial
                                 , textures
                                 , cubeTextures
                                 , pushBasic: tli.pushBasic
-                                , basicE: \pushBasicVisualForLabel -> tscore.basicE
+                                , basicE: \pushBasicVisualForLabel columnEventConstructor -> tscore.basicE
                                     { initialDims
                                     , renderingInfo: tli.renderingInfo
                                     , textures
+                                    , columnEventConstructor
                                     , cnow: cNow
                                     , threeDI
                                     , myPlayer
@@ -341,12 +342,13 @@ tutorial
                                     , pushBasic: tli.pushBasic
                                     , pushBasicVisualForLabel
                                     }
-                                , leapE: \pushLeapVisualForLabel -> tscore.leapE
+                                , leapE: \pushLeapVisualForLabel columnEventConstructor -> tscore.leapE
                                     { initialDims
                                     , renderingInfo: tli.renderingInfo
                                     , textures
                                     , myPlayer
                                     , cnow: cNow
+                                    , columnEventConstructor
                                     , debug: tli.debug
                                     , notifications: { hitLeap: empty }
                                     , resizeEvent: tli.resizeE
@@ -362,8 +364,9 @@ tutorial
                                     , pushLeap: tli.pushLeap
                                     , pushLeapVisualForLabel
                                     }
-                                , longE: \pushHitLongVisualForLabel pushReleaseLongVisualForLabel -> tscore.longE
+                                , longE: \pushHitLongVisualForLabel pushReleaseLongVisualForLabel columnEventConstructor -> tscore.longE
                                     { initialDims
+                                    , columnEventConstructor
                                     , renderingInfo: tli.renderingInfo
                                     , textures
                                     , myPlayer

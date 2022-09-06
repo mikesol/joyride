@@ -29,7 +29,7 @@ import Rito.Core (Instance)
 import Rito.Properties as P
 import Rito.RoundRobin (InstanceId, singleInstance)
 import Safe.Coerce (coerce)
-import Types (HitLeapMe(..), HitLeapOtherPlayer(..), HitLeapVisualForLabel(..), JMilliseconds(..), MakeLeap, Position(..), entryZ, normalizedColumn, playerPosition', touchPointZ)
+import Types (HitLeapMe(..), HitLeapOtherPlayer(..), HitLeapVisualForLabel(..), JMilliseconds(..), MakeLeap, Position(..), normalizedColumn, playerPosition', touchPointZ)
 import Ocarina.Core (silence, sound)
 import Ocarina.Math (calcSlope)
 import Web.TouchEvent.Touch as Touch
@@ -94,122 +94,130 @@ leap makeLeap = keepLatest $ bus \setPlayed iWasPlayed -> do
         , n43: 0.0
         , n44: 1.0
         }
-  keepLatest $ memoize drawingMatrix' \drawingMatrix ->
-    keepLatest $ memoize (filter (\(HitLeapOtherPlayer { player }) -> player /= makeLeap.myPlayer) otherPlayedMe) \hitLeapOtherPlayer -> rider
-      ( toRide
-          -- we pure this as soon as the rider initializes, which is
-          -- when the element is first painted on screen
-          -- this is because the leap could be triggered at any moment after paint
-          { event: pure
-              ( oneOf
-                  [ pure $ AudibleChildEnd
-                      ( sound
-                          ((\(AudibleEnd e) -> e) (makeLeap.sound rateInfoOnAtTouch))
-                      )
-                  , keepLatest $ (LocalTime.withTime (pure unit)) <#> \{ time } -> lowPrioritySchedule makeLeap.lpsCallback
-                      (JMilliseconds 10000.0 + (coerce $ unInstant time))
-                      (pure $ AudibleChildEnd silence)
+  
+  keepLatest
+    $ memoize drawingMatrix' \drawingMatrix ->
+        keepLatest $ memoize (filter (\(HitLeapOtherPlayer { player }) -> player /= makeLeap.myPlayer) otherPlayedMe) \hitLeapOtherPlayer ->
+          rider
+    ( toRide
+        -- we pure this as soon as the rider initializes, which is
+        -- when the element is first painted on screen
+        -- this is because the leap could be triggered at any moment after paint
+        { event: pure
+            ( oneOf
+                [ pure $ AudibleChildEnd
+                    ( sound
+                        ((\(AudibleEnd e) -> e) (makeLeap.sound rateInfoOnAtTouch))
+                    )
+                , keepLatest $ (LocalTime.withTime (pure unit)) <#> \{ time } -> lowPrioritySchedule makeLeap.lpsCallback
+                    (JMilliseconds 10000.0 + (coerce $ unInstant time))
+                    (pure $ AudibleChildEnd silence)
 
-                  ]
-              )
-          , push: makeLeap.pushAudio
-          }
-      )
-      ( pure
-          ( ( singleInstance
-                ( oneOf
-                    [ pure $ P.matrix4 $ makeLeap.mkMatrix4 emptyMatrix
-                    , P.matrix4 <<< makeLeap.mkMatrix4 <$> drawingMatrix
-                    , let
-                        f :: Event (_ -> Effect (Effect Unit))
-                        f = oneOf
-                          [ -- if I touched this, turn off the listener
-                            iWasPlayed $> (\_ -> pure (pure unit))
-                          ,
-                            -- if someone else has touched this, turn off the listener
-                            fireAndForget $ keepLatest $ hitLeapOtherPlayer <#> \(HitLeapOtherPlayer hbop) ->
-                              rider
-                                ( toRide
-                                    { event: do
-                                        let
-                                          hitLeapVisualForLabel issuedAt = HitLeapVisualForLabel
-                                            { uniqueId: hbop.uniqueId
-                                            , oldPosition: hbop.oldPosition
-                                            , newPosition: hbop.newPosition
-                                            , hitAt: hbop.hitAt
-                                            , issuedAt
-                                            , translation: drawingMatrix <#> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
-                                            , player: hbop.player
-                                            }
-                                        sampleBy (#) (map coerce $ cInstant makeLeap.cnow) (pure hitLeapVisualForLabel)
-                                    , push: makeLeap.pushLeapVisualForLabel
-                                    }
-                                )
-                                (pure (\_ -> pure (pure unit)))
-                          -- otherwise keep alive
-                          , sampleJIT makeLeap.animatedStuff $ pure \av _ -> do
-                              launchAff_ do
-                                n <- liftEffect $ makeLeap.cnow
-                                { rateInfo, playerPositions } <- AVar.read av
-                                let
-                                  pos = playerPosition' makeLeap.myPlayer playerPositions
-                                let
-                                  broadcastInfo =
-                                    { uniqueId: makeLeap.uniqueId
-                                    , position: pos
-                                    , hitAt: rateInfo.beats
-                                    , issuedAt: coerce n
-                                    }
-                                let
-                                  hitLeapMe = HitLeapMe
-                                    { uniqueId: broadcastInfo.uniqueId
-                                    , hitAt: broadcastInfo.hitAt
-                                    , issuedAt: broadcastInfo.issuedAt
-                                    , oldPosition: broadcastInfo.position
-                                    , newPosition: makeLeap.newPosition
-                                    }
-                                  hitLeapVisualForLabel = HitLeapVisualForLabel
-                                    { uniqueId: broadcastInfo.uniqueId
-                                    , oldPosition: broadcastInfo.position
-                                    , newPosition: makeLeap.newPosition
-                                    , hitAt: broadcastInfo.hitAt
-                                    , issuedAt: broadcastInfo.issuedAt
-                                    , translation: drawingMatrix <#> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
-                                    , player: makeLeap.myPlayer
-                                    }
-                                liftEffect $ makeLeap.pushLeapVisualForLabel hitLeapVisualForLabel
-                                liftEffect $ makeLeap.pushLeap.push hitLeapMe
-                                liftEffect $ setPlayed hitLeapMe
-                              -- no need for unsubscribe, we're done
-                              pure (pure unit)
-                          ]
-                      in
-                        if makeLeap.isMobile then P.onTouchStart <$> map
-                          ( dimap
-                              ( \e ->
-                                  { cx: Touch.clientX e
-                                  , cy: Touch.clientY e
-                                  }
-                              )
-                              (map \i -> { end: \_ -> i, cancel: \_ -> i })
-                          )
-                          f
-                        else P.onMouseDown <$> map
-                          ( dimap
-                              ( \e ->
-                                  { cx: MouseEvent.clientX e
-                                  , cy: MouseEvent.clientY e
-                                  }
-                              )
-                              (map const)
-
-                          )
-                          f
-                    ]
-                )
+                ]
             )
+        , push: makeLeap.pushAudio
+        }
+    )
+    $ rider
+        ( toRide
+            { event: makeLeap.columnEventConstructor makeLeap.column
+            , push: \_ -> pure unit
+            }
+        ) ( pure
+              ( ( singleInstance
+                    ( oneOf
+                        [ pure $ P.matrix4 $ makeLeap.mkMatrix4 emptyMatrix
+                        , P.matrix4 <<< makeLeap.mkMatrix4 <$> drawingMatrix
+                        , let
+                            f :: Event (_ -> Effect (Effect Unit))
+                            f = oneOf
+                              [ -- if I touched this, turn off the listener
+                                iWasPlayed $> (\_ -> pure (pure unit))
+                              ,
+                                -- if someone else has touched this, turn off the listener
+                                fireAndForget $ keepLatest $ hitLeapOtherPlayer <#> \(HitLeapOtherPlayer hbop) ->
+                                  rider
+                                    ( toRide
+                                        { event: do
+                                            let
+                                              hitLeapVisualForLabel issuedAt = HitLeapVisualForLabel
+                                                { uniqueId: hbop.uniqueId
+                                                , oldPosition: hbop.oldPosition
+                                                , newPosition: hbop.newPosition
+                                                , hitAt: hbop.hitAt
+                                                , issuedAt
+                                                , translation: drawingMatrix <#> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
+                                                , player: hbop.player
+                                                }
+                                            sampleBy (#) (map coerce $ cInstant makeLeap.cnow) (pure hitLeapVisualForLabel)
+                                        , push: makeLeap.pushLeapVisualForLabel
+                                        }
+                                    )
+                                    (pure (\_ -> pure (pure unit)))
+                              -- otherwise keep alive
+                              , sampleJIT makeLeap.animatedStuff $ pure \av _ -> do
+                                  launchAff_ do
+                                    n <- liftEffect $ makeLeap.cnow
+                                    { rateInfo, playerPositions } <- AVar.read av
+                                    let
+                                      pos = playerPosition' makeLeap.myPlayer playerPositions
+                                    let
+                                      broadcastInfo =
+                                        { uniqueId: makeLeap.uniqueId
+                                        , position: pos
+                                        , hitAt: rateInfo.beats
+                                        , issuedAt: coerce n
+                                        }
+                                    let
+                                      hitLeapMe = HitLeapMe
+                                        { uniqueId: broadcastInfo.uniqueId
+                                        , hitAt: broadcastInfo.hitAt
+                                        , issuedAt: broadcastInfo.issuedAt
+                                        , oldPosition: broadcastInfo.position
+                                        , newPosition: makeLeap.newPosition
+                                        }
+                                      hitLeapVisualForLabel = HitLeapVisualForLabel
+                                        { uniqueId: broadcastInfo.uniqueId
+                                        , oldPosition: broadcastInfo.position
+                                        , newPosition: makeLeap.newPosition
+                                        , hitAt: broadcastInfo.hitAt
+                                        , issuedAt: broadcastInfo.issuedAt
+                                        , translation: drawingMatrix <#> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
+                                        , player: makeLeap.myPlayer
+                                        }
+                                    liftEffect $ makeLeap.pushLeapVisualForLabel hitLeapVisualForLabel
+                                    liftEffect $ makeLeap.pushLeap.push hitLeapMe
+                                    liftEffect $ setPlayed hitLeapMe
+                                  -- no need for unsubscribe, we're done
+                                  pure (pure unit)
+                              ]
+                          in
+                            if makeLeap.isMobile then P.onTouchStart <$> map
+                              ( dimap
+                                  ( \e ->
+                                      { cx: Touch.clientX e
+                                      , cy: Touch.clientY e
+                                      }
+                                  )
+                                  (map \i -> { end: \_ -> i, cancel: \_ -> i })
+                              )
+                              f
+                            else P.onMouseDown <$> map
+                              ( dimap
+                                  ( \e ->
+                                      { cx: MouseEvent.clientX e
+                                      , cy: MouseEvent.clientY e
+                                      }
+                                  )
+                                  (map const)
+
+                              )
+                              f
+                        ]
+                    )
+                )
+              )
           )
-      )
   where
   animatedStuff =
     { rateInfo: _.rateInfo <$> makeLeap.animatedStuff

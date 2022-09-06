@@ -2,7 +2,7 @@ module Joyride.Scores.Ride.Basic where
 
 import Prelude
 
-import Bolson.Core (Child(..), dyn, envy, fixed)
+import Bolson.Core (envy, fixed)
 import Control.Alt ((<|>))
 import Control.Comonad.Cofree (Cofree, (:<))
 import Control.Plus (empty)
@@ -12,9 +12,10 @@ import Data.FastVect.FastVect as V
 import Data.Foldable (oneOfMap)
 import Data.Function (on)
 import Data.FunctorWithIndex (mapWithIndex)
-import Data.List (List(..), sortBy, span, (:))
+import Data.List (List(..), sortBy, span)
 import Data.List as List
 import Data.Maybe (Maybe(..))
+import Data.Newtype (unwrap)
 import Data.Time.Duration (Milliseconds(..), Seconds(..))
 import FRP.Behavior (Behavior, sample_)
 import FRP.Event (Event, keepLatest, memoize)
@@ -26,16 +27,15 @@ import Joyride.FRP.Schedule (oneOff, scheduleCf)
 import Joyride.Ocarina (AudibleEnd(..))
 import Joyride.Scores.AugmentedTypes (AugmentedBasicEventV0')
 import Joyride.Visual.Basic as BasicV
-import Joyride.Visual.BasicWord as BasicW
 import Ocarina.WebAPI (BrowserAudioBuffer)
 import Record (union)
 import Rito.Color (RGB(..))
-import Rito.Core (ASceneful, CSS3DObject, Instance, Mesh, toScene)
+import Rito.Core (ASceneful, Instance, toScene)
 import Rito.Geometries.Box (box)
 import Rito.Materials.MeshPhongMaterial (meshPhongMaterial)
 import Rito.RoundRobin (InstanceId, Semaphore(..), roundRobinInstancedMesh)
 import Safe.Coerce (coerce)
-import Types (BasicEventV0', Beats(..), Column(..), HitBasicMe, JMilliseconds(..), MakeBasics, RateInfo, beatToTime)
+import Types (Beats(..), Column, JMilliseconds(..), MakeBasics, Position, RateInfo, beatToTime)
 
 type ACU =
   { appearsAt :: Beats
@@ -43,6 +43,7 @@ type ACU =
   , b1 :: Beats
   , b2 :: Beats
   , b3 :: Beats
+  , raycastingCanStartAt :: Position -> Number
   , text :: Vect 4 String
   , column :: Column
   , uniqueId :: Int
@@ -149,6 +150,7 @@ rideBasics bevs makeBasics =
                         , b3: input.b3
                         , silence: makeBasics.silence
                         }
+                    , raycastingCanStartAt: input.raycastingCanStartAt
                     , uniqueId: input.uniqueId
                     , appearsAt: input.appearsAt
                     , column: input.column
@@ -161,37 +163,6 @@ rideBasics bevs makeBasics =
       ( keepLatest $ (LocalTime.withTime (pure unit)) <#> \{ time } -> lowPrioritySchedule makeBasics.lpsCallback
           (JMilliseconds 15000.0 + (coerce $ unInstant time))
           (pure $ Release)
-      )
-
-  transformBasicWord :: ACU -> Event (Child Void (CSS3DObject lock payload) lock)
-  transformBasicWord input =
-    ( pure $ Insert
-        ( BasicW.basicWord
-            ( makeBasics `union`
-
-                { myInfo:
-                    { beats: severalBeats
-                        { b0: input.b0
-                        , b1: input.b1
-                        , b2: input.b2
-                        , b3: input.b3
-                        , silence: makeBasics.silence
-                        }
-                    , uniqueId: input.uniqueId
-                    , appearsAt: input.appearsAt
-                    , column: input.column
-                    }
-                , text: input.text
-                -- empty for now, fill this in later
-                , someonePlayedMe: (empty :: Event HitBasicMe)
-
-                }
-            )
-        )
-    ) <|>
-      ( keepLatest $ (LocalTime.withTime (pure unit)) <#> \{ time } -> lowPrioritySchedule makeBasics.lpsCallback
-          (JMilliseconds 15000.0 + (coerce $ unInstant time))
-          (pure $ Remove)
       )
 
   go :: forall a. (ACU -> Event a) -> List ACU -> RateInfo -> Cofree ((->) RateInfo) (List (Event a))
@@ -211,22 +182,10 @@ rideBasics bevs makeBasics =
           , b2: (Beats $ x.marker3Time) + startOffset
           , b3: (Beats $ x.marker4Time) + startOffset
           , text: pure ""
+          , raycastingCanStartAt: map (add (unwrap startOffset)) x.raycastingCanStartAt
           , column: x.column
           }
       ) $ sortBy (compare `on` _.marker1Time) (List.fromFoldable bevs)
 
-type ScoreMorcel =
-  { appearsAt :: Beats
-  , b0 :: Beats
-  , b1 :: Beats
-  , b2 :: Beats
-  , b3 :: Beats
-  , text :: Vect 4 String
-  , column :: Column
-  }
-
 v4 :: forall a. a -> a -> a -> a -> Vect 4 a
 v4 a b c d = V.cons a $ V.cons b $ V.cons c $ V.cons d $ V.empty
-
-tmpScore :: List ScoreMorcel
-tmpScore = { column: C4, text: pure "✩", appearsAt: Beats 0.0, b0: Beats 1.0, b1: Beats 2.0, b2: Beats 3.0, b3: Beats 4.0 } : Nil

@@ -426,14 +426,15 @@ ride
                                 , renderingInfo: tli.renderingInfo
                                 , lowPriorityCb: tli.lpsCallback
                                 , myPlayer
-                                , columnPusher: tli.columnPusher.push
+                                , columnPusher: tli.columnPusher
                                 , debug: tli.debug
                                 , textures
                                 , cubeTextures
                                 , models
                                 , pushBasic: tli.pushBasic
-                                , basicE: \pushBasicVisualForLabel -> tscore.basicE
+                                , basicE: \pushBasicVisualForLabel columnEventConstructor -> tscore.basicE
                                     { initialDims
+                                    , columnEventConstructor
                                     , renderingInfo: tli.renderingInfo
                                     , textures
                                     , cnow: cNow
@@ -466,11 +467,12 @@ ride
                                     , pushBasic: tli.pushBasic
                                     , pushBasicVisualForLabel
                                     }
-                                , leapE: \pushLeapVisualForLabel -> tscore.leapE
+                                , leapE: \pushLeapVisualForLabel columnEventConstructor -> tscore.leapE
                                     { initialDims
                                     , renderingInfo: tli.renderingInfo
                                     , textures
                                     , myPlayer
+                                    , columnEventConstructor
                                     , cnow: cNow
                                     , debug: tli.debug
                                     , notifications:
@@ -500,10 +502,11 @@ ride
                                     , pushLeap: tli.pushLeap
                                     , pushLeapVisualForLabel
                                     }
-                                , longE: \pushHitLongVisualForLabel pushReleaseLongVisualForLabel -> tscore.longE
+                                , longE: \pushHitLongVisualForLabel pushReleaseLongVisualForLabel columnEventConstructor -> tscore.longE
                                     { initialDims
                                     , renderingInfo: tli.renderingInfo
                                     , textures
+                                    , columnEventConstructor
                                     , myPlayer
                                     , cnow: cNow
                                     , debug: tli.debug

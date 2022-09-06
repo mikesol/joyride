@@ -5,23 +5,23 @@ import Prelude
 import Control.Alt ((<|>))
 import Data.Compactable (compact)
 import Data.DateTime.Instant (unInstant)
+import Data.Either (Either(..))
 import Data.FastVect.FastVect (index)
 import Data.Filterable (filter)
 import Data.Foldable (oneOf, oneOfMap)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), isJust)
 import Data.Newtype (unwrap)
-import Data.Profunctor (dimap)
 import Data.Time.Duration (Milliseconds(..))
 import Effect.Aff (launchAff_)
-import Effect.Aff.AVar as AVar
 import Effect.Class (liftEffect)
+import Effect.Console (log)
 import FRP.Behavior (sampleBy, sample_)
 import FRP.Event (Event, bus, keepLatest, memoize, sampleOn)
 import FRP.Event.Time as LocalTime
 import Joyride.Constants.Visual as Visual.Constants
+import Joyride.FRP.Aff (eventToAff)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Rider (rider, toRide)
-import Joyride.FRP.SampleJIT (sampleJIT)
 import Joyride.FRP.Schedule (fireAndForget)
 import Joyride.Ocarina (AudibleChildEnd(..), AudibleEnd(..))
 import Joyride.Timing.CoordinatedNow (cInstant)
@@ -34,9 +34,7 @@ import Rito.Properties as P
 import Rito.RoundRobin (InstanceId, singleInstance)
 import Safe.Coerce (coerce)
 import Type.Proxy (Proxy(..))
-import Types (Beats, HitBasicMe(..), HitBasicOtherPlayer(..), HitBasicVisualForLabel(..), JMilliseconds(..), MakeBasic, Position(..), RateInfo, RenderingInfo, entryZ, normalizedColumn, playerPosition', touchPointZ)
-import Web.TouchEvent.Touch as Touch
-import Web.UIEvent.MouseEvent as MouseEvent
+import Types (Beats(..), HitBasicMe(..), HitBasicOtherPlayer(..), HitBasicVisualForLabel(..), JMilliseconds(..), MakeBasic, Position(..), RateInfo, RenderingInfo, entryZ, normalizedColumn, playerPosition', touchPointZ)
 
 basic
   :: forall r lock payload
@@ -133,123 +131,138 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
         , n43: 0.0
         , n44: 1.0
         }
-  keepLatest $ memoize drawingMatrix' \drawingMatrix ->
-    keepLatest $ memoize (filter (\(HitBasicOtherPlayer { player }) -> player /= makeBasic.myPlayer) otherPlayedMe) \hitBasicOtherPlayer -> rider
-      ( toRide
-          { event: oneOfMap pure
-              ( makeBasic.myInfo.beats <#>
-                  \{ audio } -> oneOf
-                    [ pure $ AudibleChildEnd
-                        ( sound
-                            ((\(AudibleEnd e) -> e) (audio rateInfoAtTouchForAudio))
-                        )
-                    , keepLatest $ (LocalTime.withTime (pure unit)) <#> \{ time } -> lowPrioritySchedule makeBasic.lpsCallback
-                        (JMilliseconds 10000.0 + (coerce $ unInstant time))
-                        (pure $ AudibleChildEnd silence)
 
-                    ]
-              )
-          , push: makeBasic.pushAudio
-          }
-      )
-      ( pure
-          ( ( singleInstance
-                ( oneOf
-                    [ pure $ P.matrix4 $ makeBasic.mkMatrix4 emptyMatrix
-                    , P.matrix4 <<< makeBasic.mkMatrix4 <$> drawingMatrix
-                    , let
-                        f = oneOf
-                          [ -- if I touched this, turn off the listener
-                            iWasPlayed $> (\_ -> pure (pure unit))
-                          ,
-                            -- if someone else has touched this, turn off the listener
-                            fireAndForget $ keepLatest $ hitBasicOtherPlayer <#> \(HitBasicOtherPlayer hbop) ->
-                              rider
-                                ( toRide
-                                    { event: do
+  keepLatest
+    $ memoize drawingMatrix' \drawingMatrix ->
+        rider
+          ( toRide
+              { event: oneOfMap pure
+                  ( makeBasic.myInfo.beats <#>
+                      \{ audio } -> oneOf
+                        [ pure $ AudibleChildEnd
+                            ( sound
+                                ((\(AudibleEnd e) -> e) (audio rateInfoAtTouchForAudio))
+                            )
+                        , keepLatest $ (LocalTime.withTime (pure unit)) <#> \{ time } -> lowPrioritySchedule makeBasic.lpsCallback
+                            (JMilliseconds 10000.0 + (coerce $ unInstant time))
+                            (pure $ AudibleChildEnd silence)
+
+                        ]
+                  )
+              , push: makeBasic.pushAudio
+              }
+          )
+          $ rider
+              ( toRide
+                  -- todo: this may be an expensive subscription
+                  -- as we are resubscribing to the animation loop for the sampling (this already happens in for rendering)
+                  -- keep an eye on this, refactor if needed
+                  { event: compact
+                      ( sampleBy (#) (map (\(Milliseconds m) -> m) (cInstant makeBasic.cnow))
+                          ( sampleOn
+                              ( { animatedStuff: _
+                                , iWasPlayed: _
+                                , hbop: _
+                                } <$> makeBasic.animatedStuff <*> (pure Nothing <|> map Just iWasPlayed)
+                                  <*> (pure Nothing <|> map Just (filter (\(HitBasicOtherPlayer { player }) -> player /= makeBasic.myPlayer) otherPlayedMe))
+                              )
+                              ( (makeBasic.columnEventConstructor makeBasic.myInfo.column) <#>
+                                  \_
+                                   { animatedStuff:
+                                       { playerPositions
+                                       , rateInfo
+                                       }
+                                   , iWasPlayed: iwp
+                                   , hbop
+                                   }
+                                   cnow -> do
+
+                                    let ppos = playerPosition' makeBasic.myPlayer playerPositions
+                                    let Beats cbeat = rateInfo.beats
+                                    let canStartAt = makeBasic.myInfo.raycastingCanStartAt ppos
+                                    let
+                                      rightBeat = case ppos of
+                                        Position1 -> p1
+                                        Position2 -> p2
+                                        Position3 -> p3
+                                        Position4 -> p4
+                                    if isJust iwp then Nothing
+                                    else case hbop of
+                                      Just (HitBasicOtherPlayer x) -> do
                                         let
                                           hitBasicVisualForLabel issuedAt = HitBasicVisualForLabel
-                                            { uniqueId: hbop.uniqueId
-                                            , logicalBeat: hbop.logicalBeat
-                                            , deltaBeats: hbop.deltaBeats
-                                            , hitAt: hbop.hitAt
-                                            , issuedAt
+                                            { uniqueId: x.uniqueId
+                                            , logicalBeat: x.logicalBeat
+                                            , deltaBeats: x.deltaBeats
+                                            , hitAt: x.hitAt
+                                            , issuedAt: JMilliseconds issuedAt
                                             , translation: drawingMatrix <#> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
-                                            , player: hbop.player
+                                            , player: x.player
                                             }
-                                        sampleBy (#) (map coerce (cInstant makeBasic.cnow)) (pure hitBasicVisualForLabel)
-                                    , push: makeBasic.pushBasicVisualForLabel
-                                    }
-                                )
-                                (pure (\_ -> pure (pure unit)))
-                          -- otherwise keep alive
-                          -- no need for an unsub, so just pure (pure unit)
-                          , sampleJIT makeBasic.animatedStuff $ pure \av _ -> pure (pure unit) <* launchAff_ do
-                              n <- liftEffect $ makeBasic.cnow
-                              { rateInfo, playerPositions } <- AVar.read av
-                              let
-                                pos = playerPosition' makeBasic.myPlayer playerPositions
-                                rightBeat = case pos of
-                                  Position1 -> p1
-                                  Position2 -> p2
-                                  Position3 -> p3
-                                  Position4 -> p4
-                              let
-                                broadcastInfo =
-                                  { uniqueId: makeBasic.myInfo.uniqueId
-                                  , position: pos
-                                  , hitAt: rateInfo.beats
-                                  , issuedAt: coerce n
-                                  , logicalBeat: rightBeat.startsAt
-                                  , deltaBeats: rateInfo.beats - rightBeat.startsAt
-                                  }
-                              let
-                                hitBasicMe = HitBasicMe
-                                  { uniqueId: broadcastInfo.uniqueId
-                                  , logicalBeat: broadcastInfo.logicalBeat
-                                  , deltaBeats: broadcastInfo.deltaBeats
-                                  , hitAt: broadcastInfo.hitAt
-                                  , issuedAt: broadcastInfo.issuedAt
-                                  }
-                                hitBasicVisualForLabel = HitBasicVisualForLabel
-                                  { uniqueId: broadcastInfo.uniqueId
-                                  , logicalBeat: broadcastInfo.logicalBeat
-                                  , deltaBeats: broadcastInfo.deltaBeats
-                                  , hitAt: broadcastInfo.hitAt
-                                  , issuedAt: broadcastInfo.issuedAt
-                                  , translation: drawingMatrix <#> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
-                                  , player: makeBasic.myPlayer
-                                  }
-                              liftEffect $ makeBasic.pushBasicVisualForLabel hitBasicVisualForLabel
-                              liftEffect $ makeBasic.pushBasic.push hitBasicMe
-                              liftEffect $ setPlayed hitBasicMe
+                                        Just (Left (hitBasicVisualForLabel cnow))
+                                      Nothing ->
+                                        if ((cbeat > canStartAt) && ((unwrap rightBeat.startsAt - cbeat) > (-0.5))) then Just $ Right { cbeat, canStartAt, rb: unwrap rightBeat.startsAt, myInfo: map _.startsAt makeBasic.myInfo.beats }
+                                        else Nothing
+                              )
+                          )
+                      )
+                  , push: case _ of
+                      Left notMe -> do
+                        log $ "drats, it wudn't me: " <> show (unwrap notMe).uniqueId
+                        makeBasic.pushBasicVisualForLabel notMe
+                      Right meeeee -> launchAff_ do
+                        liftEffect $ log $ "Raycaster strikes again! " <> show meeeee
+                        n <- liftEffect $ makeBasic.cnow
+                        { rateInfo, playerPositions } <- eventToAff makeBasic.animatedStuff
+                        let
+                          pos = playerPosition' makeBasic.myPlayer playerPositions
+                          rightBeat = case pos of
+                            Position1 -> p1
+                            Position2 -> p2
+                            Position3 -> p3
+                            Position4 -> p4
+                        let
+                          broadcastInfo =
+                            { uniqueId: makeBasic.myInfo.uniqueId
+                            , position: pos
+                            , hitAt: rateInfo.beats
+                            , issuedAt: coerce n
+                            , logicalBeat: rightBeat.startsAt
+                            , deltaBeats: rateInfo.beats - rightBeat.startsAt
+                            }
+                        let
+                          hitBasicMe = HitBasicMe
+                            { uniqueId: broadcastInfo.uniqueId
+                            , logicalBeat: broadcastInfo.logicalBeat
+                            , deltaBeats: broadcastInfo.deltaBeats
+                            , hitAt: broadcastInfo.hitAt
+                            , issuedAt: broadcastInfo.issuedAt
+                            }
+                          hitBasicVisualForLabel = HitBasicVisualForLabel
+                            { uniqueId: broadcastInfo.uniqueId
+                            , logicalBeat: broadcastInfo.logicalBeat
+                            , deltaBeats: broadcastInfo.deltaBeats
+                            , hitAt: broadcastInfo.hitAt
+                            , issuedAt: broadcastInfo.issuedAt
+                            , translation: drawingMatrix <#> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
+                            , player: makeBasic.myPlayer
+                            }
+                        liftEffect $ makeBasic.pushBasicVisualForLabel hitBasicVisualForLabel
+                        liftEffect $ makeBasic.pushBasic.push hitBasicMe
+                        liftEffect $ setPlayed hitBasicMe
+                  }
+              )
+          $
+            ( pure
+                ( ( singleInstance
+                      ( oneOf
+                          [ pure $ P.matrix4 $ makeBasic.mkMatrix4 emptyMatrix
+                          , P.matrix4 <<< makeBasic.mkMatrix4 <$> drawingMatrix
                           ]
-                      in
-                        if makeBasic.isMobile then P.onTouchStart <$> map
-                          ( dimap
-                              ( \e ->
-                                  { cx: Touch.clientX e
-                                  , cy: Touch.clientY e
-                                  }
-                              )
-                              (map \i -> { end: \_ -> i, cancel: \_ -> i })
-                          )
-                          f
-                        else P.onMouseDown <$> map
-                          ( dimap
-                              ( \e ->
-                                  { cx: MouseEvent.clientX e
-                                  , cy: MouseEvent.clientY e
-                                  }
-                              )
-                              (map const)
-                          )
-                          f
-                    ]
+                      )
+                  )
                 )
             )
-          )
-      )
   where
   animatedStuff =
     { rateInfo: _.rateInfo <$> makeBasic.animatedStuff

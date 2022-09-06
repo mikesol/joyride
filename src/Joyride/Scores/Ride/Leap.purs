@@ -2,7 +2,7 @@ module Joyride.Scores.Ride.Leap where
 
 import Prelude
 
-import Bolson.Core (Child(..), envy, fixed)
+import Bolson.Core (envy, fixed)
 import Control.Alt ((<|>))
 import Control.Comonad.Cofree (Cofree, (:<))
 import Control.Plus (empty)
@@ -12,9 +12,8 @@ import Data.FunctorWithIndex (mapWithIndex)
 import Data.List (List(..), span)
 import Data.List as List
 import Data.Maybe (Maybe(..))
-import Data.Number (abs)
+import Data.Newtype (unwrap)
 import Data.Time.Duration (Milliseconds(..), Seconds(..))
-import Effect (Effect)
 import FRP.Behavior (Behavior, sample_)
 import FRP.Event (Event, keepLatest, memoize)
 import FRP.Event.Time as LocalTime
@@ -27,16 +26,15 @@ import Joyride.FRP.Schedule (oneOff, scheduleCf)
 import Joyride.Ocarina (AudibleEnd(..))
 import Joyride.Scores.AugmentedTypes (AugmentedLeapEventV0')
 import Joyride.Visual.Leap as LeapV
-import Joyride.Visual.LeapWord as LeapW
 import Ocarina.WebAPI (BrowserAudioBuffer)
 import Record (union)
 import Rito.Color (RGB(..))
-import Rito.Core (ASceneful, CSS3DObject, Instance, toScene)
+import Rito.Core (ASceneful, Instance, toScene)
 import Rito.Geometries.Box (box)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.RoundRobin (InstanceId, Semaphore(..), roundRobinInstancedMesh)
 import Safe.Coerce (coerce)
-import Types (Beats(..), Column, HitLeapMe, JMilliseconds(..), LeapEventV0', MakeLeaps, Position(..), RateInfo)
+import Types (Beats(..), Column, JMilliseconds(..), MakeLeaps, Position, RateInfo)
 
 lookAhead :: Beats
 lookAhead = Beats 2.0
@@ -94,33 +92,6 @@ rideLeaps levs makeLeaps = fixed
   eventList :: forall a. (ScoreMorcelId -> Event a) -> Event (List (Event a))
   eventList f = scheduleCf (go f score) (_.rateInfo <$> makeLeaps.animatedStuff)
 
-  transformLeapWord :: ScoreMorcelId -> Event (Child Void (CSS3DObject lock payload) lock)
-  transformLeapWord input =
-    ( pure $ Insert
-        ( LeapW.leapWord
-            ( makeLeaps `union` input `union`
-                { sound: singleBeat
-                    { silence: makeLeaps.silence
-                    , buffer: misbehavior (Object.lookup "floorTom") makeLeaps.buffers
-                    }
-                , uniqueId: input.uniqueId
-                , newPosition: input.position
-                , text: case input.position of
-                    Position1 -> "1"
-                    Position2 -> "2"
-                    Position3 -> "3"
-                    Position4 -> "4"
-                -- empty for now, fill this in later
-                , someonePlayedMe: (empty :: Event HitLeapMe)
-                }
-            )
-        )
-    ) <|>
-      ( keepLatest $ (LocalTime.withTime (pure unit)) <#> \{ time } -> lowPrioritySchedule makeLeaps.lpsCallback
-          (JMilliseconds 10000.0 + (coerce $ unInstant time))
-          (pure $ Remove)
-      )
-
   transform :: ScoreMorcelId -> Event (Semaphore (InstanceId -> Instance lock payload))
   transform input =
     ( map Acquire
@@ -160,6 +131,7 @@ rideLeaps levs makeLeaps = fixed
             , hitsFirstPositionAt: (Beats $ logicalFirst) + startOffset
             , hitsLastPositionAt: (Beats logicalLast) + startOffset
             , column: x.column
+            , raycastingCanStartAt:  map (add (unwrap startOffset)) x.raycastingCanStartAt
             , position: x.position
             }
       ) $ levs
@@ -169,6 +141,7 @@ type ScoreMorcel' r =
   , hitsLastPositionAt :: Beats
   , column :: Column
   , position :: Position
+  , raycastingCanStartAt :: Position -> Number
   | r
   }
 

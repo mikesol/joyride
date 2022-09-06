@@ -11,7 +11,7 @@ import Data.FunctorWithIndex (mapWithIndex)
 import Data.List (List(..), span)
 import Data.List as List
 import Data.Maybe (Maybe(..))
-import Data.Number (abs)
+import Data.Newtype (unwrap)
 import Data.Time.Duration (Milliseconds(..))
 import FRP.Behavior (Behavior, sample_)
 import FRP.Event (Event, keepLatest)
@@ -33,7 +33,7 @@ import Rito.Geometries.Box (box)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.RoundRobin (InstanceId, Semaphore(..), roundRobinInstancedMesh)
 import Safe.Coerce (coerce)
-import Types (Beats(..), Column, JMilliseconds(..), LongEventV0', MakeLongs, RateInfo, Seconds(..))
+import Types (Beats(..), JMilliseconds(..), MakeLongs, RateInfo, Seconds(..))
 
 lookAhead :: Beats
 lookAhead = Beats 2.0
@@ -123,13 +123,6 @@ rideLongs levs makeLongs = toScene
             , tag: x.audioURL
             , length: x.length
             , column: x.column
+            , raycastingCanStartAt:  map (add (unwrap startOffset)) x.raycastingCanStartAt
             }
       ) levs
-
-type ScoreMorcel =
-  { hitsFirstPositionAt :: Beats
-  , hitsLastPositionAt :: Beats
-  , column :: Column
-  , length :: Number
-  , tag :: Maybe String
-  }

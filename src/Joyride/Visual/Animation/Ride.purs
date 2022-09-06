@@ -15,7 +15,7 @@ import Data.Tuple (Tuple(..))
 import Data.Tuple.Nested ((/\))
 import Effect (Effect)
 import FRP.Behavior (Behavior, sampleBy)
-import FRP.Event (Event, EventIO, keepLatest, mapAccum)
+import FRP.Event (Event, EventIO, keepLatest, mailboxed, mapAccum)
 import FRP.Event.VBus (V)
 import Joyride.Effect.Lowpass (lpf)
 import Joyride.FRP.BusT (vbust)
@@ -66,7 +66,7 @@ runThree
      , galaxyAttributes :: GalaxyAttributes
      , shaders :: Shaders
      , models :: Models GLTF
-     , columnPusher :: Column -> Effect Unit
+     , columnPusher :: EventIO Column
      , css2DRendererElt :: Event Web.DOM.Element
      , css3DRendererElt :: Event Web.DOM.Element
      , isMobile :: Boolean
@@ -83,15 +83,18 @@ runThree
      , resizeE :: Event WindowDims
      , basicE ::
          (HitBasicVisualForLabel -> Effect Unit)
+         -> (Column -> Event Unit)
          -> forall lock payload
           . ASceneful lock payload
      , leapE ::
          (HitLeapVisualForLabel -> Effect Unit)
+         -> (Column -> Event Unit)
          -> forall lock payload
           . ASceneful lock payload
      , longE ::
          (HitLongVisualForLabel -> Effect Unit)
          -> (ReleaseLongVisualForLabel -> Effect Unit)
+         -> (Column -> Event Unit)
          -> forall lock payload
           . ASceneful lock payload
      , pushBasic :: EventIO HitBasicMe
@@ -104,6 +107,7 @@ runThree opts = do
   let mopts = { playerPositions: _.playerPositions <$> opts.animatedStuff, rateInfo: _.rateInfo <$> opts.animatedStuff }
   _ <- Rito.Run.run
     ( envy QDA.do
+        columnCtor <- keepLatest <<< mailboxed (map { payload: unit, address: _ } opts.columnPusher.event)
         scenePush /\ sceneEvent <- vbust
           ( Proxy
               :: _
@@ -231,7 +235,7 @@ runThree opts = do
                               , isMobile: opts.isMobile
                               , rateE: mopts.rateInfo
                               , column
-                              , columnPusher: opts.columnPusher column
+                              , columnPusher: opts.columnPusher.push column
                               }
                           ) <$> allColumns
                         )
@@ -298,15 +302,15 @@ runThree opts = do
                         )
                       <>
                         -- basic notes
-                        [ toGroup $ opts.basicE scenePush.hitBasicVisualForLabel
+                        [ toGroup $ opts.basicE scenePush.hitBasicVisualForLabel columnCtor
                         ]
                       <>
                         -- leap notes
-                        [ toGroup $ opts.leapE scenePush.hitLeapVisualForLabel
+                        [ toGroup $ opts.leapE scenePush.hitLeapVisualForLabel columnCtor
                         ]
                       <>
                         -- long notes
-                        [ toGroup $ opts.longE scenePush.hitLongVisualForLabel scenePush.releaseLongVisualForLabel
+                        [ toGroup $ opts.longE scenePush.hitLongVisualForLabel scenePush.releaseLongVisualForLabel columnCtor
                         ]
                       <>
                         -- basic labels

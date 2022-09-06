@@ -486,6 +486,7 @@ type MakeBasic r =
       { column :: Column
       , appearsAt :: Beats
       , uniqueId :: Int
+      , raycastingCanStartAt :: Position -> Number
       , beats :: Vect 4 { startsAt :: Beats, audio :: Event RateInfo -> AudibleEnd }
       }
   | MakeBasics r
@@ -493,6 +494,7 @@ type MakeBasic r =
 
 type MakeBasics r =
   ( initialDims :: WindowDims
+  , columnEventConstructor :: Column -> Event Unit
   , renderingInfo :: Behavior RenderingInfo
   , resizeEvent :: Event WindowDims
   , isMobile :: Boolean
@@ -576,6 +578,7 @@ type MakeLong r =
   ( column :: Column
   , hitsFirstPositionAt :: Beats
   , hitsLastPositionAt :: Beats
+  , raycastingCanStartAt :: Position -> Number
   , uniqueId :: Int
   , length :: Number
   , sound :: { on :: Event RateInfo, off :: Event RateInfo } -> AudibleEnd
@@ -584,6 +587,7 @@ type MakeLong r =
 
 type MakeLongs r =
   ( initialDims :: WindowDims
+  , columnEventConstructor :: Column -> Event Unit
   , renderingInfo :: Behavior RenderingInfo
   , resizeEvent :: Event WindowDims
   , cnow :: Effect Milliseconds
@@ -725,6 +729,7 @@ derive instance Newtype ReleaseLongVisualForLabel _
 type MakeLeap r =
   ( column :: Column
   , hitsFirstPositionAt :: Beats
+  , raycastingCanStartAt :: Position -> Number
   , hitsLastPositionAt :: Beats
   , uniqueId :: Int
   , sound :: Event RateInfo -> AudibleEnd
@@ -745,6 +750,7 @@ type MakeLeapWord r =
 
 type MakeLeaps r =
   ( initialDims :: WindowDims
+  , columnEventConstructor :: Column -> Event Unit
   , renderingInfo :: Behavior RenderingInfo
   , resizeEvent :: Event WindowDims
   , threeDI :: ThreeDI
