@@ -17,7 +17,7 @@ module.exports = {
 	},
 	output: {
 		path: path.resolve(__dirname, "dist"),
-		filename: "bundle.js",
+		filename: "[name].[contenthash].js",
 	}, optimization: {
 		minimize: process.env.DISABLE_MINIMIZATION ? false : true,
 	},
