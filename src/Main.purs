@@ -258,6 +258,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
           -- sound stash
           soundObj <- liftEffect $ Ref.new Object.empty
           channelEvent <- liftEffect $ Event.create
+          columnPusher <- liftEffect $ Event.create
           -- get the html. could be even sooner if we passed more stuff in on success instead of creating it at the top level
           runInBody
             ( toplevel
@@ -271,8 +272,9 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                 , isMobile
                 , lpsCallback: lowPriorityCb
                 , givePermission: orientationPerm.push
-                , pushBasic: pushBasic
-                , pushLeap: pushLeap
+                , pushBasic
+                , pushLeap
+                , columnPusher
                 , pushHitLong: pushHitLong
                 , pushReleaseLong: pushReleaseLong
                 , resizeE: resizeE.event

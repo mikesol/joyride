@@ -25,6 +25,7 @@ import Joyride.Visual.Bar (makeBar)
 import Joyride.Visual.BasicLabels (basicLabels)
 import Joyride.Visual.LeapLabels (leapLabels)
 import Joyride.Visual.LongLabels (longLabels)
+import Joyride.Visual.RaycastableLane (makeRaycastableLane)
 import Rito.Cameras.PerspectiveCamera (perspectiveCamera)
 import Rito.Color (RGB(..), color)
 import Rito.Core (ASceneful, Renderer(..), cameraToGroup, effectComposerToRenderer, plain, toGroup, toScene)
@@ -51,7 +52,7 @@ import Rito.Scene (Background(..), scene)
 import Rito.Texture (Texture)
 import Rito.Vector2 (vector2)
 import Type.Proxy (Proxy(..))
-import Types (Axis(..), CubeTextures, GalaxyAttributes, HitBasicMe, HitBasicVisualForLabel, HitLeapVisualForLabel, HitLongVisualForLabel, JMilliseconds, Models, Player(..), PlayerPositions, Position(..), RateInfo, ReleaseLongVisualForLabel, RenderingInfo, Shaders, Textures, ThreeDI, WindowDims, allPlayers, allPositions, playerPosition)
+import Types (Axis(..), Column, CubeTextures, GalaxyAttributes, HitBasicMe, HitBasicVisualForLabel, HitLeapVisualForLabel, HitLongVisualForLabel, JMilliseconds, Models, Player(..), PlayerPositions, Position(..), RateInfo, ReleaseLongVisualForLabel, RenderingInfo, Shaders, Textures, ThreeDI, WindowDims, allColumns, allPlayers, allPositions, playerPosition)
 import Web.DOM as Web.DOM
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 
@@ -64,6 +65,7 @@ runThree
      , debug :: Boolean
      , galaxyAttributes :: GalaxyAttributes
      , shaders :: Shaders
+     , columnPusher :: Column -> Effect Unit
      , css2DRendererElt :: Event Web.DOM.Element
      , css3DRendererElt :: Event Web.DOM.Element
      , isMobile :: Boolean
@@ -215,6 +217,22 @@ runThree opts = do
                               , position
                               }
                           ) <$> (toArray allPositions)
+                        )
+                      <> map toGroup
+                        ( ( \column -> makeRaycastableLane $
+                              { initialDims: opts.initialDims
+                              , resizeEvent: opts.resizeE
+                              , c3
+                              , renderingInfo: opts.renderingInfo
+                              , threeDI: opts.threeDI
+                              , rateInfo: _.rateInfo <$> opts.animatedStuff
+                              , debug: opts.debug
+                              , isMobile: opts.isMobile
+                              , rateE: mopts.rateInfo
+                              , column
+                              , columnPusher: opts.columnPusher column
+                              }
+                          ) <$> allColumns
                         )
                       <>
                         [ toGroup $ ambientLight

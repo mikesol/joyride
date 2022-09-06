@@ -63,7 +63,7 @@ import Rito.Matrix4 as M4
 import Safe.Coerce (coerce)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
-import Types (Beats(..), HitBasicMe, HitBasicOtherPlayer(..), HitBasicOverTheWire(..), HitLeapMe, HitLeapOtherPlayer(..), HitLeapOverTheWire(..), HitLongMe, HitLongOtherPlayer(..), HitLongOverTheWire(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, MakeLongs, Player(..), PlayerAction(..), RateInfo, ReleaseLongMe, ReleaseLongOtherPlayer(..), ReleaseLongOverTheWire(..), RenderingInfo, Seconds(..), StartStatus(..), Success', WindowDims)
+import Types (Beats(..), Column, HitBasicMe, HitBasicOtherPlayer(..), HitBasicOverTheWire(..), HitLeapMe, HitLeapOtherPlayer(..), HitLeapOverTheWire(..), HitLongMe, HitLongOtherPlayer(..), HitLongOverTheWire(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, MakeLongs, Player(..), PlayerAction(..), RateInfo, ReleaseLongMe, ReleaseLongOtherPlayer(..), ReleaseLongOverTheWire(..), RenderingInfo, Seconds(..), StartStatus(..), Success', WindowDims)
 import Web.DOM as Web.DOM
 import Web.Event.Event (target)
 import Web.HTML.HTMLCanvasElement as HTMLCanvasElement
@@ -80,6 +80,7 @@ type RideInfo r =
   , isMobile :: Boolean
   , lpsCallback :: JMilliseconds -> Effect Unit -> Effect Unit
   , resizeE :: Event WindowDims
+  , columnPusher :: EventIO Column
   , renderingInfo :: Behavior RenderingInfo
   , goHome :: Effect Unit
   , pushBasic :: EventIO HitBasicMe
@@ -425,6 +426,7 @@ ride
                                 , renderingInfo: tli.renderingInfo
                                 , lowPriorityCb: tli.lpsCallback
                                 , myPlayer
+                                , columnPusher: tli.columnPusher.push
                                 , debug: tli.debug
                                 , textures
                                 , cubeTextures

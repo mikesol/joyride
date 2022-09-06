@@ -10,6 +10,7 @@ module Types
   , Ride(..)
   , RideV0'
   , Models(..)
+  , allColumns
   , defaultRide
   , InFlightGameInfo'
   , RenderingInfo'
@@ -228,6 +229,8 @@ derive newtype instance Semiring Penalty
 newtype BufferName = BufferName String
 
 derive instance Newtype BufferName _
+
+allColumns = [ C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, C16, C17 ] :: Array Column
 
 normalizedColumn :: Column -> Number
 normalizedColumn C1 = 0.0 / 16.0
@@ -1138,6 +1141,7 @@ type ToplevelInfo =
   , renderingInfo :: Behavior RenderingInfo
   , goHome :: Effect Unit
   , givePermission :: Boolean -> Effect Unit
+  , columnPusher :: EventIO Column
   , pushBasic :: EventIO HitBasicMe
   , pushLeap :: EventIO HitLeapMe
   , pushHitLong :: EventIO HitLongMe

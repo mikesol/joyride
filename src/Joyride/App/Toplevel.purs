@@ -29,12 +29,11 @@ import Joyride.Ocarina (AudibleChildEnd)
 import Joyride.Scores.Ride.Basic (rideBasics)
 import Joyride.Scores.Ride.Leap (rideLeaps)
 import Joyride.Scores.Ride.Long (rideLongs)
-import Joyride.Scores.Tutorial.Basic (tutorialBasics)
-import Joyride.Scores.Tutorial.Leap (tutorialLeaps)
-import Joyride.Scores.Tutorial.Long (tutorialLongs)
+import Joyride.Scores.Tutorial.Base (tutorialScore)
+import Rito.Core (ASceneful)
 import Rito.CubeTexture as CTL
 import Rito.GLTF as GLTFLoader
-import Types (CubeTextures, EventV0(..), Event_(..), JMilliseconds, Models, Negotiation(..), OpenEditor', RateInfo, Success', ThreeDI, ToplevelInfo, Track(..), WantsTutorial', WindowDims)
+import Types (CubeTextures, EventV0(..), Event_(..), JMilliseconds, MakeBasics, MakeLeaps, MakeLongs, Models, Negotiation(..), OpenEditor', RateInfo, Success', ThreeDI, ToplevelInfo, Track(..), WantsTutorial', WindowDims)
 import Web.DOM as Web.DOM
 
 twoPi = 2.0 * pi :: Number
@@ -106,24 +105,24 @@ toplevel tli =
   ( dedup
       ( map
           ( \{ loaded, negotiation } ->
-                case loaded, negotiation of
-                  _, NeedsOrientation -> TLNeedsOrientation
-                  _, WillNotWorkWithoutOrientation -> TLWillNotWorkWithoutOrientation
-                  _, GetRulesOfGame s -> TLExplainer s
-                  -- editor does not need to be loaded for now
-                  -- change if that's the case
-                  false, _ -> TLLoading
-                  -- should never reach
-                  _, PageLoad -> TLLoading
-                  _, StartingNegotiation -> TLLoading
-                  _, RoomIsFull -> TLRoomIsFull
-                  _, GameHasStarted -> TLGameHasStarted
-                  _, RequestingPlayer -> TLLoading
-                  _, ReceivedPossibilities -> TLLoading
-                  _, ClaimFail -> TLRoomIsFull
-                  true, Success s -> TLSuccess s
-                  true, WantsTutorial s -> TLWantsTutorial s
-                  true, OpenEditor s -> TLOpenEditor s
+              case loaded, negotiation of
+                _, NeedsOrientation -> TLNeedsOrientation
+                _, WillNotWorkWithoutOrientation -> TLWillNotWorkWithoutOrientation
+                _, GetRulesOfGame s -> TLExplainer s
+                -- editor does not need to be loaded for now
+                -- change if that's the case
+                false, _ -> TLLoading
+                -- should never reach
+                _, PageLoad -> TLLoading
+                _, StartingNegotiation -> TLLoading
+                _, RoomIsFull -> TLRoomIsFull
+                _, GameHasStarted -> TLGameHasStarted
+                _, RequestingPlayer -> TLLoading
+                _, ReceivedPossibilities -> TLLoading
+                _, ClaimFail -> TLRoomIsFull
+                true, Success s -> TLSuccess s
+                true, WantsTutorial s -> TLWantsTutorial s
+                true, OpenEditor s -> TLOpenEditor s
           )
           ( biSampleOn
               (startingWith PageLoad $ tli.negotiation)
@@ -156,9 +155,9 @@ toplevel tli =
     TLGameHasStarted -> gameHasStarted
     TLWantsTutorial wantsTutorial -> tutorial
       tli
-      { basicE: tutorialBasics
-      , leapE: tutorialLeaps
-      , longE: tutorialLongs
+      { basicE: makeBasics tutorialScore
+      , leapE: makeLeaps tutorialScore
+      , longE: makeLongs tutorialScore
       , baseFileOffsetInSeconds: 0.0
       , bgtrack: "tutorial"
       , isPreviewPage: Nothing
@@ -168,21 +167,9 @@ toplevel tli =
       let
         vals = successful.events
         TrackV0 tv0 = successful.track
-        basicE = rideBasics (sortBy (compare `on` _.marker1Time)
-              ( vals # filterMap case _ of
-                  EventV0 (BasicEventV0 be) -> Just be
-                  _ -> Nothing
-              ))
-        leapE = rideLeaps
-              (sortBy (compare `on` _.marker1Time) ( vals # filterMap case _ of
-                  EventV0 (LeapEventV0 be) -> Just be
-                  _ -> Nothing
-              ))
-        longE = rideLongs
-              (sortBy (compare `on` _.marker1Time) ( vals # filterMap case _ of
-                  EventV0 (LongEventV0 be) -> Just be
-                  _ -> Nothing
-              ))
+        basicE = makeBasics vals
+        leapE = makeLeaps vals
+        longE = makeLongs vals
       in
         ride
           tli
@@ -195,3 +182,30 @@ toplevel tli =
           , baseFileOffsetInSeconds: 0.0
           }
           successful
+  where
+  makeBasics :: forall l p. Array Event_ -> { | MakeBasics () } -> ASceneful l p
+  makeBasics vals = rideBasics
+    ( sortBy (compare `on` _.marker1Time)
+        ( vals # filterMap case _ of
+            EventV0 (BasicEventV0 be) -> Just be
+            _ -> Nothing
+        )
+    )
+
+  makeLeaps :: forall l p. Array Event_ -> { | MakeLeaps () } -> ASceneful l p
+  makeLeaps vals = rideLeaps
+    ( sortBy (compare `on` _.marker1Time)
+        ( vals # filterMap case _ of
+            EventV0 (LeapEventV0 be) -> Just be
+            _ -> Nothing
+        )
+    )
+
+  makeLongs :: forall l p. Array Event_ -> { | MakeLongs () } -> ASceneful l p
+  makeLongs vals = rideLongs
+    ( sortBy (compare `on` _.marker1Time)
+        ( vals # filterMap case _ of
+            EventV0 (LongEventV0 be) -> Just be
+            _ -> Nothing
+        )
+    )

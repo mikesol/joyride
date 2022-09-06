@@ -3,15 +3,21 @@ module Joyride.Scores.Tutorial.Base where
 import Prelude
 
 import Data.Function (on)
-import Data.Generic.Rep (class Generic)
 import Data.List (List(..), (:))
+import Data.Maybe (Maybe(..))
+import Data.Newtype (unwrap)
 import Data.Tuple.Nested (type (/\), (/\))
-import Types (Column(..))
+import Types (Beats(..), Column(..), EventV0(..), Event_(..), Position(..))
 
+tutorialColumnOffset :: Column
 tutorialColumnOffset = C1
 
-data BeatNumber = B1
-  | B2 | B3 | B4
+data BeatNumber
+  = B1
+  | B2
+  | B3
+  | B4
+
 data MeasureNumber
   = M1
   | M2
@@ -823,18 +829,21 @@ type BeatInstruction =
   , mb :: MeasureNumberBeatNumber
   }
 
-
 instance Eq BeatNumber where
   eq = eq `on` b2s
+
 instance Eq MeasureNumber where
   eq = eq `on` m2s
+
 instance Eq MeasureNumberBeatNumber where
   eq = eq `on` mb2s
 
 instance Ord BeatNumber where
   compare = compare `on` b2s
+
 instance Ord MeasureNumber where
   compare = compare `on` m2i
+
 instance Ord MeasureNumberBeatNumber where
   compare = compare `on` (mb2info >>> _.t)
 
@@ -846,8 +855,10 @@ b2s B4 = "B4"
 
 instance Show BeatNumber where
   show = b2s
+
 instance Show MeasureNumber where
   show = m2s
+
 instance Show MeasureNumberBeatNumber where
   show = mb2s
 
@@ -1596,3 +1607,191 @@ mb2info M83B4 = { t: 115.835590, b: B4, m: M83, mb: M83B4 }
 mb2info M84B1 = { t: 116.155380, b: B1, m: M84, mb: M84B1 }
 mb2info M84B2 = { t: 116.481696, b: B2, m: M84, mb: M84B2 }
 mb2info M84B3 = { t: 116.850433, b: B3, m: M84, mb: M84B3 }
+
+type LeapScoreMorsel' r =
+  { hitsFirstPositionAt :: Beats
+  , column :: Column
+  , position :: Position
+  | r
+  }
+
+type LeapScoreMorsel = LeapScoreMorsel' ()
+type LeapScoreMorselId = LeapScoreMorsel' (uniqueId :: Int)
+
+-- 3 7 8 12
+tmpLeapScore :: Array LeapScoreMorsel
+tmpLeapScore =
+  [ { column: C7, hitsFirstPositionAt: (Beats (mb2info M16B1).t), position: Position2 }
+  , { column: C8, hitsFirstPositionAt: (Beats (mb2info M18B1).t), position: Position3 }
+  , { column: C7, hitsFirstPositionAt: (Beats (mb2info M20B1).t), position: Position1 }
+  , { column: C8, hitsFirstPositionAt: (Beats (mb2info M21B1).t), position: Position4 }
+  , { column: C7, hitsFirstPositionAt: (Beats (mb2info M22B1).t), position: Position2 }
+  , { column: C8, hitsFirstPositionAt: (Beats (mb2info M23B1).t), position: Position3 }
+  , { column: C7, hitsFirstPositionAt: (Beats (mb2info M24B1).t), position: Position1 }
+  , { column: C8, hitsFirstPositionAt: (Beats (mb2info M25B1).t), position: Position4 }
+  , { column: C3, hitsFirstPositionAt: (Beats (mb2info M26B1).t), position: Position2 }
+  , { column: C7, hitsFirstPositionAt: (Beats (mb2info M26B3).t), position: Position3 }
+  , { column: C12, hitsFirstPositionAt: (Beats (mb2info M27B1).t), position: Position1 }
+  , { column: C8, hitsFirstPositionAt: (Beats (mb2info M27B3).t), position: Position4 }
+  , { column: C3, hitsFirstPositionAt: (Beats (mb2info M29B1).t), position: Position2 }
+  , { column: C7, hitsFirstPositionAt: (Beats (mb2info M29B3).t), position: Position3 }
+  , { column: C12, hitsFirstPositionAt: (Beats (mb2info M30B1).t), position: Position1 }
+  , { column: C8, hitsFirstPositionAt: (Beats (mb2info M30B3).t), position: Position4 }
+  , { column: C3, hitsFirstPositionAt: (Beats (mb2info M31B1).t), position: Position2 }
+  , { column: C7, hitsFirstPositionAt: (Beats (mb2info M32B3).t), position: Position3 }
+  , { column: C12, hitsFirstPositionAt: (Beats (mb2info M33B1).t), position: Position1 }
+  , { column: C8, hitsFirstPositionAt: (Beats (mb2info M34B3).t), position: Position4 }
+  , { column: C3, hitsFirstPositionAt: (Beats (mb2info M35B1).t), position: Position2 }
+  , { column: C7, hitsFirstPositionAt: (Beats (mb2info M36B3).t), position: Position3 }
+  , { column: C12, hitsFirstPositionAt: (Beats (mb2info M37B1).t), position: Position1 }
+  , { column: C8, hitsFirstPositionAt: (Beats (mb2info M38B3).t), position: Position4 }
+  , { column: C3, hitsFirstPositionAt: (Beats (mb2info M39B1).t), position: Position2 }
+  , { column: C7, hitsFirstPositionAt: (Beats (mb2info M40B3).t), position: Position3 }
+  , { column: C12, hitsFirstPositionAt: (Beats (mb2info M41B1).t), position: Position1 }
+  , { column: C8, hitsFirstPositionAt: (Beats (mb2info M42B3).t), position: Position4 }
+  , { column: C3, hitsFirstPositionAt: (Beats (mb2info M43B1).t), position: Position2 }
+  , { column: C7, hitsFirstPositionAt: (Beats (mb2info M44B3).t), position: Position3 }
+  , { column: C12, hitsFirstPositionAt: (Beats (mb2info M45B1).t), position: Position1 }
+  , { column: C8, hitsFirstPositionAt: (Beats (mb2info M46B3).t), position: Position4 }
+  , { column: C3, hitsFirstPositionAt: (Beats (mb2info M47B1).t), position: Position2 }
+  , { column: C7, hitsFirstPositionAt: (Beats (mb2info M48B3).t), position: Position3 }
+  , { column: C12, hitsFirstPositionAt: (Beats (mb2info M49B1).t), position: Position1 }
+  , { column: C8, hitsFirstPositionAt: (Beats (mb2info M50B3).t), position: Position4 }
+  --
+  --
+  , { column: C3, hitsFirstPositionAt: (Beats (mb2info M51B1).t), position: Position2 }
+  , { column: C7, hitsFirstPositionAt: (Beats (mb2info M51B1).t), position: Position3 }
+  , { column: C12, hitsFirstPositionAt: (Beats (mb2info M51B1).t), position: Position1 }
+  , { column: C8, hitsFirstPositionAt: (Beats (mb2info M51B1).t), position: Position4 }
+
+  --
+  , { column: C3, hitsFirstPositionAt: (Beats (mb2info M55B1).t), position: Position2 }
+  , { column: C7, hitsFirstPositionAt: (Beats (mb2info M55B1).t), position: Position3 }
+  , { column: C12, hitsFirstPositionAt: (Beats (mb2info M55B1).t), position: Position1 }
+  , { column: C8, hitsFirstPositionAt: (Beats (mb2info M55B1).t), position: Position4 }
+
+  --
+  , { column: C3, hitsFirstPositionAt: (Beats (mb2info M59B1).t), position: Position2 }
+  , { column: C7, hitsFirstPositionAt: (Beats (mb2info M59B1).t), position: Position3 }
+  , { column: C12, hitsFirstPositionAt: (Beats (mb2info M59B1).t), position: Position1 }
+  , { column: C8, hitsFirstPositionAt: (Beats (mb2info M59B1).t), position: Position4 }
+
+  --
+  , { column: C3, hitsFirstPositionAt: (Beats (mb2info M63B1).t), position: Position2 }
+  , { column: C7, hitsFirstPositionAt: (Beats (mb2info M63B1).t), position: Position3 }
+  , { column: C12, hitsFirstPositionAt: (Beats (mb2info M63B1).t), position: Position1 }
+  , { column: C8, hitsFirstPositionAt: (Beats (mb2info M63B1).t), position: Position4 }
+
+  --
+  , { column: C3, hitsFirstPositionAt: (Beats (mb2info M67B1).t), position: Position2 }
+  , { column: C7, hitsFirstPositionAt: (Beats (mb2info M67B1).t), position: Position3 }
+  , { column: C12, hitsFirstPositionAt: (Beats (mb2info M67B1).t), position: Position1 }
+  , { column: C8, hitsFirstPositionAt: (Beats (mb2info M67B1).t), position: Position4 }
+
+  --
+  , { column: C3, hitsFirstPositionAt: (Beats (mb2info M71B1).t), position: Position2 }
+  , { column: C7, hitsFirstPositionAt: (Beats (mb2info M71B1).t), position: Position3 }
+  , { column: C12, hitsFirstPositionAt: (Beats (mb2info M71B1).t), position: Position1 }
+  , { column: C8, hitsFirstPositionAt: (Beats (mb2info M71B1).t), position: Position4 }
+
+  --
+  , { column: C3, hitsFirstPositionAt: (Beats (mb2info M75B1).t), position: Position2 }
+  , { column: C7, hitsFirstPositionAt: (Beats (mb2info M75B1).t), position: Position3 }
+  , { column: C12, hitsFirstPositionAt: (Beats (mb2info M75B1).t), position: Position1 }
+  , { column: C8, hitsFirstPositionAt: (Beats (mb2info M75B1).t), position: Position4 }
+
+  --
+  , { column: C3, hitsFirstPositionAt: (Beats (mb2info M79B1).t), position: Position2 }
+  , { column: C12, hitsFirstPositionAt: (Beats (mb2info M79B1).t), position: Position1 }
+
+  --
+  , { column: C3, hitsFirstPositionAt: (Beats (mb2info M83B1).t), position: Position2 }
+  , { column: C12, hitsFirstPositionAt: (Beats (mb2info M83B1).t), position: Position1 }
+
+  ]
+
+type LongScoreMorsel =
+  { hitsFirstPositionAt :: Beats
+  , column :: Column
+  , length :: Number
+  , tag :: String
+  }
+
+tmpLongScore0 :: List LongScoreMorsel
+tmpLongScore0 = Nil
+
+tmpLongScore :: Array LongScoreMorsel
+tmpLongScore =
+  -- { column: C10, hitsFirstPositionAt: (Beats (mb2info M1B1).t) , length: 1.25, tag: "shakuhachi0" }  :
+  [ { column: C10, hitsFirstPositionAt: (Beats (mb2info M29B1).t), length: 1.25, tag: "shakuhachi0" }
+  , { column: C2, hitsFirstPositionAt: (Beats (mb2info M33B1).t), length: 1.0, tag: "shakuhachi1" }
+  , { column: C10, hitsFirstPositionAt: (Beats (mb2info M36B1).t), length: 1.25, tag: "shakuhachi2" }
+  , { column: C2, hitsFirstPositionAt: (Beats (mb2info M39B1).t), length: 1.5, tag: "shakuhachi3" }
+  , { column: C10, hitsFirstPositionAt: (Beats (mb2info M42B1).t), length: 1.75, tag: "shakuhachi0" }
+  , { column: C2, hitsFirstPositionAt: (Beats (mb2info M45B1).t), length: 1.5, tag: "shakuhachi1" }
+  , { column: C10, hitsFirstPositionAt: (Beats (mb2info M48B1).t), length: 1.25, tag: "shakuhachi2" }
+  , { column: C2, hitsFirstPositionAt: (Beats (mb2info M51B1).t), length: 1.0, tag: "shakuhachi1" }
+  --
+  , { column: C10, hitsFirstPositionAt: (Beats (mb2info M53B1).t), length: 1.75, tag: "shakuhachi0" }
+  , { column: C2, hitsFirstPositionAt: (Beats (mb2info M55B1).t), length: 1.5, tag: "shakuhachi1" }
+  , { column: C10, hitsFirstPositionAt: (Beats (mb2info M57B1).t), length: 1.25, tag: "shakuhachi2" }
+  , { column: C2, hitsFirstPositionAt: (Beats (mb2info M59B1).t), length: 1.0, tag: "shakuhachi1" }
+  , { column: C10, hitsFirstPositionAt: (Beats (mb2info M61B1).t), length: 1.75, tag: "shakuhachi0" }
+  , { column: C2, hitsFirstPositionAt: (Beats (mb2info M63B1).t), length: 1.5, tag: "shakuhachi1" }
+  , { column: C10, hitsFirstPositionAt: (Beats (mb2info M65B1).t), length: 1.25, tag: "shakuhachi2" }
+  , { column: C2, hitsFirstPositionAt: (Beats (mb2info M67B1).t), length: 1.0, tag: "shakuhachi1" }
+  --
+  , { column: C10, hitsFirstPositionAt: (Beats (mb2info M69B1).t), length: 1.75, tag: "shakuhachi0" }
+  , { column: C2, hitsFirstPositionAt: (Beats (mb2info M72B1).t), length: 1.5, tag: "shakuhachi1" }
+  , { column: C10, hitsFirstPositionAt: (Beats (mb2info M75B1).t), length: 1.25, tag: "shakuhachi2" }
+  , { column: C2, hitsFirstPositionAt: (Beats (mb2info M78B1).t), length: 1.0, tag: "shakuhachi1" }
+  --
+  , { column: C10, hitsFirstPositionAt: (Beats (mb2info M81B1).t), length: 1.75, tag: "shakuhachi0" }
+  ]
+
+tutorialScore :: Array Event_
+tutorialScore = map EventV0 $ join
+  [ map
+      ( \(c /\ x /\ y /\ z /\ w) ->
+          BasicEventV0
+            { marker1AudioURL: Nothing
+            , marker1Time: ((mb2info x).t)
+            , marker2AudioURL: Nothing
+            , marker2Time: ((mb2info y).t)
+            , marker3AudioURL: Nothing
+            , marker3Time: ((mb2info z).t)
+            , marker4AudioURL: Nothing
+            , marker4Time: ((mb2info w).t)
+            , name: Nothing
+            , column: c <> tutorialColumnOffset
+            , version: mempty
+            }
+      )
+      beats2
+  , map
+      ( \{ column, hitsFirstPositionAt, position } ->
+          LeapEventV0
+            { audioURL: Just "floorTom"
+            , column: column <> tutorialColumnOffset
+            , marker1Time: unwrap hitsFirstPositionAt
+            , marker2Time: unwrap hitsFirstPositionAt + 5.0
+            , name: Nothing
+            , position
+            , version: mempty
+            }
+      )
+      tmpLeapScore
+  , map
+      ( \{ column, hitsFirstPositionAt, length, tag } ->
+          LongEventV0
+            { audioURL: Just tag
+            , column: column <> tutorialColumnOffset
+            , marker1Time: unwrap hitsFirstPositionAt
+            , marker2Time: unwrap hitsFirstPositionAt + 5.0
+            , name: Nothing
+            , length
+            , version: mempty
+            }
+      )
+      tmpLongScore
+  ]
