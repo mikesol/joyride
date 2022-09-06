@@ -26,6 +26,7 @@ import Joyride.FRP.Dedup (dedup)
 import Joyride.FRP.StartingWith (startingWith)
 import Joyride.Firebase.Opaque (FirebaseAuth, Firestore)
 import Joyride.Ocarina (AudibleChildEnd)
+import Joyride.Scores.AugmentedTypes (AugmentedEventV0(..), AugmentedEvent_(..))
 import Joyride.Scores.Ride.Basic (rideBasics)
 import Joyride.Scores.Ride.Leap (rideLeaps)
 import Joyride.Scores.Ride.Long (rideLongs)
@@ -33,7 +34,7 @@ import Joyride.Scores.Tutorial.Base (tutorialScore)
 import Rito.Core (ASceneful)
 import Rito.CubeTexture as CTL
 import Rito.GLTF as GLTFLoader
-import Types (CubeTextures, EventV0(..), Event_(..), JMilliseconds, MakeBasics, MakeLeaps, MakeLongs, Models, Negotiation(..), OpenEditor', RateInfo, Success', ThreeDI, ToplevelInfo, Track(..), WantsTutorial', WindowDims)
+import Types (CubeTextures, JMilliseconds, MakeBasics, MakeLeaps, MakeLongs, Models, Negotiation(..), OpenEditor', RateInfo, Success', ThreeDI, ToplevelInfo, Track(..), WantsTutorial', WindowDims)
 import Web.DOM as Web.DOM
 
 twoPi = 2.0 * pi :: Number
@@ -183,29 +184,29 @@ toplevel tli =
           }
           successful
   where
-  makeBasics :: forall l p. Array Event_ -> { | MakeBasics () } -> ASceneful l p
+  makeBasics :: forall l p. Array AugmentedEvent_ -> { | MakeBasics () } -> ASceneful l p
   makeBasics vals = rideBasics
     ( sortBy (compare `on` _.marker1Time)
         ( vals # filterMap case _ of
-            EventV0 (BasicEventV0 be) -> Just be
+            AugmentedEventV0 (AugmentedBasicEventV0 be) -> Just be
             _ -> Nothing
         )
     )
 
-  makeLeaps :: forall l p. Array Event_ -> { | MakeLeaps () } -> ASceneful l p
+  makeLeaps :: forall l p. Array AugmentedEvent_ -> { | MakeLeaps () } -> ASceneful l p
   makeLeaps vals = rideLeaps
     ( sortBy (compare `on` _.marker1Time)
         ( vals # filterMap case _ of
-            EventV0 (LeapEventV0 be) -> Just be
+            AugmentedEventV0 (AugmentedLeapEventV0 be) -> Just be
             _ -> Nothing
         )
     )
 
-  makeLongs :: forall l p. Array Event_ -> { | MakeLongs () } -> ASceneful l p
+  makeLongs :: forall l p. Array AugmentedEvent_ -> { | MakeLongs () } -> ASceneful l p
   makeLongs vals = rideLongs
     ( sortBy (compare `on` _.marker1Time)
         ( vals # filterMap case _ of
-            EventV0 (LongEventV0 be) -> Just be
+            AugmentedEventV0 (AugmentedLongEventV0 be) -> Just be
             _ -> Nothing
         )
     )

@@ -23,6 +23,7 @@ import Joyride.FRP.Behavior (misbehavior)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Schedule (oneOff, scheduleCf)
 import Joyride.Ocarina (AudibleEnd(..))
+import Joyride.Scores.AugmentedTypes (AugmentedLongEventV0')
 import Joyride.Visual.Long as LongV
 import Ocarina.WebAPI (BrowserAudioBuffer)
 import Record (union)
@@ -65,7 +66,7 @@ singleBeat { buffer, silence } riE = AudibleEnd
 
 data IO = I | O
 
-rideLongs :: forall lock payload. Array LongEventV0' -> { | MakeLongs () } -> ASceneful lock payload
+rideLongs :: forall lock payload. Array AugmentedLongEventV0' -> { | MakeLongs () } -> ASceneful lock payload
 rideLongs levs makeLongs = toScene
   ( roundRobinInstancedMesh { instancedMesh: makeLongs.threeDI.instancedMesh, mesh: makeLongs.threeDI.mesh, matrix4: makeLongs.threeDI.matrix4 } 100 (box { box: makeLongs.threeDI.boxGeometry })
       ( meshStandardMaterial

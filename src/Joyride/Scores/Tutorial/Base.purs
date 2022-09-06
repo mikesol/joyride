@@ -7,6 +7,7 @@ import Data.List (List(..), (:))
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.Tuple.Nested (type (/\), (/\))
+import Joyride.Scores.AugmentedTypes (AugmentedEvent_, toAugmentedEvents)
 import Types (Beats(..), Column(..), EventV0(..), Event_(..), Position(..))
 
 tutorialColumnOffset :: Column
@@ -1749,8 +1750,8 @@ tmpLongScore =
   , { column: C10, hitsFirstPositionAt: (Beats (mb2info M81B1).t), length: 1.75, tag: "shakuhachi0" }
   ]
 
-tutorialScore :: Array Event_
-tutorialScore = map EventV0 $ join
+tutorialScore :: Array AugmentedEvent_
+tutorialScore = toAugmentedEvents $ map EventV0 $ join
   [ map
       ( \(c /\ x /\ y /\ z /\ w) ->
           BasicEventV0

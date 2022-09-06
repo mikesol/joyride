@@ -55,6 +55,7 @@ import Joyride.LilGui (Slider(..), gui, noGui)
 import Joyride.LocalStorage as LocalStorage
 import Joyride.Network.Download (dlInChunks)
 import Joyride.Random (randId', randId)
+import Joyride.Scores.AugmentedTypes (toAugmentedEvents)
 import Joyride.Shaders.Galaxy (makeGalaxyAttributes)
 import Joyride.Timing.CoordinatedNow (cnow)
 import Joyride.Transport.PubNub as PN
@@ -652,7 +653,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                         { player: myPlayer
                         , trackId
                         , track
-                        , events: map _.data ets
+                        , events: toAugmentedEvents (map _.data ets)
                         , initialDims
                         , threeDI
                         , playerName

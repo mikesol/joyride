@@ -25,6 +25,7 @@ import Joyride.FRP.Behavior (misbehavior)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Schedule (oneOff, scheduleCf)
 import Joyride.Ocarina (AudibleEnd(..))
+import Joyride.Scores.AugmentedTypes (AugmentedLeapEventV0')
 import Joyride.Visual.Leap as LeapV
 import Joyride.Visual.LeapWord as LeapW
 import Ocarina.WebAPI (BrowserAudioBuffer)
@@ -63,7 +64,7 @@ singleBeat { buffer, silence } riE = AudibleEnd
 
   )
 
-rideLeaps :: forall lock payload. Array LeapEventV0' -> { | MakeLeaps () } -> ASceneful lock payload
+rideLeaps :: forall lock payload. Array AugmentedLeapEventV0' -> { | MakeLeaps () } -> ASceneful lock payload
 rideLeaps levs makeLeaps = fixed
   [ toScene
       ( roundRobinInstancedMesh

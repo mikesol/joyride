@@ -24,6 +24,7 @@ import Joyride.Constants.Audio (startOffset)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Schedule (oneOff, scheduleCf)
 import Joyride.Ocarina (AudibleEnd(..))
+import Joyride.Scores.AugmentedTypes (AugmentedBasicEventV0')
 import Joyride.Visual.Basic as BasicV
 import Joyride.Visual.BasicWord as BasicW
 import Ocarina.WebAPI (BrowserAudioBuffer)
@@ -105,7 +106,7 @@ severalBeats { b0, b1, b2, b3, silence } = singleBeat (f $ b0)
     , silence
     }
 
-rideBasics :: forall lock payload. Array BasicEventV0' -> { | MakeBasics () } -> ASceneful lock payload
+rideBasics :: forall lock payload. Array AugmentedBasicEventV0' -> { | MakeBasics () } -> ASceneful lock payload
 rideBasics bevs makeBasics =
   ( fixed
       [ toScene

@@ -85,7 +85,6 @@ module Types
   , module Joyride.Types
   ) where
 
-import Joyride.Types (BasicEventV0', Column(..), EventV0(..), Event_(..), LeapEventV0', LongEventV0', Position(..), Track(..), TrackV0', Version(..), Whitelist(..), columnToInt, intToColumn)
 import Prelude
 
 import Control.Alt ((<|>))
@@ -109,6 +108,8 @@ import Foreign (ForeignError(..), fail)
 import Foreign.Object as Object
 import Joyride.Firebase.Opaque (FirebaseAuth, Firestore)
 import Joyride.Ocarina (AudibleChildEnd, AudibleEnd)
+import Joyride.Scores.AugmentedTypes (AugmentedEvent_)
+import Joyride.Types (BasicEventV0', Column(..), EventV0(..), Event_(..), LeapEventV0', LongEventV0', Position(..), Track(..), TrackV0', Version(..), Whitelist(..), columnToInt, intToColumn)
 import Ocarina.Math (calcSlope)
 import Ocarina.WebAPI (BrowserAudioBuffer)
 import Record (union)
@@ -867,7 +868,7 @@ type Success' =
   , shaders :: Shaders
   , trackId :: String
   , track :: Track
-  , events :: Array Event_
+  , events :: Array AugmentedEvent_
   , galaxyAttributes :: GalaxyAttributes
   , playerName :: Maybe String
   , channelName :: String
