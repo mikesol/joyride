@@ -63,6 +63,7 @@ speed = 4.0 :: Number
 runThree
   :: { threeDI :: ThreeDI
      , debug :: Boolean
+     , pressedStart :: Event Boolean
      , galaxyAttributes :: GalaxyAttributes
      , shaders :: Shaders
      , columnPusher :: EventIO Column
@@ -152,7 +153,7 @@ runThree opts = do
                 let posAx axis = map (ppos axis) mopts.playerPositions
                 toGroup $ GLTF.scene (unwrap opts.models).spaceship
                   ( oneOf
-                      [ (positionX <<< add n) <$> applyLPF (player == opts.myPlayer) (posAx AxisX)
+                      [ (positionX <<< add n) <$> applyLPF (player == opts.myPlayer) ((\nnn ps -> if ps then nnn else 0.0) <$> (posAx AxisX) <*> (pure false <|> opts.pressedStart))
                       , positionY <$> (sampleBy (\{ sphereOffsetY } py -> sphereOffsetY + py) opts.renderingInfo (posAx AxisY))
                       , pure $ positionZ
                           ( case player of
