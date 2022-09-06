@@ -8,7 +8,7 @@ import Data.DateTime.Instant (unInstant)
 import Data.Either (Either(..))
 import Data.FastVect.FastVect (index)
 import Data.Filterable (filter)
-import Data.Foldable (oneOf, oneOfMap)
+import Data.Foldable (for_, oneOf, oneOfMap)
 import Data.Maybe (Maybe(..), isJust)
 import Data.Newtype (unwrap)
 import Data.Time.Duration (Milliseconds(..))
@@ -158,25 +158,23 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
                   -- as we are resubscribing to the animation loop for the sampling (this already happens in for rendering)
                   -- keep an eye on this, refactor if needed
                   { event: compact
-                      ( sampleBy (#) (map (\(Milliseconds m) -> m) (cInstant makeBasic.cnow))
-                          ( sampleOn
-                              ( { animatedStuff: _
-                                , iWasPlayed: _
-                                , hbop: _
-                                } <$> makeBasic.animatedStuff <*> (pure Nothing <|> map Just iWasPlayed)
-                                  <*> (pure Nothing <|> map Just (filter (\(HitBasicOtherPlayer { player }) -> player /= makeBasic.myPlayer) otherPlayedMe))
-                              )
-                              ( (makeBasic.columnEventConstructor makeBasic.myInfo.column) <#>
-                                  \_
-                                   { animatedStuff:
-                                       { playerPositions
-                                       , rateInfo
-                                       }
-                                   , iWasPlayed: iwp
-                                   , hbop
-                                   }
-                                   cnow -> do
+                      ( sampleOn
+                          ( { iWasPlayed: _
+                            , hbop: _
+                            } <$> (pure Nothing <|> map Just iWasPlayed)
+                              <*> (pure Nothing <|> map Just (filter (\(HitBasicOtherPlayer { player }) -> player /= makeBasic.myPlayer) otherPlayedMe))
+                          )
+                          ( (makeBasic.columnEventConstructor makeBasic.myInfo.column) <#>
+                              \_
+                               { iWasPlayed: iwp
+                               , hbop
+                               } -> do
 
+                                if isJust iwp then Nothing
+                                else Just
+                                  \{ playerPositions
+                                   , rateInfo
+                                   } -> do
                                     let ppos = playerPosition' makeBasic.myPlayer playerPositions
                                     let Beats cbeat = rateInfo.beats
                                     let canStartAt = makeBasic.myInfo.raycastingCanStartAt ppos
@@ -186,8 +184,7 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
                                         Position2 -> p2
                                         Position3 -> p3
                                         Position4 -> p4
-                                    if isJust iwp then Nothing
-                                    else case hbop of
+                                    case hbop of
                                       Just (HitBasicOtherPlayer x) -> do
                                         let
                                           hitBasicVisualForLabel issuedAt = HitBasicVisualForLabel
@@ -199,57 +196,59 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
                                             , translation: drawingMatrix <#> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
                                             , player: x.player
                                             }
-                                        Just (Left (hitBasicVisualForLabel cnow))
+                                        Just (Left hitBasicVisualForLabel)
                                       Nothing ->
                                         if ((cbeat > canStartAt) && ((unwrap rightBeat.startsAt - cbeat) > (-0.5))) then Just $ Right { cbeat, canStartAt, rb: unwrap rightBeat.startsAt, myInfo: map _.startsAt makeBasic.myInfo.beats }
                                         else Nothing
-                              )
                           )
                       )
-                  , push: case _ of
-                      Left notMe -> do
-                        log $ "drats, it wudn't me: " <> show (unwrap notMe).uniqueId
-                        makeBasic.pushBasicVisualForLabel notMe
-                      Right meeeee -> launchAff_ do
-                        liftEffect $ log $ "Raycaster strikes again! " <> show meeeee
-                        n <- liftEffect $ makeBasic.cnow
-                        { rateInfo, playerPositions } <- eventToAff makeBasic.animatedStuff
-                        let
-                          pos = playerPosition' makeBasic.myPlayer playerPositions
-                          rightBeat = case pos of
-                            Position1 -> p1
-                            Position2 -> p2
-                            Position3 -> p3
-                            Position4 -> p4
-                        let
-                          broadcastInfo =
-                            { uniqueId: makeBasic.myInfo.uniqueId
-                            , position: pos
-                            , hitAt: rateInfo.beats
-                            , issuedAt: coerce n
-                            , logicalBeat: rightBeat.startsAt
-                            , deltaBeats: rateInfo.beats - rightBeat.startsAt
-                            }
-                        let
-                          hitBasicMe = HitBasicMe
-                            { uniqueId: broadcastInfo.uniqueId
-                            , logicalBeat: broadcastInfo.logicalBeat
-                            , deltaBeats: broadcastInfo.deltaBeats
-                            , hitAt: broadcastInfo.hitAt
-                            , issuedAt: broadcastInfo.issuedAt
-                            }
-                          hitBasicVisualForLabel = HitBasicVisualForLabel
-                            { uniqueId: broadcastInfo.uniqueId
-                            , logicalBeat: broadcastInfo.logicalBeat
-                            , deltaBeats: broadcastInfo.deltaBeats
-                            , hitAt: broadcastInfo.hitAt
-                            , issuedAt: broadcastInfo.issuedAt
-                            , translation: drawingMatrix <#> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
-                            , player: makeBasic.myPlayer
-                            }
-                        liftEffect $ makeBasic.pushBasicVisualForLabel hitBasicVisualForLabel
-                        liftEffect $ makeBasic.pushBasic.push hitBasicMe
-                        liftEffect $ setPlayed hitBasicMe
+                  , push: \ipt -> launchAff_ do
+                      { rateInfo, playerPositions } <- eventToAff makeBasic.animatedStuff
+                      for_ (ipt { rateInfo, playerPositions }) case _ of
+                        Left notMe' -> do
+                          cnow <- liftEffect $ makeBasic.cnow
+                          let notMe = notMe' (unwrap cnow)
+                          liftEffect $ log $ "drats, it wudn't me: " <> show (unwrap notMe).uniqueId
+                          liftEffect $ makeBasic.pushBasicVisualForLabel notMe
+                        Right meeeee -> do
+                          liftEffect $ log $ "Raycaster strikes again! " <> show meeeee
+                          n <- liftEffect $ makeBasic.cnow
+                          let
+                            pos = playerPosition' makeBasic.myPlayer playerPositions
+                            rightBeat = case pos of
+                              Position1 -> p1
+                              Position2 -> p2
+                              Position3 -> p3
+                              Position4 -> p4
+                          let
+                            broadcastInfo =
+                              { uniqueId: makeBasic.myInfo.uniqueId
+                              , position: pos
+                              , hitAt: rateInfo.beats
+                              , issuedAt: coerce n
+                              , logicalBeat: rightBeat.startsAt
+                              , deltaBeats: rateInfo.beats - rightBeat.startsAt
+                              }
+                          let
+                            hitBasicMe = HitBasicMe
+                              { uniqueId: broadcastInfo.uniqueId
+                              , logicalBeat: broadcastInfo.logicalBeat
+                              , deltaBeats: broadcastInfo.deltaBeats
+                              , hitAt: broadcastInfo.hitAt
+                              , issuedAt: broadcastInfo.issuedAt
+                              }
+                            hitBasicVisualForLabel = HitBasicVisualForLabel
+                              { uniqueId: broadcastInfo.uniqueId
+                              , logicalBeat: broadcastInfo.logicalBeat
+                              , deltaBeats: broadcastInfo.deltaBeats
+                              , hitAt: broadcastInfo.hitAt
+                              , issuedAt: broadcastInfo.issuedAt
+                              , translation: drawingMatrix <#> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
+                              , player: makeBasic.myPlayer
+                              }
+                          liftEffect $ makeBasic.pushBasicVisualForLabel hitBasicVisualForLabel
+                          liftEffect $ makeBasic.pushBasic.push hitBasicMe
+                          liftEffect $ setPlayed hitBasicMe
                   }
               )
               ( pure
