@@ -9,27 +9,23 @@ import Data.Array.NonEmpty (toArray)
 import Data.Filterable (filter)
 import Data.Foldable (oneOf, oneOfMap)
 import Data.Maybe (Maybe(..))
-import Data.Monoid (guard)
 import Data.Newtype (unwrap)
 import Data.Number (cos, pi, sin)
 import Data.Tuple (Tuple(..))
 import Data.Tuple.Nested ((/\))
-import Data.Variant (inj)
 import Effect (Effect)
 import FRP.Behavior (Behavior, sampleBy)
-import FRP.Event (Event, EventIO, keepLatest, mapAccum)
+import FRP.Event (Event, EventIO, keepLatest, mailboxed, mapAccum)
 import FRP.Event.VBus (V)
-import Foreign.Object (fromHomogeneous)
 import Joyride.Effect.Lowpass (lpf)
 import Joyride.FRP.BusT (vbust)
 import Joyride.FRP.Dedup (dedup)
 import Joyride.QualifiedDo.Apply as QDA
-import Joyride.Shaders.Galaxy (galaxyParams)
 import Joyride.Visual.Bar (makeBar)
 import Joyride.Visual.BasicLabels (basicLabels)
 import Joyride.Visual.LeapLabels (leapLabels)
 import Joyride.Visual.LongLabels (longLabels)
-import Rito.Blending (Blending(..))
+import Joyride.Visual.RaycastableLane (makeRaycastableLane)
 import Rito.Cameras.PerspectiveCamera (perspectiveCamera)
 import Rito.Color (RGB(..), color)
 import Rito.Core (ASceneful, Renderer(..), cameraToGroup, effectComposerToRenderer, plain, toGroup, toScene)
@@ -37,14 +33,11 @@ import Rito.CubeTexture (CubeTexture)
 import Rito.Euler (euler)
 import Rito.GLTF (GLTF)
 import Rito.GLTF as GLTF
-import Rito.Geometries.Plane (plane)
 import Rito.Group (group)
-import Rito.InstancedMesh (instancedMesh')
 import Rito.Lights.AmbientLight (ambientLight)
 import Rito.Lights.PointLight (pointLight)
-import Rito.Materials.ShaderMaterial (shaderMaterial)
 import Rito.Portal (globalCameraPortal1, globalEffectComposerPortal1, globalScenePortal1, globalWebGLRendererPortal1)
-import Rito.Properties (aspect, background, decay, distance, intensity, rotateX, rotateY, rotateZ, rotationFromEuler, uniform) as P
+import Rito.Properties (aspect, background, decay, distance, intensity, rotateX, rotateY, rotateZ, rotationFromEuler) as P
 import Rito.Properties (positionX, positionY, positionZ, render, scaleX, scaleY, scaleZ, size)
 import Rito.Renderers.CSS2D (css2DRenderer)
 import Rito.Renderers.CSS3D (css3DRenderer)
@@ -59,7 +52,7 @@ import Rito.Scene (Background(..), scene)
 import Rito.Texture (Texture)
 import Rito.Vector2 (vector2)
 import Type.Proxy (Proxy(..))
-import Types (Axis(..), CubeTextures, GalaxyAttributes, HitBasicMe, HitBasicVisualForLabel, HitLeapVisualForLabel, HitLongVisualForLabel, JMilliseconds, Models, Player(..), PlayerPositions, Position(..), RateInfo, ReleaseLongVisualForLabel, RenderingInfo, Seconds(..), Shaders, Textures, ThreeDI, WindowDims, allPlayers, allPositions, playerPosition)
+import Types (Axis(..), Column, CubeTextures, GalaxyAttributes, HitBasicMe, HitBasicVisualForLabel, HitLeapVisualForLabel, HitLongVisualForLabel, JMilliseconds, Models, Player(..), PlayerPositions, Position(..), RateInfo, ReleaseLongVisualForLabel, RenderingInfo, Shaders, Textures, ThreeDI, WindowDims, allColumns, allPlayers, allPositions, playerPosition)
 import Web.DOM as Web.DOM
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 
@@ -73,6 +66,7 @@ runThree
      , galaxyAttributes :: GalaxyAttributes
      , shaders :: Shaders
      , models :: Models GLTF
+     , columnPusher :: EventIO Column
      , css2DRendererElt :: Event Web.DOM.Element
      , css3DRendererElt :: Event Web.DOM.Element
      , isMobile :: Boolean
@@ -89,15 +83,18 @@ runThree
      , resizeE :: Event WindowDims
      , basicE ::
          (HitBasicVisualForLabel -> Effect Unit)
+         -> (Column -> Event Unit)
          -> forall lock payload
           . ASceneful lock payload
      , leapE ::
          (HitLeapVisualForLabel -> Effect Unit)
+         -> (Column -> Event Unit)
          -> forall lock payload
           . ASceneful lock payload
      , longE ::
          (HitLongVisualForLabel -> Effect Unit)
          -> (ReleaseLongVisualForLabel -> Effect Unit)
+         -> (Column -> Event Unit)
          -> forall lock payload
           . ASceneful lock payload
      , pushBasic :: EventIO HitBasicMe
@@ -110,6 +107,7 @@ runThree opts = do
   let mopts = { playerPositions: _.playerPositions <$> opts.animatedStuff, rateInfo: _.rateInfo <$> opts.animatedStuff }
   _ <- Rito.Run.run
     ( envy QDA.do
+        columnCtor <- keepLatest <<< mailboxed (map { payload: unit, address: _ } opts.columnPusher.event)
         scenePush /\ sceneEvent <- vbust
           ( Proxy
               :: _
@@ -200,29 +198,47 @@ runThree opts = do
                             , P.rotateZ $ 0.001 * cos (fac * pi * 0.01)
                             ]
                   )
-                  (shipsssss 0.00 <> map toGroup
-                      ( ( \position -> makeBar $
-                            { c3
-                            , threeDI: opts.threeDI
-                            , renderingInfo: opts.renderingInfo
-                            , debug: opts.debug
-                            , initialIsMe: opts.myPlayer == case position of
-                                Position1 -> Player1
-                                Position2 -> Player2
-                                Position3 -> Player3
-                                Position4 -> Player4
-                            , isMe: dedup
-                                ( opts.animatedStuff <#> \{ playerPositions } -> position == case opts.myPlayer of
-                                    Player1 -> playerPositions.p1p
-                                    Player2 -> playerPositions.p2p
-                                    Player3 -> playerPositions.p3p
-                                    Player4 -> playerPositions.p4p
-                                )
-                            , rateE: mopts.rateInfo
-                            , position
-                            }
-                        ) <$> (toArray allPositions)
-                      )
+                  ( shipsssss 0.00
+                      <> map toGroup
+                        ( ( \position -> makeBar $
+                              { c3
+                              , threeDI: opts.threeDI
+                              , renderingInfo: opts.renderingInfo
+                              , debug: opts.debug
+                              , initialIsMe: opts.myPlayer == case position of
+                                  Position1 -> Player1
+                                  Position2 -> Player2
+                                  Position3 -> Player3
+                                  Position4 -> Player4
+                              , isMe: dedup
+                                  ( opts.animatedStuff <#> \{ playerPositions } -> position == case opts.myPlayer of
+                                      Player1 -> playerPositions.p1p
+                                      Player2 -> playerPositions.p2p
+                                      Player3 -> playerPositions.p3p
+                                      Player4 -> playerPositions.p4p
+                                  )
+                              , rateE: mopts.rateInfo
+                              , position
+                              }
+                          ) <$> (toArray allPositions)
+                        )
+
+                      <> map toGroup
+                        ( ( \column -> makeRaycastableLane $
+                              { initialDims: opts.initialDims
+                              , resizeEvent: opts.resizeE
+                              , c3
+                              , renderingInfo: opts.renderingInfo
+                              , threeDI: opts.threeDI
+                              , rateInfo: _.rateInfo <$> opts.animatedStuff
+                              , debug: opts.debug
+                              , isMobile: opts.isMobile
+                              , rateE: mopts.rateInfo
+                              , column
+                              , columnPusher: opts.columnPusher.push column
+                              }
+                          ) <$> allColumns
+                        )
                       <>
                         ( filter (_ /= opts.myPlayer) (toArray allPlayers) <#> \player -> do
                             let ppos = playerPosition player
@@ -286,15 +302,15 @@ runThree opts = do
                         )
                       <>
                         -- basic notes
-                        [ toGroup $ opts.basicE scenePush.hitBasicVisualForLabel
+                        [ toGroup $ opts.basicE scenePush.hitBasicVisualForLabel columnCtor
                         ]
                       <>
                         -- leap notes
-                        [ toGroup $ opts.leapE scenePush.hitLeapVisualForLabel
+                        [ toGroup $ opts.leapE scenePush.hitLeapVisualForLabel columnCtor
                         ]
                       <>
                         -- long notes
-                        [ toGroup $ opts.longE scenePush.hitLongVisualForLabel scenePush.releaseLongVisualForLabel
+                        [ toGroup $ opts.longE scenePush.hitLongVisualForLabel scenePush.releaseLongVisualForLabel columnCtor
                         ]
                       <>
                         -- basic labels

@@ -15,7 +15,7 @@ import Data.Tuple (Tuple(..))
 import Data.Tuple.Nested ((/\))
 import Effect (Effect)
 import FRP.Behavior (Behavior, sampleBy)
-import FRP.Event (Event, EventIO, keepLatest, mapAccum)
+import FRP.Event (Event, EventIO, mailboxed, keepLatest, mapAccum)
 import FRP.Event.VBus (V)
 import Joyride.Effect.Lowpass (lpf)
 import Joyride.FRP.BusT (vbust)
@@ -25,6 +25,7 @@ import Joyride.Visual.Bar (makeBar)
 import Joyride.Visual.BasicLabels (basicLabels)
 import Joyride.Visual.LeapLabels (leapLabels)
 import Joyride.Visual.LongLabels (longLabels)
+import Joyride.Visual.RaycastableLane (makeRaycastableLane)
 import Rito.Cameras.PerspectiveCamera (perspectiveCamera)
 import Rito.Color (RGB(..), color)
 import Rito.Core (ASceneful, Renderer(..), cameraToGroup, effectComposerToRenderer, plain, toGroup, toScene)
@@ -51,7 +52,7 @@ import Rito.Scene (Background(..), scene)
 import Rito.Texture (Texture)
 import Rito.Vector2 (vector2)
 import Type.Proxy (Proxy(..))
-import Types (Axis(..), CubeTextures, GalaxyAttributes, HitBasicMe, HitBasicVisualForLabel, HitLeapVisualForLabel, HitLongVisualForLabel, JMilliseconds, Models, Player(..), PlayerPositions, Position(..), RateInfo, ReleaseLongVisualForLabel, RenderingInfo, Shaders, Textures, ThreeDI, WindowDims, allPlayers, allPositions, playerPosition)
+import Types (Axis(..), Column, CubeTextures, GalaxyAttributes, HitBasicMe, HitBasicVisualForLabel, HitLeapVisualForLabel, HitLongVisualForLabel, JMilliseconds, Models, Player(..), PlayerPositions, Position(..), RateInfo, ReleaseLongVisualForLabel, RenderingInfo, Shaders, Textures, ThreeDI, WindowDims, allColumns, allPlayers, allPositions, playerPosition)
 import Web.DOM as Web.DOM
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 
@@ -64,6 +65,7 @@ runThree
      , debug :: Boolean
      , galaxyAttributes :: GalaxyAttributes
      , shaders :: Shaders
+     , columnPusher :: EventIO Column
      , css2DRendererElt :: Event Web.DOM.Element
      , css3DRendererElt :: Event Web.DOM.Element
      , isMobile :: Boolean
@@ -81,15 +83,18 @@ runThree
      , resizeE :: Event WindowDims
      , basicE ::
          (HitBasicVisualForLabel -> Effect Unit)
+         -> (Column -> Event Unit)
          -> forall lock payload
           . ASceneful lock payload
      , leapE ::
          (HitLeapVisualForLabel -> Effect Unit)
+         -> (Column -> Event Unit)
          -> forall lock payload
           . ASceneful lock payload
      , longE ::
          (HitLongVisualForLabel -> Effect Unit)
          -> (ReleaseLongVisualForLabel -> Effect Unit)
+         -> (Column -> Event Unit)
          -> forall lock payload
           . ASceneful lock payload
      , pushBasic :: EventIO HitBasicMe
@@ -102,6 +107,7 @@ runThree opts = do
   let mopts = { playerPositions: _.playerPositions <$> opts.animatedStuff, rateInfo: _.rateInfo <$> opts.animatedStuff }
   _ <- Rito.Run.run
     ( envy QDA.do
+        columnCtor <- keepLatest <<< mailboxed (map { payload: unit, address: _ } opts.columnPusher.event)
         scenePush /\ sceneEvent <- vbust
           ( Proxy
               :: _
@@ -216,6 +222,22 @@ runThree opts = do
                               }
                           ) <$> (toArray allPositions)
                         )
+                      <> map toGroup
+                        ( ( \column -> makeRaycastableLane $
+                              { initialDims: opts.initialDims
+                              , resizeEvent: opts.resizeE
+                              , c3
+                              , renderingInfo: opts.renderingInfo
+                              , threeDI: opts.threeDI
+                              , rateInfo: _.rateInfo <$> opts.animatedStuff
+                              , debug: opts.debug
+                              , isMobile: opts.isMobile
+                              , rateE: mopts.rateInfo
+                              , column
+                              , columnPusher: opts.columnPusher.push column
+                              }
+                          ) <$> allColumns
+                        )
                       <>
                         [ toGroup $ ambientLight
                             { ambientLight: opts.threeDI.ambientLight
@@ -251,7 +273,7 @@ runThree opts = do
                         )
                       <>
                         -- basic notes
-                        [ toGroup $ opts.basicE scenePush.hitBasicVisualForLabel
+                        [ toGroup $ opts.basicE scenePush.hitBasicVisualForLabel columnCtor
                         ]
                       <>
                         -- basic labels
@@ -263,11 +285,11 @@ runThree opts = do
                         ]
                       <>
                         -- leap notes
-                        [ toGroup $ opts.leapE scenePush.hitLeapVisualForLabel
+                        [ toGroup $ opts.leapE scenePush.hitLeapVisualForLabel columnCtor
                         ]
                       <>
                         -- long notes
-                        [ toGroup $ opts.longE scenePush.hitLongVisualForLabel scenePush.releaseLongVisualForLabel
+                        [ toGroup $ opts.longE scenePush.hitLongVisualForLabel scenePush.releaseLongVisualForLabel columnCtor
                         ]
                       <>
                         -- leap labels

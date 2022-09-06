@@ -57,6 +57,7 @@ import Joyride.Firebase.Auth (User(..), currentUser, signInWithGoogle)
 import Joyride.Firebase.Firestore (DocumentReference, addEventAff, addTrackAff, deleteEventAff, forkTrackAff, getEventAff, getEventsAff, getTrackAff, getTracksAff, updateColumnAff, updateEventNameAff, updateMarker1TimeAff, updateMarker2TimeAff, updateMarker3TimeAff, updateMarker4TimeAff, updateTrackPrivateAff, updateTrackTitleAff)
 import Joyride.IO.File (fileList)
 import Joyride.QualifiedDo.Apply as QDA
+import Joyride.Scores.AugmentedTypes (AugmentedEventV0(..), AugmentedEvent_(..), toAugmentedEvents)
 import Joyride.Scores.Ride.Basic (rideBasics)
 import Joyride.Scores.Ride.Leap (rideLeaps)
 import Joyride.Scores.Ride.Long (rideLongs)
@@ -1233,7 +1234,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
         )
         [ ((howShouldIBehave (pure 0.0) (cTime) 😝 (event.waveSurfer 🙂 (mostRecentData 🙂 ({ psv: _, mrd: _, ws: _, ct: _ } <$> previewScreenVisible))))) # switcher \x ->
             do
-              let vals = Array.fromFoldable $ Map.values $ snd x.mrd
+              let vals = toAugmentedEvents $ Array.fromFoldable $ Map.values $ snd x.mrd
               let TrackV0 tv0 = fst x.mrd
               -- let _ = spy "tv0 vals" (JSON.writeJSON { tv0, vals })
               case x.psv of
@@ -1248,7 +1249,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                   )
                   { basicE: rideBasics $ sortBy (compare `on` _.marker1Time)
                       ( vals # filterMap case _ of
-                          EventV0 (BasicEventV0 be) ->
+                          AugmentedEventV0 (AugmentedBasicEventV0 be) ->
                             if be.marker4Time < x.ct then Nothing
                             else Just
                               ( be
@@ -1262,7 +1263,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                       )
                   , leapE: rideLeaps
                       ( ( vals # filterMap case _ of
-                            EventV0 (LeapEventV0 be) ->
+                            AugmentedEventV0 (AugmentedLeapEventV0 be) ->
                               if be.marker2Time < x.ct then Nothing
                               else Just
                                 ( be
@@ -1275,7 +1276,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                       )
                   , longE: rideLongs
                       ( vals # filterMap case _ of
-                          EventV0 (LongEventV0 be) ->
+                          AugmentedEventV0 (AugmentedLongEventV0 be) ->
                             if be.marker2Time < x.ct then Nothing
                             else Just
                               ( be

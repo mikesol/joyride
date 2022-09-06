@@ -11,7 +11,7 @@ import Data.FunctorWithIndex (mapWithIndex)
 import Data.List (List(..), span)
 import Data.List as List
 import Data.Maybe (Maybe(..))
-import Data.Number (abs)
+import Data.Newtype (unwrap)
 import Data.Time.Duration (Milliseconds(..))
 import FRP.Behavior (Behavior, sample_)
 import FRP.Event (Event, keepLatest)
@@ -23,6 +23,7 @@ import Joyride.FRP.Behavior (misbehavior)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
 import Joyride.FRP.Schedule (oneOff, scheduleCf)
 import Joyride.Ocarina (AudibleEnd(..))
+import Joyride.Scores.AugmentedTypes (AugmentedLongEventV0')
 import Joyride.Visual.Long as LongV
 import Ocarina.WebAPI (BrowserAudioBuffer)
 import Record (union)
@@ -32,7 +33,7 @@ import Rito.Geometries.Box (box)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.RoundRobin (InstanceId, Semaphore(..), roundRobinInstancedMesh)
 import Safe.Coerce (coerce)
-import Types (Beats(..), Column, JMilliseconds(..), LongEventV0', MakeLongs, RateInfo, Seconds(..))
+import Types (Beats(..), JMilliseconds(..), MakeLongs, RateInfo, Seconds(..))
 
 lookAhead :: Beats
 lookAhead = Beats 2.0
@@ -65,7 +66,7 @@ singleBeat { buffer, silence } riE = AudibleEnd
 
 data IO = I | O
 
-rideLongs :: forall lock payload. Array LongEventV0' -> { | MakeLongs () } -> ASceneful lock payload
+rideLongs :: forall lock payload. Array AugmentedLongEventV0' -> { | MakeLongs () } -> ASceneful lock payload
 rideLongs levs makeLongs = toScene
   ( roundRobinInstancedMesh { instancedMesh: makeLongs.threeDI.instancedMesh, mesh: makeLongs.threeDI.mesh, matrix4: makeLongs.threeDI.matrix4 } 100 (box { box: makeLongs.threeDI.boxGeometry })
       ( meshStandardMaterial
@@ -122,13 +123,6 @@ rideLongs levs makeLongs = toScene
             , tag: x.audioURL
             , length: x.length
             , column: x.column
+            , raycastingCanStartAt:  map (add (unwrap startOffset)) x.raycastingCanStartAt
             }
       ) levs
-
-type ScoreMorcel =
-  { hitsFirstPositionAt :: Beats
-  , hitsLastPositionAt :: Beats
-  , column :: Column
-  , length :: Number
-  , tag :: Maybe String
-  }

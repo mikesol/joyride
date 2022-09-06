@@ -10,6 +10,7 @@ module Types
   , Ride(..)
   , RideV0'
   , Models(..)
+  , allColumns
   , defaultRide
   , InFlightGameInfo'
   , RenderingInfo'
@@ -84,7 +85,6 @@ module Types
   , module Joyride.Types
   ) where
 
-import Joyride.Types (BasicEventV0', Column(..), EventV0(..), Event_(..), LeapEventV0', LongEventV0', Position(..), Track(..), TrackV0', Version(..), Whitelist(..), columnToInt, intToColumn)
 import Prelude
 
 import Control.Alt ((<|>))
@@ -108,6 +108,8 @@ import Foreign (ForeignError(..), fail)
 import Foreign.Object as Object
 import Joyride.Firebase.Opaque (FirebaseAuth, Firestore)
 import Joyride.Ocarina (AudibleChildEnd, AudibleEnd)
+import Joyride.Scores.AugmentedTypes (AugmentedEvent_)
+import Joyride.Types (BasicEventV0', Column(..), EventV0(..), Event_(..), LeapEventV0', LongEventV0', Position(..), Track(..), TrackV0', Version(..), Whitelist(..), columnToInt, intToColumn)
 import Ocarina.Math (calcSlope)
 import Ocarina.WebAPI (BrowserAudioBuffer)
 import Record (union)
@@ -228,6 +230,8 @@ derive newtype instance Semiring Penalty
 newtype BufferName = BufferName String
 
 derive instance Newtype BufferName _
+
+allColumns = [ C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, C16, C17 ] :: Array Column
 
 normalizedColumn :: Column -> Number
 normalizedColumn C1 = 0.0 / 16.0
@@ -482,6 +486,7 @@ type MakeBasic r =
       { column :: Column
       , appearsAt :: Beats
       , uniqueId :: Int
+      , raycastingCanStartAt :: Position -> Number
       , beats :: Vect 4 { startsAt :: Beats, audio :: Event RateInfo -> AudibleEnd }
       }
   | MakeBasics r
@@ -489,6 +494,7 @@ type MakeBasic r =
 
 type MakeBasics r =
   ( initialDims :: WindowDims
+  , columnEventConstructor :: Column -> Event Unit
   , renderingInfo :: Behavior RenderingInfo
   , resizeEvent :: Event WindowDims
   , isMobile :: Boolean
@@ -572,6 +578,7 @@ type MakeLong r =
   ( column :: Column
   , hitsFirstPositionAt :: Beats
   , hitsLastPositionAt :: Beats
+  , raycastingCanStartAt :: Position -> Number
   , uniqueId :: Int
   , length :: Number
   , sound :: { on :: Event RateInfo, off :: Event RateInfo } -> AudibleEnd
@@ -580,6 +587,7 @@ type MakeLong r =
 
 type MakeLongs r =
   ( initialDims :: WindowDims
+  , columnEventConstructor :: Column -> Event Unit
   , renderingInfo :: Behavior RenderingInfo
   , resizeEvent :: Event WindowDims
   , cnow :: Effect Milliseconds
@@ -721,6 +729,7 @@ derive instance Newtype ReleaseLongVisualForLabel _
 type MakeLeap r =
   ( column :: Column
   , hitsFirstPositionAt :: Beats
+  , raycastingCanStartAt :: Position -> Number
   , hitsLastPositionAt :: Beats
   , uniqueId :: Int
   , sound :: Event RateInfo -> AudibleEnd
@@ -741,6 +750,7 @@ type MakeLeapWord r =
 
 type MakeLeaps r =
   ( initialDims :: WindowDims
+  , columnEventConstructor :: Column -> Event Unit
   , renderingInfo :: Behavior RenderingInfo
   , resizeEvent :: Event WindowDims
   , threeDI :: ThreeDI
@@ -864,7 +874,7 @@ type Success' =
   , shaders :: Shaders
   , trackId :: String
   , track :: Track
-  , events :: Array Event_
+  , events :: Array AugmentedEvent_
   , galaxyAttributes :: GalaxyAttributes
   , playerName :: Maybe String
   , channelName :: String
@@ -1138,6 +1148,7 @@ type ToplevelInfo =
   , renderingInfo :: Behavior RenderingInfo
   , goHome :: Effect Unit
   , givePermission :: Boolean -> Effect Unit
+  , columnPusher :: EventIO Column
   , pushBasic :: EventIO HitBasicMe
   , pushLeap :: EventIO HitLeapMe
   , pushHitLong :: EventIO HitLongMe

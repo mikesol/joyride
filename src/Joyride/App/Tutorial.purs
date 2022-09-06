@@ -58,7 +58,7 @@ import Rito.Matrix4 as M4
 import Safe.Coerce (coerce)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
-import Types (Beats(..), HitBasicMe, HitLeapMe, HitLongMe, InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, MakeLongs, Player(..), RateInfo, ReleaseLongMe, RenderingInfo, Seconds(..), StartStatus(..), WantsTutorial', WindowDims)
+import Types (Beats(..), Column, HitBasicMe, HitLeapMe, HitLongMe, InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, MakeLongs, Player(..), RateInfo, ReleaseLongMe, RenderingInfo, Seconds(..), StartStatus(..), WantsTutorial', WindowDims)
 import Web.DOM as Web.DOM
 import Web.HTML.HTMLCanvasElement as HTMLCanvasElement
 import Web.HTML.Window (RequestIdleCallbackId, Window, cancelIdleCallback, requestIdleCallback)
@@ -81,6 +81,7 @@ type TutorialInfo r =
   , pushBasic :: EventIO HitBasicMe
   , pushLeap :: EventIO HitLeapMe
   , pushHitLong :: EventIO HitLongMe
+  , columnPusher :: EventIO Column
   , pushReleaseLong :: EventIO ReleaseLongMe
   , debug :: Boolean
   , silence :: BrowserAudioBuffer
@@ -311,6 +312,7 @@ tutorial
                                 , galaxyAttributes
                                 , shaders
                                 , renderingInfo: tli.renderingInfo
+                                , columnPusher: tli.columnPusher
                                 , lowPriorityCb: tli.lpsCallback
                                 , myPlayer
                                 , debug: tli.debug
@@ -318,10 +320,11 @@ tutorial
                                 , textures
                                 , cubeTextures
                                 , pushBasic: tli.pushBasic
-                                , basicE: \pushBasicVisualForLabel -> tscore.basicE
+                                , basicE: \pushBasicVisualForLabel columnEventConstructor -> tscore.basicE
                                     { initialDims
                                     , renderingInfo: tli.renderingInfo
                                     , textures
+                                    , columnEventConstructor
                                     , cnow: cNow
                                     , threeDI
                                     , myPlayer
@@ -339,12 +342,13 @@ tutorial
                                     , pushBasic: tli.pushBasic
                                     , pushBasicVisualForLabel
                                     }
-                                , leapE: \pushLeapVisualForLabel -> tscore.leapE
+                                , leapE: \pushLeapVisualForLabel columnEventConstructor -> tscore.leapE
                                     { initialDims
                                     , renderingInfo: tli.renderingInfo
                                     , textures
                                     , myPlayer
                                     , cnow: cNow
+                                    , columnEventConstructor
                                     , debug: tli.debug
                                     , notifications: { hitLeap: empty }
                                     , resizeEvent: tli.resizeE
@@ -360,8 +364,9 @@ tutorial
                                     , pushLeap: tli.pushLeap
                                     , pushLeapVisualForLabel
                                     }
-                                , longE: \pushHitLongVisualForLabel pushReleaseLongVisualForLabel -> tscore.longE
+                                , longE: \pushHitLongVisualForLabel pushReleaseLongVisualForLabel columnEventConstructor -> tscore.longE
                                     { initialDims
+                                    , columnEventConstructor
                                     , renderingInfo: tli.renderingInfo
                                     , textures
                                     , myPlayer

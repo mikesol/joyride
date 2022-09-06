@@ -55,6 +55,7 @@ import Joyride.LilGui (Slider(..), gui, noGui)
 import Joyride.LocalStorage as LocalStorage
 import Joyride.Network.Download (dlInChunks)
 import Joyride.Random (randId', randId)
+import Joyride.Scores.AugmentedTypes (toAugmentedEvents)
 import Joyride.Shaders.Galaxy (makeGalaxyAttributes)
 import Joyride.Timing.CoordinatedNow (cnow)
 import Joyride.Transport.PubNub as PN
@@ -87,9 +88,9 @@ renderingInfoDesktop :: RenderingInfo' Slider
 renderingInfoDesktop =
   { halfAmbitus: Slider { default: 3.1, min: 0.5, max: 4.4, step: 0.1 }
   , barZSpacing: Slider { default: 1.0, min: 0.1, max: 3.0, step: 0.1 }
-  , cameraOffsetY: Slider { default: 1.75, min: 0.1, max: 3.0, step: 0.05 }
-  , cameraRotationAroundX: Slider { default: -1.0, min: -1.0 * pi, max: pi, step: 0.05 }
-  , cameraOffsetZ: Slider { default: 0.1, min: -0.5, max: 3.0, step: 0.05 }
+  , cameraOffsetY: Slider { default: 0.55, min: 0.1, max: 3.0, step: 0.05 }
+  , cameraRotationAroundX: Slider { default: -0.45, min: -1.0 * pi, max: pi, step: 0.05 }
+  , cameraOffsetZ: Slider { default: 0.35, min: -0.5, max: 3.0, step: 0.05 }
   , lightOffsetY: Slider { default: 0.9, min: 0.00, max: 2.0, step: 0.05 }
   , sphereOffsetY: Slider { default: 0.2, min: 0.05, max: 0.5, step: 0.05 }
   }
@@ -98,9 +99,9 @@ renderingInfoMobile :: RenderingInfo' Slider
 renderingInfoMobile =
   { halfAmbitus: Slider { default: 5.0, min: 0.5, max: 4.4, step: 0.1 }
   , barZSpacing: Slider { default: 1.0, min: 0.1, max: 3.0, step: 0.1 }
-  , cameraOffsetY: Slider { default: 1.75, min: 0.1, max: 3.0, step: 0.05 }
-  , cameraRotationAroundX: Slider { default: -1.0, min: -1.0 * pi, max: pi, step: 0.05 }
-  , cameraOffsetZ: Slider { default: 0.1, min: -0.5, max: 3.0, step: 0.05 }
+  , cameraOffsetY: Slider { default: 0.55, min: 0.1, max: 3.0, step: 0.05 }
+  , cameraRotationAroundX: Slider { default: -0.45, min: -1.0 * pi, max: pi, step: 0.05 }
+  , cameraOffsetZ: Slider { default: 0.35, min: -0.5, max: 3.0, step: 0.05 }
   , lightOffsetY: Slider { default: 0.9, min: 0.00, max: 2.0, step: 0.05 }
   , sphereOffsetY: Slider { default: 0.2, min: 0.05, max: 0.5, step: 0.05 }
   }
@@ -258,6 +259,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
           -- sound stash
           soundObj <- liftEffect $ Ref.new Object.empty
           channelEvent <- liftEffect $ Event.create
+          columnPusher <- liftEffect $ Event.create
           -- get the html. could be even sooner if we passed more stuff in on success instead of creating it at the top level
           runInBody
             ( toplevel
@@ -271,8 +273,9 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                 , isMobile
                 , lpsCallback: lowPriorityCb
                 , givePermission: orientationPerm.push
-                , pushBasic: pushBasic
-                , pushLeap: pushLeap
+                , pushBasic
+                , pushLeap
+                , columnPusher
                 , pushHitLong: pushHitLong
                 , pushReleaseLong: pushReleaseLong
                 , resizeE: resizeE.event
@@ -650,7 +653,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                         { player: myPlayer
                         , trackId
                         , track
-                        , events: map _.data ets
+                        , events: toAugmentedEvents (map _.data ets)
                         , initialDims
                         , threeDI
                         , playerName
