@@ -50,10 +50,10 @@ makeRaycastableLane input = toScene $ mesh { mesh: input.threeDI.mesh } (box { b
   ( oneOf
       [ n14 <#> positionX
       , pure (positionY 0.0)
-      , pure (positionZ (-1.0))
+      , pure (positionZ (-1.5))
       , pure (scaleX 0.0) <|> (n11 <#> scaleX)
       , initializeWith scaleY 0.1 -- biiiig
-      , initializeWith scaleZ 2.5 -- biiiig
+      , initializeWith scaleZ 5.0 -- biiiig
       , let
           f = pure \i -> do
             log ("position: " <> show i <> " column: " <> show input.column)
