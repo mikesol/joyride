@@ -23,7 +23,8 @@ foreign import orientationPermission :: Effect (Promise Boolean)
 posFromOrientation :: GTP -> JMilliseconds -> Number
 posFromOrientation gtp (JMilliseconds curMs) = case gtp.time of
   Nothing -> 0.0
-  Just (JMilliseconds prevMs) -> ((curMs - prevMs) / 1000.0) * gtp.gamma * orientationDampening + gtp.pos
+  -- ugggh. why 2.5? why not... seems to work...
+  Just (JMilliseconds prevMs) -> min 2.5 $ max (-2.5) $ ((curMs - prevMs) / 1000.0) * gtp.gamma * orientationDampening + gtp.pos
   where
   orientationDampening = 0.055 :: Number
 
