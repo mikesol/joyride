@@ -43,7 +43,7 @@ makeRaycastableLane input = toScene $ mesh { mesh: input.threeDI.mesh } (box { b
   ( meshStandardMaterial
       { meshStandardMaterial: input.threeDI.meshStandardMaterial
       , color: makeColor
-      -- , visible: false -- comment out to see the raycastable lanes
+      , visible: false -- comment out to see the raycastable lanes
       }
       empty
   )
@@ -104,4 +104,4 @@ makeRaycastableLane input = toScene $ mesh { mesh: input.threeDI.mesh } (box { b
   n11 = forRendering <#>
     \{ ratio
      , renderingInfo
-     } -> renderingInfo.halfAmbitus * ratio.r / 8.5 -- for now, this seems wide enough
+     } -> renderingInfo.halfAmbitus * ratio.r / 9.0 -- for now, this seems wide enough
