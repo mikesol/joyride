@@ -8,6 +8,7 @@ import Control.Plus (empty)
 import Data.Array.NonEmpty (toArray)
 import Data.Filterable (filter)
 import Data.Foldable (oneOf, oneOfMap)
+import Data.Int (toNumber)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.Number (cos, pi, sin)
@@ -153,7 +154,7 @@ runThree opts = do
                 let posAx axis = map (ppos axis) mopts.playerPositions
                 toGroup $ GLTF.scene (unwrap opts.models).spaceship
                   ( oneOf
-                      [ (positionX <<< add n) <$> applyLPF (player == opts.myPlayer) ((\nnn ps -> if ps then nnn else 0.0) <$> (posAx AxisX) <*> (pure false <|> opts.pressedStart))
+                      [ (positionX <<< add n) <$> applyLPF (player == opts.myPlayer) (posAx AxisX)
                       , positionY <$> (sampleBy (\{ sphereOffsetY } py -> sphereOffsetY + py) opts.renderingInfo (posAx AxisY))
                       , pure $ positionZ
                           ( case player of
@@ -486,6 +487,6 @@ runThree opts = do
   pure unit
   where
   applyLPF :: Boolean -> Event Number -> Event Number
-  applyLPF false = identity
+  applyLPF false = \i -> mapAccum (\(v /\ ps) c -> if ps then ((c + 1) /\ if c > 10 then v else (v * (toNumber c) / 10.0)) else 0 /\ 0.0) (Tuple <$> i <*> (pure false <|> opts.pressedStart)) 0
   applyLPF true = lpf lowpassFactor
   lowpassFactor = 0.25
