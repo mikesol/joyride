@@ -43,7 +43,7 @@ makeRaycastableLane input = toScene $ mesh { mesh: input.threeDI.mesh } (box { b
   ( meshStandardMaterial
       { meshStandardMaterial: input.threeDI.meshStandardMaterial
       , color: makeColor
-      , visible: false -- comment out to see the raycastable lanes
+      -- , visible: false -- comment out to see the raycastable lanes
       }
       empty
   )
