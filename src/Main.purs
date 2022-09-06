@@ -97,7 +97,7 @@ renderingInfoDesktop =
 
 renderingInfoMobile :: RenderingInfo' Slider
 renderingInfoMobile =
-  { halfAmbitus: Slider { default: 5.0, min: 0.5, max: 4.4, step: 0.1 }
+  { halfAmbitus: Slider { default: 3.5, min: 0.5, max: 4.4, step: 0.1 }
   , barZSpacing: Slider { default: 1.0, min: 0.1, max: 3.0, step: 0.1 }
   , cameraOffsetY: Slider { default: 0.55, min: 0.1, max: 3.0, step: 0.05 }
   , cameraRotationAroundX: Slider { default: -0.45, min: -1.0 * pi, max: pi, step: 0.05 }
