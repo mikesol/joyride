@@ -113,197 +113,189 @@ long makeLong = keepLatest $ vbus (Proxy :: _ LongActions) \push event -> do
           , n43: 0.0
           , n44: 1.0
           }
-
-  keepLatest
-    $ memoize drawingMatrix' \drawingMatrix ->
-        keepLatest $ memoize (filter (\(HitLongOtherPlayer { player }) -> player /= makeLong.myPlayer) otherPlayedMe) \hitLongOtherPlayer ->
-          keepLatest $ memoize (filter (\(ReleaseLongOtherPlayer { player }) -> player /= makeLong.myPlayer) otherReleasedMe) \releaseLongOtherPlayer ->
-            rider
-              ( toRide
-                  { event: pure
-                      ( oneOf
-                          [ pure $ AudibleChildEnd
-                              ( sound
-                                  ((\(AudibleEnd e) -> e) (makeLong.sound { on: rateInfoOnAtTouch, off: rateInfoOffAtTouch }))
-                              )
-                          , keepLatest $ (LocalTime.withTime (pure unit)) <#> \{ time } -> lowPrioritySchedule makeLong.lpsCallback
-                              (JMilliseconds 10000.0 + (coerce $ unInstant time))
-                              (pure $ AudibleChildEnd silence)
-
-                          ]
-                      )
-                  , push: makeLong.pushAudio
-                  }
-              )
-              $ rider
-                  ( toRide
-                      { event: makeLong.columnEventConstructor makeLong.column
-                      , push: \_ -> pure unit
-                      }
-                  )
-
-                  ( pure
-                      ( ( singleInstance
-                            ( oneOf
-                                [ pure $ P.matrix4 $ makeLong.mkMatrix4 emptyMatrix
-                                , P.matrix4 <<< makeLong.mkMatrix4 <$> (map snd drawingMatrix)
-                                , let
-                                    callF ev = sampleJIT drawingMatrix' $ ev $> \av _ -> do
-                                      hitAtFiber <- launchAff AVar.empty
-                                      distanceFiber <- launchAff AVar.empty
-                                      launchAff_ do
-                                        n <- liftEffect $ makeLong.cnow
-                                        { animatedStuff: { rateInfo, playerPositions }, renderingInfo } /\ { n33 } <- AVar.read av
-                                        let
-                                          pos = playerPosition' makeLong.myPlayer playerPositions
-                                          myPosInThreeCoords = touchPointZ renderingInfo pos
-
-                                          outerBroadcastInfo =
-                                            { uniqueId: makeLong.uniqueId
-                                            , hitAt: rateInfo.beats
-                                            , issuedAt: coerce n
-                                            }
-                                          distance = abs (myPosInThreeCoords - n33)
-                                          hitLongMe = HitLongMe
-                                            { uniqueId: outerBroadcastInfo.uniqueId
-                                            , hitAt: outerBroadcastInfo.hitAt
-                                            , issuedAt: outerBroadcastInfo.issuedAt
-                                            , distance
-                                            }
-                                          hitLongVisualForLabel = HitLongVisualForLabel
-                                            { uniqueId: outerBroadcastInfo.uniqueId
-                                            , hitAt: outerBroadcastInfo.hitAt
-                                            , issuedAt: outerBroadcastInfo.issuedAt
-                                            , distance
-                                            , translation: (map snd drawingMatrix) <#> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
-                                            , player: makeLong.myPlayer
-                                            }
-                                        hitAt <- joinFiber hitAtFiber
-                                        AVar.put outerBroadcastInfo.hitAt hitAt
-                                        dist <- joinFiber distanceFiber
-                                        AVar.put distance dist
-                                        liftEffect $ makeLong.pushHitLongVisualForLabel hitLongVisualForLabel
-                                        liftEffect $ makeLong.pushHitLong.push hitLongMe
-                                        liftEffect $ setPlayed hitLongMe
-                                      -- release
-                                      pure $ launchAff_ do
-                                        n <- liftEffect $ makeLong.cnow
-                                        { animatedStuff: { rateInfo }, consumedByPress } /\ _ <- AVar.read av
-                                        hitAt <- joinFiber hitAtFiber
-                                        outerHitAt <- AVar.take hitAt
-                                        dist <- joinFiber distanceFiber
-                                        distance <- AVar.take dist
-                                        let pctConsumed = clamp 0.0 1.0 (consumedByPress / makeLong.length)
-
-                                        let
-                                          broadcastInfo =
-                                            { uniqueId: makeLong.uniqueId
-                                            , releasedAt: rateInfo.beats
-                                            , issuedAt: coerce n
-                                            }
-                                          releaseLongMe = ReleaseLongMe
-                                            { uniqueId: broadcastInfo.uniqueId
-                                            , releasedAt: rateInfo.beats
-                                            , issuedAt: broadcastInfo.issuedAt
-                                            , pctConsumed
-                                            , hitAt: outerHitAt
-                                            , distance
-                                            }
-                                          releaseLongVisualForLabel = ReleaseLongVisualForLabel
-                                            { uniqueId: broadcastInfo.uniqueId
-                                            , hitAt: outerHitAt
-                                            , releasedAt: broadcastInfo.releasedAt
-                                            , distance
-                                            , pctConsumed
-                                            , issuedAt: broadcastInfo.issuedAt
-                                            , translation: (map snd drawingMatrix) <#> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
-                                            , player: makeLong.myPlayer
-                                            }
-                                        liftEffect $ makeLong.pushReleaseLongVisualForLabel releaseLongVisualForLabel
-                                        liftEffect $ makeLong.pushReleaseLong.push releaseLongMe
-                                        liftEffect $ setReleased releaseLongMe
-
-                                    f :: Event (_ -> Effect (Effect Unit))
-                                    f = oneOf
-                                      [ iWasPlayed $> (\_ -> pure (pure unit))
-                                      , callF (iWasReleased $> unit)
-                                      , -- if someone else has hit this, turn off the listener
-                                        fireAndForget $ keepLatest $ hitLongOtherPlayer <#> \(HitLongOtherPlayer hlop) ->
-                                          rider
-                                            ( toRide
-                                                { event: do
-                                                    let
-                                                      hitLongVisualForLabel issuedAt = HitLongVisualForLabel
-                                                        { uniqueId: hlop.uniqueId
-                                                        , hitAt: hlop.hitAt
-                                                        , distance: hlop.distance
-                                                        , issuedAt
-                                                        , translation: (map snd drawingMatrix) <#> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
-                                                        , player: hlop.player
-                                                        }
-                                                    sampleBy (#) (map (coerce) $ cInstant makeLong.cnow) (pure hitLongVisualForLabel)
-                                                , push: makeLong.pushHitLongVisualForLabel
-                                                }
-                                            )
-                                            -- the cancelation is nullary here, so don't worry about changing
-                                            (pure (\_ -> pure (pure unit)))
-                                      , -- a bit kludgy, we want to turn it off on release, but we're also using this to
-                                        -- send the visual information. in reality, they should be separate concerns.
-                                        -- but this is the most convenient way to get the visual information.
-                                        -- look into decoupling later
-                                        fireAndForget $ keepLatest $ releaseLongOtherPlayer <#> \(ReleaseLongOtherPlayer rlop) ->
-                                          rider
-                                            ( toRide
-                                                { event: do
-                                                    let
-                                                      releaseLongVisualForLabel issuedAt = ReleaseLongVisualForLabel
-                                                        { uniqueId: rlop.uniqueId
-                                                        , hitAt: rlop.hitAt
-                                                        , releasedAt: rlop.releasedAt
-                                                        , distance: rlop.distance
-                                                        , issuedAt
-                                                        , pctConsumed: rlop.pctConsumed
-                                                        , translation: (map snd drawingMatrix) <#> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
-                                                        , player: rlop.player
-                                                        }
-                                                    sampleBy (#) (map coerce $ cInstant makeLong.cnow) (pure releaseLongVisualForLabel)
-                                                , push: makeLong.pushReleaseLongVisualForLabel
-                                                }
-                                            )
-                                            -- the cancelation is nullary here, so don't worry about changing
-                                            (callF (pure unit))
-                                      -- otherwise keep alive
-                                      -- todo: even though the sampling is JIT, we still have one extra calculation for the press
-                                      -- as drawingMatrix' is computed already for the render
-                                      -- is there any way to reuse that?
-                                      , callF (pure unit)
-                                      ]
-                                  in
-                                    if makeLong.isMobile then P.onTouchStart <$> map
-                                      ( dimap
-                                          ( \e ->
-                                              { cx: Touch.clientX e
-                                              , cy: Touch.clientY e
-                                              }
-                                          )
-                                          (map \i -> { end: \_ -> i, cancel: \_ -> i })
-                                      )
-                                      f
-                                    else P.onMouseDown <$> map
-                                      ( dimap
-                                          ( \e ->
-                                              { cx: MouseEvent.clientX e
-                                              , cy: MouseEvent.clientY e
-                                              }
-                                          )
-                                          (map const)
-                                      )
-                                      f
-                                ]
-                            )
+  keepLatest $ memoize drawingMatrix' \drawingMatrix ->
+    keepLatest $ memoize (filter (\(HitLongOtherPlayer { player }) -> player /= makeLong.myPlayer) otherPlayedMe) \hitLongOtherPlayer ->
+      keepLatest $ memoize (filter (\(ReleaseLongOtherPlayer { player }) -> player /= makeLong.myPlayer) otherReleasedMe) \releaseLongOtherPlayer -> rider
+        ( toRide
+            { event: pure
+                ( oneOf
+                    [ pure $ AudibleChildEnd
+                        ( sound
+                            ((\(AudibleEnd e) -> e) (makeLong.sound { on: rateInfoOnAtTouch, off: rateInfoOffAtTouch }))
                         )
-                      )
+                    , keepLatest $ (LocalTime.withTime (pure unit)) <#> \{ time } -> lowPrioritySchedule makeLong.lpsCallback
+                        (JMilliseconds 10000.0 + (coerce $ unInstant time))
+                        (pure $ AudibleChildEnd silence)
+
+                    ]
+                )
+            , push: makeLong.pushAudio
+            }
+        )
+        ( pure
+            ( ( singleInstance
+                  ( oneOf
+                      [ pure $ P.matrix4 $ makeLong.mkMatrix4 emptyMatrix
+                      , P.matrix4 <<< makeLong.mkMatrix4 <$> (map snd drawingMatrix)
+                      , let
+                          -- long still has the "old" imprecise raycasting
+                          -- because it is easier to hit and otherwise it is hell to coordinate releases...
+                          callF ev = sampleJIT drawingMatrix' $ ev $> \av _ -> do
+                            hitAtFiber <- launchAff AVar.empty
+                            distanceFiber <- launchAff AVar.empty
+                            launchAff_ do
+                              n <- liftEffect $ makeLong.cnow
+                              { animatedStuff: { rateInfo, playerPositions }, renderingInfo } /\ { n33 } <- AVar.read av
+                              let
+                                pos = playerPosition' makeLong.myPlayer playerPositions
+                                myPosInThreeCoords = touchPointZ renderingInfo pos
+
+                                outerBroadcastInfo =
+                                  { uniqueId: makeLong.uniqueId
+                                  , hitAt: rateInfo.beats
+                                  , issuedAt: coerce n
+                                  }
+                                distance = abs (myPosInThreeCoords - n33)
+                                hitLongMe = HitLongMe
+                                  { uniqueId: outerBroadcastInfo.uniqueId
+                                  , hitAt: outerBroadcastInfo.hitAt
+                                  , issuedAt: outerBroadcastInfo.issuedAt
+                                  , distance
+                                  }
+                                hitLongVisualForLabel = HitLongVisualForLabel
+                                  { uniqueId: outerBroadcastInfo.uniqueId
+                                  , hitAt: outerBroadcastInfo.hitAt
+                                  , issuedAt: outerBroadcastInfo.issuedAt
+                                  , distance
+                                  , translation: (map snd drawingMatrix) <#> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
+                                  , player: makeLong.myPlayer
+                                  }
+                              hitAt <- joinFiber hitAtFiber
+                              AVar.put outerBroadcastInfo.hitAt hitAt
+                              dist <- joinFiber distanceFiber
+                              AVar.put distance dist
+                              liftEffect $ makeLong.pushHitLongVisualForLabel hitLongVisualForLabel
+                              liftEffect $ makeLong.pushHitLong.push hitLongMe
+                              liftEffect $ setPlayed hitLongMe
+                            -- release
+                            pure $ launchAff_ do
+                              n <- liftEffect $ makeLong.cnow
+                              { animatedStuff: { rateInfo }, consumedByPress } /\ _ <- AVar.read av
+                              hitAt <- joinFiber hitAtFiber
+                              outerHitAt <- AVar.take hitAt
+                              dist <- joinFiber distanceFiber
+                              distance <- AVar.take dist
+                              let pctConsumed = clamp 0.0 1.0 (consumedByPress / makeLong.length)
+
+                              let
+                                broadcastInfo =
+                                  { uniqueId: makeLong.uniqueId
+                                  , releasedAt: rateInfo.beats
+                                  , issuedAt: coerce n
+                                  }
+                                releaseLongMe = ReleaseLongMe
+                                  { uniqueId: broadcastInfo.uniqueId
+                                  , releasedAt: rateInfo.beats
+                                  , issuedAt: broadcastInfo.issuedAt
+                                  , pctConsumed
+                                  , hitAt: outerHitAt
+                                  , distance
+                                  }
+                                releaseLongVisualForLabel = ReleaseLongVisualForLabel
+                                  { uniqueId: broadcastInfo.uniqueId
+                                  , hitAt: outerHitAt
+                                  , releasedAt: broadcastInfo.releasedAt
+                                  , distance
+                                  , pctConsumed
+                                  , issuedAt: broadcastInfo.issuedAt
+                                  , translation: (map snd drawingMatrix) <#> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
+                                  , player: makeLong.myPlayer
+                                  }
+                              liftEffect $ makeLong.pushReleaseLongVisualForLabel releaseLongVisualForLabel
+                              liftEffect $ makeLong.pushReleaseLong.push releaseLongMe
+                              liftEffect $ setReleased releaseLongMe
+
+                          f :: Event (_ -> Effect (Effect Unit))
+                          f = oneOf
+                            [ iWasPlayed $> (\_ -> pure (pure unit))
+                            , callF (iWasReleased $> unit)
+                            , -- if someone else has hit this, turn off the listener
+                              fireAndForget $ keepLatest $ hitLongOtherPlayer <#> \(HitLongOtherPlayer hlop) ->
+                                rider
+                                  ( toRide
+                                      { event: do
+                                          let
+                                            hitLongVisualForLabel issuedAt = HitLongVisualForLabel
+                                              { uniqueId: hlop.uniqueId
+                                              , hitAt: hlop.hitAt
+                                              , distance: hlop.distance
+                                              , issuedAt
+                                              , translation: (map snd drawingMatrix) <#> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
+                                              , player: hlop.player
+                                              }
+                                          sampleBy (#) (map (coerce) $ cInstant makeLong.cnow) (pure hitLongVisualForLabel)
+                                      , push: makeLong.pushHitLongVisualForLabel
+                                      }
+                                  )
+                                  -- the cancelation is nullary here, so don't worry about changing
+                                  (pure (\_ -> pure (pure unit)))
+                            , -- a bit kludgy, we want to turn it off on release, but we're also using this to
+                              -- send the visual information. in reality, they should be separate concerns.
+                              -- but this is the most convenient way to get the visual information.
+                              -- look into decoupling later
+                              fireAndForget $ keepLatest $ releaseLongOtherPlayer <#> \(ReleaseLongOtherPlayer rlop) ->
+                                rider
+                                  ( toRide
+                                      { event: do
+                                          let
+                                            releaseLongVisualForLabel issuedAt = ReleaseLongVisualForLabel
+                                              { uniqueId: rlop.uniqueId
+                                              , hitAt: rlop.hitAt
+                                              , releasedAt: rlop.releasedAt
+                                              , distance: rlop.distance
+                                              , issuedAt
+                                              , pctConsumed: rlop.pctConsumed
+                                              , translation: (map snd drawingMatrix) <#> \{ n14, n24, n34 } -> { x: n14, y: n24, z: n34 }
+                                              , player: rlop.player
+                                              }
+                                          sampleBy (#) (map coerce $ cInstant makeLong.cnow) (pure releaseLongVisualForLabel)
+                                      , push: makeLong.pushReleaseLongVisualForLabel
+                                      }
+                                  )
+                                  -- the cancelation is nullary here, so don't worry about changing
+                                  (callF (pure unit))
+                            -- otherwise keep alive
+                            -- todo: even though the sampling is JIT, we still have one extra calculation for the press
+                            -- as drawingMatrix' is computed already for the render
+                            -- is there any way to reuse that?
+                            , callF (pure unit)
+                            ]
+                        in
+                          if makeLong.isMobile then P.onTouchStart <$> map
+                            ( dimap
+                                ( \e ->
+                                    { cx: Touch.clientX e
+                                    , cy: Touch.clientY e
+                                    }
+                                )
+                                (map \i -> { end: \_ -> i, cancel: \_ -> i })
+                            )
+                            f
+                          else P.onMouseDown <$> map
+                            ( dimap
+                                ( \e ->
+                                    { cx: MouseEvent.clientX e
+                                    , cy: MouseEvent.clientY e
+                                    }
+                                )
+                                (map const)
+                            )
+                            f
+                      ]
                   )
+              )
+            )
+        )
   where
   animatedStuff =
     { rateInfo: _.rateInfo <$> makeLong.animatedStuff

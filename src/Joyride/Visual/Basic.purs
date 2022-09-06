@@ -252,17 +252,16 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
                         liftEffect $ setPlayed hitBasicMe
                   }
               )
-          $
-            ( pure
-                ( ( singleInstance
-                      ( oneOf
-                          [ pure $ P.matrix4 $ makeBasic.mkMatrix4 emptyMatrix
-                          , P.matrix4 <<< makeBasic.mkMatrix4 <$> drawingMatrix
-                          ]
-                      )
+              ( pure
+                  ( ( singleInstance
+                        ( oneOf
+                            [ pure $ P.matrix4 $ makeBasic.mkMatrix4 emptyMatrix
+                            , P.matrix4 <<< makeBasic.mkMatrix4 <$> drawingMatrix
+                            ]
+                        )
+                    )
                   )
-                )
-            )
+              )
   where
   animatedStuff =
     { rateInfo: _.rateInfo <$> makeBasic.animatedStuff
