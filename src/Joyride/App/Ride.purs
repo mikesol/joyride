@@ -121,6 +121,8 @@ type Unlifted a = a
 type RideEvents = V
   ( iAmReady :: Unsubscribe
   , rateInfo :: RateInfo
+  , pressedStart :: Boolean
+
   , basicAudio :: Event AudibleChildEnd
   , leapAudio :: Event AudibleChildEnd
   , render2DElement :: Web.DOM.Element
@@ -245,6 +247,7 @@ ride
                                 , bgtrack: tscore.bgtrack
                                 }
                             )
+                          push.pressedStart true
                           push.iAmReady
                             ( Unsubscribe
                                 ( st *> hk *> clearInterval ci
@@ -387,16 +390,15 @@ ride
                     ]
                 ]
             , D.div_
-                [ ( 
-                      ( dedup
-                          ( playerStatus <#>
-                              \m -> case allAreReady m of
-                                Just x -> Started x
-                                Nothing
-                                  | iAmReady m -> WaitingForOthers
-                                  | otherwise -> WaitingForMe
-                          )
-                      )
+                [ ( ( dedup
+                        ( playerStatus <#>
+                            \m -> case allAreReady m of
+                              Just x -> Started x
+                              Nothing
+                                | iAmReady m -> WaitingForOthers
+                                | otherwise -> WaitingForMe
+                        )
+                    )
                   ) #
                     let
                       frame x = D.div (pure $ D.Class := "z-10 pointer-events-auto absolute w-screen h-screen grid grid-rows-6 grid-cols-8 bg-zinc-900") [ D.div (pure $ D.Class := "col-start-2 col-end-8 row-start-3 row-end-5 bg-zinc-900") [ x ] ]
@@ -421,6 +423,7 @@ ride
                                 , css2DRendererElt: event.render2DElement
                                 , css3DRendererElt: event.render3DElement
                                 , isMobile: tli.isMobile
+                                , pressedStart: event.pressedStart
                                 , galaxyAttributes
                                 , shaders
                                 , renderingInfo: tli.renderingInfo

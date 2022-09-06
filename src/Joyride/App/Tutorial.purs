@@ -118,6 +118,7 @@ type Unlifted a = a
 type TutorialEvents = V
   ( iAmReady :: Unsubscribe
   , rateInfo :: RateInfo
+  , pressedStart :: Boolean
   , basicAudio :: Event AudibleChildEnd
   , leapAudio :: Event AudibleChildEnd
   , longAudio :: Event AudibleChildEnd
@@ -235,6 +236,7 @@ tutorial
                         , baseFileOffsetInSeconds: tscore.baseFileOffsetInSeconds
                         }
                     )
+                  push.pressedStart true
                   push.iAmReady
                     ( Unsubscribe
                         ( st *> hk *> clearInterval ci
@@ -308,6 +310,7 @@ tutorial
                                 { threeDI: threeDI
                                 , css2DRendererElt: event.render2DElement
                                 , css3DRendererElt: event.render3DElement
+                                , pressedStart: event.pressedStart
                                 , isMobile: tli.isMobile
                                 , galaxyAttributes
                                 , shaders
