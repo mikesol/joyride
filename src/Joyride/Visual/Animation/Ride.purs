@@ -154,7 +154,7 @@ runThree opts = do
                 let posAx axis = map (ppos axis) mopts.playerPositions
                 toGroup $ GLTF.scene (unwrap opts.models).spaceship
                   ( oneOf
-                      [ (positionX <<< add n) <$> applyLPF (player == opts.myPlayer) (posAx AxisX)
+                      [ (positionX <<< add n) <$> applyLPF (player /= opts.myPlayer) (posAx AxisX)
                       , positionY <$> (sampleBy (\{ sphereOffsetY } py -> sphereOffsetY + py) opts.renderingInfo (posAx AxisY))
                       , pure $ positionZ
                           ( case player of
@@ -486,7 +486,8 @@ runThree opts = do
     )
   pure unit
   where
+  tipping = 45
   applyLPF :: Boolean -> Event Number -> Event Number
-  applyLPF false = \i -> mapAccum (\(v /\ ps) c -> if ps then ((c + 1) /\ if c > 10 then v else (v * (toNumber c) / 10.0)) else 0 /\ 0.0) (Tuple <$> i <*> (pure false <|> opts.pressedStart)) 0
+  applyLPF false = \i -> mapAccum (\(v /\ ps) c -> if ps then ((c + 1) /\ if c > tipping then v else (v * (toNumber c) / (toNumber tipping))) else 0 /\ 0.0) (Tuple <$> i <*> (pure false <|> opts.pressedStart)) 0
   applyLPF true = lpf lowpassFactor
   lowpassFactor = 0.25
