@@ -154,7 +154,7 @@ runThree opts = do
                 let posAx axis = map (ppos axis) mopts.playerPositions
                 toGroup $ GLTF.scene (unwrap opts.models).spaceship
                   ( oneOf
-                      [ (positionX <<< add n) <$> applyLPF (player /= opts.myPlayer) (posAx AxisX)
+                      [ (positionX <<< add n) <$> applyLPF (isNotMe player opts.myPlayer) (posAx AxisX)
                       , positionY <$> (sampleBy (\{ sphereOffsetY } py -> sphereOffsetY + py) opts.renderingInfo (posAx AxisY))
                       , pure $ positionZ
                           ( case player of
@@ -263,7 +263,7 @@ runThree opts = do
                               , color: c3 $ RGB 1.0 1.0 1.0
                               }
                               ( oneOf
-                                  [ positionX <$> applyLPF (player == opts.myPlayer) (posAx AxisX)
+                                  [ positionX <$> applyLPF (isNotMe player opts.myPlayer) (posAx AxisX)
                                   , positionY <$> (sampleBy (\{ lightOffsetY } py -> (lightOffsetY + py)) opts.renderingInfo (posAx AxisY))
                                   , positionZ <$> posAx AxisZ
                                   , pure $ P.decay normalDecay
@@ -358,7 +358,7 @@ runThree opts = do
                               , color: c3 $ RGB 1.0 1.0 1.0
                               }
                               ( oneOf
-                                  [ positionX <$> applyLPF (player == opts.myPlayer) (posAx AxisX)
+                                  [ positionX <$> applyLPF (isNotMe player opts.myPlayer) (posAx AxisX)
                                   , positionY <$> (sampleBy (\{ lightOffsetY } py -> (lightOffsetY + py)) opts.renderingInfo (posAx AxisY))
                                   , positionZ <$> posAx AxisZ
                                   , pure $ P.decay normalDecay
@@ -457,6 +457,7 @@ runThree opts = do
     )
   pure unit
   where
+  isNotMe a b = a /= b
   tipping = 45
   applyLPF :: Boolean -> Event Number -> Event Number
   applyLPF false = \i -> mapAccum (\(v /\ ps) c -> if ps then ((c + 1) /\ if c > tipping then v else (v * (toNumber c) / (toNumber tipping))) else 0 /\ 0.0) (Tuple <$> i <*> (pure false <|> opts.pressedStart)) 0
