@@ -139,7 +139,7 @@ runThree opts = do
                         pz = posAx AxisZ
                       in
                         oneOfMap pure
-                          [ positionX px
+                          [ positionX <$> tameXAxis false px
                           , positionY (ri.cameraOffsetY + py)
                           , positionZ (ri.cameraOffsetZ + pz)
                           , P.rotationFromEuler (euler opts.threeDI.euler { x: ri.cameraRotationAroundX, y: 0.0, z: 0.0 })
@@ -458,7 +458,7 @@ runThree opts = do
   pure unit
   where
   isNotMe a b = a /= b
-  tipping = 120
+  tipping = 45
   tameXAxis :: Boolean -> Event Number -> Event Number
   tameXAxis false = \i -> mapAccum (\(v /\ ps) c -> if ps then ((c + 1) /\ if c > tipping then v else (v * (toNumber c) / (toNumber tipping))) else 0 /\ 0.0) (Tuple <$> i <*> (pure false <|> opts.pressedStart)) 0
   tameXAxis true = lpf lowpassFactor
