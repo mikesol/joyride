@@ -129,22 +129,20 @@ runThree opts = do
               , near: 0.1
               , far: 100.0
               }
-              ( keepLatest
-                  ( sampleBy Tuple opts.renderingInfo mopts.playerPositions <#> \(Tuple ri positions) ->
-                      let
-                        ppos = playerPosition opts.myPlayer
-                        posAx axis = ppos axis positions
-                        px = posAx AxisX
-                        py = posAx AxisY
-                        pz = posAx AxisZ
-                      in
-                        oneOfMap pure
-                          [ positionX px
-                          , positionY (ri.cameraOffsetY + py)
-                          , positionZ (ri.cameraOffsetZ + pz)
-                          , P.rotationFromEuler (euler opts.threeDI.euler { x: ri.cameraRotationAroundX, y: 0.0, z: 0.0 })
-                          ]
-                  ) <|> (opts.resizeE <#> \i -> P.aspect (i.iw / i.ih))
+              ( let
+                  ppos = playerPosition opts.myPlayer
+                  posAx axis = map (ppos axis) mopts.playerPositions
+                  px = posAx AxisX
+                  py = posAx AxisY
+                  pz = posAx AxisZ
+                in
+                  oneOf
+                    [ positionX <$> tameXAxis false px
+                    , sampleBy Tuple opts.renderingInfo py <#> \(Tuple ri py') -> positionY (ri.cameraOffsetY + py')
+                    , sampleBy Tuple opts.renderingInfo pz <#> \(Tuple ri pz') -> positionZ (ri.cameraOffsetZ + pz')
+                    , sampleBy Tuple opts.renderingInfo pz <#> \(Tuple ri _) -> P.rotationFromEuler (euler opts.threeDI.euler { x: ri.cameraRotationAroundX, y: 0.0, z: 0.0 })
+                    , opts.resizeE <#> \i -> P.aspect (i.iw / i.ih)
+                    ]
               )
           )
         let
@@ -486,8 +484,9 @@ runThree opts = do
     )
   pure unit
   where
-  tipping = 120
   isNotMe a b = a /= b
+  tipping = 45
+
   tameXAxis :: Boolean -> Event Number -> Event Number
   tameXAxis false = \i -> mapAccum (\(v /\ ps) c -> if ps then ((c + 1) /\ if c > tipping then v else (v * (toNumber c) / (toNumber tipping))) else 0 /\ 0.0) (Tuple <$> i <*> (pure false <|> opts.pressedStart)) 0
   tameXAxis true = lpf lowpassFactor
