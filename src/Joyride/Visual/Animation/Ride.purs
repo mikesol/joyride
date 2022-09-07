@@ -129,22 +129,20 @@ runThree opts = do
               , near: 0.1
               , far: 100.0
               }
-              ( keepLatest
-                  ( sampleBy Tuple opts.renderingInfo mopts.playerPositions <#> \(Tuple ri positions) ->
-                      let
-                        ppos = playerPosition opts.myPlayer
-                        posAx axis = ppos axis positions
-                        px = posAx AxisX
-                        py = posAx AxisY
-                        pz = posAx AxisZ
-                      in
-                        oneOfMap pure
-                          [ positionX px
-                          , positionY (ri.cameraOffsetY + py)
-                          , positionZ (ri.cameraOffsetZ + pz)
-                          , P.rotationFromEuler (euler opts.threeDI.euler { x: ri.cameraRotationAroundX, y: 0.0, z: 0.0 })
-                          ]
-                  ) <|> (opts.resizeE <#> \i -> P.aspect (i.iw / i.ih))
+              ( let
+                  ppos = playerPosition opts.myPlayer
+                  posAx axis = map (ppos axis) mopts.playerPositions
+                  px = posAx AxisX
+                  py = posAx AxisY
+                  pz = posAx AxisZ
+                in
+                  oneOf
+                    [ positionX <$> tameXAxis false px
+                    , sampleBy Tuple opts.renderingInfo py <#> \(Tuple ri py') -> positionY (ri.cameraOffsetY + py')
+                    , sampleBy Tuple opts.renderingInfo pz <#> \(Tuple ri pz') -> positionZ (ri.cameraOffsetZ + pz')
+                    , sampleBy Tuple opts.renderingInfo pz <#> \(Tuple ri _) -> P.rotationFromEuler (euler opts.threeDI.euler { x: ri.cameraRotationAroundX, y: 0.0, z: 0.0 })
+                    , opts.resizeE <#> \i -> P.aspect (i.iw / i.ih)
+                    ]
               )
           )
         let
@@ -154,7 +152,7 @@ runThree opts = do
                 let posAx axis = map (ppos axis) mopts.playerPositions
                 toGroup $ GLTF.scene (unwrap opts.models).spaceship
                   ( oneOf
-                      [ (positionX <<< add n) <$> applyLPF (isNotMe player opts.myPlayer) (posAx AxisX)
+                      [ (positionX <<< add n) <$> tameXAxis (isNotMe player opts.myPlayer) (posAx AxisX)
                       , positionY <$> (sampleBy (\{ sphereOffsetY } py -> sphereOffsetY + py) opts.renderingInfo (posAx AxisY))
                       , pure $ positionZ
                           ( case player of
@@ -247,7 +245,7 @@ runThree opts = do
                             let posAx axis = map (ppos axis) mopts.playerPositions
                             toGroup $ GLTF.scene (unwrap opts.models).spaceship
                               ( oneOf
-                                  [ positionX <$> applyLPF (isNotMe player opts.myPlayer) (posAx AxisX)
+                                  [ positionX <$> tameXAxis (isNotMe player opts.myPlayer) (posAx AxisX)
                                   , positionY <$> (sampleBy (\{ sphereOffsetY } py -> sphereOffsetY + py) opts.renderingInfo (posAx AxisY))
                                   , pure $ positionZ
                                       ( case player of
@@ -292,7 +290,7 @@ runThree opts = do
                               , color: c3 $ RGB 1.0 1.0 1.0
                               }
                               ( oneOf
-                                  [ positionX <$> applyLPF (isNotMe player opts.myPlayer) (posAx AxisX)
+                                  [ positionX <$> tameXAxis (isNotMe player opts.myPlayer) (posAx AxisX)
                                   , positionY <$> (sampleBy (\{ sphereOffsetY } py -> (sphereOffsetY / 2.0) + py) opts.renderingInfo (posAx AxisY))
                                   , positionZ <$> posAx AxisZ
                                   , pure $ P.decay normalDecay
@@ -400,7 +398,7 @@ runThree opts = do
                               , color: c3 $ RGB 1.0 1.0 1.0
                               }
                               ( oneOf
-                                  [ positionX <$> applyLPF (isNotMe player opts.myPlayer) (posAx AxisX)
+                                  [ positionX <$> tameXAxis (isNotMe player opts.myPlayer) (posAx AxisX)
                                   , positionY <$> (sampleBy (\{ lightOffsetY } py -> (lightOffsetY + py)) opts.renderingInfo (posAx AxisY))
                                   , positionZ <$> posAx AxisZ
                                   , pure $ P.decay normalDecay
@@ -486,9 +484,10 @@ runThree opts = do
     )
   pure unit
   where
-  tipping = 45
   isNotMe a b = a /= b
-  applyLPF :: Boolean -> Event Number -> Event Number
-  applyLPF false = \i -> mapAccum (\(v /\ ps) c -> if ps then ((c + 1) /\ if c > tipping then v else (v * (toNumber c) / (toNumber tipping))) else 0 /\ 0.0) (Tuple <$> i <*> (pure false <|> opts.pressedStart)) 0
-  applyLPF true = lpf lowpassFactor
-  lowpassFactor = 0.25
+  tipping = 120
+
+  tameXAxis :: Boolean -> Event Number -> Event Number
+  tameXAxis false = \i -> mapAccum (\(v /\ ps) c -> if ps then ((c + 1) /\ if c > tipping then v else (v * (toNumber c) / (toNumber tipping))) else 0 /\ 0.0) (Tuple <$> i <*> (pure false <|> opts.pressedStart)) 0
+  tameXAxis true = lpf lowpassFactor
+  lowpassFactor = 0.65
