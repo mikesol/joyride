@@ -485,7 +485,7 @@ runThree opts = do
   pure unit
   where
   isNotMe a b = a /= b
-  tipping = 45
+  tipping = 120
 
   tameXAxis :: Boolean -> Event Number -> Event Number
   tameXAxis false = \i -> mapAccum (\(v /\ ps) c -> if ps then ((c + 1) /\ if c > tipping then v else (v * (toNumber c) / (toNumber tipping))) else 0 /\ 0.0) (Tuple <$> i <*> (pure false <|> opts.pressedStart)) 0
