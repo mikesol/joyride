@@ -24,7 +24,7 @@ import Effect (Effect)
 import Effect.Aff (Aff, Milliseconds, ParAff, forkAff, joinFiber, launchAff_, never)
 import Effect.Class (liftEffect)
 import Effect.Class.Console as Log
-import Effect.Console (log)
+import Effect.Console (log, logShow)
 import Effect.Random as Random
 import Effect.Ref (new)
 import Effect.Ref as Ref
@@ -159,9 +159,9 @@ constructAppendableKnownPlayersFromRide
           Nothing -> HasNotStartedYet
           Just st -> HasStarted $ InFlightGameInfo
             { startedAt: JMilliseconds st
-            , points: maybe (Points bottom) Points mpoi
+            , points: maybe (Points 0.0) Points mpoi
             , name: mname
-            , penalties: maybe (Penalty bottom) Penalty mpen
+            , penalties: maybe (Penalty 0.0) Penalty mpen
             }
       ]
     Nothing -> []
@@ -521,6 +521,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                       -- if we hear a hit basic, we update the known players
                       HitBasic (HitBasicOverTheWire { player, outcome }) -> do
                         kp <- updateKnownPlayerPoints player outcome knownPlayers
+                        logShow { player, outcome, kp }
                         knownPlayersBus.push kp
                       -- if we hear a hit basic, we do nothing, as points are only attributed on release
                       -- Pressed start
@@ -532,8 +533,8 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                                       ( InFlightGameInfo
                                           { name
                                           , startedAt
-                                          , points: Points bottom
-                                          , penalties: Penalty bottom
+                                          , points: Points 0.0
+                                          , penalties: Penalty 0.0
                                           }
                                       )
                                   )
@@ -709,8 +710,8 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
 
 defaultInFlightGameInfo :: InFlightGameInfo'
 defaultInFlightGameInfo =
-  { points: Points bottom
-  , penalties: Penalty bottom
+  { points: Points 0.0
+  , penalties: Penalty 0.0
   , startedAt: JMilliseconds top
   , name: Nothing
   }
