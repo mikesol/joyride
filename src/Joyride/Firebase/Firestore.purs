@@ -41,6 +41,11 @@ forkTrackAff au fs r = toAffE $ forkTrack au fs r
 
 foreign import getTrack :: Firestore -> String -> Effect (Promise Foreign)
 
+foreign import initializeRealtimePresence :: FirebaseApp -> Firestore -> FirebaseAuth -> Effect (Promise Unit)
+
+initializeRealtimePresenceAff :: FirebaseApp -> Firestore -> FirebaseAuth -> Aff Unit 
+initializeRealtimePresenceAff fbApp fst auth = toAffE (initializeRealtimePresence fbApp fst auth)
+
 getTrackAff :: Firestore -> String -> Aff (Maybe Track)
 getTrackAff fs id = do
   ds <- toAffE $ getTrack fs id

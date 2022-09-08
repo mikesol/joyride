@@ -24,6 +24,54 @@ const PRIVATE = "private";
 const TAGS = "tags";
 const COLUMN = "column";
 
+export const initializeRealtimePresence = (app) => (fsdb) => (auth) => () =>
+	Promise.all([import("firebase/firestore"), import("firebase/database")]).then(([firestore, database]) => {
+		var uid = auth.currentUser.uid;
+		var db = database.getDatabase(app);
+		var userStatusDatabaseRef = database.ref(db, '/status/' + uid);
+		var isOfflineForDatabase = {
+			state: 'offline',
+			last_changed: database.serverTimestamp(),
+		};
+
+		var isOnlineForDatabase = {
+			state: 'online',
+			last_changed: database.serverTimestamp(),
+		};
+
+		var userStatusFirestoreRef = firestore.doc(fsdb, '/status/' + uid);
+
+		// Firestore uses a different server timestamp value, so we'll 
+		// create two more constants for Firestore state.
+		var isOfflineForFirestore = {
+			state: 'offline',
+			last_changed: firestore.serverTimestamp(),
+		};
+
+		var isOnlineForFirestore = {
+			state: 'online',
+			last_changed: firestore.serverTimestamp(),
+		};
+
+		database.onValue(database.ref(db, '.info/connected'), function (snapshot) {
+
+			if (snapshot.val() == false) {
+				// Instead of simply returning, we'll also set Firestore's state
+				// to 'offline'. This ensures that our Firestore cache is aware
+				// of the switch to 'offline.'
+				console.log('not connected to rtdb');
+				firestore.setDoc(userStatusFirestoreRef, isOfflineForFirestore);
+				return;
+			};
+			userStatusDatabaseRef.onDisconnect().set(isOfflineForDatabase).then(function () {
+				console.log('connected to rtdb');
+				userStatusDatabaseRef.set(isOnlineForDatabase);
+				// We'll also add Firestore set here for when we come online.
+				firestore.setDoc(userStatusFirestoreRef, isOnlineForFirestore);
+			});
+		});
+	})
+
 export const addTrack = (db) => (track) => () =>
 	import("firebase/firestore").then(({ collection, addDoc }) => {
 		return addDoc(collection(db, TRACKS), track);
