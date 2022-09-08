@@ -475,9 +475,7 @@ tutorial
       ( Just $ D.p_
           [ D.span_ [ text_ "Earn points by touching the " ]
           , D.span (pure $ D.Class := "italic") [ text_ "gray" ]
-          , D.span_ [ text_ " tiles as soon as their edge touches the " ]
-          , D.span (pure $ D.Class := "italic") [ text_ "green" ]
-          , D.span_ [ text_ " line. You'll lose points if you're too early or late." ]
+          , D.span_ [ text_ " tiles as soon as their edge touches the line. You'll lose points if you're too early or late." ]
           ]
       )
       false
@@ -506,8 +504,8 @@ tutorial
     Leap -> tutorialCenterMatterFrame "Leaps"
       ( Just $ D.p_
           [ D.span_ [ text_ "Leap to a new line by touching a " ]
-          , D.span (pure $ D.Class := "italic") [ text_ "red" ]
-          , D.span_ [ text_ " tile. The number indicates the position you'll jump to." ]
+          , D.span (pure $ D.Class := "italic") [ text_ "leap" ]
+          , D.span_ [ text_ " tile. Leap tiles have the same color as the line you'll leap to." ]
           ]
       )
       false

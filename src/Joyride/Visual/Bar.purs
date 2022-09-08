@@ -3,19 +3,20 @@ module Joyride.Visual.Bar where
 import Prelude
 
 import Control.Alt ((<|>))
+import Control.Plus (empty)
 import Data.Foldable (oneOf)
 import FRP.Behavior (Behavior, sampleBy)
 import FRP.Event (Event)
+import Joyride.Constants.Visual (bar1Color, bar2Color, bar3Color, bar4Color)
 import Joyride.Debug (debugX)
 import Joyride.FRP.Schedule (fireAndForget)
-import Rito.Color (Color, RGB(..))
+import Rito.Color (Color, RGB)
 import Rito.Core (ASceneful, toScene)
 import Rito.Geometries.Box (box)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.Mesh (mesh)
 import Rito.Properties (positionX, positionY, positionZ, scaleX, scaleY, scaleZ)
-import Rito.Properties as P
-import Types (Position, RateInfo, RenderingInfo, ThreeDI, touchPointZ)
+import Types (Position(..), RateInfo, RenderingInfo, ThreeDI, touchPointZ)
 
 makeBar
   :: forall lock payload
@@ -29,12 +30,11 @@ makeBar
      , rateE :: Event RateInfo
      }
   -> ASceneful lock payload
-makeBar { c3, threeDI, renderingInfo, initialIsMe, isMe, position, debug, rateE } = toScene $ mesh { mesh: threeDI.mesh } (box { box: threeDI.boxGeometry })
+makeBar { c3, threeDI, renderingInfo, position, debug, rateE } = toScene $ mesh { mesh: threeDI.mesh } (box { box: threeDI.boxGeometry })
   ( meshStandardMaterial
       { meshStandardMaterial: threeDI.meshStandardMaterial
-      , color: makeColor initialIsMe
-      }
-      (isMe <#> \i -> (P.color $ makeColor i))
+      , color: makeColor position
+      } empty
   )
   ( oneOf
       [ pure (positionX 0.0)
@@ -47,4 +47,8 @@ makeBar { c3, threeDI, renderingInfo, initialIsMe, isMe, position, debug, rateE 
   )
   where
   initializeWith f x = pure (f 0.0) <|> fireAndForget (rateE $> f x)
-  makeColor tf = c3 $ if tf then RGB 0.3 0.9 0.2 else RGB 1.0 1.0 1.0
+  makeColor = c3 <<< case _ of
+    Position1 -> bar1Color
+    Position2 -> bar2Color
+    Position3 -> bar3Color
+    Position4 -> bar4Color
