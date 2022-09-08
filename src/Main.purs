@@ -309,6 +309,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
               , points: THREE.pointsAff
               , meshPhongMaterial: THREE.meshPhongMaterialAff
               , boxGeometry: THREE.boxGeometryAff
+              , cylinderGeometry: THREE.cylinderGeometryAff
               , pointLight: THREE.pointLightAff
               , ambientLight: THREE.ambientLightAff
               , css2DObject: THREE.css2DObjectAff

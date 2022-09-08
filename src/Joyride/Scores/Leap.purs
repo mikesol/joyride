@@ -32,7 +32,7 @@ import Ocarina.WebAPI (BrowserAudioBuffer)
 import Record (union)
 import Rito.Color (RGB)
 import Rito.Core (Instance, ASceneful, toScene)
-import Rito.Geometries.Box (box)
+import Rito.Geometries.Cylinder (cylinder)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.RoundRobin (InstanceId, Semaphore(..), roundRobinInstancedMesh)
 import Safe.Coerce (coerce)
@@ -81,7 +81,9 @@ rideLeaps i makeLeaps = fixed
         , mesh: makeLeaps.threeDI.mesh
         }
         25
-        (box { box: makeLeaps.threeDI.boxGeometry })
+        -- todo: usually, we wouldn't set a geometry size property like radius top or radius bottom
+        -- but until widths are standardized across the game, this is the easiest way to get it right
+        (cylinder { cylinder: makeLeaps.threeDI.cylinderGeometry, radialSegments: 16 })
         ( meshStandardMaterial
             { meshStandardMaterial: makeLeaps.threeDI.meshStandardMaterial
             , color: makeLeaps.mkColor couleur

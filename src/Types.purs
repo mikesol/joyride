@@ -1051,6 +1051,7 @@ type ThreeDI =
   , perspectiveCamera :: THREE.TPerspectiveCamera
   , matrix4 :: THREE.TMatrix4
   , boxGeometry :: THREE.TBoxGeometry
+  , cylinderGeometry :: THREE.TCylinderGeometry
   , sphereGeometry :: THREE.TSphereGeometry
   , css2DRenderer :: THREE.TCSS2DRenderer
   , css3DRenderer :: THREE.TCSS3DRenderer

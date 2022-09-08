@@ -72,7 +72,7 @@ leap makeLeap = keepLatest $ bus \setPlayed iWasPlayed -> do
               o - (leapZThickness / 2.0)
         , n11:
             let
-              baseWidth = renderingInfo.halfAmbitus * ratio.r / 9.0
+              baseWidth = renderingInfo.halfAmbitus * ratio.r / 20.0
             in
               case endTime of
                 Nothing -> baseWidth
