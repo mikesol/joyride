@@ -1,4 +1,4 @@
-module Joyride.Scores.Ride.Long where
+module Joyride.Scores.Long where
 
 import Prelude
 
@@ -36,7 +36,7 @@ import Safe.Coerce (coerce)
 import Types (Beats(..), JMilliseconds(..), MakeLongs, RateInfo, Seconds(..))
 
 lookAhead :: Beats
-lookAhead = Beats 2.0
+lookAhead = Beats 5.0
 
 singleBeat
   :: { buffer :: Behavior BrowserAudioBuffer

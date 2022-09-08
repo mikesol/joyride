@@ -58,9 +58,9 @@ import Joyride.Firebase.Firestore (DocumentReference, addEventAff, addTrackAff, 
 import Joyride.IO.File (fileList)
 import Joyride.QualifiedDo.Apply as QDA
 import Joyride.Scores.AugmentedTypes (AugmentedEventV0(..), AugmentedEvent_(..), toAugmentedEvents)
-import Joyride.Scores.Ride.Basic (rideBasics)
-import Joyride.Scores.Ride.Leap (rideLeaps)
-import Joyride.Scores.Ride.Long (rideLongs)
+import Joyride.Scores.Basic (rideBasics)
+import Joyride.Scores.Leap (rideLeaps)
+import Joyride.Scores.Long (rideLongs)
 import Joyride.Style (buttonActiveCls, buttonCls, distinctColors, headerCls)
 import Joyride.Types (Column(..), Whitelist(..), intToColumn)
 import Joyride.UniqueNames (randomName)

@@ -1,4 +1,4 @@
-module Joyride.Scores.Ride.Basic where
+module Joyride.Scores.Basic where
 
 import Prelude
 
@@ -52,7 +52,7 @@ type ACU =
 infixr 4 cons as :/
 
 lookAhead :: Beats
-lookAhead = Beats 0.1
+lookAhead = Beats 4.0
 
 singleBeat
   :: { buffer :: Behavior BrowserAudioBuffer
