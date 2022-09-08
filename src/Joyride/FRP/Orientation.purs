@@ -26,7 +26,7 @@ posFromOrientation gtp (JMilliseconds curMs) = case gtp.time of
   -- ugggh. why 2.5? why not... seems to work...
   Just (JMilliseconds prevMs) -> min 2.5 $ max (-2.5) $ ((curMs - prevMs) / 1000.0) * gtp.gamma * orientationDampening + gtp.pos
   where
-  orientationDampening = 0.055 :: Number
+  orientationDampening = 0.1 :: Number
 
 xForTouch :: Effect Milliseconds -> Window -> Player -> (PlayerAction -> Effect Unit) ->  Effect (Event (RateInfo -> Number))
 xForTouch cnow w myPlayer pub = do
