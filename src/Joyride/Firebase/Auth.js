@@ -1,6 +1,6 @@
 export const firebaseAuth = (app) => () =>
 	import("firebase/auth").then(({ getAuth }) =>
-		getAuth(import.meta.env.BUILD_TYPE === "production" ? app : undefined)
+		getAuth(import.meta.env.VITE_FIREBASE_BUILD === "production" ? app : undefined)
 	);
 
 export const initializeGoogleClient = (auth) => (success) => () => {
