@@ -8,7 +8,6 @@ import Data.Function (on)
 import Data.Maybe (Maybe(..))
 import Data.Number (pi)
 import Data.Time.Duration (Milliseconds)
-import Deku.Control (blank)
 import Deku.Core (Domable)
 import Effect (Effect)
 import FRP.Event (Event, filterMap)
@@ -20,6 +19,7 @@ import Joyride.App.GameHasStarted (gameHasStarted)
 import Joyride.App.Loading (loadingPage)
 import Joyride.App.OrientationPermission (orientationPermissionPage)
 import Joyride.App.Ride (ride)
+import Joyride.App.Rides (availableRides)
 import Joyride.App.RoomIsFull (roomIsFull)
 import Joyride.App.SorryNeedPermission (sorryNeedPermissionPage)
 import Joyride.App.Tutorial (tutorial)
@@ -58,7 +58,7 @@ type UIEvents = V
 
 data TopLevelDisplay
   = TLNeedsOrientation (Maybe { ride :: String, track :: String })
-  | TLWillNotWorkWithoutOrientation 
+  | TLWillNotWorkWithoutOrientation
   | TLExplainer
       { cubeTextures :: CubeTextures CTL.CubeTexture
       , models :: Models GLTFLoader.GLTF
@@ -136,7 +136,7 @@ toplevel tli =
       )
   ) # switcher case _ of
     TLNeedsOrientation rideTrack -> orientationPermissionPage { givePermission: tli.givePermission, rideTrack }
-    TLChooseRide cr -> blank
+    TLChooseRide cr -> availableRides { availableRides: cr }
     TLWillNotWorkWithoutOrientation -> sorryNeedPermissionPage
     TLExplainer { cubeTextures, threeDI, cNow, initialDims, firestoreDb, fbAuth, signedInNonAnonymously, signOut } -> explainerPage
       { ride: tli.ride

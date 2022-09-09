@@ -1067,6 +1067,10 @@ data AppFSM
   | FSMStartWithSuccessfulOrientationPermission
   | FSMAppCannotStartDueToLackOfOrientationPermission
 
+derive instance Eq AppFSM
+derive instance Generic AppFSM _
+instance Show AppFSM where
+  show = genericShow
 type Shader = { vertex :: String, fragment :: String }
 type Shaders = { galaxy :: Shader }
 

@@ -3,7 +3,6 @@ module Main where
 import Prelude
 
 import Control.Alt ((<|>))
-import Data.Monoid (guard)
 import Control.Parallel (parSequence, parTraverse, sequential)
 import Control.Promise (Promise, toAffE)
 import Data.Array (nubBy)
@@ -15,6 +14,7 @@ import Data.Int as Int
 import Data.List (List(..), drop, take, (:))
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
+import Data.Monoid (guard)
 import Data.Newtype (unwrap)
 import Data.Number (pi, pow, sqrt)
 import Data.Profunctor (lcmap)
@@ -284,7 +284,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                 , resizeE: resizeE.event
                 , goHome: do
                     -- clear the channel
-                    channelEvent.push NoChannel
+                    navigateToHash ""
                 , renderingInfo: renderingInfoBehavior
                 , debug
                 , silence
@@ -704,7 +704,8 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                       { state: FSMStarting, signedInNonAnon: false }
                   )
               )
-              \(fsm /\ _ /\ new) -> do
+              \(fsm /\ old /\ new) -> do
+                logShow {fsm, old, new}
                 let
                   channelProp x y = launchAff_ $ do
                     proposedChannel' <- do
@@ -717,6 +718,14 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                     Session x y -> channelProp x y
                     Tutorial -> channelEvent.push TutorialChannel
                     Editor -> channelEvent.push EditorChannel
+                    TakeThisRide id -> do
+                          cid <- randId' 6
+                          launchAff_ do
+                            track <- getTrackAff firestoreDb id
+                            liftEffect $ case track of
+                              Just track' -> channelEvent.push (RideChannel cid id track')
+                              -- todo: better result
+                              Nothing -> navigateToHash ""
                     TakeRide -> launchAff_ do
                       rides <- map (nubBy (compare `on` _.id) <<< join) $ parSequence
                         [ getPublicTracksAff firestoreDb
