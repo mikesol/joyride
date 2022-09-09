@@ -10,7 +10,7 @@ import Data.Tuple (Tuple(..))
 import Data.Variant (inj)
 import FRP.Behavior (Behavior, sampleBy)
 import FRP.Event (Event)
-import Joyride.Constants.Visual (bar1Color, bar2Color, bar3Color, bar4Color)
+import Joyride.Constants.Visual (bar1Color, bar2Color, bar3Color, bar4Color, barXWidth, barYThickness, barZThickness)
 import Joyride.Debug (debugX)
 import Joyride.FRP.Dedup (dedup')
 import Joyride.FRP.Schedule (fireAndForget)
@@ -41,8 +41,7 @@ makeBar { c3, threeDI, renderingInfo, isMe, position, debug, rateE } = toScene $
       , color: makeColor position
       }
       ( oneOf
-          [ (Tuple <$> rateE <*> (dedup' (\a b -> a == false && b == a) isMe)) <#> \(Tuple re i) -> (wrap $ inj (Proxy :: _ "emissive") $ c3 if i then let s = sin (unwrap (re.beats) * pi * 0.7) * 0.07 + 0.07 in RGB s s s else RGB 0.0 0.0 0.0)
-         -- , isMe <#> \i -> (wrap $ inj (Proxy :: _ "emissiveIntensity") if i then 0.2 else 0.2)
+          [ (Tuple <$> rateE <*> (dedup' (\a b -> a == false && b == a) isMe)) <#> \(Tuple re i) -> (wrap $ inj (Proxy :: _ "emissive") $ c3 if i then let s = sin (unwrap (re.beats) * pi * 0.7) * 0.14 + 0.14 in RGB s s s else RGB 0.0 0.0 0.0)
           ]
       )
   )
@@ -50,9 +49,9 @@ makeBar { c3, threeDI, renderingInfo, isMe, position, debug, rateE } = toScene $
       [ pure (positionX 0.0)
       , pure (positionY 0.0)
       , sampleBy (\ri _ -> positionZ (touchPointZ ri position)) renderingInfo (debugX debug rateE)
-      , initializeWith scaleX 10.0
-      , initializeWith scaleY 0.02
-      , initializeWith scaleZ 0.03
+      , initializeWith scaleX barXWidth
+      , initializeWith scaleY barYThickness
+      , initializeWith scaleZ barZThickness
       ]
   )
   where

@@ -83,7 +83,7 @@ rideLeaps i makeLeaps = fixed
         25
         -- todo: usually, we wouldn't set a geometry size property like radius top or radius bottom
         -- but until widths are standardized across the game, this is the easiest way to get it right
-        (cylinder { cylinder: makeLeaps.threeDI.cylinderGeometry, radialSegments: 16 })
+        (cylinder { cylinder: makeLeaps.threeDI.cylinderGeometry, radialSegments: 32 })
         ( meshStandardMaterial
             { meshStandardMaterial: makeLeaps.threeDI.meshStandardMaterial
             , color: makeLeaps.mkColor couleur
