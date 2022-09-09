@@ -162,74 +162,82 @@ explainerPage opts = vbussed
            )
   )
   \push event -> envy $ memoize (pure Nothing <|> event.availableRides) \availableRides -> D.div (oneOf [ pure (D.Class := "absolute") ])
-    [ D.div (oneOf [ pure (D.Class := "z-10 absolute grid grid-cols-3 grid-rows-3  place-items-center h-screen w-screen") ])
-        [ D.div (pure $ D.Class := "col-start-2 col-end-3 row-start-2 row-end-3 flex flex-col")
-            $
-              let
-                buttonCls = "my-4 bg-transparent hover:bg-slate-300 text-white font-semibold hover:text-zinc-700 py-2 px-4 border border-slate-300 hover:border-transparent rounded"
-              in
-                [ D.h1
-                    ( oneOf
-                        [ pure $ D.Class := "text-center " <> headerCls
-                        , click $ opts.signedInNonAnonymously <#> \signedInNonAnon -> when signedInNonAnon do
-                            cu <- currentUser opts.fbAuth
-                            for_ cu \(User { uid }) ->
-                              window >>= alert uid
-                        ]
-                    )
-                    [ text_ "Joyride" ]
-                , D.button
-                    ( oneOf
-                        [ pure $ D.Class := buttonCls
-                        , DL.click
-                            ( (oneOf [ pure (pure unit), event.unsubscriber ]) <#>
-                                FullScreen.fullScreenFlow <<< (opts.tutorial *> _)
-                            )
-                        ]
-                    )
-                    [ text_ "Tutorial" ]
-                , D.button
-                    ( oneOf
-                        [ klass $ pure buttonCls
-                        , DL.click $ (opts.signedInNonAnonymously) <#> \signedInNonAnon -> launchAff_ do
-                            rides <- map (nubBy (compare `on` _.id) <<< join) $ parSequence
-                              [ getPublicTracksAff opts.firestoreDb
-                              , guard signedInNonAnon (getTracksAff opts.fbAuth opts.firestoreDb)
-                              , guard signedInNonAnon (getWhitelistedTracksAff opts.fbAuth opts.firestoreDb)
-                              ]
-                            liftEffect $ push.availableRides (Just rides)
-                        ]
-                    )
-                    [ text_ "Take a ride" ]
-                , D.button
-                    ( oneOf
-                        [ pure $ D.Class := buttonCls
-                        , DL.click
-                            ( (oneOf [ pure (pure unit), event.unsubscriber ]) <#>
-                                FullScreen.fullScreenFlow <<< (opts.editor *> _)
-                            )
-                        ]
-                    )
-                    [ text_ "Editor" ]
-                , D.button
-                    ( oneOf
-                        [ pure $ D.Id := "google_sign_in"
-                        , pure $ D.OnClick := do
-                            signInWithGoogle do
-                              window >>= alert "Sign in with google is temporarily unavailable. Please try again later."
-                        , opts.signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> if sina then " hidden" else ""
-                        ]
-                    )
-                    [ text_ "Sign In" ]
-                , D.button
-                    ( oneOf
-                        [ opts.signedInNonAnonymously <#> \na -> D.Class := buttonCls <> (if na then "" else " hidden")
-                        , click $ pure opts.signOut
-                        ]
-                    )
-                    [ text_ "Sign Out" ]
+    [ D.div (oneOf [ pure (D.Class := "z-10 absolute grid grid-cols-3 grid-rows-3 h-screen w-screen") ])
+        [ D.div (pure $ D.Class := "col-start-3 col-end-3 row-start-1 row-end-1 place-self-end")
+            [ D.button
+                ( oneOf
+                    [ pure $ D.Class := buttonCls
+                    , DL.click
+                        ( (oneOf [ pure (pure unit), event.unsubscriber ]) <#>
+                            FullScreen.fullScreenFlow <<< (opts.tutorial *> _)
+                        )
+                    ]
+                )
+                [ text_ "⚙" ]
+            ]
+        , D.div (pure $ D.Class := "place-self-center col-start-2 col-end-3 row-start-2 row-end-3 flex flex-col")
+            [ D.h1
+                ( oneOf
+                    [ pure $ D.Class := "text-center " <> headerCls
+                    , click $ opts.signedInNonAnonymously <#> \signedInNonAnon -> when signedInNonAnon do
+                        cu <- currentUser opts.fbAuth
+                        for_ cu \(User { uid }) ->
+                          window >>= alert uid
+                    ]
+                )
+                [ text_ "Joyride" ]
+            , D.button
+                ( oneOf
+                    [ pure $ D.Class := buttonCls
+                    , DL.click
+                        ( (oneOf [ pure (pure unit), event.unsubscriber ]) <#>
+                            FullScreen.fullScreenFlow <<< (opts.tutorial *> _)
+                        )
+                    ]
+                )
+                [ text_ "Tutorial" ]
+            , D.button
+                ( oneOf
+                    [ klass $ pure buttonCls
+                    , DL.click $ (opts.signedInNonAnonymously) <#> \signedInNonAnon -> launchAff_ do
+                        rides <- map (nubBy (compare `on` _.id) <<< join) $ parSequence
+                          [ getPublicTracksAff opts.firestoreDb
+                          , guard signedInNonAnon (getTracksAff opts.fbAuth opts.firestoreDb)
+                          , guard signedInNonAnon (getWhitelistedTracksAff opts.fbAuth opts.firestoreDb)
+                          ]
+                        liftEffect $ push.availableRides (Just rides)
+                    ]
+                )
+                [ text_ "Take a ride" ]
+            , D.button
+                ( oneOf
+                    [ pure $ D.Class := buttonCls
+                    , DL.click
+                        ( (oneOf [ pure (pure unit), event.unsubscriber ]) <#>
+                            FullScreen.fullScreenFlow <<< (opts.editor *> _)
+                        )
+                    ]
+                )
+                [ text_ "Editor" ]
+            , D.button
+                ( oneOf
+                    [ pure $ D.Id := "google_sign_in"
+                    , pure $ D.OnClick := do
+                        signInWithGoogle do
+                          window >>= alert "Sign in with google is temporarily unavailable. Please try again later."
+                    , opts.signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> if sina then " hidden" else ""
+                    ]
+                )
+                [ text_ "Sign In" ]
+            , D.button
+                ( oneOf
+                    [ opts.signedInNonAnonymously <#> \na -> D.Class := buttonCls <> (if na then "" else " hidden")
+                    , click $ pure opts.signOut
+                    ]
+                )
+                [ text_ "Sign Out" ]
 
-                ]
+            ]
         ]
     , D.div (oneOf [ availableRides <#> \ar -> D.Class := "z-10 bg-zinc-900 absolute grid grid-cols-6 grid-rows-6 place-items-center h-screen w-screen " <> if isJust ar then "" else " hidden" ])
         [ D.div (pure $ D.Class := "col-start-1 col-end-2 row-start-1 row-end-2")

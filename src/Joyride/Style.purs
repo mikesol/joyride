@@ -9,6 +9,9 @@ buttonActiveCls = "my-4 bg-white hover:bg-slate-300 text-black font-semibold hov
 headerCls :: String
 headerCls = "text-2xl text-slate-200"
 
+header2Cls :: String
+header2Cls = "text-lg text-slate-200"
+
 distinctColors :: Array String
 distinctColors =
   [ "#b09b34"

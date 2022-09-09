@@ -173,7 +173,7 @@ getInFlightGameInfo (HasStarted inflight) = Just inflight
 updateKnownPlayerPointsUsingRide :: Ride -> KnownPlayers -> KnownPlayers
 updateKnownPlayerPointsUsingRide a b = (constructAppendableKnownPlayersFromRide a) <> b
 
-sandboxed = false :: Boolean
+sandboxed = true :: Boolean
 
 main
   :: Models String

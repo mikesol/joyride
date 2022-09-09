@@ -7,32 +7,35 @@ module Joyride.App.Sandbox where
 import Prelude
 
 import Data.Foldable (oneOf)
-import Data.Monoid (power)
 import Deku.Attribute ((:=))
+import Deku.Attributes (klass_)
 import Deku.Control (text_)
 import Deku.Core (Nut)
 import Deku.DOM as D
-import Deku.Listeners as DL
-import Effect (Effect)
-import Joyride.Style (buttonCls, headerCls)
+import Deku.Listeners (slider)
+import Joyride.Style (header2Cls, headerCls)
 
 sandbox :: Nut
-sandbox = D.div (oneOf [ pure $ D.Class := "h-screen w-screen bg-zinc-900 absolute grid grid-cols-6 grid-rows-6" ])
-  [ D.div (oneOf [ pure $ D.Class := "col-start-2 col-end-6 row-start-2 row-end-6 flex flex-col justify-items-center overflow-scroll text-center" ])
-      [ D.h2 (pure $ D.Class := headerCls) [ text_ "Choose a ride" ]
+sandbox = D.div (oneOf [ pure $ D.Class := "h-screen w-screen bg-zinc-900 absolute" ])
+  [ D.div (oneOf [ pure $ D.Class := "text-center" ])
+      [ D.h2 (klass_ (headerCls <> " p-6")) [ text_ "Settings" ]
       , D.div (oneOf [])
           [ D.ul (pure $ D.Class := "")
-              ( [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 ] <#> \id ->
-                  D.li_
-                    [ D.button
-                        ( oneOf
-                            [ pure $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
-                            , DL.click (pure (pure unit :: Effect Unit))
-                            ]
-                        )
-                        [ text_ (power (show id) 10) ]
-                    ]
-              )
+              [ D.li (klass_ "p-3")
+                  [ D.h1 (klass_ header2Cls) [ text_ "Lateral speed" ]
+                  , D.div (klass_ "flex flex-row p-3")
+                      [ D.span (klass_ "text-white") [ text_ "🐢" ]
+                      , D.input
+                          ( oneOf
+                              [ slider $ pure (\_ -> pure unit)
+                              , klass_ "appearance-none grow h-6 p-0 bg-transparent focus:outline-none focus:ring-0 focus:shadow-none"
+                              ]
+                          )
+                          []
+                      , D.span (klass_ "text-white") [ text_ "🐇" ]
+                      ]
+                  ]
+              ]
 
           ]
       ]
