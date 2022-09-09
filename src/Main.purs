@@ -27,7 +27,7 @@ import Effect (Effect)
 import Effect.Aff (Aff, Milliseconds, ParAff, forkAff, joinFiber, launchAff_, never)
 import Effect.Class (liftEffect)
 import Effect.Class.Console as Log
-import Effect.Console (logShow)
+import Effect.Console (log, logShow)
 import Effect.Random as Random
 import Effect.Ref (new)
 import Effect.Ref as Ref
@@ -77,7 +77,8 @@ import Types (AppFSM(..), BufferName(..), Channel(..), ChannelChooser(..), CubeT
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
 import Web.HTML (window)
-import Web.HTML.Window (innerHeight, innerWidth, localStorage, toEventTarget)
+import Web.HTML.Location (hash)
+import Web.HTML.Window (innerHeight, innerWidth, localStorage, location, toEventTarget)
 import Web.Storage.Storage as LS
 
 twoPi = 2.0 * pi :: Number
@@ -686,6 +687,46 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
             ----- BEGIN ROUTING
             routeE <- liftEffect $ create
             _ <- liftEffect $ matchesWith (parse route) (curry routeE.push)
+            let
+              routyMcRouteRoute (fsm /\ old /\ new) = do
+                logShow { fsm, old, new }
+                let
+                  channelProp x y = launchAff_ $ do
+                    proposedChannel' <- do
+                      track <- getTrackAff firestoreDb y
+                      pure $ maybe NoChannel (RideChannel x y) track
+                    liftEffect $ channelEvent.push proposedChannel'
+                let
+                  saneStart = case new of
+                    Home -> channelEvent.push NoChannel
+                    Session x y -> channelProp x y
+                    Tutorial -> channelEvent.push TutorialChannel
+                    Editor -> channelEvent.push EditorChannel
+                    TakeThisRide id -> do
+                      cid <- randId' 6
+                      launchAff_ do
+                        track <- getTrackAff firestoreDb id
+                        liftEffect $ case track of
+                          Just track' -> channelEvent.push (RideChannel cid id track')
+                          -- todo: better result
+                          Nothing -> navigateToHash ""
+                    TakeRide -> launchAff_ do
+                      rides <- map (nubBy (compare `on` _.id) <<< join) $ parSequence
+                        [ getPublicTracksAff firestoreDb
+                        , guard fsm.signedInNonAnon (getTracksAff fbAuth firestoreDb)
+                        , guard fsm.signedInNonAnon (getWhitelistedTracksAff fbAuth firestoreDb)
+                        ]
+                      liftEffect $ negotiation.push (ChooseRide rides)
+                    OrientationPermissionWithoutRideRequest -> negotiation.push (NeedsOrientation Nothing)
+                    OrientationPermissionWithRideRequest x y -> negotiation.push (NeedsOrientation (Just { ride: x, track: y }))
+                case fsm.state of
+                  FSMStartWithSuccessfulOrientationPermission -> saneStart
+                  FSMAppCannotStartDueToLackOfOrientationPermission -> negotiation.push WillNotWorkWithoutOrientation
+                  FSMStarting -> do
+                    if hop then case new of
+                      Session x y -> navigateToHash (orientationPermissionPath <> "/" <> x <> "/" <> y)
+                      _ -> navigateToHash orientationPermissionPath
+                    else saneStart
             _ <- liftEffect $ subscribe
               -- sometimes the fsm will change but the route won't
               -- to prevent this, we filter out all duplicate routes
@@ -704,45 +745,17 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                       { state: FSMStarting, signedInNonAnon: false }
                   )
               )
-              \(fsm /\ old /\ new) -> do
-                logShow {fsm, old, new}
-                let
-                  channelProp x y = launchAff_ $ do
-                    proposedChannel' <- do
-                      track <- getTrackAff firestoreDb y
-                      pure $ maybe NoChannel (RideChannel x y) track
-                    liftEffect $ channelEvent.push proposedChannel'
-                let
-                  saneStart = case new of
-                    Home -> channelEvent.push NoChannel
-                    Session x y -> channelProp x y
-                    Tutorial -> channelEvent.push TutorialChannel
-                    Editor -> channelEvent.push EditorChannel
-                    TakeThisRide id -> do
-                          cid <- randId' 6
-                          launchAff_ do
-                            track <- getTrackAff firestoreDb id
-                            liftEffect $ case track of
-                              Just track' -> channelEvent.push (RideChannel cid id track')
-                              -- todo: better result
-                              Nothing -> navigateToHash ""
-                    TakeRide -> launchAff_ do
-                      rides <- map (nubBy (compare `on` _.id) <<< join) $ parSequence
-                        [ getPublicTracksAff firestoreDb
-                        , guard fsm.signedInNonAnon (getTracksAff fbAuth firestoreDb)
-                        , guard fsm.signedInNonAnon (getWhitelistedTracksAff fbAuth firestoreDb)
-                        ]
-                      liftEffect $ negotiation.push (ChooseRide rides)
-                    OrientationPermissionWithoutRideRequest -> negotiation.push (NeedsOrientation Nothing)
-                    OrientationPermissionWithRideRequest x y -> negotiation.push (NeedsOrientation (Just { ride: x, track: y }))
-                case fsm.state of
-                  FSMStartWithSuccessfulOrientationPermission -> saneStart
-                  FSMAppCannotStartDueToLackOfOrientationPermission -> negotiation.push WillNotWorkWithoutOrientation
-                  FSMStarting -> do
-                    if hop then case new of
-                      Session x y -> navigateToHash (orientationPermissionPath <> "/" <> x <> "/" <> y)
-                      _ -> navigateToHash orientationPermissionPath
-                    else saneStart
+              (routyMcRouteRoute)
+            liftEffect do
+              initialHash <- window >>= location >>= hash
+              case (parse route initialHash) of
+                Left e -> do
+                  logShow { msg: "malformed initial path", e }
+                  routeE.push (Nothing /\ Home)
+                Right h -> do
+                  log $ "initial route " <> show h
+                  routeE.push (Nothing /\ h)
+              pure unit
             pure unit
 
 defaultInFlightGameInfo :: InFlightGameInfo'
