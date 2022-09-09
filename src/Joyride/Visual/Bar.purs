@@ -3,11 +3,12 @@ module Joyride.Visual.Bar where
 import Prelude
 
 import Control.Alt ((<|>))
-import Control.Plus (empty)
 import Data.Foldable (oneOf)
+import Data.Newtype (wrap)
+import Data.Variant (inj)
 import FRP.Behavior (Behavior, sampleBy)
 import FRP.Event (Event)
-import Joyride.Constants.Visual (bar1Color, bar2Color, bar3Color, bar4Color, barXWidth, barYThickness, barZThickness)
+import Joyride.Constants.Visual (bar1Color, bar2Color, bar3Color, bar4Color)
 import Joyride.Debug (debugX)
 import Joyride.FRP.Schedule (fireAndForget)
 import Rito.Color (Color, RGB)
@@ -16,6 +17,7 @@ import Rito.Geometries.Box (box)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.Mesh (mesh)
 import Rito.Properties (positionX, positionY, positionZ, scaleX, scaleY, scaleZ)
+import Type.Proxy (Proxy(..))
 import Types (Position(..), RateInfo, RenderingInfo, ThreeDI, touchPointZ)
 
 makeBar
@@ -30,19 +32,24 @@ makeBar
      , rateE :: Event RateInfo
      }
   -> ASceneful lock payload
-makeBar { c3, threeDI, renderingInfo, position, debug, rateE } = toScene $ mesh { mesh: threeDI.mesh } (box { box: threeDI.boxGeometry })
+makeBar { c3, threeDI, renderingInfo, isMe, position, debug, rateE } = toScene $ mesh { mesh: threeDI.mesh } (box { box: threeDI.boxGeometry })
   ( meshStandardMaterial
       { meshStandardMaterial: threeDI.meshStandardMaterial
       , color: makeColor position
-      } empty
+      }
+      ( oneOf
+          [ isMe <#> \i -> (wrap $ inj (Proxy :: _ "roughness") if i then 0.0 else 1.0)
+          , isMe <#> \i -> (wrap $ inj (Proxy :: _ "metalness") if i then 1.0 else 0.0)
+          ]
+      )
   )
   ( oneOf
       [ pure (positionX 0.0)
       , pure (positionY 0.0)
       , sampleBy (\ri _ -> positionZ (touchPointZ ri position)) renderingInfo (debugX debug rateE)
-      , initializeWith scaleX barXWidth
-      , initializeWith scaleY barYThickness
-      , initializeWith scaleZ barZThickness
+      , initializeWith scaleX 10.0
+      , initializeWith scaleY 0.02
+      , initializeWith scaleZ 0.03
       ]
   )
   where
