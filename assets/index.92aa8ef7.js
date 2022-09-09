@@ -28469,7 +28469,7 @@ const __vitePreload = function preload(baseModule, deps, importerUrl) {
   })).then(() => baseModule());
 };
 const firebaseAuth = (app) => () => __vitePreload(() => import("./index.esm.6070e7ab.js"), true ? ["assets/index.esm.6070e7ab.js","assets/index.esm2017.ce458832.js"] : void 0).then(
-  ({ getAuth }) => getAuth({ "BASE_URL": "/", "MODE": "production", "DEV": false, "PROD": true }.NODE_ENV === "production" ? app : void 0)
+  ({ getAuth }) => getAuth({ "BASE_URL": "/", "MODE": "production", "DEV": false, "PROD": true }.BUILD_TYPE === "production" ? app : void 0)
 );
 const initializeGoogleClient = (auth) => (success) => () => {
   window.google.accounts.id.initialize({
@@ -28638,7 +28638,7 @@ const authStateChangedEventWithAnonymousAccountCreation = (auth) => backdoor.mak
 });
 const firestoreDb = (app) => () => __vitePreload(() => import("./index.esm.b3ac2dde.js"), true ? ["assets/index.esm.b3ac2dde.js","assets/index.esm2017.ce458832.js"] : void 0).then(({ getFirestore }) => {
   return getFirestore(
-    { "BASE_URL": "/", "MODE": "production", "DEV": false, "PROD": true }.NODE_ENV === "production" ? app : void 0
+    { "BASE_URL": "/", "MODE": "production", "DEV": false, "PROD": true }.BUILD_TYPE === "production" ? app : void 0
   );
 });
 const RIDES = "rides";
@@ -46528,7 +46528,7 @@ function v4(options, buf, offset) {
   }
   return stringify(rnds);
 }
-const _PubNub = () => __vitePreload(() => import("./pubnub.min.5a9e88b3.js").then((n2) => n2.p), true ? [] : void 0);
+const _PubNub = () => __vitePreload(() => import("./pubnub.min.61aa5ff8.js").then((n2) => n2.p), true ? [] : void 0);
 const pubnub_ = (PubNub) => (channel) => (listener) => {
   return function() {
     var publisher = v4();
@@ -47326,7 +47326,7 @@ const force4 = () => {
   return { "BASE_URL": "/", "MODE": "production", "DEV": false, "PROD": true }.FORCE_4 === "true";
 };
 const useFirebaseEmulatorInDevMode = (db) => (auth) => () => {
-  if ({ "BASE_URL": "/", "MODE": "production", "DEV": false, "PROD": true }.NODE_ENV !== "production") {
+  if ({ "BASE_URL": "/", "MODE": "production", "DEV": false, "PROD": true }.BUILD_TYPE !== "production") {
     return __vitePreload(() => import("./index.esm.b3ac2dde.js"), true ? ["assets/index.esm.b3ac2dde.js","assets/index.esm2017.ce458832.js"] : void 0).then(({ connectFirestoreEmulator }) => {
       connectFirestoreEmulator(db, "localhost", 8080);
       return __vitePreload(() => import("./index.esm.6070e7ab.js"), true ? ["assets/index.esm.6070e7ab.js","assets/index.esm2017.ce458832.js"] : void 0).then(({ connectAuthEmulator }) => {
