@@ -13,13 +13,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-const CONSTANTS = {
-  NODE_CLIENT: false,
-  NODE_ADMIN: false,
-  SDK_VERSION: "${JSCORE_VERSION}"
-};
-/**
+ */const X={NODE_CLIENT:!1,NODE_ADMIN:!1,SDK_VERSION:"${JSCORE_VERSION}"};/**
  * @license
  * Copyright 2017 Google LLC
  *
@@ -34,16 +28,7 @@ const CONSTANTS = {
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-const assert = function(assertion, message) {
-  if (!assertion) {
-    throw assertionError(message);
-  }
-};
-const assertionError = function(message) {
-  return new Error("Firebase Database (" + CONSTANTS.SDK_VERSION + ") INTERNAL ASSERT FAILED: " + message);
-};
-/**
+ */const ce=function(t,e){if(!t)throw he(e)},he=function(t){return new Error("Firebase Database ("+X.SDK_VERSION+") INTERNAL ASSERT FAILED: "+t)};/**
  * @license
  * Copyright 2017 Google LLC
  *
@@ -58,174 +43,7 @@ const assertionError = function(message) {
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-const stringToByteArray$1 = function(str) {
-  const out = [];
-  let p = 0;
-  for (let i = 0; i < str.length; i++) {
-    let c = str.charCodeAt(i);
-    if (c < 128) {
-      out[p++] = c;
-    } else if (c < 2048) {
-      out[p++] = c >> 6 | 192;
-      out[p++] = c & 63 | 128;
-    } else if ((c & 64512) === 55296 && i + 1 < str.length && (str.charCodeAt(i + 1) & 64512) === 56320) {
-      c = 65536 + ((c & 1023) << 10) + (str.charCodeAt(++i) & 1023);
-      out[p++] = c >> 18 | 240;
-      out[p++] = c >> 12 & 63 | 128;
-      out[p++] = c >> 6 & 63 | 128;
-      out[p++] = c & 63 | 128;
-    } else {
-      out[p++] = c >> 12 | 224;
-      out[p++] = c >> 6 & 63 | 128;
-      out[p++] = c & 63 | 128;
-    }
-  }
-  return out;
-};
-const byteArrayToString = function(bytes) {
-  const out = [];
-  let pos = 0, c = 0;
-  while (pos < bytes.length) {
-    const c1 = bytes[pos++];
-    if (c1 < 128) {
-      out[c++] = String.fromCharCode(c1);
-    } else if (c1 > 191 && c1 < 224) {
-      const c2 = bytes[pos++];
-      out[c++] = String.fromCharCode((c1 & 31) << 6 | c2 & 63);
-    } else if (c1 > 239 && c1 < 365) {
-      const c2 = bytes[pos++];
-      const c3 = bytes[pos++];
-      const c4 = bytes[pos++];
-      const u = ((c1 & 7) << 18 | (c2 & 63) << 12 | (c3 & 63) << 6 | c4 & 63) - 65536;
-      out[c++] = String.fromCharCode(55296 + (u >> 10));
-      out[c++] = String.fromCharCode(56320 + (u & 1023));
-    } else {
-      const c2 = bytes[pos++];
-      const c3 = bytes[pos++];
-      out[c++] = String.fromCharCode((c1 & 15) << 12 | (c2 & 63) << 6 | c3 & 63);
-    }
-  }
-  return out.join("");
-};
-const base64 = {
-  byteToCharMap_: null,
-  charToByteMap_: null,
-  byteToCharMapWebSafe_: null,
-  charToByteMapWebSafe_: null,
-  ENCODED_VALS_BASE: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",
-  get ENCODED_VALS() {
-    return this.ENCODED_VALS_BASE + "+/=";
-  },
-  get ENCODED_VALS_WEBSAFE() {
-    return this.ENCODED_VALS_BASE + "-_.";
-  },
-  HAS_NATIVE_SUPPORT: typeof atob === "function",
-  encodeByteArray(input, webSafe) {
-    if (!Array.isArray(input)) {
-      throw Error("encodeByteArray takes an array as a parameter");
-    }
-    this.init_();
-    const byteToCharMap = webSafe ? this.byteToCharMapWebSafe_ : this.byteToCharMap_;
-    const output = [];
-    for (let i = 0; i < input.length; i += 3) {
-      const byte1 = input[i];
-      const haveByte2 = i + 1 < input.length;
-      const byte2 = haveByte2 ? input[i + 1] : 0;
-      const haveByte3 = i + 2 < input.length;
-      const byte3 = haveByte3 ? input[i + 2] : 0;
-      const outByte1 = byte1 >> 2;
-      const outByte2 = (byte1 & 3) << 4 | byte2 >> 4;
-      let outByte3 = (byte2 & 15) << 2 | byte3 >> 6;
-      let outByte4 = byte3 & 63;
-      if (!haveByte3) {
-        outByte4 = 64;
-        if (!haveByte2) {
-          outByte3 = 64;
-        }
-      }
-      output.push(byteToCharMap[outByte1], byteToCharMap[outByte2], byteToCharMap[outByte3], byteToCharMap[outByte4]);
-    }
-    return output.join("");
-  },
-  encodeString(input, webSafe) {
-    if (this.HAS_NATIVE_SUPPORT && !webSafe) {
-      return btoa(input);
-    }
-    return this.encodeByteArray(stringToByteArray$1(input), webSafe);
-  },
-  decodeString(input, webSafe) {
-    if (this.HAS_NATIVE_SUPPORT && !webSafe) {
-      return atob(input);
-    }
-    return byteArrayToString(this.decodeStringToByteArray(input, webSafe));
-  },
-  decodeStringToByteArray(input, webSafe) {
-    this.init_();
-    const charToByteMap = webSafe ? this.charToByteMapWebSafe_ : this.charToByteMap_;
-    const output = [];
-    for (let i = 0; i < input.length; ) {
-      const byte1 = charToByteMap[input.charAt(i++)];
-      const haveByte2 = i < input.length;
-      const byte2 = haveByte2 ? charToByteMap[input.charAt(i)] : 0;
-      ++i;
-      const haveByte3 = i < input.length;
-      const byte3 = haveByte3 ? charToByteMap[input.charAt(i)] : 64;
-      ++i;
-      const haveByte4 = i < input.length;
-      const byte4 = haveByte4 ? charToByteMap[input.charAt(i)] : 64;
-      ++i;
-      if (byte1 == null || byte2 == null || byte3 == null || byte4 == null) {
-        throw Error();
-      }
-      const outByte1 = byte1 << 2 | byte2 >> 4;
-      output.push(outByte1);
-      if (byte3 !== 64) {
-        const outByte2 = byte2 << 4 & 240 | byte3 >> 2;
-        output.push(outByte2);
-        if (byte4 !== 64) {
-          const outByte3 = byte3 << 6 & 192 | byte4;
-          output.push(outByte3);
-        }
-      }
-    }
-    return output;
-  },
-  init_() {
-    if (!this.byteToCharMap_) {
-      this.byteToCharMap_ = {};
-      this.charToByteMap_ = {};
-      this.byteToCharMapWebSafe_ = {};
-      this.charToByteMapWebSafe_ = {};
-      for (let i = 0; i < this.ENCODED_VALS.length; i++) {
-        this.byteToCharMap_[i] = this.ENCODED_VALS.charAt(i);
-        this.charToByteMap_[this.byteToCharMap_[i]] = i;
-        this.byteToCharMapWebSafe_[i] = this.ENCODED_VALS_WEBSAFE.charAt(i);
-        this.charToByteMapWebSafe_[this.byteToCharMapWebSafe_[i]] = i;
-        if (i >= this.ENCODED_VALS_BASE.length) {
-          this.charToByteMap_[this.ENCODED_VALS_WEBSAFE.charAt(i)] = i;
-          this.charToByteMapWebSafe_[this.ENCODED_VALS.charAt(i)] = i;
-        }
-      }
-    }
-  }
-};
-const base64Encode = function(str) {
-  const utf8Bytes = stringToByteArray$1(str);
-  return base64.encodeByteArray(utf8Bytes, true);
-};
-const base64urlEncodeWithoutPadding = function(str) {
-  return base64Encode(str).replace(/\./g, "");
-};
-const base64Decode = function(str) {
-  try {
-    return base64.decodeString(str, true);
-  } catch (e) {
-    console.error("base64Decode failed: ", e);
-  }
-  return null;
-};
-/**
+ */const q=function(t){const e=[];let n=0;for(let s=0;s<t.length;s++){let r=t.charCodeAt(s);r<128?e[n++]=r:r<2048?(e[n++]=r>>6|192,e[n++]=r&63|128):(r&64512)===55296&&s+1<t.length&&(t.charCodeAt(s+1)&64512)===56320?(r=65536+((r&1023)<<10)+(t.charCodeAt(++s)&1023),e[n++]=r>>18|240,e[n++]=r>>12&63|128,e[n++]=r>>6&63|128,e[n++]=r&63|128):(e[n++]=r>>12|224,e[n++]=r>>6&63|128,e[n++]=r&63|128)}return e},fe=function(t){const e=[];let n=0,s=0;for(;n<t.length;){const r=t[n++];if(r<128)e[s++]=String.fromCharCode(r);else if(r>191&&r<224){const i=t[n++];e[s++]=String.fromCharCode((r&31)<<6|i&63)}else if(r>239&&r<365){const i=t[n++],a=t[n++],o=t[n++],c=((r&7)<<18|(i&63)<<12|(a&63)<<6|o&63)-65536;e[s++]=String.fromCharCode(55296+(c>>10)),e[s++]=String.fromCharCode(56320+(c&1023))}else{const i=t[n++],a=t[n++];e[s++]=String.fromCharCode((r&15)<<12|(i&63)<<6|a&63)}}return e.join("")},Q={byteToCharMap_:null,charToByteMap_:null,byteToCharMapWebSafe_:null,charToByteMapWebSafe_:null,ENCODED_VALS_BASE:"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",get ENCODED_VALS(){return this.ENCODED_VALS_BASE+"+/="},get ENCODED_VALS_WEBSAFE(){return this.ENCODED_VALS_BASE+"-_."},HAS_NATIVE_SUPPORT:typeof atob=="function",encodeByteArray(t,e){if(!Array.isArray(t))throw Error("encodeByteArray takes an array as a parameter");this.init_();const n=e?this.byteToCharMapWebSafe_:this.byteToCharMap_,s=[];for(let r=0;r<t.length;r+=3){const i=t[r],a=r+1<t.length,o=a?t[r+1]:0,c=r+2<t.length,l=c?t[r+2]:0,u=i>>2,h=(i&3)<<4|o>>4;let d=(o&15)<<2|l>>6,v=l&63;c||(v=64,a||(d=64)),s.push(n[u],n[h],n[d],n[v])}return s.join("")},encodeString(t,e){return this.HAS_NATIVE_SUPPORT&&!e?btoa(t):this.encodeByteArray(q(t),e)},decodeString(t,e){return this.HAS_NATIVE_SUPPORT&&!e?atob(t):fe(this.decodeStringToByteArray(t,e))},decodeStringToByteArray(t,e){this.init_();const n=e?this.charToByteMapWebSafe_:this.charToByteMap_,s=[];for(let r=0;r<t.length;){const i=n[t.charAt(r++)],o=r<t.length?n[t.charAt(r)]:0;++r;const l=r<t.length?n[t.charAt(r)]:64;++r;const h=r<t.length?n[t.charAt(r)]:64;if(++r,i==null||o==null||l==null||h==null)throw Error();const d=i<<2|o>>4;if(s.push(d),l!==64){const v=o<<4&240|l>>2;if(s.push(v),h!==64){const oe=l<<6&192|h;s.push(oe)}}}return s},init_(){if(!this.byteToCharMap_){this.byteToCharMap_={},this.charToByteMap_={},this.byteToCharMapWebSafe_={},this.charToByteMapWebSafe_={};for(let t=0;t<this.ENCODED_VALS.length;t++)this.byteToCharMap_[t]=this.ENCODED_VALS.charAt(t),this.charToByteMap_[this.byteToCharMap_[t]]=t,this.byteToCharMapWebSafe_[t]=this.ENCODED_VALS_WEBSAFE.charAt(t),this.charToByteMapWebSafe_[this.byteToCharMapWebSafe_[t]]=t,t>=this.ENCODED_VALS_BASE.length&&(this.charToByteMap_[this.ENCODED_VALS_WEBSAFE.charAt(t)]=t,this.charToByteMapWebSafe_[this.ENCODED_VALS.charAt(t)]=t)}}},le=function(t){const e=q(t);return Q.encodeByteArray(e,!0)},I=function(t){return le(t).replace(/\./g,"")},j=function(t){try{return Q.decodeString(t,!0)}catch(e){console.error("base64Decode failed: ",e)}return null};/**
  * @license
  * Copyright 2017 Google LLC
  *
@@ -240,41 +58,7 @@ const base64Decode = function(str) {
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-function deepCopy(value) {
-  return deepExtend(void 0, value);
-}
-function deepExtend(target, source) {
-  if (!(source instanceof Object)) {
-    return source;
-  }
-  switch (source.constructor) {
-    case Date:
-      const dateValue = source;
-      return new Date(dateValue.getTime());
-    case Object:
-      if (target === void 0) {
-        target = {};
-      }
-      break;
-    case Array:
-      target = [];
-      break;
-    default:
-      return source;
-  }
-  for (const prop in source) {
-    if (!source.hasOwnProperty(prop) || !isValidKey(prop)) {
-      continue;
-    }
-    target[prop] = deepExtend(target[prop], source[prop]);
-  }
-  return target;
-}
-function isValidKey(key) {
-  return key !== "__proto__";
-}
-/**
+ */function xt(t){return Z(void 0,t)}function Z(t,e){if(!(e instanceof Object))return e;switch(e.constructor){case Date:const n=e;return new Date(n.getTime());case Object:t===void 0&&(t={});break;case Array:t=[];break;default:return e}for(const n in e)!e.hasOwnProperty(n)||!de(n)||(t[n]=Z(t[n],e[n]));return t}function de(t){return t!=="__proto__"}/**
  * @license
  * Copyright 2017 Google LLC
  *
@@ -289,38 +73,7 @@ function isValidKey(key) {
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-class Deferred {
-  constructor() {
-    this.reject = () => {
-    };
-    this.resolve = () => {
-    };
-    this.promise = new Promise((resolve, reject) => {
-      this.resolve = resolve;
-      this.reject = reject;
-    });
-  }
-  wrapCallback(callback) {
-    return (error, value) => {
-      if (error) {
-        this.reject(error);
-      } else {
-        this.resolve(value);
-      }
-      if (typeof callback === "function") {
-        this.promise.catch(() => {
-        });
-        if (callback.length === 1) {
-          callback(error);
-        } else {
-          callback(error, value);
-        }
-      }
-    };
-  }
-}
-/**
+ */class ue{constructor(){this.reject=()=>{},this.resolve=()=>{},this.promise=new Promise((e,n)=>{this.resolve=e,this.reject=n})}wrapCallback(e){return(n,s)=>{n?this.reject(n):this.resolve(s),typeof e=="function"&&(this.promise.catch(()=>{}),e.length===1?e(n):e(n,s))}}}/**
  * @license
  * Copyright 2021 Google LLC
  *
@@ -335,42 +88,7 @@ class Deferred {
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-function createMockUserToken(token, projectId) {
-  if (token.uid) {
-    throw new Error('The "uid" field is no longer supported by mockUserToken. Please use "sub" instead for Firebase Auth User ID.');
-  }
-  const header = {
-    alg: "none",
-    type: "JWT"
-  };
-  const project = projectId || "demo-project";
-  const iat = token.iat || 0;
-  const sub = token.sub || token.user_id;
-  if (!sub) {
-    throw new Error("mockUserToken must contain 'sub' or 'user_id' field!");
-  }
-  const payload = Object.assign({
-    iss: `https://securetoken.google.com/${project}`,
-    aud: project,
-    iat,
-    exp: iat + 3600,
-    auth_time: iat,
-    sub,
-    user_id: sub,
-    firebase: {
-      sign_in_provider: "custom",
-      identities: {}
-    }
-  }, token);
-  const signature = "";
-  return [
-    base64urlEncodeWithoutPadding(JSON.stringify(header)),
-    base64urlEncodeWithoutPadding(JSON.stringify(payload)),
-    signature
-  ].join(".");
-}
-/**
+ */function Nt(t,e){if(t.uid)throw new Error('The "uid" field is no longer supported by mockUserToken. Please use "sub" instead for Firebase Auth User ID.');const n={alg:"none",type:"JWT"},s=e||"demo-project",r=t.iat||0,i=t.sub||t.user_id;if(!i)throw new Error("mockUserToken must contain 'sub' or 'user_id' field!");const a=Object.assign({iss:`https://securetoken.google.com/${s}`,aud:s,iat:r,exp:r+3600,auth_time:r,sub:i,user_id:i,firebase:{sign_in_provider:"custom",identities:{}}},t),o="";return[I(JSON.stringify(n)),I(JSON.stringify(a)),o].join(".")}/**
  * @license
  * Copyright 2017 Google LLC
  *
@@ -385,76 +103,7 @@ function createMockUserToken(token, projectId) {
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-function getUA() {
-  if (typeof navigator !== "undefined" && typeof navigator["userAgent"] === "string") {
-    return navigator["userAgent"];
-  } else {
-    return "";
-  }
-}
-function isMobileCordova() {
-  return typeof window !== "undefined" && !!(window["cordova"] || window["phonegap"] || window["PhoneGap"]) && /ios|iphone|ipod|ipad|android|blackberry|iemobile/i.test(getUA());
-}
-function isNode() {
-  try {
-    return Object.prototype.toString.call(global.process) === "[object process]";
-  } catch (e) {
-    return false;
-  }
-}
-function isBrowserExtension() {
-  const runtime = typeof chrome === "object" ? chrome.runtime : typeof browser === "object" ? browser.runtime : void 0;
-  return typeof runtime === "object" && runtime.id !== void 0;
-}
-function isReactNative() {
-  return typeof navigator === "object" && navigator["product"] === "ReactNative";
-}
-function isElectron() {
-  return getUA().indexOf("Electron/") >= 0;
-}
-function isIE() {
-  const ua = getUA();
-  return ua.indexOf("MSIE ") >= 0 || ua.indexOf("Trident/") >= 0;
-}
-function isUWP() {
-  return getUA().indexOf("MSAppHost/") >= 0;
-}
-function isNodeSdk() {
-  return CONSTANTS.NODE_ADMIN === true;
-}
-function isSafari() {
-  return !isNode() && navigator.userAgent.includes("Safari") && !navigator.userAgent.includes("Chrome");
-}
-function isIndexedDBAvailable() {
-  return typeof indexedDB === "object";
-}
-function validateIndexedDBOpenable() {
-  return new Promise((resolve, reject) => {
-    try {
-      let preExist = true;
-      const DB_CHECK_NAME = "validate-browser-context-for-indexeddb-analytics-module";
-      const request = self.indexedDB.open(DB_CHECK_NAME);
-      request.onsuccess = () => {
-        request.result.close();
-        if (!preExist) {
-          self.indexedDB.deleteDatabase(DB_CHECK_NAME);
-        }
-        resolve(true);
-      };
-      request.onupgradeneeded = () => {
-        preExist = false;
-      };
-      request.onerror = () => {
-        var _a;
-        reject(((_a = request.error) === null || _a === void 0 ? void 0 : _a.message) || "");
-      };
-    } catch (error) {
-      reject(error);
-    }
-  });
-}
-/**
+ */function D(){return typeof navigator<"u"&&typeof navigator.userAgent=="string"?navigator.userAgent:""}function Tt(){return typeof window<"u"&&!!(window.cordova||window.phonegap||window.PhoneGap)&&/ios|iphone|ipod|ipad|android|blackberry|iemobile/i.test(D())}function pe(){try{return Object.prototype.toString.call(global.process)==="[object process]"}catch{return!1}}function Mt(){const t=typeof chrome=="object"?chrome.runtime:typeof browser=="object"?browser.runtime:void 0;return typeof t=="object"&&t.id!==void 0}function Rt(){return typeof navigator=="object"&&navigator.product==="ReactNative"}function $t(){return D().indexOf("Electron/")>=0}function Lt(){const t=D();return t.indexOf("MSIE ")>=0||t.indexOf("Trident/")>=0}function Pt(){return D().indexOf("MSAppHost/")>=0}function Ht(){return X.NODE_ADMIN===!0}function kt(){return!pe()&&navigator.userAgent.includes("Safari")&&!navigator.userAgent.includes("Chrome")}function me(){return typeof indexedDB=="object"}function be(){return new Promise((t,e)=>{try{let n=!0;const s="validate-browser-context-for-indexeddb-analytics-module",r=self.indexedDB.open(s);r.onsuccess=()=>{r.result.close(),n||self.indexedDB.deleteDatabase(s),t(!0)},r.onupgradeneeded=()=>{n=!1},r.onerror=()=>{var i;e(((i=r.error)===null||i===void 0?void 0:i.message)||"")}}catch(n){e(n)}})}/**
  * @license
  * Copyright 2017 Google LLC
  *
@@ -469,44 +118,7 @@ function validateIndexedDBOpenable() {
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-const ERROR_NAME = "FirebaseError";
-class FirebaseError extends Error {
-  constructor(code, message, customData) {
-    super(message);
-    this.code = code;
-    this.customData = customData;
-    this.name = ERROR_NAME;
-    Object.setPrototypeOf(this, FirebaseError.prototype);
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, ErrorFactory.prototype.create);
-    }
-  }
-}
-class ErrorFactory {
-  constructor(service, serviceName, errors) {
-    this.service = service;
-    this.serviceName = serviceName;
-    this.errors = errors;
-  }
-  create(code, ...data) {
-    const customData = data[0] || {};
-    const fullCode = `${this.service}/${code}`;
-    const template = this.errors[code];
-    const message = template ? replaceTemplate(template, customData) : "Error";
-    const fullMessage = `${this.serviceName}: ${message} (${fullCode}).`;
-    const error = new FirebaseError(fullCode, fullMessage, customData);
-    return error;
-  }
-}
-function replaceTemplate(template, data) {
-  return template.replace(PATTERN, (_, key) => {
-    const value = data[key];
-    return value != null ? String(value) : `<${key}?>`;
-  });
-}
-const PATTERN = /\{\$([^}]+)}/g;
-/**
+ */const ge="FirebaseError";class E extends Error{constructor(e,n,s){super(n),this.code=e,this.customData=s,this.name=ge,Object.setPrototypeOf(this,E.prototype),Error.captureStackTrace&&Error.captureStackTrace(this,ee.prototype.create)}}class ee{constructor(e,n,s){this.service=e,this.serviceName=n,this.errors=s}create(e,...n){const s=n[0]||{},r=`${this.service}/${e}`,i=this.errors[e],a=i?_e(i,s):"Error",o=`${this.serviceName}: ${a} (${r}).`;return new E(r,o,s)}}function _e(t,e){return t.replace(ye,(n,s)=>{const r=e[s];return r!=null?String(r):`<${s}?>`})}const ye=/\{\$([^}]+)}/g;/**
  * @license
  * Copyright 2017 Google LLC
  *
@@ -521,14 +133,7 @@ const PATTERN = /\{\$([^}]+)}/g;
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-function jsonEval(str) {
-  return JSON.parse(str);
-}
-function stringify(data) {
-  return JSON.stringify(data);
-}
-/**
+ */function z(t){return JSON.parse(t)}function jt(t){return JSON.stringify(t)}/**
  * @license
  * Copyright 2017 Google LLC
  *
@@ -543,34 +148,7 @@ function stringify(data) {
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-const decode = function(token) {
-  let header = {}, claims = {}, data = {}, signature = "";
-  try {
-    const parts = token.split(".");
-    header = jsonEval(base64Decode(parts[0]) || "");
-    claims = jsonEval(base64Decode(parts[1]) || "");
-    signature = parts[2];
-    data = claims["d"] || {};
-    delete claims["d"];
-  } catch (e) {
-  }
-  return {
-    header,
-    claims,
-    data,
-    signature
-  };
-};
-const isValidFormat = function(token) {
-  const decoded = decode(token), claims = decoded.claims;
-  return !!claims && typeof claims === "object" && claims.hasOwnProperty("iat");
-};
-const isAdmin = function(token) {
-  const claims = decode(token).claims;
-  return typeof claims === "object" && claims["admin"] === true;
-};
-/**
+ */const te=function(t){let e={},n={},s={},r="";try{const i=t.split(".");e=z(j(i[0])||""),n=z(j(i[1])||""),r=i[2],s=n.d||{},delete n.d}catch{}return{header:e,claims:n,data:s,signature:r}},zt=function(t){const e=te(t),n=e.claims;return!!n&&typeof n=="object"&&n.hasOwnProperty("iat")},Ft=function(t){const e=te(t).claims;return typeof e=="object"&&e.admin===!0};/**
  * @license
  * Copyright 2017 Google LLC
  *
@@ -585,65 +163,7 @@ const isAdmin = function(token) {
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-function contains(obj, key) {
-  return Object.prototype.hasOwnProperty.call(obj, key);
-}
-function safeGet(obj, key) {
-  if (Object.prototype.hasOwnProperty.call(obj, key)) {
-    return obj[key];
-  } else {
-    return void 0;
-  }
-}
-function isEmpty(obj) {
-  for (const key in obj) {
-    if (Object.prototype.hasOwnProperty.call(obj, key)) {
-      return false;
-    }
-  }
-  return true;
-}
-function map(obj, fn, contextObj) {
-  const res = {};
-  for (const key in obj) {
-    if (Object.prototype.hasOwnProperty.call(obj, key)) {
-      res[key] = fn.call(contextObj, obj[key], key, obj);
-    }
-  }
-  return res;
-}
-function deepEqual(a, b) {
-  if (a === b) {
-    return true;
-  }
-  const aKeys = Object.keys(a);
-  const bKeys = Object.keys(b);
-  for (const k of aKeys) {
-    if (!bKeys.includes(k)) {
-      return false;
-    }
-    const aProp = a[k];
-    const bProp = b[k];
-    if (isObject(aProp) && isObject(bProp)) {
-      if (!deepEqual(aProp, bProp)) {
-        return false;
-      }
-    } else if (aProp !== bProp) {
-      return false;
-    }
-  }
-  for (const k of bKeys) {
-    if (!aKeys.includes(k)) {
-      return false;
-    }
-  }
-  return true;
-}
-function isObject(thing) {
-  return thing !== null && typeof thing === "object";
-}
-/**
+ */function Ut(t,e){return Object.prototype.hasOwnProperty.call(t,e)}function Vt(t,e){if(Object.prototype.hasOwnProperty.call(t,e))return t[e]}function Wt(t){for(const e in t)if(Object.prototype.hasOwnProperty.call(t,e))return!1;return!0}function Gt(t,e,n){const s={};for(const r in t)Object.prototype.hasOwnProperty.call(t,r)&&(s[r]=e.call(n,t[r],r,t));return s}function T(t,e){if(t===e)return!0;const n=Object.keys(t),s=Object.keys(e);for(const r of n){if(!s.includes(r))return!1;const i=t[r],a=e[r];if(F(i)&&F(a)){if(!T(i,a))return!1}else if(i!==a)return!1}for(const r of s)if(!n.includes(r))return!1;return!0}function F(t){return t!==null&&typeof t=="object"}/**
  * @license
  * Copyright 2017 Google LLC
  *
@@ -658,40 +178,7 @@ function isObject(thing) {
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-function querystring(querystringParams) {
-  const params = [];
-  for (const [key, value] of Object.entries(querystringParams)) {
-    if (Array.isArray(value)) {
-      value.forEach((arrayVal) => {
-        params.push(encodeURIComponent(key) + "=" + encodeURIComponent(arrayVal));
-      });
-    } else {
-      params.push(encodeURIComponent(key) + "=" + encodeURIComponent(value));
-    }
-  }
-  return params.length ? "&" + params.join("&") : "";
-}
-function querystringDecode(querystring2) {
-  const obj = {};
-  const tokens = querystring2.replace(/^\?/, "").split("&");
-  tokens.forEach((token) => {
-    if (token) {
-      const [key, value] = token.split("=");
-      obj[decodeURIComponent(key)] = decodeURIComponent(value);
-    }
-  });
-  return obj;
-}
-function extractQuerystring(url) {
-  const queryStart = url.indexOf("?");
-  if (!queryStart) {
-    return "";
-  }
-  const fragmentStart = url.indexOf("#", queryStart);
-  return url.substring(queryStart, fragmentStart > 0 ? fragmentStart : void 0);
-}
-/**
+ */function Kt(t){const e=[];for(const[n,s]of Object.entries(t))Array.isArray(s)?s.forEach(r=>{e.push(encodeURIComponent(n)+"="+encodeURIComponent(r))}):e.push(encodeURIComponent(n)+"="+encodeURIComponent(s));return e.length?"&"+e.join("&"):""}function Jt(t){const e={};return t.replace(/^\?/,"").split("&").forEach(s=>{if(s){const[r,i]=s.split("=");e[decodeURIComponent(r)]=decodeURIComponent(i)}}),e}function Yt(t){const e=t.indexOf("?");if(!e)return"";const n=t.indexOf("#",e);return t.substring(e,n>0?n:void 0)}/**
  * @license
  * Copyright 2017 Google LLC
  *
@@ -706,297 +193,7 @@ function extractQuerystring(url) {
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-class Sha1 {
-  constructor() {
-    this.chain_ = [];
-    this.buf_ = [];
-    this.W_ = [];
-    this.pad_ = [];
-    this.inbuf_ = 0;
-    this.total_ = 0;
-    this.blockSize = 512 / 8;
-    this.pad_[0] = 128;
-    for (let i = 1; i < this.blockSize; ++i) {
-      this.pad_[i] = 0;
-    }
-    this.reset();
-  }
-  reset() {
-    this.chain_[0] = 1732584193;
-    this.chain_[1] = 4023233417;
-    this.chain_[2] = 2562383102;
-    this.chain_[3] = 271733878;
-    this.chain_[4] = 3285377520;
-    this.inbuf_ = 0;
-    this.total_ = 0;
-  }
-  compress_(buf, offset) {
-    if (!offset) {
-      offset = 0;
-    }
-    const W = this.W_;
-    if (typeof buf === "string") {
-      for (let i = 0; i < 16; i++) {
-        W[i] = buf.charCodeAt(offset) << 24 | buf.charCodeAt(offset + 1) << 16 | buf.charCodeAt(offset + 2) << 8 | buf.charCodeAt(offset + 3);
-        offset += 4;
-      }
-    } else {
-      for (let i = 0; i < 16; i++) {
-        W[i] = buf[offset] << 24 | buf[offset + 1] << 16 | buf[offset + 2] << 8 | buf[offset + 3];
-        offset += 4;
-      }
-    }
-    for (let i = 16; i < 80; i++) {
-      const t = W[i - 3] ^ W[i - 8] ^ W[i - 14] ^ W[i - 16];
-      W[i] = (t << 1 | t >>> 31) & 4294967295;
-    }
-    let a = this.chain_[0];
-    let b = this.chain_[1];
-    let c = this.chain_[2];
-    let d = this.chain_[3];
-    let e = this.chain_[4];
-    let f, k;
-    for (let i = 0; i < 80; i++) {
-      if (i < 40) {
-        if (i < 20) {
-          f = d ^ b & (c ^ d);
-          k = 1518500249;
-        } else {
-          f = b ^ c ^ d;
-          k = 1859775393;
-        }
-      } else {
-        if (i < 60) {
-          f = b & c | d & (b | c);
-          k = 2400959708;
-        } else {
-          f = b ^ c ^ d;
-          k = 3395469782;
-        }
-      }
-      const t = (a << 5 | a >>> 27) + f + e + k + W[i] & 4294967295;
-      e = d;
-      d = c;
-      c = (b << 30 | b >>> 2) & 4294967295;
-      b = a;
-      a = t;
-    }
-    this.chain_[0] = this.chain_[0] + a & 4294967295;
-    this.chain_[1] = this.chain_[1] + b & 4294967295;
-    this.chain_[2] = this.chain_[2] + c & 4294967295;
-    this.chain_[3] = this.chain_[3] + d & 4294967295;
-    this.chain_[4] = this.chain_[4] + e & 4294967295;
-  }
-  update(bytes, length) {
-    if (bytes == null) {
-      return;
-    }
-    if (length === void 0) {
-      length = bytes.length;
-    }
-    const lengthMinusBlock = length - this.blockSize;
-    let n = 0;
-    const buf = this.buf_;
-    let inbuf = this.inbuf_;
-    while (n < length) {
-      if (inbuf === 0) {
-        while (n <= lengthMinusBlock) {
-          this.compress_(bytes, n);
-          n += this.blockSize;
-        }
-      }
-      if (typeof bytes === "string") {
-        while (n < length) {
-          buf[inbuf] = bytes.charCodeAt(n);
-          ++inbuf;
-          ++n;
-          if (inbuf === this.blockSize) {
-            this.compress_(buf);
-            inbuf = 0;
-            break;
-          }
-        }
-      } else {
-        while (n < length) {
-          buf[inbuf] = bytes[n];
-          ++inbuf;
-          ++n;
-          if (inbuf === this.blockSize) {
-            this.compress_(buf);
-            inbuf = 0;
-            break;
-          }
-        }
-      }
-    }
-    this.inbuf_ = inbuf;
-    this.total_ += length;
-  }
-  digest() {
-    const digest = [];
-    let totalBits = this.total_ * 8;
-    if (this.inbuf_ < 56) {
-      this.update(this.pad_, 56 - this.inbuf_);
-    } else {
-      this.update(this.pad_, this.blockSize - (this.inbuf_ - 56));
-    }
-    for (let i = this.blockSize - 1; i >= 56; i--) {
-      this.buf_[i] = totalBits & 255;
-      totalBits /= 256;
-    }
-    this.compress_(this.buf_);
-    let n = 0;
-    for (let i = 0; i < 5; i++) {
-      for (let j = 24; j >= 0; j -= 8) {
-        digest[n] = this.chain_[i] >> j & 255;
-        ++n;
-      }
-    }
-    return digest;
-  }
-}
-function createSubscribe(executor, onNoObservers) {
-  const proxy = new ObserverProxy(executor, onNoObservers);
-  return proxy.subscribe.bind(proxy);
-}
-class ObserverProxy {
-  constructor(executor, onNoObservers) {
-    this.observers = [];
-    this.unsubscribes = [];
-    this.observerCount = 0;
-    this.task = Promise.resolve();
-    this.finalized = false;
-    this.onNoObservers = onNoObservers;
-    this.task.then(() => {
-      executor(this);
-    }).catch((e) => {
-      this.error(e);
-    });
-  }
-  next(value) {
-    this.forEachObserver((observer) => {
-      observer.next(value);
-    });
-  }
-  error(error) {
-    this.forEachObserver((observer) => {
-      observer.error(error);
-    });
-    this.close(error);
-  }
-  complete() {
-    this.forEachObserver((observer) => {
-      observer.complete();
-    });
-    this.close();
-  }
-  subscribe(nextOrObserver, error, complete) {
-    let observer;
-    if (nextOrObserver === void 0 && error === void 0 && complete === void 0) {
-      throw new Error("Missing Observer.");
-    }
-    if (implementsAnyMethods(nextOrObserver, [
-      "next",
-      "error",
-      "complete"
-    ])) {
-      observer = nextOrObserver;
-    } else {
-      observer = {
-        next: nextOrObserver,
-        error,
-        complete
-      };
-    }
-    if (observer.next === void 0) {
-      observer.next = noop;
-    }
-    if (observer.error === void 0) {
-      observer.error = noop;
-    }
-    if (observer.complete === void 0) {
-      observer.complete = noop;
-    }
-    const unsub = this.unsubscribeOne.bind(this, this.observers.length);
-    if (this.finalized) {
-      this.task.then(() => {
-        try {
-          if (this.finalError) {
-            observer.error(this.finalError);
-          } else {
-            observer.complete();
-          }
-        } catch (e) {
-        }
-        return;
-      });
-    }
-    this.observers.push(observer);
-    return unsub;
-  }
-  unsubscribeOne(i) {
-    if (this.observers === void 0 || this.observers[i] === void 0) {
-      return;
-    }
-    delete this.observers[i];
-    this.observerCount -= 1;
-    if (this.observerCount === 0 && this.onNoObservers !== void 0) {
-      this.onNoObservers(this);
-    }
-  }
-  forEachObserver(fn) {
-    if (this.finalized) {
-      return;
-    }
-    for (let i = 0; i < this.observers.length; i++) {
-      this.sendOne(i, fn);
-    }
-  }
-  sendOne(i, fn) {
-    this.task.then(() => {
-      if (this.observers !== void 0 && this.observers[i] !== void 0) {
-        try {
-          fn(this.observers[i]);
-        } catch (e) {
-          if (typeof console !== "undefined" && console.error) {
-            console.error(e);
-          }
-        }
-      }
-    });
-  }
-  close(err) {
-    if (this.finalized) {
-      return;
-    }
-    this.finalized = true;
-    if (err !== void 0) {
-      this.finalError = err;
-    }
-    this.task.then(() => {
-      this.observers = void 0;
-      this.onNoObservers = void 0;
-    });
-  }
-}
-function implementsAnyMethods(obj, methods) {
-  if (typeof obj !== "object" || obj === null) {
-    return false;
-  }
-  for (const method of methods) {
-    if (method in obj && typeof obj[method] === "function") {
-      return true;
-    }
-  }
-  return false;
-}
-function noop() {
-}
-function errorPrefix(fnName, argName) {
-  return `${fnName} failed: ${argName} argument `;
-}
-/**
+ */class Xt{constructor(){this.chain_=[],this.buf_=[],this.W_=[],this.pad_=[],this.inbuf_=0,this.total_=0,this.blockSize=512/8,this.pad_[0]=128;for(let e=1;e<this.blockSize;++e)this.pad_[e]=0;this.reset()}reset(){this.chain_[0]=1732584193,this.chain_[1]=4023233417,this.chain_[2]=2562383102,this.chain_[3]=271733878,this.chain_[4]=3285377520,this.inbuf_=0,this.total_=0}compress_(e,n){n||(n=0);const s=this.W_;if(typeof e=="string")for(let h=0;h<16;h++)s[h]=e.charCodeAt(n)<<24|e.charCodeAt(n+1)<<16|e.charCodeAt(n+2)<<8|e.charCodeAt(n+3),n+=4;else for(let h=0;h<16;h++)s[h]=e[n]<<24|e[n+1]<<16|e[n+2]<<8|e[n+3],n+=4;for(let h=16;h<80;h++){const d=s[h-3]^s[h-8]^s[h-14]^s[h-16];s[h]=(d<<1|d>>>31)&4294967295}let r=this.chain_[0],i=this.chain_[1],a=this.chain_[2],o=this.chain_[3],c=this.chain_[4],l,u;for(let h=0;h<80;h++){h<40?h<20?(l=o^i&(a^o),u=1518500249):(l=i^a^o,u=1859775393):h<60?(l=i&a|o&(i|a),u=2400959708):(l=i^a^o,u=3395469782);const d=(r<<5|r>>>27)+l+c+u+s[h]&4294967295;c=o,o=a,a=(i<<30|i>>>2)&4294967295,i=r,r=d}this.chain_[0]=this.chain_[0]+r&4294967295,this.chain_[1]=this.chain_[1]+i&4294967295,this.chain_[2]=this.chain_[2]+a&4294967295,this.chain_[3]=this.chain_[3]+o&4294967295,this.chain_[4]=this.chain_[4]+c&4294967295}update(e,n){if(e==null)return;n===void 0&&(n=e.length);const s=n-this.blockSize;let r=0;const i=this.buf_;let a=this.inbuf_;for(;r<n;){if(a===0)for(;r<=s;)this.compress_(e,r),r+=this.blockSize;if(typeof e=="string"){for(;r<n;)if(i[a]=e.charCodeAt(r),++a,++r,a===this.blockSize){this.compress_(i),a=0;break}}else for(;r<n;)if(i[a]=e[r],++a,++r,a===this.blockSize){this.compress_(i),a=0;break}}this.inbuf_=a,this.total_+=n}digest(){const e=[];let n=this.total_*8;this.inbuf_<56?this.update(this.pad_,56-this.inbuf_):this.update(this.pad_,this.blockSize-(this.inbuf_-56));for(let r=this.blockSize-1;r>=56;r--)this.buf_[r]=n&255,n/=256;this.compress_(this.buf_);let s=0;for(let r=0;r<5;r++)for(let i=24;i>=0;i-=8)e[s]=this.chain_[r]>>i&255,++s;return e}}function qt(t,e){const n=new Ee(t,e);return n.subscribe.bind(n)}class Ee{constructor(e,n){this.observers=[],this.unsubscribes=[],this.observerCount=0,this.task=Promise.resolve(),this.finalized=!1,this.onNoObservers=n,this.task.then(()=>{e(this)}).catch(s=>{this.error(s)})}next(e){this.forEachObserver(n=>{n.next(e)})}error(e){this.forEachObserver(n=>{n.error(e)}),this.close(e)}complete(){this.forEachObserver(e=>{e.complete()}),this.close()}subscribe(e,n,s){let r;if(e===void 0&&n===void 0&&s===void 0)throw new Error("Missing Observer.");ve(e,["next","error","complete"])?r=e:r={next:e,error:n,complete:s},r.next===void 0&&(r.next=C),r.error===void 0&&(r.error=C),r.complete===void 0&&(r.complete=C);const i=this.unsubscribeOne.bind(this,this.observers.length);return this.finalized&&this.task.then(()=>{try{this.finalError?r.error(this.finalError):r.complete()}catch{}}),this.observers.push(r),i}unsubscribeOne(e){this.observers===void 0||this.observers[e]===void 0||(delete this.observers[e],this.observerCount-=1,this.observerCount===0&&this.onNoObservers!==void 0&&this.onNoObservers(this))}forEachObserver(e){if(!this.finalized)for(let n=0;n<this.observers.length;n++)this.sendOne(n,e)}sendOne(e,n){this.task.then(()=>{if(this.observers!==void 0&&this.observers[e]!==void 0)try{n(this.observers[e])}catch(s){typeof console<"u"&&console.error&&console.error(s)}})}close(e){this.finalized||(this.finalized=!0,e!==void 0&&(this.finalError=e),this.task.then(()=>{this.observers=void 0,this.onNoObservers=void 0}))}}function ve(t,e){if(typeof t!="object"||t===null)return!1;for(const n of e)if(n in t&&typeof t[n]=="function")return!0;return!1}function C(){}function Qt(t,e){return`${t} failed: ${e} argument `}/**
  * @license
  * Copyright 2017 Google LLC
  *
@@ -1011,55 +208,7 @@ function errorPrefix(fnName, argName) {
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-const stringToByteArray = function(str) {
-  const out = [];
-  let p = 0;
-  for (let i = 0; i < str.length; i++) {
-    let c = str.charCodeAt(i);
-    if (c >= 55296 && c <= 56319) {
-      const high = c - 55296;
-      i++;
-      assert(i < str.length, "Surrogate pair missing trail surrogate.");
-      const low = str.charCodeAt(i) - 56320;
-      c = 65536 + (high << 10) + low;
-    }
-    if (c < 128) {
-      out[p++] = c;
-    } else if (c < 2048) {
-      out[p++] = c >> 6 | 192;
-      out[p++] = c & 63 | 128;
-    } else if (c < 65536) {
-      out[p++] = c >> 12 | 224;
-      out[p++] = c >> 6 & 63 | 128;
-      out[p++] = c & 63 | 128;
-    } else {
-      out[p++] = c >> 18 | 240;
-      out[p++] = c >> 12 & 63 | 128;
-      out[p++] = c >> 6 & 63 | 128;
-      out[p++] = c & 63 | 128;
-    }
-  }
-  return out;
-};
-const stringLength = function(str) {
-  let p = 0;
-  for (let i = 0; i < str.length; i++) {
-    const c = str.charCodeAt(i);
-    if (c < 128) {
-      p++;
-    } else if (c < 2048) {
-      p += 2;
-    } else if (c >= 55296 && c <= 56319) {
-      p += 4;
-      i++;
-    } else {
-      p += 3;
-    }
-  }
-  return p;
-};
-/**
+ */const Zt=function(t){const e=[];let n=0;for(let s=0;s<t.length;s++){let r=t.charCodeAt(s);if(r>=55296&&r<=56319){const i=r-55296;s++,ce(s<t.length,"Surrogate pair missing trail surrogate.");const a=t.charCodeAt(s)-56320;r=65536+(i<<10)+a}r<128?e[n++]=r:r<2048?(e[n++]=r>>6|192,e[n++]=r&63|128):r<65536?(e[n++]=r>>12|224,e[n++]=r>>6&63|128,e[n++]=r&63|128):(e[n++]=r>>18|240,e[n++]=r>>12&63|128,e[n++]=r>>6&63|128,e[n++]=r&63|128)}return e},en=function(t){let e=0;for(let n=0;n<t.length;n++){const s=t.charCodeAt(n);s<128?e++:s<2048?e+=2:s>=55296&&s<=56319?(e+=4,n++):e+=3}return e};/**
  * @license
  * Copyright 2021 Google LLC
  *
@@ -1074,42 +223,7 @@ const stringLength = function(str) {
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-function getModularInstance(service) {
-  if (service && service._delegate) {
-    return service._delegate;
-  } else {
-    return service;
-  }
-}
-class Component {
-  constructor(name2, instanceFactory, type) {
-    this.name = name2;
-    this.instanceFactory = instanceFactory;
-    this.type = type;
-    this.multipleInstances = false;
-    this.serviceProps = {};
-    this.instantiationMode = "LAZY";
-    this.onInstanceCreated = null;
-  }
-  setInstantiationMode(mode) {
-    this.instantiationMode = mode;
-    return this;
-  }
-  setMultipleInstances(multipleInstances) {
-    this.multipleInstances = multipleInstances;
-    return this;
-  }
-  setServiceProps(props) {
-    this.serviceProps = props;
-    return this;
-  }
-  setInstanceCreatedCallback(callback) {
-    this.onInstanceCreated = callback;
-    return this;
-  }
-}
-/**
+ */function tn(t){return t&&t._delegate?t._delegate:t}class w{constructor(e,n,s){this.name=e,this.instanceFactory=n,this.type=s,this.multipleInstances=!1,this.serviceProps={},this.instantiationMode="LAZY",this.onInstanceCreated=null}setInstantiationMode(e){return this.instantiationMode=e,this}setMultipleInstances(e){return this.multipleInstances=e,this}setServiceProps(e){return this.serviceProps=e,this}setInstanceCreatedCallback(e){return this.onInstanceCreated=e,this}}/**
  * @license
  * Copyright 2019 Google LLC
  *
@@ -1124,9 +238,7 @@ class Component {
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-const DEFAULT_ENTRY_NAME$1 = "[DEFAULT]";
-/**
+ */const b="[DEFAULT]";/**
  * @license
  * Copyright 2019 Google LLC
  *
@@ -1141,196 +253,7 @@ const DEFAULT_ENTRY_NAME$1 = "[DEFAULT]";
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-class Provider {
-  constructor(name2, container) {
-    this.name = name2;
-    this.container = container;
-    this.component = null;
-    this.instances = /* @__PURE__ */ new Map();
-    this.instancesDeferred = /* @__PURE__ */ new Map();
-    this.instancesOptions = /* @__PURE__ */ new Map();
-    this.onInitCallbacks = /* @__PURE__ */ new Map();
-  }
-  get(identifier) {
-    const normalizedIdentifier = this.normalizeInstanceIdentifier(identifier);
-    if (!this.instancesDeferred.has(normalizedIdentifier)) {
-      const deferred = new Deferred();
-      this.instancesDeferred.set(normalizedIdentifier, deferred);
-      if (this.isInitialized(normalizedIdentifier) || this.shouldAutoInitialize()) {
-        try {
-          const instance = this.getOrInitializeService({
-            instanceIdentifier: normalizedIdentifier
-          });
-          if (instance) {
-            deferred.resolve(instance);
-          }
-        } catch (e) {
-        }
-      }
-    }
-    return this.instancesDeferred.get(normalizedIdentifier).promise;
-  }
-  getImmediate(options) {
-    var _a;
-    const normalizedIdentifier = this.normalizeInstanceIdentifier(options === null || options === void 0 ? void 0 : options.identifier);
-    const optional = (_a = options === null || options === void 0 ? void 0 : options.optional) !== null && _a !== void 0 ? _a : false;
-    if (this.isInitialized(normalizedIdentifier) || this.shouldAutoInitialize()) {
-      try {
-        return this.getOrInitializeService({
-          instanceIdentifier: normalizedIdentifier
-        });
-      } catch (e) {
-        if (optional) {
-          return null;
-        } else {
-          throw e;
-        }
-      }
-    } else {
-      if (optional) {
-        return null;
-      } else {
-        throw Error(`Service ${this.name} is not available`);
-      }
-    }
-  }
-  getComponent() {
-    return this.component;
-  }
-  setComponent(component) {
-    if (component.name !== this.name) {
-      throw Error(`Mismatching Component ${component.name} for Provider ${this.name}.`);
-    }
-    if (this.component) {
-      throw Error(`Component for ${this.name} has already been provided`);
-    }
-    this.component = component;
-    if (!this.shouldAutoInitialize()) {
-      return;
-    }
-    if (isComponentEager(component)) {
-      try {
-        this.getOrInitializeService({ instanceIdentifier: DEFAULT_ENTRY_NAME$1 });
-      } catch (e) {
-      }
-    }
-    for (const [instanceIdentifier, instanceDeferred] of this.instancesDeferred.entries()) {
-      const normalizedIdentifier = this.normalizeInstanceIdentifier(instanceIdentifier);
-      try {
-        const instance = this.getOrInitializeService({
-          instanceIdentifier: normalizedIdentifier
-        });
-        instanceDeferred.resolve(instance);
-      } catch (e) {
-      }
-    }
-  }
-  clearInstance(identifier = DEFAULT_ENTRY_NAME$1) {
-    this.instancesDeferred.delete(identifier);
-    this.instancesOptions.delete(identifier);
-    this.instances.delete(identifier);
-  }
-  async delete() {
-    const services = Array.from(this.instances.values());
-    await Promise.all([
-      ...services.filter((service) => "INTERNAL" in service).map((service) => service.INTERNAL.delete()),
-      ...services.filter((service) => "_delete" in service).map((service) => service._delete())
-    ]);
-  }
-  isComponentSet() {
-    return this.component != null;
-  }
-  isInitialized(identifier = DEFAULT_ENTRY_NAME$1) {
-    return this.instances.has(identifier);
-  }
-  getOptions(identifier = DEFAULT_ENTRY_NAME$1) {
-    return this.instancesOptions.get(identifier) || {};
-  }
-  initialize(opts = {}) {
-    const { options = {} } = opts;
-    const normalizedIdentifier = this.normalizeInstanceIdentifier(opts.instanceIdentifier);
-    if (this.isInitialized(normalizedIdentifier)) {
-      throw Error(`${this.name}(${normalizedIdentifier}) has already been initialized`);
-    }
-    if (!this.isComponentSet()) {
-      throw Error(`Component ${this.name} has not been registered yet`);
-    }
-    const instance = this.getOrInitializeService({
-      instanceIdentifier: normalizedIdentifier,
-      options
-    });
-    for (const [instanceIdentifier, instanceDeferred] of this.instancesDeferred.entries()) {
-      const normalizedDeferredIdentifier = this.normalizeInstanceIdentifier(instanceIdentifier);
-      if (normalizedIdentifier === normalizedDeferredIdentifier) {
-        instanceDeferred.resolve(instance);
-      }
-    }
-    return instance;
-  }
-  onInit(callback, identifier) {
-    var _a;
-    const normalizedIdentifier = this.normalizeInstanceIdentifier(identifier);
-    const existingCallbacks = (_a = this.onInitCallbacks.get(normalizedIdentifier)) !== null && _a !== void 0 ? _a : /* @__PURE__ */ new Set();
-    existingCallbacks.add(callback);
-    this.onInitCallbacks.set(normalizedIdentifier, existingCallbacks);
-    const existingInstance = this.instances.get(normalizedIdentifier);
-    if (existingInstance) {
-      callback(existingInstance, normalizedIdentifier);
-    }
-    return () => {
-      existingCallbacks.delete(callback);
-    };
-  }
-  invokeOnInitCallbacks(instance, identifier) {
-    const callbacks = this.onInitCallbacks.get(identifier);
-    if (!callbacks) {
-      return;
-    }
-    for (const callback of callbacks) {
-      try {
-        callback(instance, identifier);
-      } catch (_a) {
-      }
-    }
-  }
-  getOrInitializeService({ instanceIdentifier, options = {} }) {
-    let instance = this.instances.get(instanceIdentifier);
-    if (!instance && this.component) {
-      instance = this.component.instanceFactory(this.container, {
-        instanceIdentifier: normalizeIdentifierForFactory(instanceIdentifier),
-        options
-      });
-      this.instances.set(instanceIdentifier, instance);
-      this.instancesOptions.set(instanceIdentifier, options);
-      this.invokeOnInitCallbacks(instance, instanceIdentifier);
-      if (this.component.onInstanceCreated) {
-        try {
-          this.component.onInstanceCreated(this.container, instanceIdentifier, instance);
-        } catch (_a) {
-        }
-      }
-    }
-    return instance || null;
-  }
-  normalizeInstanceIdentifier(identifier = DEFAULT_ENTRY_NAME$1) {
-    if (this.component) {
-      return this.component.multipleInstances ? identifier : DEFAULT_ENTRY_NAME$1;
-    } else {
-      return identifier;
-    }
-  }
-  shouldAutoInitialize() {
-    return !!this.component && this.component.instantiationMode !== "EXPLICIT";
-  }
-}
-function normalizeIdentifierForFactory(identifier) {
-  return identifier === DEFAULT_ENTRY_NAME$1 ? void 0 : identifier;
-}
-function isComponentEager(component) {
-  return component.instantiationMode === "EAGER";
-}
-/**
+ */class Ie{constructor(e,n){this.name=e,this.container=n,this.component=null,this.instances=new Map,this.instancesDeferred=new Map,this.instancesOptions=new Map,this.onInitCallbacks=new Map}get(e){const n=this.normalizeInstanceIdentifier(e);if(!this.instancesDeferred.has(n)){const s=new ue;if(this.instancesDeferred.set(n,s),this.isInitialized(n)||this.shouldAutoInitialize())try{const r=this.getOrInitializeService({instanceIdentifier:n});r&&s.resolve(r)}catch{}}return this.instancesDeferred.get(n).promise}getImmediate(e){var n;const s=this.normalizeInstanceIdentifier(e==null?void 0:e.identifier),r=(n=e==null?void 0:e.optional)!==null&&n!==void 0?n:!1;if(this.isInitialized(s)||this.shouldAutoInitialize())try{return this.getOrInitializeService({instanceIdentifier:s})}catch(i){if(r)return null;throw i}else{if(r)return null;throw Error(`Service ${this.name} is not available`)}}getComponent(){return this.component}setComponent(e){if(e.name!==this.name)throw Error(`Mismatching Component ${e.name} for Provider ${this.name}.`);if(this.component)throw Error(`Component for ${this.name} has already been provided`);if(this.component=e,!!this.shouldAutoInitialize()){if(Se(e))try{this.getOrInitializeService({instanceIdentifier:b})}catch{}for(const[n,s]of this.instancesDeferred.entries()){const r=this.normalizeInstanceIdentifier(n);try{const i=this.getOrInitializeService({instanceIdentifier:r});s.resolve(i)}catch{}}}}clearInstance(e=b){this.instancesDeferred.delete(e),this.instancesOptions.delete(e),this.instances.delete(e)}async delete(){const e=Array.from(this.instances.values());await Promise.all([...e.filter(n=>"INTERNAL"in n).map(n=>n.INTERNAL.delete()),...e.filter(n=>"_delete"in n).map(n=>n._delete())])}isComponentSet(){return this.component!=null}isInitialized(e=b){return this.instances.has(e)}getOptions(e=b){return this.instancesOptions.get(e)||{}}initialize(e={}){const{options:n={}}=e,s=this.normalizeInstanceIdentifier(e.instanceIdentifier);if(this.isInitialized(s))throw Error(`${this.name}(${s}) has already been initialized`);if(!this.isComponentSet())throw Error(`Component ${this.name} has not been registered yet`);const r=this.getOrInitializeService({instanceIdentifier:s,options:n});for(const[i,a]of this.instancesDeferred.entries()){const o=this.normalizeInstanceIdentifier(i);s===o&&a.resolve(r)}return r}onInit(e,n){var s;const r=this.normalizeInstanceIdentifier(n),i=(s=this.onInitCallbacks.get(r))!==null&&s!==void 0?s:new Set;i.add(e),this.onInitCallbacks.set(r,i);const a=this.instances.get(r);return a&&e(a,r),()=>{i.delete(e)}}invokeOnInitCallbacks(e,n){const s=this.onInitCallbacks.get(n);if(!!s)for(const r of s)try{r(e,n)}catch{}}getOrInitializeService({instanceIdentifier:e,options:n={}}){let s=this.instances.get(e);if(!s&&this.component&&(s=this.component.instanceFactory(this.container,{instanceIdentifier:we(e),options:n}),this.instances.set(e,s),this.instancesOptions.set(e,n),this.invokeOnInitCallbacks(s,e),this.component.onInstanceCreated))try{this.component.onInstanceCreated(this.container,e,s)}catch{}return s||null}normalizeInstanceIdentifier(e=b){return this.component?this.component.multipleInstances?e:b:e}shouldAutoInitialize(){return!!this.component&&this.component.instantiationMode!=="EXPLICIT"}}function we(t){return t===b?void 0:t}function Se(t){return t.instantiationMode==="EAGER"}/**
  * @license
  * Copyright 2019 Google LLC
  *
@@ -1345,39 +268,7 @@ function isComponentEager(component) {
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-class ComponentContainer {
-  constructor(name2) {
-    this.name = name2;
-    this.providers = /* @__PURE__ */ new Map();
-  }
-  addComponent(component) {
-    const provider = this.getProvider(component.name);
-    if (provider.isComponentSet()) {
-      throw new Error(`Component ${component.name} has already been registered with ${this.name}`);
-    }
-    provider.setComponent(component);
-  }
-  addOrOverwriteComponent(component) {
-    const provider = this.getProvider(component.name);
-    if (provider.isComponentSet()) {
-      this.providers.delete(component.name);
-    }
-    this.addComponent(component);
-  }
-  getProvider(name2) {
-    if (this.providers.has(name2)) {
-      return this.providers.get(name2);
-    }
-    const provider = new Provider(name2, this);
-    this.providers.set(name2, provider);
-    return provider;
-  }
-  getProviders() {
-    return Array.from(this.providers.values());
-  }
-}
-/**
+ */class De{constructor(e){this.name=e,this.providers=new Map}addComponent(e){const n=this.getProvider(e.name);if(n.isComponentSet())throw new Error(`Component ${e.name} has already been registered with ${this.name}`);n.setComponent(e)}addOrOverwriteComponent(e){this.getProvider(e.name).isComponentSet()&&this.providers.delete(e.name),this.addComponent(e)}getProvider(e){if(this.providers.has(e))return this.providers.get(e);const n=new Ie(e,this);return this.providers.set(e,n),n}getProviders(){return Array.from(this.providers.values())}}/**
  * @license
  * Copyright 2017 Google LLC
  *
@@ -1392,339 +283,7 @@ class ComponentContainer {
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-const instances = [];
-var LogLevel;
-(function(LogLevel2) {
-  LogLevel2[LogLevel2["DEBUG"] = 0] = "DEBUG";
-  LogLevel2[LogLevel2["VERBOSE"] = 1] = "VERBOSE";
-  LogLevel2[LogLevel2["INFO"] = 2] = "INFO";
-  LogLevel2[LogLevel2["WARN"] = 3] = "WARN";
-  LogLevel2[LogLevel2["ERROR"] = 4] = "ERROR";
-  LogLevel2[LogLevel2["SILENT"] = 5] = "SILENT";
-})(LogLevel || (LogLevel = {}));
-const levelStringToEnum = {
-  "debug": LogLevel.DEBUG,
-  "verbose": LogLevel.VERBOSE,
-  "info": LogLevel.INFO,
-  "warn": LogLevel.WARN,
-  "error": LogLevel.ERROR,
-  "silent": LogLevel.SILENT
-};
-const defaultLogLevel = LogLevel.INFO;
-const ConsoleMethod = {
-  [LogLevel.DEBUG]: "log",
-  [LogLevel.VERBOSE]: "log",
-  [LogLevel.INFO]: "info",
-  [LogLevel.WARN]: "warn",
-  [LogLevel.ERROR]: "error"
-};
-const defaultLogHandler = (instance, logType, ...args) => {
-  if (logType < instance.logLevel) {
-    return;
-  }
-  const now = new Date().toISOString();
-  const method = ConsoleMethod[logType];
-  if (method) {
-    console[method](`[${now}]  ${instance.name}:`, ...args);
-  } else {
-    throw new Error(`Attempted to log a message with an invalid logType (value: ${logType})`);
-  }
-};
-class Logger {
-  constructor(name2) {
-    this.name = name2;
-    this._logLevel = defaultLogLevel;
-    this._logHandler = defaultLogHandler;
-    this._userLogHandler = null;
-    instances.push(this);
-  }
-  get logLevel() {
-    return this._logLevel;
-  }
-  set logLevel(val) {
-    if (!(val in LogLevel)) {
-      throw new TypeError(`Invalid value "${val}" assigned to \`logLevel\``);
-    }
-    this._logLevel = val;
-  }
-  setLogLevel(val) {
-    this._logLevel = typeof val === "string" ? levelStringToEnum[val] : val;
-  }
-  get logHandler() {
-    return this._logHandler;
-  }
-  set logHandler(val) {
-    if (typeof val !== "function") {
-      throw new TypeError("Value assigned to `logHandler` must be a function");
-    }
-    this._logHandler = val;
-  }
-  get userLogHandler() {
-    return this._userLogHandler;
-  }
-  set userLogHandler(val) {
-    this._userLogHandler = val;
-  }
-  debug(...args) {
-    this._userLogHandler && this._userLogHandler(this, LogLevel.DEBUG, ...args);
-    this._logHandler(this, LogLevel.DEBUG, ...args);
-  }
-  log(...args) {
-    this._userLogHandler && this._userLogHandler(this, LogLevel.VERBOSE, ...args);
-    this._logHandler(this, LogLevel.VERBOSE, ...args);
-  }
-  info(...args) {
-    this._userLogHandler && this._userLogHandler(this, LogLevel.INFO, ...args);
-    this._logHandler(this, LogLevel.INFO, ...args);
-  }
-  warn(...args) {
-    this._userLogHandler && this._userLogHandler(this, LogLevel.WARN, ...args);
-    this._logHandler(this, LogLevel.WARN, ...args);
-  }
-  error(...args) {
-    this._userLogHandler && this._userLogHandler(this, LogLevel.ERROR, ...args);
-    this._logHandler(this, LogLevel.ERROR, ...args);
-  }
-}
-function setLogLevel$1(level) {
-  instances.forEach((inst) => {
-    inst.setLogLevel(level);
-  });
-}
-function setUserLogHandler(logCallback, options) {
-  for (const instance of instances) {
-    let customLogLevel = null;
-    if (options && options.level) {
-      customLogLevel = levelStringToEnum[options.level];
-    }
-    if (logCallback === null) {
-      instance.userLogHandler = null;
-    } else {
-      instance.userLogHandler = (instance2, level, ...args) => {
-        const message = args.map((arg) => {
-          if (arg == null) {
-            return null;
-          } else if (typeof arg === "string") {
-            return arg;
-          } else if (typeof arg === "number" || typeof arg === "boolean") {
-            return arg.toString();
-          } else if (arg instanceof Error) {
-            return arg.message;
-          } else {
-            try {
-              return JSON.stringify(arg);
-            } catch (ignored) {
-              return null;
-            }
-          }
-        }).filter((arg) => arg).join(" ");
-        if (level >= (customLogLevel !== null && customLogLevel !== void 0 ? customLogLevel : instance2.logLevel)) {
-          logCallback({
-            level: LogLevel[level].toLowerCase(),
-            message,
-            args,
-            type: instance2.name
-          });
-        }
-      };
-    }
-  }
-}
-const instanceOfAny = (object, constructors) => constructors.some((c) => object instanceof c);
-let idbProxyableTypes;
-let cursorAdvanceMethods;
-function getIdbProxyableTypes() {
-  return idbProxyableTypes || (idbProxyableTypes = [
-    IDBDatabase,
-    IDBObjectStore,
-    IDBIndex,
-    IDBCursor,
-    IDBTransaction
-  ]);
-}
-function getCursorAdvanceMethods() {
-  return cursorAdvanceMethods || (cursorAdvanceMethods = [
-    IDBCursor.prototype.advance,
-    IDBCursor.prototype.continue,
-    IDBCursor.prototype.continuePrimaryKey
-  ]);
-}
-const cursorRequestMap = /* @__PURE__ */ new WeakMap();
-const transactionDoneMap = /* @__PURE__ */ new WeakMap();
-const transactionStoreNamesMap = /* @__PURE__ */ new WeakMap();
-const transformCache = /* @__PURE__ */ new WeakMap();
-const reverseTransformCache = /* @__PURE__ */ new WeakMap();
-function promisifyRequest(request) {
-  const promise = new Promise((resolve, reject) => {
-    const unlisten = () => {
-      request.removeEventListener("success", success);
-      request.removeEventListener("error", error);
-    };
-    const success = () => {
-      resolve(wrap(request.result));
-      unlisten();
-    };
-    const error = () => {
-      reject(request.error);
-      unlisten();
-    };
-    request.addEventListener("success", success);
-    request.addEventListener("error", error);
-  });
-  promise.then((value) => {
-    if (value instanceof IDBCursor) {
-      cursorRequestMap.set(value, request);
-    }
-  }).catch(() => {
-  });
-  reverseTransformCache.set(promise, request);
-  return promise;
-}
-function cacheDonePromiseForTransaction(tx) {
-  if (transactionDoneMap.has(tx))
-    return;
-  const done = new Promise((resolve, reject) => {
-    const unlisten = () => {
-      tx.removeEventListener("complete", complete);
-      tx.removeEventListener("error", error);
-      tx.removeEventListener("abort", error);
-    };
-    const complete = () => {
-      resolve();
-      unlisten();
-    };
-    const error = () => {
-      reject(tx.error || new DOMException("AbortError", "AbortError"));
-      unlisten();
-    };
-    tx.addEventListener("complete", complete);
-    tx.addEventListener("error", error);
-    tx.addEventListener("abort", error);
-  });
-  transactionDoneMap.set(tx, done);
-}
-let idbProxyTraps = {
-  get(target, prop, receiver) {
-    if (target instanceof IDBTransaction) {
-      if (prop === "done")
-        return transactionDoneMap.get(target);
-      if (prop === "objectStoreNames") {
-        return target.objectStoreNames || transactionStoreNamesMap.get(target);
-      }
-      if (prop === "store") {
-        return receiver.objectStoreNames[1] ? void 0 : receiver.objectStore(receiver.objectStoreNames[0]);
-      }
-    }
-    return wrap(target[prop]);
-  },
-  set(target, prop, value) {
-    target[prop] = value;
-    return true;
-  },
-  has(target, prop) {
-    if (target instanceof IDBTransaction && (prop === "done" || prop === "store")) {
-      return true;
-    }
-    return prop in target;
-  }
-};
-function replaceTraps(callback) {
-  idbProxyTraps = callback(idbProxyTraps);
-}
-function wrapFunction(func) {
-  if (func === IDBDatabase.prototype.transaction && !("objectStoreNames" in IDBTransaction.prototype)) {
-    return function(storeNames, ...args) {
-      const tx = func.call(unwrap(this), storeNames, ...args);
-      transactionStoreNamesMap.set(tx, storeNames.sort ? storeNames.sort() : [storeNames]);
-      return wrap(tx);
-    };
-  }
-  if (getCursorAdvanceMethods().includes(func)) {
-    return function(...args) {
-      func.apply(unwrap(this), args);
-      return wrap(cursorRequestMap.get(this));
-    };
-  }
-  return function(...args) {
-    return wrap(func.apply(unwrap(this), args));
-  };
-}
-function transformCachableValue(value) {
-  if (typeof value === "function")
-    return wrapFunction(value);
-  if (value instanceof IDBTransaction)
-    cacheDonePromiseForTransaction(value);
-  if (instanceOfAny(value, getIdbProxyableTypes()))
-    return new Proxy(value, idbProxyTraps);
-  return value;
-}
-function wrap(value) {
-  if (value instanceof IDBRequest)
-    return promisifyRequest(value);
-  if (transformCache.has(value))
-    return transformCache.get(value);
-  const newValue = transformCachableValue(value);
-  if (newValue !== value) {
-    transformCache.set(value, newValue);
-    reverseTransformCache.set(newValue, value);
-  }
-  return newValue;
-}
-const unwrap = (value) => reverseTransformCache.get(value);
-function openDB(name2, version2, { blocked, upgrade, blocking, terminated } = {}) {
-  const request = indexedDB.open(name2, version2);
-  const openPromise = wrap(request);
-  if (upgrade) {
-    request.addEventListener("upgradeneeded", (event) => {
-      upgrade(wrap(request.result), event.oldVersion, event.newVersion, wrap(request.transaction));
-    });
-  }
-  if (blocked)
-    request.addEventListener("blocked", () => blocked());
-  openPromise.then((db) => {
-    if (terminated)
-      db.addEventListener("close", () => terminated());
-    if (blocking)
-      db.addEventListener("versionchange", () => blocking());
-  }).catch(() => {
-  });
-  return openPromise;
-}
-const readMethods = ["get", "getKey", "getAll", "getAllKeys", "count"];
-const writeMethods = ["put", "add", "delete", "clear"];
-const cachedMethods = /* @__PURE__ */ new Map();
-function getMethod(target, prop) {
-  if (!(target instanceof IDBDatabase && !(prop in target) && typeof prop === "string")) {
-    return;
-  }
-  if (cachedMethods.get(prop))
-    return cachedMethods.get(prop);
-  const targetFuncName = prop.replace(/FromIndex$/, "");
-  const useIndex = prop !== targetFuncName;
-  const isWrite = writeMethods.includes(targetFuncName);
-  if (!(targetFuncName in (useIndex ? IDBIndex : IDBObjectStore).prototype) || !(isWrite || readMethods.includes(targetFuncName))) {
-    return;
-  }
-  const method = async function(storeName, ...args) {
-    const tx = this.transaction(storeName, isWrite ? "readwrite" : "readonly");
-    let target2 = tx.store;
-    if (useIndex)
-      target2 = target2.index(args.shift());
-    return (await Promise.all([
-      target2[targetFuncName](...args),
-      isWrite && tx.done
-    ]))[0];
-  };
-  cachedMethods.set(prop, method);
-  return method;
-}
-replaceTraps((oldTraps) => ({
-  ...oldTraps,
-  get: (target, prop, receiver) => getMethod(target, prop) || oldTraps.get(target, prop, receiver),
-  has: (target, prop) => !!getMethod(target, prop) || oldTraps.has(target, prop)
-}));
-/**
+ */const P=[];var f;(function(t){t[t.DEBUG=0]="DEBUG",t[t.VERBOSE=1]="VERBOSE",t[t.INFO=2]="INFO",t[t.WARN=3]="WARN",t[t.ERROR=4]="ERROR",t[t.SILENT=5]="SILENT"})(f||(f={}));const ne={debug:f.DEBUG,verbose:f.VERBOSE,info:f.INFO,warn:f.WARN,error:f.ERROR,silent:f.SILENT},Ce=f.INFO,Ae={[f.DEBUG]:"log",[f.VERBOSE]:"log",[f.INFO]:"info",[f.WARN]:"warn",[f.ERROR]:"error"},Oe=(t,e,...n)=>{if(e<t.logLevel)return;const s=new Date().toISOString(),r=Ae[e];if(r)console[r](`[${s}]  ${t.name}:`,...n);else throw new Error(`Attempted to log a message with an invalid logType (value: ${e})`)};class Be{constructor(e){this.name=e,this._logLevel=Ce,this._logHandler=Oe,this._userLogHandler=null,P.push(this)}get logLevel(){return this._logLevel}set logLevel(e){if(!(e in f))throw new TypeError(`Invalid value "${e}" assigned to \`logLevel\``);this._logLevel=e}setLogLevel(e){this._logLevel=typeof e=="string"?ne[e]:e}get logHandler(){return this._logHandler}set logHandler(e){if(typeof e!="function")throw new TypeError("Value assigned to `logHandler` must be a function");this._logHandler=e}get userLogHandler(){return this._userLogHandler}set userLogHandler(e){this._userLogHandler=e}debug(...e){this._userLogHandler&&this._userLogHandler(this,f.DEBUG,...e),this._logHandler(this,f.DEBUG,...e)}log(...e){this._userLogHandler&&this._userLogHandler(this,f.VERBOSE,...e),this._logHandler(this,f.VERBOSE,...e)}info(...e){this._userLogHandler&&this._userLogHandler(this,f.INFO,...e),this._logHandler(this,f.INFO,...e)}warn(...e){this._userLogHandler&&this._userLogHandler(this,f.WARN,...e),this._logHandler(this,f.WARN,...e)}error(...e){this._userLogHandler&&this._userLogHandler(this,f.ERROR,...e),this._logHandler(this,f.ERROR,...e)}}function xe(t){P.forEach(e=>{e.setLogLevel(t)})}function Ne(t,e){for(const n of P){let s=null;e&&e.level&&(s=ne[e.level]),t===null?n.userLogHandler=null:n.userLogHandler=(r,i,...a)=>{const o=a.map(c=>{if(c==null)return null;if(typeof c=="string")return c;if(typeof c=="number"||typeof c=="boolean")return c.toString();if(c instanceof Error)return c.message;try{return JSON.stringify(c)}catch{return null}}).filter(c=>c).join(" ");i>=(s!=null?s:r.logLevel)&&t({level:f[i].toLowerCase(),message:o,args:a,type:r.name})}}}const Te=(t,e)=>e.some(n=>t instanceof n);let U,V;function Me(){return U||(U=[IDBDatabase,IDBObjectStore,IDBIndex,IDBCursor,IDBTransaction])}function Re(){return V||(V=[IDBCursor.prototype.advance,IDBCursor.prototype.continue,IDBCursor.prototype.continuePrimaryKey])}const re=new WeakMap,M=new WeakMap,se=new WeakMap,A=new WeakMap,H=new WeakMap;function $e(t){const e=new Promise((n,s)=>{const r=()=>{t.removeEventListener("success",i),t.removeEventListener("error",a)},i=()=>{n(p(t.result)),r()},a=()=>{s(t.error),r()};t.addEventListener("success",i),t.addEventListener("error",a)});return e.then(n=>{n instanceof IDBCursor&&re.set(n,t)}).catch(()=>{}),H.set(e,t),e}function Le(t){if(M.has(t))return;const e=new Promise((n,s)=>{const r=()=>{t.removeEventListener("complete",i),t.removeEventListener("error",a),t.removeEventListener("abort",a)},i=()=>{n(),r()},a=()=>{s(t.error||new DOMException("AbortError","AbortError")),r()};t.addEventListener("complete",i),t.addEventListener("error",a),t.addEventListener("abort",a)});M.set(t,e)}let R={get(t,e,n){if(t instanceof IDBTransaction){if(e==="done")return M.get(t);if(e==="objectStoreNames")return t.objectStoreNames||se.get(t);if(e==="store")return n.objectStoreNames[1]?void 0:n.objectStore(n.objectStoreNames[0])}return p(t[e])},set(t,e,n){return t[e]=n,!0},has(t,e){return t instanceof IDBTransaction&&(e==="done"||e==="store")?!0:e in t}};function Pe(t){R=t(R)}function He(t){return t===IDBDatabase.prototype.transaction&&!("objectStoreNames"in IDBTransaction.prototype)?function(e,...n){const s=t.call(O(this),e,...n);return se.set(s,e.sort?e.sort():[e]),p(s)}:Re().includes(t)?function(...e){return t.apply(O(this),e),p(re.get(this))}:function(...e){return p(t.apply(O(this),e))}}function ke(t){return typeof t=="function"?He(t):(t instanceof IDBTransaction&&Le(t),Te(t,Me())?new Proxy(t,R):t)}function p(t){if(t instanceof IDBRequest)return $e(t);if(A.has(t))return A.get(t);const e=ke(t);return e!==t&&(A.set(t,e),H.set(e,t)),e}const O=t=>H.get(t);function je(t,e,{blocked:n,upgrade:s,blocking:r,terminated:i}={}){const a=indexedDB.open(t,e),o=p(a);return s&&a.addEventListener("upgradeneeded",c=>{s(p(a.result),c.oldVersion,c.newVersion,p(a.transaction))}),n&&a.addEventListener("blocked",()=>n()),o.then(c=>{i&&c.addEventListener("close",()=>i()),r&&c.addEventListener("versionchange",()=>r())}).catch(()=>{}),o}const ze=["get","getKey","getAll","getAllKeys","count"],Fe=["put","add","delete","clear"],B=new Map;function W(t,e){if(!(t instanceof IDBDatabase&&!(e in t)&&typeof e=="string"))return;if(B.get(e))return B.get(e);const n=e.replace(/FromIndex$/,""),s=e!==n,r=Fe.includes(n);if(!(n in(s?IDBIndex:IDBObjectStore).prototype)||!(r||ze.includes(n)))return;const i=async function(a,...o){const c=this.transaction(a,r?"readwrite":"readonly");let l=c.store;return s&&(l=l.index(o.shift())),(await Promise.all([l[n](...o),r&&c.done]))[0]};return B.set(e,i),i}Pe(t=>({...t,get:(e,n,s)=>W(e,n)||t.get(e,n,s),has:(e,n)=>!!W(e,n)||t.has(e,n)}));/**
  * @license
  * Copyright 2019 Google LLC
  *
@@ -1739,30 +298,7 @@ replaceTraps((oldTraps) => ({
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-class PlatformLoggerServiceImpl {
-  constructor(container) {
-    this.container = container;
-  }
-  getPlatformInfoString() {
-    const providers = this.container.getProviders();
-    return providers.map((provider) => {
-      if (isVersionServiceProvider(provider)) {
-        const service = provider.getImmediate();
-        return `${service.library}/${service.version}`;
-      } else {
-        return null;
-      }
-    }).filter((logString) => logString).join(" ");
-  }
-}
-function isVersionServiceProvider(provider) {
-  const component = provider.getComponent();
-  return (component === null || component === void 0 ? void 0 : component.type) === "VERSION";
-}
-const name$o = "@firebase/app";
-const version$1 = "0.7.31";
-/**
+ */class Ue{constructor(e){this.container=e}getPlatformInfoString(){return this.container.getProviders().map(n=>{if(Ve(n)){const s=n.getImmediate();return`${s.library}/${s.version}`}else return null}).filter(n=>n).join(" ")}}function Ve(t){const e=t.getComponent();return(e==null?void 0:e.type)==="VERSION"}const $="@firebase/app",G="0.7.31";/**
  * @license
  * Copyright 2019 Google LLC
  *
@@ -1777,34 +313,7 @@ const version$1 = "0.7.31";
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-const logger = new Logger("@firebase/app");
-const name$n = "@firebase/app-compat";
-const name$m = "@firebase/analytics-compat";
-const name$l = "@firebase/analytics";
-const name$k = "@firebase/app-check-compat";
-const name$j = "@firebase/app-check";
-const name$i = "@firebase/auth";
-const name$h = "@firebase/auth-compat";
-const name$g = "@firebase/database";
-const name$f = "@firebase/database-compat";
-const name$e = "@firebase/functions";
-const name$d = "@firebase/functions-compat";
-const name$c = "@firebase/installations";
-const name$b = "@firebase/installations-compat";
-const name$a = "@firebase/messaging";
-const name$9 = "@firebase/messaging-compat";
-const name$8 = "@firebase/performance";
-const name$7 = "@firebase/performance-compat";
-const name$6 = "@firebase/remote-config";
-const name$5 = "@firebase/remote-config-compat";
-const name$4 = "@firebase/storage";
-const name$3 = "@firebase/storage-compat";
-const name$2 = "@firebase/firestore";
-const name$1 = "@firebase/firestore-compat";
-const name = "firebase";
-const version = "9.9.3";
-/**
+ */const g=new Be("@firebase/app"),We="@firebase/app-compat",Ge="@firebase/analytics-compat",Ke="@firebase/analytics",Je="@firebase/app-check-compat",Ye="@firebase/app-check",Xe="@firebase/auth",qe="@firebase/auth-compat",Qe="@firebase/database",Ze="@firebase/database-compat",et="@firebase/functions",tt="@firebase/functions-compat",nt="@firebase/installations",rt="@firebase/installations-compat",st="@firebase/messaging",it="@firebase/messaging-compat",at="@firebase/performance",ot="@firebase/performance-compat",ct="@firebase/remote-config",ht="@firebase/remote-config-compat",ft="@firebase/storage",lt="@firebase/storage-compat",dt="@firebase/firestore",ut="@firebase/firestore-compat",pt="firebase",mt="9.9.3";/**
  * @license
  * Copyright 2019 Google LLC
  *
@@ -1819,37 +328,7 @@ const version = "9.9.3";
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-const DEFAULT_ENTRY_NAME = "[DEFAULT]";
-const PLATFORM_LOG_STRING = {
-  [name$o]: "fire-core",
-  [name$n]: "fire-core-compat",
-  [name$l]: "fire-analytics",
-  [name$m]: "fire-analytics-compat",
-  [name$j]: "fire-app-check",
-  [name$k]: "fire-app-check-compat",
-  [name$i]: "fire-auth",
-  [name$h]: "fire-auth-compat",
-  [name$g]: "fire-rtdb",
-  [name$f]: "fire-rtdb-compat",
-  [name$e]: "fire-fn",
-  [name$d]: "fire-fn-compat",
-  [name$c]: "fire-iid",
-  [name$b]: "fire-iid-compat",
-  [name$a]: "fire-fcm",
-  [name$9]: "fire-fcm-compat",
-  [name$8]: "fire-perf",
-  [name$7]: "fire-perf-compat",
-  [name$6]: "fire-rc",
-  [name$5]: "fire-rc-compat",
-  [name$4]: "fire-gcs",
-  [name$3]: "fire-gcs-compat",
-  [name$2]: "fire-fst",
-  [name$1]: "fire-fst-compat",
-  "fire-js": "fire-js",
-  [name]: "fire-js-all"
-};
-/**
+ */const k="[DEFAULT]",bt={[$]:"fire-core",[We]:"fire-core-compat",[Ke]:"fire-analytics",[Ge]:"fire-analytics-compat",[Ye]:"fire-app-check",[Je]:"fire-app-check-compat",[Xe]:"fire-auth",[qe]:"fire-auth-compat",[Qe]:"fire-rtdb",[Ze]:"fire-rtdb-compat",[et]:"fire-fn",[tt]:"fire-fn-compat",[nt]:"fire-iid",[rt]:"fire-iid-compat",[st]:"fire-fcm",[it]:"fire-fcm-compat",[at]:"fire-perf",[ot]:"fire-perf-compat",[ct]:"fire-rc",[ht]:"fire-rc-compat",[ft]:"fire-gcs",[lt]:"fire-gcs-compat",[dt]:"fire-fst",[ut]:"fire-fst-compat","fire-js":"fire-js",[pt]:"fire-js-all"};/**
  * @license
  * Copyright 2019 Google LLC
  *
@@ -1864,45 +343,7 @@ const PLATFORM_LOG_STRING = {
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-const _apps = /* @__PURE__ */ new Map();
-const _components = /* @__PURE__ */ new Map();
-function _addComponent(app, component) {
-  try {
-    app.container.addComponent(component);
-  } catch (e) {
-    logger.debug(`Component ${component.name} failed to register with FirebaseApp ${app.name}`, e);
-  }
-}
-function _addOrOverwriteComponent(app, component) {
-  app.container.addOrOverwriteComponent(component);
-}
-function _registerComponent(component) {
-  const componentName = component.name;
-  if (_components.has(componentName)) {
-    logger.debug(`There were multiple attempts to register component ${componentName}.`);
-    return false;
-  }
-  _components.set(componentName, component);
-  for (const app of _apps.values()) {
-    _addComponent(app, component);
-  }
-  return true;
-}
-function _getProvider(app, name2) {
-  const heartbeatController = app.container.getProvider("heartbeat").getImmediate({ optional: true });
-  if (heartbeatController) {
-    void heartbeatController.triggerHeartbeat();
-  }
-  return app.container.getProvider(name2);
-}
-function _removeServiceInstance(app, name2, instanceIdentifier = DEFAULT_ENTRY_NAME) {
-  _getProvider(app, name2).clearInstance(instanceIdentifier);
-}
-function _clearComponents() {
-  _components.clear();
-}
-/**
+ */const _=new Map,S=new Map;function gt(t,e){try{t.container.addComponent(e)}catch(n){g.debug(`Component ${e.name} failed to register with FirebaseApp ${t.name}`,n)}}function nn(t,e){t.container.addOrOverwriteComponent(e)}function L(t){const e=t.name;if(S.has(e))return g.debug(`There were multiple attempts to register component ${e}.`),!1;S.set(e,t);for(const n of _.values())gt(n,t);return!0}function _t(t,e){const n=t.container.getProvider("heartbeat").getImmediate({optional:!0});return n&&n.triggerHeartbeat(),t.container.getProvider(e)}function rn(t,e,n=k){_t(t,e).clearInstance(n)}function sn(){S.clear()}/**
  * @license
  * Copyright 2019 Google LLC
  *
@@ -1917,21 +358,7 @@ function _clearComponents() {
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-const ERRORS = {
-  ["no-app"]: "No Firebase App '{$appName}' has been created - call Firebase App.initializeApp()",
-  ["bad-app-name"]: "Illegal App name: '{$appName}",
-  ["duplicate-app"]: "Firebase App named '{$appName}' already exists with different options or config",
-  ["app-deleted"]: "Firebase App named '{$appName}' already deleted",
-  ["invalid-app-argument"]: "firebase.{$appName}() takes either no argument or a Firebase App instance.",
-  ["invalid-log-argument"]: "First argument to `onLog` must be null or a function.",
-  ["idb-open"]: "Error thrown when opening IndexedDB. Original error: {$originalErrorMessage}.",
-  ["idb-get"]: "Error thrown when reading from IndexedDB. Original error: {$originalErrorMessage}.",
-  ["idb-set"]: "Error thrown when writing to IndexedDB. Original error: {$originalErrorMessage}.",
-  ["idb-delete"]: "Error thrown when deleting from IndexedDB. Original error: {$originalErrorMessage}."
-};
-const ERROR_FACTORY = new ErrorFactory("app", "Firebase", ERRORS);
-/**
+ */const yt={["no-app"]:"No Firebase App '{$appName}' has been created - call Firebase App.initializeApp()",["bad-app-name"]:"Illegal App name: '{$appName}",["duplicate-app"]:"Firebase App named '{$appName}' already exists with different options or config",["app-deleted"]:"Firebase App named '{$appName}' already deleted",["invalid-app-argument"]:"firebase.{$appName}() takes either no argument or a Firebase App instance.",["invalid-log-argument"]:"First argument to `onLog` must be null or a function.",["idb-open"]:"Error thrown when opening IndexedDB. Original error: {$originalErrorMessage}.",["idb-get"]:"Error thrown when reading from IndexedDB. Original error: {$originalErrorMessage}.",["idb-set"]:"Error thrown when writing to IndexedDB. Original error: {$originalErrorMessage}.",["idb-delete"]:"Error thrown when deleting from IndexedDB. Original error: {$originalErrorMessage}."},m=new ee("app","Firebase",yt);/**
  * @license
  * Copyright 2019 Google LLC
  *
@@ -1946,53 +373,7 @@ const ERROR_FACTORY = new ErrorFactory("app", "Firebase", ERRORS);
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-class FirebaseAppImpl {
-  constructor(options, config, container) {
-    this._isDeleted = false;
-    this._options = Object.assign({}, options);
-    this._config = Object.assign({}, config);
-    this._name = config.name;
-    this._automaticDataCollectionEnabled = config.automaticDataCollectionEnabled;
-    this._container = container;
-    this.container.addComponent(new Component("app", () => this, "PUBLIC"));
-  }
-  get automaticDataCollectionEnabled() {
-    this.checkDestroyed();
-    return this._automaticDataCollectionEnabled;
-  }
-  set automaticDataCollectionEnabled(val) {
-    this.checkDestroyed();
-    this._automaticDataCollectionEnabled = val;
-  }
-  get name() {
-    this.checkDestroyed();
-    return this._name;
-  }
-  get options() {
-    this.checkDestroyed();
-    return this._options;
-  }
-  get config() {
-    this.checkDestroyed();
-    return this._config;
-  }
-  get container() {
-    return this._container;
-  }
-  get isDeleted() {
-    return this._isDeleted;
-  }
-  set isDeleted(val) {
-    this._isDeleted = val;
-  }
-  checkDestroyed() {
-    if (this.isDeleted) {
-      throw ERROR_FACTORY.create("app-deleted", { appName: this._name });
-    }
-  }
-}
-/**
+ */class Et{constructor(e,n,s){this._isDeleted=!1,this._options=Object.assign({},e),this._config=Object.assign({},n),this._name=n.name,this._automaticDataCollectionEnabled=n.automaticDataCollectionEnabled,this._container=s,this.container.addComponent(new w("app",()=>this,"PUBLIC"))}get automaticDataCollectionEnabled(){return this.checkDestroyed(),this._automaticDataCollectionEnabled}set automaticDataCollectionEnabled(e){this.checkDestroyed(),this._automaticDataCollectionEnabled=e}get name(){return this.checkDestroyed(),this._name}get options(){return this.checkDestroyed(),this._options}get config(){return this.checkDestroyed(),this._config}get container(){return this._container}get isDeleted(){return this._isDeleted}set isDeleted(e){this._isDeleted=e}checkDestroyed(){if(this.isDeleted)throw m.create("app-deleted",{appName:this._name})}}/**
  * @license
  * Copyright 2019 Google LLC
  *
@@ -2007,90 +388,7 @@ class FirebaseAppImpl {
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-const SDK_VERSION = version;
-function initializeApp(options, rawConfig = {}) {
-  if (typeof rawConfig !== "object") {
-    const name3 = rawConfig;
-    rawConfig = { name: name3 };
-  }
-  const config = Object.assign({ name: DEFAULT_ENTRY_NAME, automaticDataCollectionEnabled: false }, rawConfig);
-  const name2 = config.name;
-  if (typeof name2 !== "string" || !name2) {
-    throw ERROR_FACTORY.create("bad-app-name", {
-      appName: String(name2)
-    });
-  }
-  const existingApp = _apps.get(name2);
-  if (existingApp) {
-    if (deepEqual(options, existingApp.options) && deepEqual(config, existingApp.config)) {
-      return existingApp;
-    } else {
-      throw ERROR_FACTORY.create("duplicate-app", { appName: name2 });
-    }
-  }
-  const container = new ComponentContainer(name2);
-  for (const component of _components.values()) {
-    container.addComponent(component);
-  }
-  const newApp = new FirebaseAppImpl(options, config, container);
-  _apps.set(name2, newApp);
-  return newApp;
-}
-function getApp(name2 = DEFAULT_ENTRY_NAME) {
-  const app = _apps.get(name2);
-  if (!app) {
-    throw ERROR_FACTORY.create("no-app", { appName: name2 });
-  }
-  return app;
-}
-function getApps() {
-  return Array.from(_apps.values());
-}
-async function deleteApp(app) {
-  const name2 = app.name;
-  if (_apps.has(name2)) {
-    _apps.delete(name2);
-    await Promise.all(app.container.getProviders().map((provider) => provider.delete()));
-    app.isDeleted = true;
-  }
-}
-function registerVersion(libraryKeyOrName, version2, variant) {
-  var _a;
-  let library = (_a = PLATFORM_LOG_STRING[libraryKeyOrName]) !== null && _a !== void 0 ? _a : libraryKeyOrName;
-  if (variant) {
-    library += `-${variant}`;
-  }
-  const libraryMismatch = library.match(/\s|\//);
-  const versionMismatch = version2.match(/\s|\//);
-  if (libraryMismatch || versionMismatch) {
-    const warning = [
-      `Unable to register library "${library}" with version "${version2}":`
-    ];
-    if (libraryMismatch) {
-      warning.push(`library name "${library}" contains illegal characters (whitespace or "/")`);
-    }
-    if (libraryMismatch && versionMismatch) {
-      warning.push("and");
-    }
-    if (versionMismatch) {
-      warning.push(`version name "${version2}" contains illegal characters (whitespace or "/")`);
-    }
-    logger.warn(warning.join(" "));
-    return;
-  }
-  _registerComponent(new Component(`${library}-version`, () => ({ library, version: version2 }), "VERSION"));
-}
-function onLog(logCallback, options) {
-  if (logCallback !== null && typeof logCallback !== "function") {
-    throw ERROR_FACTORY.create("invalid-log-argument");
-  }
-  setUserLogHandler(logCallback, options);
-}
-function setLogLevel(logLevel) {
-  setLogLevel$1(logLevel);
-}
-/**
+ */const an=mt;function on(t,e={}){typeof e!="object"&&(e={name:e});const n=Object.assign({name:k,automaticDataCollectionEnabled:!1},e),s=n.name;if(typeof s!="string"||!s)throw m.create("bad-app-name",{appName:String(s)});const r=_.get(s);if(r){if(T(t,r.options)&&T(n,r.config))return r;throw m.create("duplicate-app",{appName:s})}const i=new De(s);for(const o of S.values())i.addComponent(o);const a=new Et(t,n,i);return _.set(s,a),a}function cn(t=k){const e=_.get(t);if(!e)throw m.create("no-app",{appName:t});return e}function hn(){return Array.from(_.values())}async function fn(t){const e=t.name;_.has(e)&&(_.delete(e),await Promise.all(t.container.getProviders().map(n=>n.delete())),t.isDeleted=!0)}function x(t,e,n){var s;let r=(s=bt[t])!==null&&s!==void 0?s:t;n&&(r+=`-${n}`);const i=r.match(/\s|\//),a=e.match(/\s|\//);if(i||a){const o=[`Unable to register library "${r}" with version "${e}":`];i&&o.push(`library name "${r}" contains illegal characters (whitespace or "/")`),i&&a&&o.push("and"),a&&o.push(`version name "${e}" contains illegal characters (whitespace or "/")`),g.warn(o.join(" "));return}L(new w(`${r}-version`,()=>({library:r,version:e}),"VERSION"))}function ln(t,e){if(t!==null&&typeof t!="function")throw m.create("invalid-log-argument");Ne(t,e)}function dn(t){xe(t)}/**
  * @license
  * Copyright 2021 Google LLC
  *
@@ -2105,67 +403,7 @@ function setLogLevel(logLevel) {
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-const DB_NAME = "firebase-heartbeat-database";
-const DB_VERSION = 1;
-const STORE_NAME = "firebase-heartbeat-store";
-let dbPromise = null;
-function getDbPromise() {
-  if (!dbPromise) {
-    dbPromise = openDB(DB_NAME, DB_VERSION, {
-      upgrade: (db, oldVersion) => {
-        switch (oldVersion) {
-          case 0:
-            db.createObjectStore(STORE_NAME);
-        }
-      }
-    }).catch((e) => {
-      throw ERROR_FACTORY.create("idb-open", {
-        originalErrorMessage: e.message
-      });
-    });
-  }
-  return dbPromise;
-}
-async function readHeartbeatsFromIndexedDB(app) {
-  var _a;
-  try {
-    const db = await getDbPromise();
-    return db.transaction(STORE_NAME).objectStore(STORE_NAME).get(computeKey(app));
-  } catch (e) {
-    if (e instanceof FirebaseError) {
-      logger.warn(e.message);
-    } else {
-      const idbGetError = ERROR_FACTORY.create("idb-get", {
-        originalErrorMessage: (_a = e) === null || _a === void 0 ? void 0 : _a.message
-      });
-      logger.warn(idbGetError.message);
-    }
-  }
-}
-async function writeHeartbeatsToIndexedDB(app, heartbeatObject) {
-  var _a;
-  try {
-    const db = await getDbPromise();
-    const tx = db.transaction(STORE_NAME, "readwrite");
-    const objectStore = tx.objectStore(STORE_NAME);
-    await objectStore.put(heartbeatObject, computeKey(app));
-    return tx.done;
-  } catch (e) {
-    if (e instanceof FirebaseError) {
-      logger.warn(e.message);
-    } else {
-      const idbGetError = ERROR_FACTORY.create("idb-set", {
-        originalErrorMessage: (_a = e) === null || _a === void 0 ? void 0 : _a.message
-      });
-      logger.warn(idbGetError.message);
-    }
-  }
-}
-function computeKey(app) {
-  return `${app.name}!${app.options.appId}`;
-}
-/**
+ */const vt="firebase-heartbeat-database",It=1,y="firebase-heartbeat-store";let N=null;function ie(){return N||(N=je(vt,It,{upgrade:(t,e)=>{switch(e){case 0:t.createObjectStore(y)}}}).catch(t=>{throw m.create("idb-open",{originalErrorMessage:t.message})})),N}async function wt(t){var e;try{return(await ie()).transaction(y).objectStore(y).get(ae(t))}catch(n){if(n instanceof E)g.warn(n.message);else{const s=m.create("idb-get",{originalErrorMessage:(e=n)===null||e===void 0?void 0:e.message});g.warn(s.message)}}}async function K(t,e){var n;try{const r=(await ie()).transaction(y,"readwrite");return await r.objectStore(y).put(e,ae(t)),r.done}catch(s){if(s instanceof E)g.warn(s.message);else{const r=m.create("idb-set",{originalErrorMessage:(n=s)===null||n===void 0?void 0:n.message});g.warn(r.message)}}}function ae(t){return`${t.name}!${t.options.appId}`}/**
  * @license
  * Copyright 2021 Google LLC
  *
@@ -2180,149 +418,7 @@ function computeKey(app) {
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-const MAX_HEADER_BYTES = 1024;
-const STORED_HEARTBEAT_RETENTION_MAX_MILLIS = 30 * 24 * 60 * 60 * 1e3;
-class HeartbeatServiceImpl {
-  constructor(container) {
-    this.container = container;
-    this._heartbeatsCache = null;
-    const app = this.container.getProvider("app").getImmediate();
-    this._storage = new HeartbeatStorageImpl(app);
-    this._heartbeatsCachePromise = this._storage.read().then((result) => {
-      this._heartbeatsCache = result;
-      return result;
-    });
-  }
-  async triggerHeartbeat() {
-    const platformLogger = this.container.getProvider("platform-logger").getImmediate();
-    const agent = platformLogger.getPlatformInfoString();
-    const date = getUTCDateString();
-    if (this._heartbeatsCache === null) {
-      this._heartbeatsCache = await this._heartbeatsCachePromise;
-    }
-    if (this._heartbeatsCache.lastSentHeartbeatDate === date || this._heartbeatsCache.heartbeats.some((singleDateHeartbeat) => singleDateHeartbeat.date === date)) {
-      return;
-    } else {
-      this._heartbeatsCache.heartbeats.push({ date, agent });
-    }
-    this._heartbeatsCache.heartbeats = this._heartbeatsCache.heartbeats.filter((singleDateHeartbeat) => {
-      const hbTimestamp = new Date(singleDateHeartbeat.date).valueOf();
-      const now = Date.now();
-      return now - hbTimestamp <= STORED_HEARTBEAT_RETENTION_MAX_MILLIS;
-    });
-    return this._storage.overwrite(this._heartbeatsCache);
-  }
-  async getHeartbeatsHeader() {
-    if (this._heartbeatsCache === null) {
-      await this._heartbeatsCachePromise;
-    }
-    if (this._heartbeatsCache === null || this._heartbeatsCache.heartbeats.length === 0) {
-      return "";
-    }
-    const date = getUTCDateString();
-    const { heartbeatsToSend, unsentEntries } = extractHeartbeatsForHeader(this._heartbeatsCache.heartbeats);
-    const headerString = base64urlEncodeWithoutPadding(JSON.stringify({ version: 2, heartbeats: heartbeatsToSend }));
-    this._heartbeatsCache.lastSentHeartbeatDate = date;
-    if (unsentEntries.length > 0) {
-      this._heartbeatsCache.heartbeats = unsentEntries;
-      await this._storage.overwrite(this._heartbeatsCache);
-    } else {
-      this._heartbeatsCache.heartbeats = [];
-      void this._storage.overwrite(this._heartbeatsCache);
-    }
-    return headerString;
-  }
-}
-function getUTCDateString() {
-  const today = new Date();
-  return today.toISOString().substring(0, 10);
-}
-function extractHeartbeatsForHeader(heartbeatsCache, maxSize = MAX_HEADER_BYTES) {
-  const heartbeatsToSend = [];
-  let unsentEntries = heartbeatsCache.slice();
-  for (const singleDateHeartbeat of heartbeatsCache) {
-    const heartbeatEntry = heartbeatsToSend.find((hb) => hb.agent === singleDateHeartbeat.agent);
-    if (!heartbeatEntry) {
-      heartbeatsToSend.push({
-        agent: singleDateHeartbeat.agent,
-        dates: [singleDateHeartbeat.date]
-      });
-      if (countBytes(heartbeatsToSend) > maxSize) {
-        heartbeatsToSend.pop();
-        break;
-      }
-    } else {
-      heartbeatEntry.dates.push(singleDateHeartbeat.date);
-      if (countBytes(heartbeatsToSend) > maxSize) {
-        heartbeatEntry.dates.pop();
-        break;
-      }
-    }
-    unsentEntries = unsentEntries.slice(1);
-  }
-  return {
-    heartbeatsToSend,
-    unsentEntries
-  };
-}
-class HeartbeatStorageImpl {
-  constructor(app) {
-    this.app = app;
-    this._canUseIndexedDBPromise = this.runIndexedDBEnvironmentCheck();
-  }
-  async runIndexedDBEnvironmentCheck() {
-    if (!isIndexedDBAvailable()) {
-      return false;
-    } else {
-      return validateIndexedDBOpenable().then(() => true).catch(() => false);
-    }
-  }
-  async read() {
-    const canUseIndexedDB = await this._canUseIndexedDBPromise;
-    if (!canUseIndexedDB) {
-      return { heartbeats: [] };
-    } else {
-      const idbHeartbeatObject = await readHeartbeatsFromIndexedDB(this.app);
-      return idbHeartbeatObject || { heartbeats: [] };
-    }
-  }
-  async overwrite(heartbeatsObject) {
-    var _a;
-    const canUseIndexedDB = await this._canUseIndexedDBPromise;
-    if (!canUseIndexedDB) {
-      return;
-    } else {
-      const existingHeartbeatsObject = await this.read();
-      return writeHeartbeatsToIndexedDB(this.app, {
-        lastSentHeartbeatDate: (_a = heartbeatsObject.lastSentHeartbeatDate) !== null && _a !== void 0 ? _a : existingHeartbeatsObject.lastSentHeartbeatDate,
-        heartbeats: heartbeatsObject.heartbeats
-      });
-    }
-  }
-  async add(heartbeatsObject) {
-    var _a;
-    const canUseIndexedDB = await this._canUseIndexedDBPromise;
-    if (!canUseIndexedDB) {
-      return;
-    } else {
-      const existingHeartbeatsObject = await this.read();
-      return writeHeartbeatsToIndexedDB(this.app, {
-        lastSentHeartbeatDate: (_a = heartbeatsObject.lastSentHeartbeatDate) !== null && _a !== void 0 ? _a : existingHeartbeatsObject.lastSentHeartbeatDate,
-        heartbeats: [
-          ...existingHeartbeatsObject.heartbeats,
-          ...heartbeatsObject.heartbeats
-        ]
-      });
-    }
-  }
-}
-function countBytes(heartbeatsCache) {
-  return base64urlEncodeWithoutPadding(
-    JSON.stringify({ version: 2, heartbeats: heartbeatsCache })
-  ).length;
-}
-/**
+ */const St=1024,Dt=30*24*60*60*1e3;class Ct{constructor(e){this.container=e,this._heartbeatsCache=null;const n=this.container.getProvider("app").getImmediate();this._storage=new Ot(n),this._heartbeatsCachePromise=this._storage.read().then(s=>(this._heartbeatsCache=s,s))}async triggerHeartbeat(){const n=this.container.getProvider("platform-logger").getImmediate().getPlatformInfoString(),s=J();if(this._heartbeatsCache===null&&(this._heartbeatsCache=await this._heartbeatsCachePromise),!(this._heartbeatsCache.lastSentHeartbeatDate===s||this._heartbeatsCache.heartbeats.some(r=>r.date===s)))return this._heartbeatsCache.heartbeats.push({date:s,agent:n}),this._heartbeatsCache.heartbeats=this._heartbeatsCache.heartbeats.filter(r=>{const i=new Date(r.date).valueOf();return Date.now()-i<=Dt}),this._storage.overwrite(this._heartbeatsCache)}async getHeartbeatsHeader(){if(this._heartbeatsCache===null&&await this._heartbeatsCachePromise,this._heartbeatsCache===null||this._heartbeatsCache.heartbeats.length===0)return"";const e=J(),{heartbeatsToSend:n,unsentEntries:s}=At(this._heartbeatsCache.heartbeats),r=I(JSON.stringify({version:2,heartbeats:n}));return this._heartbeatsCache.lastSentHeartbeatDate=e,s.length>0?(this._heartbeatsCache.heartbeats=s,await this._storage.overwrite(this._heartbeatsCache)):(this._heartbeatsCache.heartbeats=[],this._storage.overwrite(this._heartbeatsCache)),r}}function J(){return new Date().toISOString().substring(0,10)}function At(t,e=St){const n=[];let s=t.slice();for(const r of t){const i=n.find(a=>a.agent===r.agent);if(i){if(i.dates.push(r.date),Y(n)>e){i.dates.pop();break}}else if(n.push({agent:r.agent,dates:[r.date]}),Y(n)>e){n.pop();break}s=s.slice(1)}return{heartbeatsToSend:n,unsentEntries:s}}class Ot{constructor(e){this.app=e,this._canUseIndexedDBPromise=this.runIndexedDBEnvironmentCheck()}async runIndexedDBEnvironmentCheck(){return me()?be().then(()=>!0).catch(()=>!1):!1}async read(){return await this._canUseIndexedDBPromise?await wt(this.app)||{heartbeats:[]}:{heartbeats:[]}}async overwrite(e){var n;if(await this._canUseIndexedDBPromise){const r=await this.read();return K(this.app,{lastSentHeartbeatDate:(n=e.lastSentHeartbeatDate)!==null&&n!==void 0?n:r.lastSentHeartbeatDate,heartbeats:e.heartbeats})}else return}async add(e){var n;if(await this._canUseIndexedDBPromise){const r=await this.read();return K(this.app,{lastSentHeartbeatDate:(n=e.lastSentHeartbeatDate)!==null&&n!==void 0?n:r.lastSentHeartbeatDate,heartbeats:[...r.heartbeats,...e.heartbeats]})}else return}}function Y(t){return I(JSON.stringify({version:2,heartbeats:t})).length}/**
  * @license
  * Copyright 2019 Google LLC
  *
@@ -2337,72 +433,4 @@ function countBytes(heartbeatsCache) {
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-function registerCoreComponents(variant) {
-  _registerComponent(new Component("platform-logger", (container) => new PlatformLoggerServiceImpl(container), "PRIVATE"));
-  _registerComponent(new Component("heartbeat", (container) => new HeartbeatServiceImpl(container), "PRIVATE"));
-  registerVersion(name$o, version$1, variant);
-  registerVersion(name$o, version$1, "esm2017");
-  registerVersion("fire-js", "");
-}
-registerCoreComponents("");
-export {
-  deleteApp as $,
-  stringLength as A,
-  map as B,
-  Component as C,
-  Deferred as D,
-  ErrorFactory as E,
-  FirebaseError as F,
-  contains as G,
-  safeGet as H,
-  jsonEval as I,
-  stringToByteArray as J,
-  Sha1 as K,
-  LogLevel as L,
-  base64 as M,
-  isNodeSdk as N,
-  isAdmin as O,
-  isValidFormat as P,
-  deepCopy as Q,
-  base64Encode as R,
-  SDK_VERSION as S,
-  assertionError as T,
-  DEFAULT_ENTRY_NAME as U,
-  _addComponent as V,
-  _addOrOverwriteComponent as W,
-  _apps as X,
-  _clearComponents as Y,
-  _components as Z,
-  _getProvider as _,
-  getApp as a,
-  getApps as a0,
-  initializeApp as a1,
-  onLog as a2,
-  setLogLevel as a3,
-  _removeServiceInstance as b,
-  createMockUserToken as c,
-  deepEqual as d,
-  _registerComponent as e,
-  Logger as f,
-  getModularInstance as g,
-  getUA as h,
-  isIndexedDBAvailable as i,
-  isSafari as j,
-  isMobileCordova as k,
-  isReactNative as l,
-  isElectron as m,
-  isIE as n,
-  isUWP as o,
-  isBrowserExtension as p,
-  base64Decode as q,
-  registerVersion as r,
-  querystring as s,
-  querystringDecode as t,
-  extractQuerystring as u,
-  createSubscribe as v,
-  isEmpty as w,
-  assert as x,
-  errorPrefix as y,
-  stringify as z
-};
+ */function Bt(t){L(new w("platform-logger",e=>new Ue(e),"PRIVATE")),L(new w("heartbeat",e=>new Ct(e),"PRIVATE")),x($,G,t),x($,G,"esm2017"),x("fire-js","")}Bt("");export{fn as $,en as A,Gt as B,w as C,ue as D,ee as E,E as F,Ut as G,Vt as H,z as I,Zt as J,Xt as K,f as L,Q as M,Ht as N,Ft as O,zt as P,xt as Q,le as R,an as S,he as T,k as U,gt as V,nn as W,_ as X,sn as Y,S as Z,_t as _,cn as a,hn as a0,on as a1,ln as a2,dn as a3,rn as b,Nt as c,T as d,L as e,Be as f,tn as g,D as h,me as i,kt as j,Tt as k,Rt as l,$t as m,Lt as n,Pt as o,Mt as p,j as q,x as r,Kt as s,Jt as t,Yt as u,qt as v,Wt as w,ce as x,Qt as y,jt as z};

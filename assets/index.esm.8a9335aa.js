@@ -1,8 +1,4 @@
-import { r as registerVersion } from "./index.esm2017.ce458832.js";
-import { F, S, U, V, W, X, Y, Z, _, e, b, $, a, a0, a1, a2, r, a3 } from "./index.esm2017.ce458832.js";
-var name = "firebase";
-var version = "9.9.3";
-/**
+import{r as e}from"./index.esm2017.ce458832.js";import{F as n,S as t,U as i,V as _,W as m,X as g,Y as v,Z as d,_ as A,e as E,b as c,$ as l,a as C,a0 as L,a1 as S,a2 as V,r as b,a3 as f}from"./index.esm2017.ce458832.js";var a="firebase",s="9.9.3";/**
  * @license
  * Copyright 2020 Google LLC
  *
@@ -17,25 +13,4 @@ var version = "9.9.3";
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-registerVersion(name, version, "app");
-export {
-  F as FirebaseError,
-  S as SDK_VERSION,
-  U as _DEFAULT_ENTRY_NAME,
-  V as _addComponent,
-  W as _addOrOverwriteComponent,
-  X as _apps,
-  Y as _clearComponents,
-  Z as _components,
-  _ as _getProvider,
-  e as _registerComponent,
-  b as _removeServiceInstance,
-  $ as deleteApp,
-  a as getApp,
-  a0 as getApps,
-  a1 as initializeApp,
-  a2 as onLog,
-  r as registerVersion,
-  a3 as setLogLevel
-};
+ */e(a,s,"app");export{n as FirebaseError,t as SDK_VERSION,i as _DEFAULT_ENTRY_NAME,_ as _addComponent,m as _addOrOverwriteComponent,g as _apps,v as _clearComponents,d as _components,A as _getProvider,E as _registerComponent,c as _removeServiceInstance,l as deleteApp,C as getApp,L as getApps,S as initializeApp,V as onLog,b as registerVersion,f as setLogLevel};

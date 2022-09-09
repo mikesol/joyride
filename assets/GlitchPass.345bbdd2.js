@@ -1,27 +1,10 @@
-import { ac as UniformsUtils, ab as ShaderMaterial, ad as LuminanceFormat, Y as MathUtils, ae as DataTexture, af as RedFormat, ag as FloatType } from "./three.module.81fc2a6a.js";
-import { P as Pass, F as FullScreenQuad } from "./Pass.09e32dfb.js";
-const DigitalGlitch = {
-  uniforms: {
-    "tDiffuse": { value: null },
-    "tDisp": { value: null },
-    "byp": { value: 0 },
-    "amount": { value: 0.08 },
-    "angle": { value: 0.02 },
-    "seed": { value: 0.02 },
-    "seed_x": { value: 0.02 },
-    "seed_y": { value: 0.02 },
-    "distortion_x": { value: 0.5 },
-    "distortion_y": { value: 0.6 },
-    "col_s": { value: 0.05 }
-  },
-  vertexShader: `
+import{ac as l,ab as u,ad as f,Y as t,ae as d,af as h,ag as m}from"./three.module.81fc2a6a.js";import{P as c,F as v}from"./Pass.09e32dfb.js";const r={uniforms:{tDiffuse:{value:null},tDisp:{value:null},byp:{value:0},amount:{value:.08},angle:{value:.02},seed:{value:.02},seed_x:{value:.02},seed_y:{value:.02},distortion_x:{value:.5},distortion_y:{value:.6},col_s:{value:.05}},vertexShader:`
 
 		varying vec2 vUv;
 		void main() {
 			vUv = uv;
 			gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
-		}`,
-  fragmentShader: `
+		}`,fragmentShader:`
 
 		uniform int byp; //should we apply the glitch ?
 
@@ -82,77 +65,4 @@ const DigitalGlitch = {
 			else {
 				gl_FragColor=texture2D (tDiffuse, vUv);
 			}
-		}`
-};
-class GlitchPass extends Pass {
-  constructor(dt_size = 64) {
-    super();
-    if (DigitalGlitch === void 0)
-      console.error("THREE.GlitchPass relies on DigitalGlitch");
-    const shader = DigitalGlitch;
-    this.uniforms = UniformsUtils.clone(shader.uniforms);
-    this.uniforms["tDisp"].value = this.generateHeightmap(dt_size);
-    this.material = new ShaderMaterial({
-      uniforms: this.uniforms,
-      vertexShader: shader.vertexShader,
-      fragmentShader: shader.fragmentShader
-    });
-    this.fsQuad = new FullScreenQuad(this.material);
-    this.goWild = false;
-    this.curF = 0;
-    this.generateTrigger();
-  }
-  render(renderer, writeBuffer, readBuffer) {
-    if (renderer.capabilities.isWebGL2 === false)
-      this.uniforms["tDisp"].value.format = LuminanceFormat;
-    this.uniforms["tDiffuse"].value = readBuffer.texture;
-    this.uniforms["seed"].value = Math.random();
-    this.uniforms["byp"].value = 0;
-    if (this.curF % this.randX == 0 || this.goWild == true) {
-      this.uniforms["amount"].value = Math.random() / 30;
-      this.uniforms["angle"].value = MathUtils.randFloat(-Math.PI, Math.PI);
-      this.uniforms["seed_x"].value = MathUtils.randFloat(-1, 1);
-      this.uniforms["seed_y"].value = MathUtils.randFloat(-1, 1);
-      this.uniforms["distortion_x"].value = MathUtils.randFloat(0, 1);
-      this.uniforms["distortion_y"].value = MathUtils.randFloat(0, 1);
-      this.curF = 0;
-      this.generateTrigger();
-    } else if (this.curF % this.randX < this.randX / 5) {
-      this.uniforms["amount"].value = Math.random() / 90;
-      this.uniforms["angle"].value = MathUtils.randFloat(-Math.PI, Math.PI);
-      this.uniforms["distortion_x"].value = MathUtils.randFloat(0, 1);
-      this.uniforms["distortion_y"].value = MathUtils.randFloat(0, 1);
-      this.uniforms["seed_x"].value = MathUtils.randFloat(-0.3, 0.3);
-      this.uniforms["seed_y"].value = MathUtils.randFloat(-0.3, 0.3);
-    } else if (this.goWild == false) {
-      this.uniforms["byp"].value = 1;
-    }
-    this.curF++;
-    if (this.renderToScreen) {
-      renderer.setRenderTarget(null);
-      this.fsQuad.render(renderer);
-    } else {
-      renderer.setRenderTarget(writeBuffer);
-      if (this.clear)
-        renderer.clear();
-      this.fsQuad.render(renderer);
-    }
-  }
-  generateTrigger() {
-    this.randX = MathUtils.randInt(120, 240);
-  }
-  generateHeightmap(dt_size) {
-    const data_arr = new Float32Array(dt_size * dt_size);
-    const length = dt_size * dt_size;
-    for (let i = 0; i < length; i++) {
-      const val = MathUtils.randFloat(0, 1);
-      data_arr[i] = val;
-    }
-    const texture = new DataTexture(data_arr, dt_size, dt_size, RedFormat, FloatType);
-    texture.needsUpdate = true;
-    return texture;
-  }
-}
-export {
-  GlitchPass
-};
+		}`};class _ extends c{constructor(e=64){super(),r===void 0&&console.error("THREE.GlitchPass relies on DigitalGlitch");const a=r;this.uniforms=l.clone(a.uniforms),this.uniforms.tDisp.value=this.generateHeightmap(e),this.material=new u({uniforms:this.uniforms,vertexShader:a.vertexShader,fragmentShader:a.fragmentShader}),this.fsQuad=new v(this.material),this.goWild=!1,this.curF=0,this.generateTrigger()}render(e,a,s){e.capabilities.isWebGL2===!1&&(this.uniforms.tDisp.value.format=f),this.uniforms.tDiffuse.value=s.texture,this.uniforms.seed.value=Math.random(),this.uniforms.byp.value=0,this.curF%this.randX==0||this.goWild==!0?(this.uniforms.amount.value=Math.random()/30,this.uniforms.angle.value=t.randFloat(-Math.PI,Math.PI),this.uniforms.seed_x.value=t.randFloat(-1,1),this.uniforms.seed_y.value=t.randFloat(-1,1),this.uniforms.distortion_x.value=t.randFloat(0,1),this.uniforms.distortion_y.value=t.randFloat(0,1),this.curF=0,this.generateTrigger()):this.curF%this.randX<this.randX/5?(this.uniforms.amount.value=Math.random()/90,this.uniforms.angle.value=t.randFloat(-Math.PI,Math.PI),this.uniforms.distortion_x.value=t.randFloat(0,1),this.uniforms.distortion_y.value=t.randFloat(0,1),this.uniforms.seed_x.value=t.randFloat(-.3,.3),this.uniforms.seed_y.value=t.randFloat(-.3,.3)):this.goWild==!1&&(this.uniforms.byp.value=1),this.curF++,this.renderToScreen?(e.setRenderTarget(null),this.fsQuad.render(e)):(e.setRenderTarget(a),this.clear&&e.clear(),this.fsQuad.render(e))}generateTrigger(){this.randX=t.randInt(120,240)}generateHeightmap(e){const a=new Float32Array(e*e),s=e*e;for(let i=0;i<s;i++){const n=t.randFloat(0,1);a[i]=n}const o=new d(a,e,e,h,m);return o.needsUpdate=!0,o}}export{_ as GlitchPass};

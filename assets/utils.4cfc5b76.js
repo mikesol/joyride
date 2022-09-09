@@ -1,14 +1,1 @@
-function arrayNeedsUint32(array) {
-  for (let i = array.length - 1; i >= 0; --i) {
-    if (array[i] > 65535)
-      return true;
-  }
-  return false;
-}
-function createElementNS(name) {
-  return document.createElementNS("http://www.w3.org/1999/xhtml", name);
-}
-export {
-  arrayNeedsUint32 as a,
-  createElementNS as c
-};
+function n(e){for(let t=e.length-1;t>=0;--t)if(e[t]>65535)return!0;return!1}function r(e){return document.createElementNS("http://www.w3.org/1999/xhtml",e)}export{n as a,r as c};
