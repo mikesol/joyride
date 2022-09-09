@@ -36,8 +36,8 @@ orientationPermissionPage opts = D.div (oneOf [ pure (D.Class := "absolute") ])
                     opts.givePermission op
                     -- go home
                     case opts.rideTrack of
-                      Just { ride, track } -> navigateToHash ("r/" <> ride <> "/" <> track)
-                      Nothing -> navigateToHash ""
+                      Just { ride, track } -> navigateToHash ("/r/" <> ride <> "/" <> track)
+                      Nothing -> navigateToHash "/"
               ]
           )
           [ text_ "Ask for permission" ]

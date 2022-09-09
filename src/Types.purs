@@ -836,6 +836,7 @@ data Negotiation
   = PageLoad
   | NeedsOrientation (Maybe { ride :: String, track :: String })
   | WillNotWorkWithoutOrientation 
+  | ChooseRide (Array { data :: Track, id :: String })
   | GetRulesOfGame
       { cubeTextures :: CubeTextures CTL.CubeTexture
       , models :: Models GLTFLoader.GLTF

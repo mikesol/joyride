@@ -13,6 +13,7 @@ data Route
   | OrientationPermissionWithRideRequest String String
   | OrientationPermissionWithoutRideRequest
   | Tutorial
+  | TakeRide
   | Editor
   | Session String String
 
@@ -22,12 +23,14 @@ derive instance eqRoute :: Eq Route
 instance showRoute :: Show Route where
   show = genericShow
 
-orientationPermissionPath = "orientation-permission" :: String
-tutorialPath = "tutorial" :: String
-editorPath = "editor" :: String
+orientationPermissionPath = "/orientation-permission" :: String
+tutorialPath = "/tutorial" :: String
+editorPath = "/editor" :: String
+ridesPath = "/rides" :: String
 route :: RouteDuplex' Route
 route = root $ G.sum
   { "Home": G.noArgs
+  , "TakeRide": path ridesPath G.noArgs
   , "Editor": path editorPath G.noArgs
   , "Tutorial": path tutorialPath G.noArgs
   , "OrientationPermissionWithoutRideRequest": path orientationPermissionPath G.noArgs

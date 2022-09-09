@@ -3,10 +3,13 @@ module Main where
 import Prelude
 
 import Control.Alt ((<|>))
-import Control.Parallel (parTraverse, sequential)
+import Data.Monoid (guard)
+import Control.Parallel (parSequence, parTraverse, sequential)
 import Control.Promise (Promise, toAffE)
+import Data.Array (nubBy)
 import Data.Either (Either(..))
 import Data.Filterable (filter)
+import Data.Function (on)
 import Data.Homogeneous.Record (fromHomogeneous, homogeneous)
 import Data.Int as Int
 import Data.List (List(..), drop, take, (:))
@@ -46,7 +49,7 @@ import Joyride.FRP.Orientation (hasOrientationPermission, posFromOrientation, xF
 import Joyride.FRP.SampleOnSubscribe (sampleOnSubscribe)
 import Joyride.Firebase.Auth (AuthProvider(..), authStateChangedEventWithAnonymousAccountCreation, firebaseAuthAff, initializeGoogleClient, signOut)
 import Joyride.Firebase.Config (firebaseAppAff)
-import Joyride.Firebase.Firestore (createRideIfNotExistsYet, eventChannelChanges, firestoreDbAff, getEventsAff, getPlayerForChannel, getTrackAff, initializeRealtimePresenceAff, sendMyPointsAndPenaltiesToFirebase)
+import Joyride.Firebase.Firestore (createRideIfNotExistsYet, eventChannelChanges, firestoreDbAff, getEventsAff, getPlayerForChannel, getPublicTracksAff, getTrackAff, getTracksAff, getWhitelistedTracksAff, initializeRealtimePresenceAff, sendMyPointsAndPenaltiesToFirebase)
 import Joyride.Firebase.Opaque (FirebaseAuth, Firestore)
 import Joyride.IO.ParFold (ParFold(..))
 import Joyride.Ledger.Basic (basicOutcomeToPointOutcome, beatsToBasicOutcome)
@@ -688,16 +691,17 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
               -- to prevent this, we filter out all duplicate routes
               ( filter (\(_ /\ old /\ new) -> old /= Just new)
                   ( mapAccum
-                      ( \{ rev: old /\ new, orev } fsm -> do
+                      ( \{ rev: old /\ new, orev, sinon } fsm -> do
                           let
-                            newFsm = case orev of
+                            newFsmState = case orev of
                               Just true -> FSMStartWithSuccessfulOrientationPermission
                               Just false -> FSMAppCannotStartDueToLackOfOrientationPermission
-                              Nothing -> fsm
-                          newFsm /\ (newFsm /\ old /\ new)
+                              Nothing -> fsm.state
+                          let nfsm = fsm { state = newFsmState, signedInNonAnon = sinon }
+                          nfsm /\ (nfsm /\ old /\ new)
                       )
-                      ({ rev: _, orev: _ } <$> routeE.event <*> (pure Nothing <|> map Just orientationPerm.event))
-                      FSMStarting
+                      ({ rev: _, orev: _, sinon: _ } <$> routeE.event <*> (pure Nothing <|> map Just orientationPerm.event) <*> signedInNonAnonymously.event)
+                      { state: FSMStarting, signedInNonAnon: false }
                   )
               )
               \(fsm /\ _ /\ new) -> do
@@ -713,9 +717,16 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                     Session x y -> channelProp x y
                     Tutorial -> channelEvent.push TutorialChannel
                     Editor -> channelEvent.push EditorChannel
+                    TakeRide -> launchAff_ do
+                      rides <- map (nubBy (compare `on` _.id) <<< join) $ parSequence
+                        [ getPublicTracksAff firestoreDb
+                        , guard fsm.signedInNonAnon (getTracksAff fbAuth firestoreDb)
+                        , guard fsm.signedInNonAnon (getWhitelistedTracksAff fbAuth firestoreDb)
+                        ]
+                      liftEffect $ negotiation.push (ChooseRide rides)
                     OrientationPermissionWithoutRideRequest -> negotiation.push (NeedsOrientation Nothing)
                     OrientationPermissionWithRideRequest x y -> negotiation.push (NeedsOrientation (Just { ride: x, track: y }))
-                case fsm of
+                case fsm.state of
                   FSMStartWithSuccessfulOrientationPermission -> saneStart
                   FSMAppCannotStartDueToLackOfOrientationPermission -> negotiation.push WillNotWorkWithoutOrientation
                   FSMStarting -> do

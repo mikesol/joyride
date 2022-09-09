@@ -8,6 +8,7 @@ import Data.Function (on)
 import Data.Maybe (Maybe(..))
 import Data.Number (pi)
 import Data.Time.Duration (Milliseconds)
+import Deku.Control (blank)
 import Deku.Core (Domable)
 import Effect (Effect)
 import FRP.Event (Event, filterMap)
@@ -72,6 +73,7 @@ data TopLevelDisplay
   | TLLoading
   | TLGameHasStarted
   | TLRoomIsFull
+  | TLChooseRide (Array { data :: Track, id :: String })
   | TLWantsTutorial WantsTutorial'
   | TLOpenEditor { oe :: OpenEditor', wt :: WantsTutorial' }
   | TLSuccess Success'
@@ -113,7 +115,6 @@ toplevel tli =
                 -- editor does not need to be loaded for now
                 -- change if that's the case
                 false, _ -> TLLoading
-                -- should never reach
                 _, PageLoad -> TLLoading
                 _, StartingNegotiation -> TLLoading
                 _, RoomIsFull -> TLRoomIsFull
@@ -121,6 +122,7 @@ toplevel tli =
                 _, RequestingPlayer -> TLLoading
                 _, ReceivedPossibilities -> TLLoading
                 _, ClaimFail -> TLRoomIsFull
+                _, ChooseRide cr -> TLChooseRide cr
                 true, Success s -> TLSuccess s
                 true, WantsTutorial s -> TLWantsTutorial s
                 true, OpenEditor s -> TLOpenEditor s
@@ -134,6 +136,7 @@ toplevel tli =
       )
   ) # switcher case _ of
     TLNeedsOrientation rideTrack -> orientationPermissionPage { givePermission: tli.givePermission, rideTrack }
+    TLChooseRide cr -> blank
     TLWillNotWorkWithoutOrientation -> sorryNeedPermissionPage
     TLExplainer { cubeTextures, threeDI, cNow, initialDims, firestoreDb, fbAuth, signedInNonAnonymously, signOut } -> explainerPage
       { ride: tli.ride
