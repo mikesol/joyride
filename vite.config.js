@@ -10,7 +10,7 @@ export default {
 	},
 	assetsInclude: ['**/*.glsl', '**/*.m4a'],
 	build: {
-		minify: process.env.DISABLE_MINIMIZATION === "true" ? true : false,
+		minify: !(process.env.DISABLE_MINIMIZATION === "true"),
 	}, plugins: [
 		VitePluginInjectPreload({
 			files: [
