@@ -14,10 +14,10 @@ import Data.Newtype (unwrap)
 import Data.Time.Duration (Milliseconds(..))
 import Effect.Aff (launchAff_)
 import Effect.Class (liftEffect)
-import Effect.Console (log)
 import FRP.Behavior (sampleBy, sample_)
 import FRP.Event (Event, bus, keepLatest, memoize, sampleOn)
 import FRP.Event.Time as LocalTime
+import Joyride.Constants.Timing (negativeTimeAftereWhichWeGiveThisPersonTheBenefitOfTheDoubtAndDoNotAssessAPenalty, timeBeforeWhichWeGiveThisPersonTheBenefitOfTheDoubtAndDoNotAssessAPenalty)
 import Joyride.Constants.Visual as Visual.Constants
 import Joyride.FRP.Aff (eventToAff)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
@@ -197,8 +197,9 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
                                             , player: x.player
                                             }
                                         Just (Left hitBasicVisualForLabel)
-                                      Nothing ->
-                                        if ((cbeat > canStartAt) && ((unwrap rightBeat.startsAt - cbeat) > (-0.5))) then Just $ Right { cbeat, canStartAt, rb: unwrap rightBeat.startsAt, myInfo: map _.startsAt makeBasic.myInfo.beats }
+                                      Nothing -> do
+                                        let beatDiff = unwrap rightBeat.startsAt - cbeat
+                                        if (cbeat > canStartAt && beatDiff < timeBeforeWhichWeGiveThisPersonTheBenefitOfTheDoubtAndDoNotAssessAPenalty && beatDiff > negativeTimeAftereWhichWeGiveThisPersonTheBenefitOfTheDoubtAndDoNotAssessAPenalty) then Just $ Right { cbeat, canStartAt, rb: unwrap rightBeat.startsAt, myInfo: map _.startsAt makeBasic.myInfo.beats }
                                         else Nothing
                           )
                       )
@@ -208,10 +209,8 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
                         Left notMe' -> do
                           cnow <- liftEffect $ makeBasic.cnow
                           let notMe = notMe' (unwrap cnow)
-                          liftEffect $ log $ "drats, it wudn't me: " <> show (unwrap notMe).uniqueId
                           liftEffect $ makeBasic.pushBasicVisualForLabel notMe
-                        Right meeeee -> do
-                          liftEffect $ log $ "Raycaster strikes again! " <> show meeeee
+                        Right _ -> do
                           n <- liftEffect $ makeBasic.cnow
                           let
                             pos = playerPosition' makeBasic.myPlayer playerPositions
@@ -283,11 +282,3 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
     Nothing -> basicThickness
     Just (JMilliseconds startTime) -> let (JMilliseconds currentTime) = ri.epochTime in max 0.0 (basicThickness - (basicThickness * shrinkRate * (currentTime - startTime) / 1000.0))
   otherPlayedMe = filter (\(HitBasicOtherPlayer { uniqueId }) -> makeBasic.myInfo.uniqueId == uniqueId) makeBasic.notifications.hitBasic
-
---  mesh { mesh: makeBasic.threeDI.mesh } (box { box: makeBasic.threeDI.boxGeometry })
---                 ( meshPhongMaterial
---                     { meshPhongMaterial: makeBasic.threeDI.meshPhongMaterial
---                     , color: makeBasic.mkColor (RGB 0.798 0.927 0.778)
---                     }
---                     empty
---                 )

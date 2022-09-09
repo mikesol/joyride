@@ -16,6 +16,7 @@ import Effect.Console (log)
 import FRP.Behavior (sampleBy, sample_)
 import FRP.Event (Event, bus, keepLatest, memoize, sampleOn)
 import FRP.Event.Time as LocalTime
+import Joyride.Constants.Timing (negativeTimeAftereWhichWeGiveThisPersonTheBenefitOfTheDoubtAndDoNotAssessAPenalty, timeBeforeWhichWeGiveThisPersonTheBenefitOfTheDoubtAndDoNotAssessAPenalty)
 import Joyride.Constants.Visual as Visual.Constants
 import Joyride.FRP.Aff (eventToAff)
 import Joyride.FRP.LowPrioritySchedule (lowPrioritySchedule)
@@ -141,11 +142,11 @@ leap makeLeap = keepLatest $ bus \setPlayed iWasPlayed -> do
                                     let Beats cbeat = rateInfo.beats
                                     let canStartAt = makeLeap.raycastingCanStartAt ppos
                                     let
-                                        rightBeat = case ppos of
-                                          Position1 -> makeLeap.hitsFirstPositionAt
-                                          Position2 -> (makeLeap.hitsLastPositionAt - makeLeap.hitsFirstPositionAt) * Beats 0.33 + makeLeap.hitsFirstPositionAt
-                                          Position3 -> (makeLeap.hitsLastPositionAt - makeLeap.hitsFirstPositionAt) * Beats 0.66 + makeLeap.hitsFirstPositionAt
-                                          Position4 -> makeLeap.hitsLastPositionAt         
+                                      rightBeat = case ppos of
+                                        Position1 -> makeLeap.hitsFirstPositionAt
+                                        Position2 -> (makeLeap.hitsLastPositionAt - makeLeap.hitsFirstPositionAt) * Beats 0.33 + makeLeap.hitsFirstPositionAt
+                                        Position3 -> (makeLeap.hitsLastPositionAt - makeLeap.hitsFirstPositionAt) * Beats 0.66 + makeLeap.hitsFirstPositionAt
+                                        Position4 -> makeLeap.hitsLastPositionAt
                                     case hbop of
                                       Just (HitLeapOtherPlayer x) -> do
                                         let
@@ -159,8 +160,9 @@ leap makeLeap = keepLatest $ bus \setPlayed iWasPlayed -> do
                                             , player: x.player
                                             }
                                         Just (Left hitLeapVisualForLabel)
-                                      Nothing ->
-                                        if ((cbeat > canStartAt) && ((unwrap rightBeat - cbeat) > (-0.5))) then Just $ Right { cbeat, canStartAt, rb: unwrap rightBeat }
+                                      Nothing -> do
+                                        let beatDiff = unwrap rightBeat - cbeat
+                                        if (cbeat > canStartAt && beatDiff < timeBeforeWhichWeGiveThisPersonTheBenefitOfTheDoubtAndDoNotAssessAPenalty && beatDiff > negativeTimeAftereWhichWeGiveThisPersonTheBenefitOfTheDoubtAndDoNotAssessAPenalty) then Just $ Right { cbeat, canStartAt, rb: unwrap rightBeat }
                                         else Nothing
                           )
 
@@ -173,7 +175,7 @@ leap makeLeap = keepLatest $ bus \setPlayed iWasPlayed -> do
                           let notMe = notMe' (unwrap cnow)
                           liftEffect $ log $ "drats, it wudn't me: " <> show (unwrap notMe).uniqueId
                           liftEffect $ makeLeap.pushLeapVisualForLabel notMe
-                        Right meeeee ->  do
+                        Right meeeee -> do
                           liftEffect $ log $ "Raycaster strikes again! " <> show meeeee
                           n <- liftEffect $ makeLeap.cnow
                           let

@@ -7,7 +7,7 @@ import Control.Plus (empty)
 import Data.Foldable (oneOf)
 import FRP.Behavior (Behavior, sampleBy)
 import FRP.Event (Event)
-import Joyride.Constants.Visual (bar1Color, bar2Color, bar3Color, bar4Color)
+import Joyride.Constants.Visual (bar1Color, bar2Color, bar3Color, bar4Color, barXWidth, barYThickness, barZThickness)
 import Joyride.Debug (debugX)
 import Joyride.FRP.Schedule (fireAndForget)
 import Rito.Color (Color, RGB)
@@ -40,9 +40,9 @@ makeBar { c3, threeDI, renderingInfo, position, debug, rateE } = toScene $ mesh 
       [ pure (positionX 0.0)
       , pure (positionY 0.0)
       , sampleBy (\ri _ -> positionZ (touchPointZ ri position)) renderingInfo (debugX debug rateE)
-      , initializeWith scaleX 10.0
-      , initializeWith scaleY 0.02
-      , initializeWith scaleZ 0.03
+      , initializeWith scaleX barXWidth
+      , initializeWith scaleY barYThickness
+      , initializeWith scaleZ barZThickness
       ]
   )
   where
