@@ -7,9 +7,10 @@
 		"start": "spago build && vite --open",
 		"start:force-4": "spago build && FORCE_4=true vite --open",
 		"start:no-gui": "spago build && LIL_GUI=false vite --open",
-		"build": "npm run build-ps && rm -rf dist && mkdir dist && LIL_GUI=false FORCE_4=false vite build",
-		"build:prod": "npm run build-ps:prod && rm -rf dist && mkdir dist && LIL_GUI=false FORCE_4=false PROD_EXPERIMENTAL=true vite build",
-		"build:prod-no-min": "npm run build-ps:prod && rm -rf dist && mkdir dist && LIL_GUI=false FORCE_4=false DISABLE_MINIMIZATION=true PROD_EXPERIMENTAL=true vite build",
+		"build:dev": "npm run build-ps && rm -rf dist && mkdir dist && vite build",
+		"build": "npm run build-ps && rm -rf dist && mkdir dist && LIL_GUI=false FORCE_4=false BUILD_TYPE=production vite build",
+		"build:prod": "npm run build-ps:prod && rm -rf dist && mkdir dist && LIL_GUI=false FORCE_4=false PROD_EXPERIMENTAL=true BUILD_TYPE=production vite build",
+		"build:prod-no-min": "npm run build-ps:prod && rm -rf dist && mkdir dist && LIL_GUI=false FORCE_4=false DISABLE_MINIMIZATION=true PROD_EXPERIMENTAL=true BUILD_TYPE=production vite build",
 		"build-ps": "spago build",
 		"build-ps:prod": "spago -x prod.dhall build",
 		"test": "spago -x test.dhall test"
