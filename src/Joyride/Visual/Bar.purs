@@ -4,14 +4,17 @@ import Prelude
 
 import Control.Alt ((<|>))
 import Data.Foldable (oneOf)
-import Data.Newtype (wrap)
+import Data.Newtype (unwrap, wrap)
+import Data.Number (pi, sin)
+import Data.Tuple (Tuple(..))
 import Data.Variant (inj)
 import FRP.Behavior (Behavior, sampleBy)
 import FRP.Event (Event)
 import Joyride.Constants.Visual (bar1Color, bar2Color, bar3Color, bar4Color)
 import Joyride.Debug (debugX)
+import Joyride.FRP.Dedup (dedup')
 import Joyride.FRP.Schedule (fireAndForget)
-import Rito.Color (Color, RGB)
+import Rito.Color (Color, RGB(..))
 import Rito.Core (ASceneful, toScene)
 import Rito.Geometries.Box (box)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
@@ -38,8 +41,8 @@ makeBar { c3, threeDI, renderingInfo, isMe, position, debug, rateE } = toScene $
       , color: makeColor position
       }
       ( oneOf
-          [ isMe <#> \i -> (wrap $ inj (Proxy :: _ "roughness") if i then 0.0 else 1.0)
-          , isMe <#> \i -> (wrap $ inj (Proxy :: _ "metalness") if i then 1.0 else 0.0)
+          [ (Tuple <$> rateE <*> (dedup' (\a b -> a == false && b == a) isMe)) <#> \(Tuple re i) -> (wrap $ inj (Proxy :: _ "emissive") $ c3 if i then let s = sin (unwrap (re.beats) * pi * 0.7) * 0.07 + 0.07 in RGB s s s else RGB 0.0 0.0 0.0)
+         -- , isMe <#> \i -> (wrap $ inj (Proxy :: _ "emissiveIntensity") if i then 0.2 else 0.2)
           ]
       )
   )
