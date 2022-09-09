@@ -1,6 +1,6 @@
 export const firebaseAuth = (app) => () =>
 	import("firebase/auth").then(({ getAuth }) =>
-		getAuth(process.env.NODE_ENV === "production" ? app : undefined)
+		getAuth(import.meta.env.NODE_ENV === "production" ? app : undefined)
 	);
 
 export const initializeGoogleClient = (auth) => (success) => () => {
