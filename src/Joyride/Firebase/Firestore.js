@@ -2,7 +2,7 @@
 export const firestoreDb = (app) => () =>
 	import("firebase/firestore").then(({ getFirestore }) => {
 		return getFirestore(
-			import.meta.env.NODE_ENV === "production" ? app : undefined
+			import.meta.env.BUILD_TYPE === "production" ? app : undefined
 		);
 	});
 
