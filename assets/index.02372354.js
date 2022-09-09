@@ -28469,7 +28469,7 @@ const __vitePreload = function preload(baseModule, deps, importerUrl) {
   })).then(() => baseModule());
 };
 const firebaseAuth = (app) => () => __vitePreload(() => import("./index.esm.6070e7ab.js"), true ? ["assets/index.esm.6070e7ab.js","assets/index.esm2017.ce458832.js"] : void 0).then(
-  ({ getAuth }) => getAuth({ "BASE_URL": "/", "MODE": "production", "DEV": false, "PROD": true }.BUILD_TYPE === "production" ? app : void 0)
+  ({ getAuth }) => getAuth(app)
 );
 const initializeGoogleClient = (auth) => (success) => () => {
   window.google.accounts.id.initialize({
@@ -28638,7 +28638,7 @@ const authStateChangedEventWithAnonymousAccountCreation = (auth) => backdoor.mak
 });
 const firestoreDb = (app) => () => __vitePreload(() => import("./index.esm.b3ac2dde.js"), true ? ["assets/index.esm.b3ac2dde.js","assets/index.esm2017.ce458832.js"] : void 0).then(({ getFirestore }) => {
   return getFirestore(
-    { "BASE_URL": "/", "MODE": "production", "DEV": false, "PROD": true }.BUILD_TYPE === "production" ? app : void 0
+    app
   );
 });
 const RIDES = "rides";
@@ -46528,7 +46528,7 @@ function v4(options, buf, offset) {
   }
   return stringify(rnds);
 }
-const _PubNub = () => __vitePreload(() => import("./pubnub.min.61aa5ff8.js").then((n2) => n2.p), true ? [] : void 0);
+const _PubNub = () => __vitePreload(() => import("./pubnub.min.7f8b1e5b.js").then((n2) => n2.p), true ? [] : void 0);
 const pubnub_ = (PubNub) => (channel) => (listener) => {
   return function() {
     var publisher = v4();
@@ -47320,21 +47320,13 @@ function search(location2) {
   };
 }
 const useLilGui = () => {
-  return { "BASE_URL": "/", "MODE": "production", "DEV": false, "PROD": true }.LIL_GUI === "true";
+  return false;
 };
 const force4 = () => {
-  return { "BASE_URL": "/", "MODE": "production", "DEV": false, "PROD": true }.FORCE_4 === "true";
+  return false;
 };
 const useFirebaseEmulatorInDevMode = (db) => (auth) => () => {
-  if ({ "BASE_URL": "/", "MODE": "production", "DEV": false, "PROD": true }.BUILD_TYPE !== "production") {
-    return __vitePreload(() => import("./index.esm.b3ac2dde.js"), true ? ["assets/index.esm.b3ac2dde.js","assets/index.esm2017.ce458832.js"] : void 0).then(({ connectFirestoreEmulator }) => {
-      connectFirestoreEmulator(db, "localhost", 8080);
-      return __vitePreload(() => import("./index.esm.6070e7ab.js"), true ? ["assets/index.esm.6070e7ab.js","assets/index.esm2017.ce458832.js"] : void 0).then(({ connectAuthEmulator }) => {
-        connectAuthEmulator(auth, "http://localhost:9099");
-        return;
-      });
-    });
-  } else {
+  {
     return Promise.resolve();
   }
 };
@@ -48001,7 +47993,7 @@ const constructAppendableKnownPlayersFromRide = (v) => fromFoldable(concatArray(
 const main = (v) => (shaders2) => (v1) => (v2) => (audio2) => {
   const $5 = _makeFiber(
     ffiUtil$1,
-    _bind(firebaseAppAff)((fbApp) => _bind(_bind(_liftEffect(firestoreDb(fbApp)))(toAff$p(coerce)))((firestoreDb2) => _bind(_bind(_liftEffect(firebaseAuth(fbApp)))(toAff$p(coerce)))((fbAuth) => _bind(_bind(_liftEffect(useFirebaseEmulatorInDevMode(firestoreDb2)(fbAuth)))(toAff$p(coerce)))(() => _bind(_liftEffect(hasOrientationPermission))((hop) => _liftEffect(() => {
+    _bind(firebaseAppAff)((fbApp) => _bind(_bind(_liftEffect(firestoreDb(fbApp)))(toAff$p(coerce)))((firestoreDb2) => _bind(_bind(_liftEffect(firebaseAuth(fbApp)))(toAff$p(coerce)))((fbAuth) => _bind(_bind(_liftEffect(useFirebaseEmulatorInDevMode()(fbAuth)))(toAff$p(coerce)))(() => _bind(_liftEffect(hasOrientationPermission))((hop) => _liftEffect(() => {
       const signedInNonAnonymously$p = create();
       initializeGoogleClient(fbAuth)(signedInNonAnonymously$p.push(true))();
       const hasSetUpPresence = { value: false };
