@@ -56,8 +56,8 @@ type UIEvents = V
 -- , longE :: forall lock payload. { | MakeLongs () } -> ASceneful lock payload
 
 data TopLevelDisplay
-  = TLNeedsOrientation
-  | TLWillNotWorkWithoutOrientation
+  = TLNeedsOrientation (Maybe { ride :: String, track :: String })
+  | TLWillNotWorkWithoutOrientation 
   | TLExplainer
       { cubeTextures :: CubeTextures CTL.CubeTexture
       , models :: Models GLTFLoader.GLTF
@@ -107,7 +107,7 @@ toplevel tli =
       ( map
           ( \{ loaded, negotiation } ->
               case loaded, negotiation of
-                _, NeedsOrientation -> TLNeedsOrientation
+                _, NeedsOrientation rt -> TLNeedsOrientation rt
                 _, WillNotWorkWithoutOrientation -> TLWillNotWorkWithoutOrientation
                 _, GetRulesOfGame s -> TLExplainer s
                 -- editor does not need to be loaded for now
@@ -133,7 +133,7 @@ toplevel tli =
           )
       )
   ) # switcher case _ of
-    TLNeedsOrientation -> orientationPermissionPage { givePermission: tli.givePermission }
+    TLNeedsOrientation rideTrack -> orientationPermissionPage { givePermission: tli.givePermission, rideTrack }
     TLWillNotWorkWithoutOrientation -> sorryNeedPermissionPage
     TLExplainer { cubeTextures, threeDI, cNow, initialDims, firestoreDb, fbAuth, signedInNonAnonymously, signOut } -> explainerPage
       { ride: tli.ride

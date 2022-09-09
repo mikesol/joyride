@@ -4,6 +4,7 @@ import Prelude
 
 import Control.Promise (toAffE)
 import Data.Foldable (oneOf)
+import Data.Maybe (Maybe(..))
 import Deku.Attribute ((:=))
 import Deku.Control (text_)
 import Deku.Core (Nut)
@@ -13,9 +14,11 @@ import Effect (Effect)
 import Effect.Aff (launchAff_)
 import Effect.Class (liftEffect)
 import Joyride.FRP.Orientation (orientationPermission)
+import Joyride.Navigation (navigateToHash)
 
 orientationPermissionPage
   :: { givePermission :: Boolean -> Effect Unit
+     , rideTrack :: Maybe { ride :: String, track :: String }
      }
   -> Nut
 orientationPermissionPage opts = D.div (oneOf [ pure (D.Class := "absolute") ])
@@ -29,7 +32,12 @@ orientationPermissionPage opts = D.div (oneOf [ pure (D.Class := "absolute") ])
               [ pure $ D.Class := "text-center bg-gray-600 hover:bg-gray-400 text-white py-2 px-4 rounded col-start-2 col-end-2 row-start-2 row-end-3"
               , DL.click $ pure $ launchAff_ do
                   op <- toAffE orientationPermission
-                  liftEffect $ opts.givePermission op
+                  liftEffect do
+                    opts.givePermission op
+                    -- go home
+                    case opts.rideTrack of
+                      Just { ride, track } -> navigateToHash ("r/" <> ride <> "/" <> track)
+                      Nothing -> navigateToHash ""
               ]
           )
           [ text_ "Ask for permission" ]

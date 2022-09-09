@@ -5,7 +5,7 @@ import Prelude
 import Control.Alt ((<|>))
 import Control.Parallel (parTraverse, sequential)
 import Control.Promise (Promise, toAffE)
-import Data.Either (Either(..), hush)
+import Data.Either (Either(..))
 import Data.Filterable (filter)
 import Data.Homogeneous.Record (fromHomogeneous, homogeneous)
 import Data.Int as Int
@@ -15,8 +15,8 @@ import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.Newtype (unwrap)
 import Data.Number (pi, pow, sqrt)
 import Data.Profunctor (lcmap)
-import Data.Traversable (for_, oneOf)
-import Data.Tuple (Tuple(..))
+import Data.Traversable (for_)
+import Data.Tuple (Tuple, curry)
 import Data.Tuple.Nested (type (/\), (/\))
 import Data.Unfoldable (replicate)
 import Deku.Toplevel (runInBody)
@@ -24,12 +24,12 @@ import Effect (Effect)
 import Effect.Aff (Aff, Milliseconds, ParAff, forkAff, joinFiber, launchAff_, never)
 import Effect.Class (liftEffect)
 import Effect.Class.Console as Log
-import Effect.Console (log, logShow)
+import Effect.Console (logShow)
 import Effect.Random as Random
 import Effect.Ref (new)
 import Effect.Ref as Ref
 import FRP.Behavior (Behavior, sample_)
-import FRP.Event (Event, create, filterMap, folded, subscribe)
+import FRP.Event (Event, create, filterMap, folded, mapAccum, subscribe)
 import FRP.Event as Event
 import FRP.Event.AnimationFrame (animationFrame)
 import FRP.Event.VBus (V)
@@ -53,6 +53,7 @@ import Joyride.Ledger.Basic (basicOutcomeToPointOutcome, beatsToBasicOutcome)
 import Joyride.Ledger.Long (longToPointOutcome)
 import Joyride.LilGui (Slider(..), gui, noGui)
 import Joyride.LocalStorage as LocalStorage
+import Joyride.Navigation (navigateToHash)
 import Joyride.Network.Download (dlInChunks)
 import Joyride.Random (randId', randId)
 import Joyride.Scores.AugmentedTypes (toAugmentedEvents)
@@ -64,16 +65,16 @@ import Rito.CubeTexture as CubeTextureLoader
 import Rito.GLTF as GLTFLoader
 import Rito.THREE as THREE
 import Rito.Texture (loadAff, loader)
-import Route (Route(..), route)
+import Route (Route(..), orientationPermissionPath, route)
 import Routing.Duplex (parse)
+import Routing.Hash (matchesWith)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
-import Types (BufferName(..), Channel(..), ChannelChooser(..), CubeTexture, CubeTextures(..), HitBasicMe(..), HitBasicOverTheWire(..), HitLeapMe(..), HitLeapOverTheWire(..), HitLongMe(..), HitLongOverTheWire(..), IAm(..), InFlightGameInfo(..), InFlightGameInfo', JMilliseconds(..), KnownPlayers(..), Models(..), Negotiation(..), Penalty(..), Player(..), PlayerAction(..), PlayerPositionsF, PointOutcome, Points(..), Position, ReleaseLongMe(..), ReleaseLongOverTheWire(..), RenderingInfo, RenderingInfo', Ride(..), Shaders, StartStatus(..), Textures(..), ThreeDI, Track(..), WantsTutorial', initialPositions, touchPointZ)
+import Types (AppFSM(..), BufferName(..), Channel(..), ChannelChooser(..), CubeTexture, CubeTextures(..), HitBasicMe(..), HitBasicOverTheWire(..), HitLeapMe(..), HitLeapOverTheWire(..), HitLongMe(..), HitLongOverTheWire(..), IAm(..), InFlightGameInfo(..), InFlightGameInfo', JMilliseconds(..), KnownPlayers(..), Models(..), Negotiation(..), Penalty(..), Player(..), PlayerAction(..), PlayerPositionsF, PointOutcome, Points(..), Position, ReleaseLongMe(..), ReleaseLongOverTheWire(..), RenderingInfo, RenderingInfo', Ride(..), Shaders, StartStatus(..), Textures(..), ThreeDI, Track(..), WantsTutorial', initialPositions, touchPointZ)
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
 import Web.HTML (window)
-import Web.HTML.Location (pathname, search)
-import Web.HTML.Window (innerHeight, innerWidth, localStorage, location, toEventTarget)
+import Web.HTML.Window (innerHeight, innerWidth, localStorage, toEventTarget)
 import Web.Storage.Storage as LS
 
 twoPi = 2.0 * pi :: Number
@@ -107,15 +108,12 @@ renderingInfoMobile =
   }
 
 channelFromRoute :: Route -> Maybe String
-channelFromRoute (Session { ride }) = ride
+channelFromRoute (Session ride _) = Just ride
+channelFromRoute _ = Nothing
 
 trackFromRoute :: Route -> Maybe String
-trackFromRoute (Session { track }) = track
-
--- player from route now always yields nothing
--- todo: remove logic where this was significant
-playerFromRoute :: Route -> Maybe Player
-playerFromRoute (Session _) = Nothing
+trackFromRoute (Session _ track) = Just track
+trackFromRoute _ = Nothing
 
 type LeapUnsubscribes =
   { p1 :: Effect Unit
@@ -231,7 +229,6 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
       resizeE <- Event.create
       loaded <- Event.create
       negotiation <- Event.create
-      orientationPerm <- Event.create
       pushBasic :: Event.EventIO HitBasicMe <- Event.create
       pushLeap :: Event.EventIO HitLeapMe <- Event.create
       pushHitLong :: Event.EventIO HitLongMe <- Event.create
@@ -255,9 +252,6 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
           ctx' <- context
           silence <- makeAudioBuffer ctx' (AudioBuffer 44100 [ replicate 1000 0.0 ])
           -- path parsing
-          loc <- location w
-          pn <- append <$> pathname loc <*> search loc
-          let parsed = parse route pn
           resizeListener <- eventListener \_ -> do
             ({ iw: _, ih: _ } <$> (Int.toNumber <$> innerWidth w) <*> (Int.toNumber <$> innerHeight w)) >>= resizeE.push
           addEventListener (EventType "resize") resizeListener true (toEventTarget w)
@@ -265,6 +259,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
           soundObj <- liftEffect $ Ref.new Object.empty
           channelEvent <- liftEffect $ Event.create
           columnPusher <- liftEffect $ Event.create
+          orientationPerm <- liftEffect $ Event.create
           -- get the html. could be even sooner if we passed more stuff in on success instead of creating it at the top level
           runInBody
             ( toplevel
@@ -346,13 +341,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
             downloadedTextures <- forkAff (fromHomogeneous <$> parTraverse (loadAff ldr) (homogeneous textures))
             downloadedGLTFs <- forkAff (fromHomogeneous <$> parTraverse (GLTFLoader.loadAff gldr) (homogeneous models))
             downloadedCubeTextures <- forkAff (fromHomogeneous <$> parTraverse ((CubeTextureLoader.loadAffRecord cldr)) (map unwrap $ homogeneous cubeTextures))
-            liftEffect $ log $ "Parsed route: " <> show parsed
             -- "server" via pubnub
-            let
-
-              proposedChannel'' = do
-                res <- hush parsed
-                Tuple <$> channelFromRoute res <*> trackFromRoute res
             let galaxyAttributes = makeGalaxyAttributes threeDI.instancedBufferAttribute
             let
               buildWantsTutorial :: Aff WantsTutorial'
@@ -558,11 +547,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                       -- we update the xposition for when the behavior needs it
                       XPositionMobile i -> pfun i.player (lcmap _.epochTime $ posFromOrientation i.gtp) playerPositions
                   let
-                    myPlayerHint = case hush parsed >>= playerFromRoute of
-                      Just playerAsk -> Just playerAsk
-                      Nothing
-                        | f4 -> Just Player4
-                        | otherwise -> Nothing
+                    myPlayerHint = if f4 then Just Player4 else Nothing
                   -- collecting <- forkAff  $ collectEventToAff (Milliseconds 750.0) knownPlayersBus.event
                   (playerOrBust :: Maybe Player) <- getPlayerForChannel fbAuth firestoreDb myChannel myPlayerHint
                   case playerOrBust of
@@ -695,18 +680,51 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                               }
                             knownPlayersBus.push players
                         }
-            -- if we need permissions, ask for them first
-            _ <- liftEffect $
-              when hop (negotiation.push NeedsOrientation)
-            proposedChannel' <- case proposedChannel'' of
-              Nothing -> pure NoChannel
-              Just (x /\ y) -> do
-                track <- getTrackAff firestoreDb y
-                pure $ maybe NoChannel (RideChannel x y) track
-            _ <- liftEffect $
-              subscribe (filter identity $ oneOf [ pure (not hop), orientationPerm.event ]) \_ -> channelEvent.push proposedChannel'
-            _ <- liftEffect $
-              subscribe (filter identity $ map not $ orientationPerm.event) \_ -> negotiation.push WillNotWorkWithoutOrientation
+            ----- BEGIN ROUTING
+            routeE <- liftEffect $ create
+            _ <- liftEffect $ matchesWith (parse route) (curry routeE.push)
+            _ <- liftEffect $ subscribe
+              -- sometimes the fsm will change but the route won't
+              -- to prevent this, we filter out all duplicate routes
+              ( filter (\(fsm /\ old /\ new) -> old /= Just new)
+                  ( mapAccum
+                      ( \{ rev: old /\ new, orev } fsm -> do
+                          let
+                            newFsm = case orev of
+                              Just true -> FSMStartWithSuccessfulOrientationPermission
+                              Just false -> FSMAppCannotStartDueToLackOfOrientationPermission
+                              Nothing -> fsm
+                          newFsm /\ (newFsm /\ old /\ new)
+                      )
+                      ({ rev: _, orev: _ } <$> routeE.event <*> (pure Nothing <|> map Just orientationPerm.event))
+                      FSMStarting
+                  )
+              )
+              \(fsm /\ old /\ new) -> do
+                let
+                  channelProp x y = launchAff_ $ do
+                    proposedChannel' <- do
+                      track <- getTrackAff firestoreDb y
+                      pure $ maybe NoChannel (RideChannel x y) track
+                    liftEffect $ channelEvent.push proposedChannel'
+                let
+                  saneStart = case new of
+                    Home -> channelEvent.push NoChannel
+                    Session x y -> channelProp x y
+                    OrientationPermissionWithoutRideRequest -> negotiation.push (NeedsOrientation Nothing)
+                    OrientationPermissionWithRideRequest x y -> negotiation.push (NeedsOrientation (Just { ride: x, track: y }))
+                case fsm of
+                  FSMStartWithSuccessfulOrientationPermission -> saneStart
+                  FSMAppCannotStartDueToLackOfOrientationPermission -> negotiation.push WillNotWorkWithoutOrientation
+                  FSMStarting -> do
+                    if hop then case new of
+                      Session x y -> navigateToHash (orientationPermissionPath <> "/" <> x <> "/" <> y)
+                      _ -> navigateToHash orientationPermissionPath
+                    else saneStart
+            --      _ <- liftEffect $
+            --    subscribe (filter identity $ oneOf [ pure (not hop), orientationPerm.event ]) \_ -> 
+
+            ----- END ROUTING
             pure unit
 
 defaultInFlightGameInfo :: InFlightGameInfo'

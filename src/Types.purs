@@ -6,6 +6,8 @@ module Types
   , GalaxyAttributes
   , ToplevelInfo
   , RenderingInfo
+  , AppFSM(..)
+  , OrientationPermissionState(..)
   , ChannelChooser(..)
   , Ride(..)
   , RideV0'
@@ -832,8 +834,8 @@ derive instance Newtype HitLeapVisualForLabel _
 --
 data Negotiation
   = PageLoad
-  | NeedsOrientation
-  | WillNotWorkWithoutOrientation
+  | NeedsOrientation (Maybe { ride :: String, track :: String })
+  | WillNotWorkWithoutOrientation 
   | GetRulesOfGame
       { cubeTextures :: CubeTextures CTL.CubeTexture
       , models :: Models GLTFLoader.GLTF
@@ -1056,6 +1058,13 @@ type ThreeDI =
   , css2DRenderer :: THREE.TCSS2DRenderer
   , css3DRenderer :: THREE.TCSS3DRenderer
   }
+
+data OrientationPermissionState = NotNeeded | NeededButUnknown | KnownAccepted | KnownRejected
+
+data AppFSM
+  = FSMStarting
+  | FSMStartWithSuccessfulOrientationPermission
+  | FSMAppCannotStartDueToLackOfOrientationPermission
 
 type Shader = { vertex :: String, fragment :: String }
 type Shaders = { galaxy :: Shader }

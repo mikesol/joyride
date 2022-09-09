@@ -298,7 +298,7 @@ ride
                     false -> D.div (pure $ D.Class := "select-auto")
                       [ D.div (pure $ D.Class := "pointer-events-auto text-center text-white p-4")
                           let
-                            url = "joyride.fm/?ride=" <> channelName <> "&track=" <> trackId
+                            url = "joyride.fm/#/r/" <> channelName <> "/" <> trackId
                           in
                             [ D.p_
                                 [ text_ ("Press the clipboard and get a link to this ride:")
