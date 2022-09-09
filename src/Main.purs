@@ -686,7 +686,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
             _ <- liftEffect $ subscribe
               -- sometimes the fsm will change but the route won't
               -- to prevent this, we filter out all duplicate routes
-              ( filter (\(fsm /\ old /\ new) -> old /= Just new)
+              ( filter (\(_ /\ old /\ new) -> old /= Just new)
                   ( mapAccum
                       ( \{ rev: old /\ new, orev } fsm -> do
                           let
@@ -700,7 +700,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                       FSMStarting
                   )
               )
-              \(fsm /\ old /\ new) -> do
+              \(fsm /\ _ /\ new) -> do
                 let
                   channelProp x y = launchAff_ $ do
                     proposedChannel' <- do
@@ -721,10 +721,6 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                       Session x y -> navigateToHash (orientationPermissionPath <> "/" <> x <> "/" <> y)
                       _ -> navigateToHash orientationPermissionPath
                     else saneStart
-            --      _ <- liftEffect $
-            --    subscribe (filter identity $ oneOf [ pure (not hop), orientationPerm.event ]) \_ -> 
-
-            ----- END ROUTING
             pure unit
 
 defaultInFlightGameInfo :: InFlightGameInfo'
