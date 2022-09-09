@@ -63,7 +63,7 @@ export const initializeRealtimePresence = (app) => (fsdb) => (auth) => () =>
 				firestore.setDoc(userStatusFirestoreRef, isOfflineForFirestore);
 				return;
 			};
-			userStatusDatabaseRef.onDisconnect().set(isOfflineForDatabase).then(function () {
+			database.onDisconnect(userStatusDatabaseRef).set(isOfflineForDatabase).then(function () {
 				console.log('connected to rtdb');
 				userStatusDatabaseRef.set(isOnlineForDatabase);
 				// We'll also add Firestore set here for when we come online.
