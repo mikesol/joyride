@@ -12,6 +12,8 @@ data Route
   = Home
   | OrientationPermissionWithRideRequest String String
   | OrientationPermissionWithoutRideRequest
+  | Tutorial
+  | Editor
   | Session String String
 
 derive instance genericRoute :: Generic Route _
@@ -21,10 +23,13 @@ instance showRoute :: Show Route where
   show = genericShow
 
 orientationPermissionPath = "orientation-permission" :: String
-
+tutorialPath = "tutorial" :: String
+editorPath = "editor" :: String
 route :: RouteDuplex' Route
 route = root $ G.sum
   { "Home": G.noArgs
+  , "Editor": path editorPath G.noArgs
+  , "Tutorial": path tutorialPath G.noArgs
   , "OrientationPermissionWithoutRideRequest": path orientationPermissionPath G.noArgs
   , "OrientationPermissionWithRideRequest": orientationPermissionPath / segment / segment
   , "Session": "r" / segment / segment

@@ -65,7 +65,7 @@ import Rito.CubeTexture as CubeTextureLoader
 import Rito.GLTF as GLTFLoader
 import Rito.THREE as THREE
 import Rito.Texture (loadAff, loader)
-import Route (Route(..), orientationPermissionPath, route)
+import Route (Route(..), editorPath, orientationPermissionPath, route, tutorialPath)
 import Routing.Duplex (parse)
 import Routing.Hash (matchesWith)
 import Simple.JSON as JSON
@@ -268,8 +268,8 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                     cid <- randId' 6
                     channelEvent.push (RideChannel cid id track)
                 , negotiation: negotiation.event
-                , tutorial: channelEvent.push TutorialChannel
-                , editor: channelEvent.push EditorChannel
+                , tutorial: navigateToHash tutorialPath -- channelEvent.push TutorialChannel
+                , editor: navigateToHash editorPath -- channelEvent.push EditorChannel
                 , isMobile
                 , lpsCallback: lowPriorityCb
                 , givePermission: orientationPerm.push
@@ -711,6 +711,8 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                   saneStart = case new of
                     Home -> channelEvent.push NoChannel
                     Session x y -> channelProp x y
+                    Tutorial -> channelEvent.push TutorialChannel
+                    Editor -> channelEvent.push EditorChannel
                     OrientationPermissionWithoutRideRequest -> negotiation.push (NeedsOrientation Nothing)
                     OrientationPermissionWithRideRequest x y -> negotiation.push (NeedsOrientation (Just { ride: x, track: y }))
                 case fsm of
