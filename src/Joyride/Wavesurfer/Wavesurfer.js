@@ -1,6 +1,6 @@
 import WaveSurfer from "wavesurfer.js";
 import PlayheadPlugin from "wavesurfer.js/dist/plugin/wavesurfer.playhead.js";
-import MarkersPlugin from "../../src/waveshaper.js/customMarkersPlugin.js";
+import MarkersPlugin from "wavesurfer.js/dist/plugin/wavesurfer.markers.js";
 import CursorPlugin from "wavesurfer.js/dist/plugin/wavesurfer.cursor.js";
 import TimelinePlugin from "wavesurfer.js/dist/plugin/wavesurfer.timeline.js";
 /**

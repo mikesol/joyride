@@ -793,7 +793,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
             ]
         , D.div
             ( oneOf
-                [ pure $ D.Class := ""
+                [ pure $ D.Class := "bg-zinc-600"
                 , event.loadWave <#> \url -> D.Self := \s -> do
                     ws <- makeWavesurfer Nothing Just
                       ( \i j x id t -> do
