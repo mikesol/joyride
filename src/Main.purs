@@ -49,6 +49,7 @@ import Joyride.FRP.Dedup (dedup)
 import Joyride.FRP.Keypress (posFromKeypress, xForKeyboard)
 import Joyride.FRP.Orientation (hasOrientationPermission, posFromOrientation, xForTouch)
 import Joyride.FRP.SampleOnSubscribe (sampleOnSubscribe)
+import Joyride.Firebase.Analytics (firebaseAnalyticsAff)
 import Joyride.Firebase.Auth (AuthProvider(..), authStateChangedEventWithAnonymousAccountCreation, firebaseAuthAff, initializeGoogleClient, signOut)
 import Joyride.Firebase.Config (firebaseAppAff)
 import Joyride.Firebase.Firestore (createRideIfNotExistsYet, getPublicTracksAff, getWhitelistedTracksAff, getTracksAff, eventChannelChanges, firestoreDbAff, getEventsAff, getPlayerForChannel, getTrackAff, turnOnRealtimePresenceAff, sendMyPointsAndPenaltiesToFirebase)
@@ -202,7 +203,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
     -- firebase
     fbApp <- firebaseAppAff
     -- for now don't use analytics
-    -- fbAnalytics <- firebaseAnalyticsAff fbApp
+    _ <- firebaseAnalyticsAff fbApp
     firestoreDb <- firestoreDbAff fbApp
     fbAuth <- firebaseAuthAff fbApp
     toAffE $ useFirebaseEmulatorInDevMode firestoreDb fbAuth
