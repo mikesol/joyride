@@ -18,6 +18,7 @@ import Data.Monoid (guard)
 import Data.Newtype (unwrap, wrap)
 import Data.Number (pi, pow, sqrt)
 import Data.Profunctor (lcmap)
+import Data.String as String
 import Data.Traversable (for_)
 import Data.Tuple (Tuple, curry)
 import Data.Tuple.Nested (type (/\), (/\))
@@ -719,12 +720,15 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                           -- todo: better result
                           Nothing -> navigateToHash ""
                     TakeRide -> launchAff_ do
+                      liftEffect $ log "Got take ride as instuction"
                       rides <- map (nubBy (compare `on` _.id) <<< join) $ parSequence
                         [ getPublicTracksAff firestoreDb
                         , guard fsm.signedInNonAnon (getTracksAff fbAuth firestoreDb)
                         , guard fsm.signedInNonAnon (getWhitelistedTracksAff fbAuth firestoreDb)
                         ]
-                      liftEffect $ negotiation.push (ChooseRide rides)
+                      liftEffect do
+                        logShow { msg: "Got rides", rides } 
+                        negotiation.push (ChooseRide rides)
                     OrientationPermissionWithoutRideRequest -> negotiation.push (NeedsOrientation Nothing)
                     OrientationPermissionWithRideRequest x y -> negotiation.push (NeedsOrientation (Just { ride: x, track: y }))
                 case fsm.orientationPermission of
@@ -755,10 +759,10 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
               )
               (routyMcRouteRoute)
             liftEffect do
-              initialHash <- window >>= location >>= hash
+              initialHash <- map (String.replace (String.Pattern "#") (String.Replacement "")) (window >>= location >>= hash)
               case (parse route initialHash) of
                 Left e -> do
-                  logShow { msg: "malformed initial path", e }
+                  logShow { msg: "malformed initial path", e, initialHash }
                   routeE.push (Nothing /\ Home)
                 Right h -> do
                   log $ "initial route " <> show h

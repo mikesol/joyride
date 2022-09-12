@@ -71,6 +71,8 @@ import Web.HTML.HTMLElement as HTMLElement
 import Web.HTML.HTMLInputElement (fromEventTarget, value)
 import Web.HTML.Window (RequestIdleCallbackId, Window, cancelIdleCallback, requestIdleCallback)
 
+foreign import addressHead :: String
+
 twoPi = 2.0 * pi :: Number
 
 newtype Unsubscribe = Unsubscribe (Effect Unit)
@@ -298,7 +300,7 @@ ride
                     false -> D.div (pure $ D.Class := "select-auto")
                       [ D.div (pure $ D.Class := "pointer-events-auto text-center text-white p-4")
                           let
-                            url = "joyride.fm/#/r/" <> channelName <> "/" <> trackId
+                            url = addressHead <> "/#/r/" <> channelName <> "/" <> trackId
                           in
                             [ D.p_
                                 [ text_ ("Press the clipboard and get a link to this ride:")
@@ -308,7 +310,7 @@ ride
                                     [ pure $ D.Class := "pointer-events-auto text-center text-xl bg-gray-800 hover:bg-gray-600 text-white mx-2 rounded"
                                     , click $ pure $ launchAff_ do
                                         liftEffect $ push.copiedToClipboard true
-                                        writeTextAff ("https://" <> url)
+                                        writeTextAff url
                                         delay (Milliseconds 2000.0)
                                         liftEffect $ push.copiedToClipboard false
                                     ]

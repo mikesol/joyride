@@ -8,6 +8,7 @@ import Data.Function (on)
 import Data.Maybe (Maybe(..))
 import Data.Number (pi)
 import Data.Time.Duration (Milliseconds)
+import Debug (spy)
 import Deku.Core (Domable)
 import Effect (Effect)
 import FRP.Event (Event, filterMap)
@@ -107,11 +108,12 @@ toplevel
 toplevel tli =
   ( dedup
       ( map
-          ( \{ loaded, negotiation } ->
+          ( \{ loaded, negotiation } -> -- let _ = spy "ugh" { loaded, negotiation } in
               case loaded, negotiation of
                 _, NeedsOrientation rt -> TLNeedsOrientation rt
                 _, WillNotWorkWithoutOrientation -> TLWillNotWorkWithoutOrientation
                 _, GetRulesOfGame s -> TLExplainer s
+                _, ChooseRide cr -> TLChooseRide cr
                 -- editor does not need to be loaded for now
                 -- change if that's the case
                 false, _ -> TLLoading
@@ -122,7 +124,6 @@ toplevel tli =
                 _, RequestingPlayer -> TLLoading
                 _, ReceivedPossibilities -> TLLoading
                 _, ClaimFail -> TLRoomIsFull
-                _, ChooseRide cr -> TLChooseRide cr
                 true, Success s -> TLSuccess s
                 true, WantsTutorial s -> TLWantsTutorial s
                 true, OpenEditor s -> TLOpenEditor s
