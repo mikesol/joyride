@@ -27,6 +27,8 @@ initialOrientationDampening = 0.055 :: Number
 orientationDampening0To100 :: Number -> Number
 orientationDampening0To100 x = ((x / 100.0) `pow` 2.0) * 0.3 + 0.01
 
+reverseOrientationDampening :: Number -> Number
+reverseOrientationDampening x = clamp 0.0 100.0 $ (((x - 0.01) / 0.3) `pow` 0.5) * 100.0
 -- todo: make this variable
 -- even though it is sent over the wire, it is currently not responsive to settings
 -- but as desktop mode isn't really supported outside of development for now

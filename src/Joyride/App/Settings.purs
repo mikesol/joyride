@@ -14,7 +14,9 @@ import Deku.Core (Nut)
 import Deku.DOM as D
 import Deku.Listeners (slider)
 import Effect.Ref as Ref
-import Joyride.Constants.Visual (orientationDampening0To100)
+import FRP.Behavior (sample_)
+import Joyride.Constants.Visual (orientationDampening0To100, reverseOrientationDampening)
+import Joyride.FRP.Behavior (refToBehavior)
 import Joyride.Style (header2Cls, headerCls)
 import Types (SettingsNeeds)
 
@@ -30,7 +32,8 @@ settings { dampeningRef } = D.div (oneOf [ pure $ D.Class := "h-screen w-screen 
                       [ D.span (klass_ "text-white") [ text_ "🐢" ]
                       , D.input
                           ( oneOf
-                              [ slider $ pure (orientationDampening0To100 >>> flip Ref.write dampeningRef)
+                              [ sample_ (refToBehavior dampeningRef) (pure unit) <#> \i -> D.Value := show (reverseOrientationDampening i)
+                              , slider $ pure (orientationDampening0To100 >>> flip Ref.write dampeningRef)
                               , klass_ "appearance-none raaaange grow h-6 p-0 bg-transparent focus:outline-none focus:ring-0 focus:shadow-none"
                               ]
                           )
