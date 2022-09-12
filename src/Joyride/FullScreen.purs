@@ -12,6 +12,10 @@ import Joyride.EmitsTouchEvents (emitsTouchEvents)
 
 foreign import fullscreenEnabled :: Effect Boolean
 foreign import requestFullScreen :: Effect Unit -> Effect Unit -> Effect Unit
+foreign import exitFullScreen :: Effect Unit -> Effect Unit -> Effect Unit
+
+simpleExitFullScreen :: Effect Unit
+simpleExitFullScreen = exitFullScreen (pure unit) (pure unit)
 
 fullScreenFlow :: Effect Unit -> Effect Unit
 fullScreenFlow cont = emitsTouchEvents >>= case _ of

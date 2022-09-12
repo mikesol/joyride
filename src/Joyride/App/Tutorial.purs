@@ -45,6 +45,7 @@ import Joyride.FRP.LowPrioritySchedule (schedulingIntervalInMS)
 import Joyride.FRP.Rate (timeFromRate)
 import Joyride.FRP.SampleOnSubscribe (initializeWithEmpty)
 import Joyride.FRP.Schedule (fireAndForget)
+import Joyride.FullScreen (simpleExitFullScreen)
 import Joyride.FullScreen as FullScreen
 import Joyride.Ocarina (AudibleChildEnd)
 import Joyride.Style (buttonCls, headerCls)
@@ -169,6 +170,7 @@ tutorial
                 ( oneOf
                     [ klass_ $ "pointer-events-auto p-1 " <> buttonCls
                     , pure $ D.OnClick := do
+                        simpleExitFullScreen
                         off
                     ]
                 )

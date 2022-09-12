@@ -162,7 +162,7 @@ explainerPage opts = vbussed
                     [ klass_ buttonCls
                     , DL.click
                         ( (oneOf [ pure (pure unit), event.unsubscriber ]) <#>
-                            FullScreen.fullScreenFlow <<< (navigateToHash settingsPath *> _)
+                            (navigateToHash settingsPath *> _)
                         )
                     ]
                 )
@@ -205,7 +205,7 @@ explainerPage opts = vbussed
                     [ klass_ buttonCls
                     , DL.click
                         ( (oneOf [ pure (pure unit), event.unsubscriber ]) <#>
-                            FullScreen.fullScreenFlow <<< (opts.editor *> _)
+                            (opts.editor *> _)
                         )
                     ]
                 )
