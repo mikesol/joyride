@@ -185,10 +185,9 @@ explainerPage opts = vbussed
                         [ klass $ pure buttonCls
                         , click $
                             ( (oneOf [ pure (pure unit), event.unsubscriber ]) <#>
-                                FullScreen.fullScreenFlow <<< (opts.tutorial *> _)
-                            ) <#> \usu -> do
-                              usu
-                              navigateToHash ridesPath
+                                FullScreen.fullScreenFlow <<< (navigateToHash ridesPath *> _)
+                            ) <#> identity -- i think this turns stuff off? ugh, too complex, figure out why this identity is here. typical example of "clever" being to the detriment of understanding my own code a couple weeks later... 
+                              
                         ]
                     )
                     [ text_ "Take a ride" ]
