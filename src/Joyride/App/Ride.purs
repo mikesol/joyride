@@ -175,10 +175,10 @@ ride
                     HasStarted (InFlightGameInfo t) -> pure t.startedAt
                 )
           -- stopButton :: Effect Unit -> Nut
-          stopButton (off :: Effect Unit) = D.div (oneOf [ pure $ D.Class := "mx-2" ])
+          stopButton (off :: Effect Unit) = D.div (oneOf [ klass_ "mx-2" ])
             [ D.button
                 ( oneOf
-                    [ pure $ D.Class := "pointer-events-auto p-1 " <> buttonCls
+                    [ klass_ $ "pointer-events-auto p-1 " <> buttonCls
                     , pure $ D.OnClick := do
                         off
                     ]
@@ -188,7 +188,7 @@ ride
           startButton aStuff = do
             let
               callback toSample = oneOf
-                [ pure $ D.Class := buttonCls <> " pointer-events-auto"
+                [ klass_ $ buttonCls <> " pointer-events-auto"
 
                 ----- IMPORTANT -----
                 ----- IMPORTANT -----
@@ -276,7 +276,7 @@ ride
                   ___ = 0
                 in
                   requestName # switcher case _ of
-                    true -> D.div (pure $ D.Class := "mb-4 select-auto")
+                    true -> D.div (klass_ "mb-4 select-auto")
                       [ D.input
                           ( oneOfMap pure
                               [ D.Xtype := "text"
@@ -298,8 +298,8 @@ ride
                           (callback (changeText))
                           [ text_ "Start" ]
                       ]
-                    false -> D.div (pure $ D.Class := "select-auto")
-                      [ D.div (pure $ D.Class := "pointer-events-auto text-center text-white p-4")
+                    false -> D.div (klass_ "select-auto")
+                      [ D.div (klass_ "pointer-events-auto text-center text-white p-4")
                           let
                             url = addressHead <> "/#/r/" <> channelName <> "/" <> trackId
                           in
@@ -308,7 +308,7 @@ ride
                                 ]
                             , D.button
                                 ( oneOf
-                                    [ pure $ D.Class := "pointer-events-auto text-center text-xl bg-gray-800 hover:bg-gray-600 text-white mx-2 rounded"
+                                    [ klass_ "pointer-events-auto text-center text-xl bg-gray-800 hover:bg-gray-600 text-white mx-2 rounded"
                                     , click $ pure $ launchAff_ do
                                         liftEffect $ push.copiedToClipboard true
                                         writeTextAff url
@@ -319,7 +319,7 @@ ride
                                 [ text_ "👉🏽 📋 👈🏽" ]
                             , D.p_ [ text_ "You can send the link to up to 3 people. When everyone has joined, or if you're playing alone, press Start!" ]
                             ]
-                      , D.div (pure $ D.Class := "flex w-full justify-center items-center")
+                      , D.div (klass_ "flex w-full justify-center items-center")
                           $ case playerName of
                               Just _ ->
                                 [ D.button
@@ -330,7 +330,7 @@ ride
                               Nothing ->
                                 [ D.button
                                     ( oneOf
-                                        [ pure $ D.Class := buttonCls
+                                        [ klass_ buttonCls
                                         , callback (changeText)
                                         ]
                                     )
@@ -338,7 +338,7 @@ ride
 
                                 , D.button
                                     ( oneOf
-                                        [ pure $ D.Class := buttonCls
+                                        [ klass_ buttonCls
                                         , click $ pure $ nPush.requestName unit
                                         ]
                                     )
@@ -368,10 +368,10 @@ ride
           \animatedStuff -> D.div_
             [
               -- on/off
-              D.div (pure $ D.Class := "z-20 pointer-events-none absolute w-screen h-screen grid grid-rows-3 grid-cols-3")
-                [ D.div (pure $ D.Class := "row-start-1 row-end-2 col-start-1 col-end-4")
+              D.div (klass_ "z-20 pointer-events-none absolute w-screen h-screen grid grid-rows-3 grid-cols-3")
+                [ D.div (klass_ "row-start-1 row-end-2 col-start-1 col-end-4")
                     -- fromEvent because playerStatus is effectful
-                    [ D.div (pure $ D.Class := "mx-2 mt-2")
+                    [ D.div (klass_ "mx-2 mt-2")
                         [ (biSampleOn ((initializeWithEmpty event.iAmReady)) (map Tuple playerStatus))
                             -- we theoretically don't need to dedup because
                             -- the button should never redraw once we've started
@@ -404,11 +404,11 @@ ride
                     )
                   ) #
                     let
-                      frame x = D.div (pure $ D.Class := "z-10 pointer-events-auto absolute w-screen h-screen grid grid-rows-6 grid-cols-8 bg-zinc-900") [ D.div (pure $ D.Class := "col-start-2 col-end-8 row-start-3 row-end-5 bg-zinc-900") [ x ] ]
+                      frame x = D.div (klass_ "z-10 pointer-events-auto absolute w-screen h-screen grid grid-rows-6 grid-cols-8 bg-zinc-900") [ D.div (klass_ "col-start-2 col-end-8 row-start-3 row-end-5 bg-zinc-900") [ x ] ]
                     in
                       switcher case _ of
                         WaitingForMe -> frame (startButton animatedStuff)
-                        WaitingForOthers -> frame (D.div (klass_ "text-center w-100") [D.span (pure $ D.Class := "text-lg text-white") [ text_ "Waiting for others to join" ]])
+                        WaitingForOthers -> frame (D.div (klass_ "text-center w-100") [D.span (klass_ "text-lg text-white") [ text_ "Waiting for others to join" ]])
                         Started _ -> envy empty
                 ]
 
@@ -571,7 +571,7 @@ ride
                 ]
             , D.div
                 ( oneOf
-                    [ pure $ D.Class := "z-1 snackbar text-white"
+                    [ klass_ "z-1 snackbar text-white"
                     , filter not event.copiedToClipboard $> D.Class := "z-30 snackbar text-white"
                     , filter identity event.copiedToClipboard $> D.Class := "z-30 snackbar show text-white"
                     ]
@@ -626,7 +626,7 @@ ride
   makeJoined mp (KnownPlayers m) = D.ul_
     ( map
         ( \(Tuple p x) -> D.li_
-            [ D.span (pure $ D.Class := "text-white")
+            [ D.span (klass_ "text-white")
                 [ text_ $
                     if p == mp then "You have joined!"
                     else
@@ -645,7 +645,7 @@ ride
   makePoints mp (KnownPlayers m) = D.ul_
     ( map
         ( \(Tuple p (InFlightGameInfo x)) -> D.li_
-            [ D.span (pure $ D.Class := "text-white")
+            [ D.span (klass_ "text-white")
                 [ text_ $
                     ( if p == mp then
                         ( "You" <> case x.name of

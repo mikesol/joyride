@@ -27,6 +27,7 @@ import Data.Set as Set
 import Data.Tuple (Tuple(..), fst, snd)
 import Data.Tuple.Nested ((/\), type (/\))
 import Deku.Attribute (class Attr, Attribute, cb, xdata, (:=))
+import Deku.Attributes (klass_)
 import Deku.Control (text, text_)
 import Deku.Core (Domable, insert_, remove, vbussedUncurried)
 import Deku.DOM (Class)
@@ -80,8 +81,10 @@ import Web.HTML (window)
 import Web.HTML.HTMLInputElement (fromEventTarget, value, valueAsNumber)
 import Web.HTML.Window (alert)
 
+buttonClassWithMarginAndAutoPointerEvents :: String
+buttonClassWithMarginAndAutoPointerEvents = buttonCls <> " mx-2 pointer-events-auto"
 smplCls :: forall elt. Attr elt Class String => String -> Event (Attribute elt)
-smplCls s = oneOf [ pure $ D.Class := s ]
+smplCls s = oneOf [ klass_ s ]
 
 infixr 4 sampleOn as 🙂
 infixr 4 biSampleOn as 😄
@@ -585,7 +588,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                             }
                         )
                       liftEffect $ associateEventDocumentIdWithMarker m0 evDid.id *> associateEventDocumentIdWithMarker m1 evDid.id *> associateEventDocumentIdWithMarker m2 evDid.id *> associateEventDocumentIdWithMarker m3 evDid.id *> endgame (Just evDid.id)
-              , pure $ D.Class := buttonCls
+              , klass_ buttonCls
               ]
           )
           [ text_ "Add Tile" ]
@@ -638,7 +641,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                             }
                         )
                       liftEffect $ associateEventDocumentIdWithMarker m0 evDid.id *> associateEventDocumentIdWithMarker m1 evDid.id *> endgame position (Just evDid.id)
-              , pure $ D.Class := buttonCls
+              , klass_ buttonCls
               ]
           )
           [ text_ "Add Leap" ]
@@ -686,14 +689,14 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                             }
                         )
                       liftEffect $ associateEventDocumentIdWithMarker m0 evDid.id *> associateEventDocumentIdWithMarker m1 evDid.id *> endgame (Just evDid.id)
-              , pure $ D.Class := buttonCls
+              , klass_ buttonCls
 
               ]
           )
           [ text_ "Add Long Press" ]
       , D.button
           ( oneOf
-              [ pure $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+              [ klass_ $ buttonClassWithMarginAndAutoPointerEvents
               -- , pure $ D.OnClick := log "hello world"
               , mostRecentData <#> \(TrackV0 ato /\ aeo) -> D.OnClick := do
                   log $ "starting from most recent data: " <> (JSON.writeJSON { track: ato, evs: Array.fromFoldable $ Map.values aeo })
@@ -720,7 +723,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
           [ text_ "Save (sign in)" ]
       ]
   D.div
-    (pure $ D.Class := "absolute w-screen h-screen bg-zinc-900 overflow-hidden")
+    (klass_ "absolute w-screen h-screen bg-zinc-900 overflow-hidden")
     [ D.div
         ( oneOf
             [ previewScreenVisible <#> \psv -> D.Class := "absolute w-screen h-screen max-h-screen bg-zinc-900 flex flex-col overflow-hidden" <> if isJust psv then " hidden" else ""
@@ -728,22 +731,21 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
         )
         [ D.div
             ( oneOf
-                [ pure $ D.Class := "flex flex-row justify-between"
+                [ klass_ "flex flex-row justify-between"
                 ]
             )
             [ D.button
                 ( oneOf
-                    [ pure $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                    [ klass_ $ buttonClassWithMarginAndAutoPointerEvents
                     -- , pure $ D.OnClick := log "hello world"
-                    , pure $ D.OnClick := do
-                        goBack
+                    , click (pure goBack)
                     ]
                 )
                 [ text_ "<" ]
             , D.h2
                 ( oneOf
                     [ pure $ D.Contenteditable := "true"
-                    , pure $ D.Class := headerCls <> " p-2"
+                    , klass_ $ headerCls <> " p-2"
                     , docEv <#> \mDid -> D.OnInput := cb \e -> for_
                         ( target e
                             >>= Node.fromEventTarget
@@ -764,7 +766,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
             , D.span_
                 [ D.a
                     ( oneOf
-                        [ (pure Nothing <|> Just <$> mostRecentData) <#> \mrd -> D.Class := buttonCls <> " mx-2 pointer-events-auto" <> if isJust mrd then "" else " hidden"
+                        [ (pure Nothing <|> Just <$> mostRecentData) <#> \mrd -> D.Class := buttonClassWithMarginAndAutoPointerEvents <> if isJust mrd then "" else " hidden"
                         -- , pure $ D.OnClick := log "hello world"
                         , mostRecentData <#> \(tk /\ eez) -> D.Href := ("data:text/plain;charset=utf-8," <> fromMaybe "" (encodeURIComponent (JSON.writeJSON { track: tk, events: (Array.fromFoldable $ Map.values eez) })))
                         , (pure Nothing <|> Just <$> event.initialTitle <|> (map (fst >>> (\(TrackV0 aTra) -> aTra.title)) mostRecentData)) <#> \fn -> D.Download := case fn of
@@ -774,12 +776,12 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                         ]
                     )
                     [ text_ "Export" ]
-                , D.span (pure $ D.Class := "text-white") [ text_ "Private?" ]
+                , D.span (klass_ "text-white") [ text_ "Private?" ]
                 , D.input
                     ( oneOf
                         [ pure $ D.Xtype := "checkbox"
                         , fireAndForget mostRecentData <#> \(TrackV0 tr /\ _) -> D.Checked := if tr.private then "true" else "false"
-                        , pure $ D.Class := "w-4 h-4 text-blue-600 bg-gray-100 rounded border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                        , klass_ "w-4 h-4 text-blue-600 bg-gray-100 rounded border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
                         -- , pure $ D.OnClick := log "hello world"
                         , (docEv 😄 (Tuple <$> mostRecentData)) <#> \((TrackV0 tr /\ _) /\ mDid) -> D.OnClick := do
                             let changed = not tr.private
@@ -793,7 +795,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
             ]
         , D.div
             ( oneOf
-                [ pure $ D.Class := "bg-zinc-600"
+                [ klass_ "bg-zinc-600"
                 , event.loadWave <#> \url -> D.Self := \s -> do
                     ws <- makeWavesurfer Nothing Just
                       ( \i j x id t -> do
@@ -817,12 +819,12 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
         , D.div
             ( oneOf
                 [ pure $ D.Id := "timeline"
-                , pure $ D.Class := ""
+                , klass_ ""
                 ]
             )
             []
         , D.div_
-            [ D.label (oneOf [ pure $ D.Class := "text-white" ]) [ text_ "Zoom" ]
+            [ D.label (oneOf [ klass_ "text-white" ]) [ text_ "Zoom" ]
             , D.input
                 ( oneOf
                     [ pure $ D.Min := "2"
@@ -833,9 +835,9 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                 )
                 []
             ]
-        , D.div (oneOf [ pure $ D.Class := "flex flex-row justify-around" ]) top
-        , D.div (oneOf [ pure $ D.Class := "overflow-scroll" ])
-            [ D.div (oneOf [ pure $ D.Class := "accordion", pure $ D.Id := "accordionExample" ])
+        , D.div (oneOf [ klass_ "flex flex-row justify-around" ]) top
+        , D.div (oneOf [ klass_ "overflow-scroll" ])
+            [ D.div (oneOf [ klass_ "accordion", pure $ D.Id := "accordionExample" ])
                 [ dyn $
                     (nextAttributableColumn 🙂 event.waveSurfer 🙂 ({ itm: _, ws: _, nac: _ } <$> store)) <#>
                       ( \{ itm, ws } -> keepLatest $ vbus (Proxy :: _ (V (SingleItem PlainOl))) \p' e' -> do
@@ -857,16 +859,16 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                               LLeap v -> v.id /\ v.name /\ v.col /\ v.startIx /\ v.fbId /\ 2 /\ [ (unwrap v.start).at, (unwrap v.end).at ]
                               LLong v -> v.id /\ v.name /\ v.col /\ v.startIx /\ v.fbId /\ 2 /\ [ (unwrap v.start).at, (unwrap v.end).at ]
                             column = e'.changeColumn <|> pure col
-                          ( pure $ insert_ $ D.div (oneOf [ pure $ D.Class := "accordion-item bg-zinc-900 border border-white" ])
+                          ( pure $ insert_ $ D.div (oneOf [ klass_ "accordion-item bg-zinc-900 border border-white" ])
                               [ D.h2
                                   ( oneOf
-                                      [ pure $ D.Class := "accordion-header bg-zinc-900 mb-0"
+                                      [ klass_ "accordion-header bg-zinc-900 mb-0"
                                       , pure $ D.Id := "heading" <> show id
                                       ]
                                   )
                                   [ D.button
                                       ( oneOf
-                                          [ pure $ D.Class :=
+                                          [ klass_
                                               """accordion-button-ms accordion-button
       relative
       flex
@@ -884,7 +886,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                           , pure $ xdata "bs-target" ("#collapse" <> show id)
                                           ]
                                       )
-                                      [ D.span (oneOf [ pure $ D.Class := "mr-2", pure $ D.Style := "color: " <> dC id <> ";" ]) [ text_ (prefix) ]
+                                      [ D.span (oneOf [ klass_ "mr-2", pure $ D.Style := "color: " <> dC id <> ";" ]) [ text_ (prefix) ]
                                       , D.span_ [ text label, text_ " (Column ", text (JSON.writeJSON <$> column), text_ ") ", text $ (pure times <|> fold (\{ offset, time } tmzz -> set (ix offset) time tmzz) (markerEvent id) times) <#> \tmz -> " (" <> intercalate "," (map (toStringWith (fixed 2)) tmz) <> ")" ]
                                       , D.span
                                           ( oneOf
@@ -903,19 +905,19 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                               , D.div
                                   ( oneOf
                                       [ pure $ D.Id := "collapse" <> show id
-                                      , pure $ D.Class := ("accordion-collapse collapse" <> if id == 0 then " show" else "")
+                                      , klass_ ("accordion-collapse collapse" <> if id == 0 then " show" else "")
                                       , pure $ xdata "bs-parent" "#accordionExample"
                                       ]
                                   )
                                   [ D.div
                                       ( oneOf
-                                          [ pure $ D.Class := "accordion-body bg-zinc-900 py-4 px-5"
+                                          [ klass_ "accordion-body bg-zinc-900 py-4 px-5"
                                           ]
                                       )
-                                      [ D.span (oneOf [ pure $ D.Class := "inline-block" ])
+                                      [ D.span (oneOf [ klass_ "inline-block" ])
                                           [ D.label
                                               ( oneOf
-                                                  [ pure $ D.Class := "text-white ml-2" ]
+                                                  [ klass_ "text-white ml-2" ]
                                               )
                                               [ text_ "Name" ]
                                           , D.input
@@ -933,7 +935,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                               launchAff_ (updateEventNameAff firestoreDb trackId evId v)
 
                                                         )
-                                                    , pure $ D.Class := "bg-inherit text-white mx-2 appearance-none border rounded py-2 px-2 leading-tight focus:outline-none focus:shadow-outline"
+                                                    , klass_ "bg-inherit text-white mx-2 appearance-none border rounded py-2 px-2 leading-tight focus:outline-none focus:shadow-outline"
                                                     , pure $ D.Placeholder := defaultLabel
                                                     ] <> case name of
                                                       Nothing -> []
@@ -942,10 +944,10 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                               )
                                               []
                                           ]
-                                      , D.span (oneOf [ pure $ D.Class := "inline-block" ])
+                                      , D.span (oneOf [ klass_ "inline-block" ])
                                           [ D.label
                                               ( oneOf
-                                                  [ pure $ D.Class := "text-white" ]
+                                                  [ klass_ "text-white" ]
                                               )
                                               [ text_ "Column" ]
                                           , D.input
@@ -966,12 +968,12 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                   , pure $ D.Value := JSON.writeJSON col
                                                   , pure $ D.Min := "1"
                                                   , pure $ D.Max := "17"
-                                                  , pure $ D.Class := "bg-inherit text-white mx-2 appearance-none border rounded py-2 px-3 leading-tight focus:outline-none focus:shadow-outline"
+                                                  , klass_ "bg-inherit text-white mx-2 appearance-none border rounded py-2 px-3 leading-tight focus:outline-none focus:shadow-outline"
                                                   ]
                                               )
                                               []
                                           ]
-                                      , D.span (oneOf [ pure $ D.Class := "inline-block" ])
+                                      , D.span (oneOf [ klass_ "inline-block" ])
                                           [ D.button
                                               ( oneOf
                                                   [ soloState <#> \ms -> D.Class := (if ms then buttonActiveCls else buttonCls) <> " mr-2"
@@ -1003,10 +1005,10 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                                       pushed.atomicEventOperation $ aDeleteEvent_ { id }
                                                       for_ (Tuple <$> mDid <*> (initialId <|> updatedId)) \(trackId /\ evId) -> do
                                                         launchAff_ (deleteEventAff firestoreDb trackId evId)
-                                                  , pure $ D.Class := buttonCls <> " mr-2"
+                                                  , klass_ $ buttonCls <> " mr-2"
                                                   ]
                                               )
-                                              -- [ D.span (oneOf [ pure $ D.Class := "md:inline-block hidden" ]) [ text_ "Delete" ], D.span (oneOf [ pure $ D.Class := "md:hidden inline-block" ]) [ text_ "D" ] ]
+                                              -- [ D.span (oneOf [ klass_ "md:inline-block hidden" ]) [ text_ "Delete" ], D.span (oneOf [ klass_ "md:hidden inline-block" ]) [ text_ "D" ] ]
                                               [ D.span (oneOf []) [ text_ "Delete" ] ]
                                           ]
                                       ]
@@ -1022,23 +1024,23 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
         )
 
         [ D.div
-            (pure $ D.Class := "select-auto justify-self-center self-center row-start-3 row-end-5 col-start-2 col-end-6")
+            (klass_ "select-auto justify-self-center self-center row-start-3 row-end-5 col-start-2 col-end-6")
             ( [ D.div
-                  (pure $ D.Class := "pointer-events-auto text-center p-4 " <> headerCls)
+                  (klass_ $ "pointer-events-auto text-center p-4 " <> headerCls)
                   [ D.p_ [ text_ "Joyride editor" ]
                   ]
               ]
                 <>
 
                   [ D.div
-                      (pure $ D.Class := "pointer-events-auto text-center text-white p-4")
+                      (klass_ "pointer-events-auto text-center text-white p-4")
                       [ text (signedInNonAnonymously <#> \sina -> "Get started by importing an audio file" <> if sina then " or project." else ".") ]
                   ]
                 <>
-                  [ D.div (pure $ D.Class := "flex w-full justify-center items-center")
+                  [ D.div (klass_ "flex w-full justify-center items-center")
                       [ D.button
                           ( oneOf
-                              [ signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> " mx-2 pointer-events-auto" <> if sina then "" else " hidden"
+                              [ signedInNonAnonymously <#> \sina -> D.Class := buttonClassWithMarginAndAutoPointerEvents <> if sina then "" else " hidden"
                               , pure $ D.OnClick := do
                                   pushed.loadingScreenVisible true
                                   launchAff_ do
@@ -1052,7 +1054,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                           [ text_ "Fork project" ]
                       , D.button
                           ( oneOf
-                              [ signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> " mx-2 pointer-events-auto" <> if sina then "" else " hidden"
+                              [ signedInNonAnonymously <#> \sina -> D.Class := buttonClassWithMarginAndAutoPointerEvents <> if sina then "" else " hidden"
                               , pure $ D.OnClick := do
                                   pushed.loadingScreenVisible true
                                   launchAff_ do
@@ -1090,7 +1092,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                           [ text_ "Import project" ]
                       , D.button
                           ( oneOf
-                              [ signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> " mx-2 pointer-events-auto" <> if sina then "" else " hidden"
+                              [ signedInNonAnonymously <#> \sina -> D.Class := buttonClassWithMarginAndAutoPointerEvents <> if sina then "" else " hidden"
                               , pure $ D.OnClick := do
                                   pushed.loadingScreenVisible true
                                   launchAff_ do
@@ -1104,7 +1106,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                           [ text_ "Open project" ]
                       , D.button
                           ( oneOf
-                              [ pure $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                              [ klass_ $ buttonClassWithMarginAndAutoPointerEvents
                               , pure $ D.OnClick := do
                                   client <- init
                                   picker (\_ -> pure unit) (\_ _ -> pure unit) (\_ _ -> pure unit)
@@ -1141,27 +1143,27 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
         )
 
         [ D.div
-            (pure $ D.Class := "select-auto row-start-1 row-end-2 col-start-1 col-end-2")
+            (klass_ "select-auto row-start-1 row-end-2 col-start-1 col-end-2")
             [ D.button
                 ( oneOf
-                    [ pure $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                    [ klass_ $ buttonClassWithMarginAndAutoPointerEvents
                     , pure $ D.OnClick := pushed.chooserScreenVisible false
                     ]
                 )
                 [ text_ "< Back" ]
             ]
         , D.div
-            (pure $ D.Class := "col-start-2 col-end-6 row-start-2 row-end-6 flex flex-col justify-items-center overflow-scroll text-center")
+            (klass_ "col-start-2 col-end-6 row-start-2 row-end-6 flex flex-col justify-items-center overflow-scroll text-center")
             ( [ D.h2
-                  (pure $ D.Class := "pointer-events-auto text-center p-4 " <> headerCls)
+                  (klass_ $ "pointer-events-auto text-center p-4 " <> headerCls)
                   [ text_ "Choose a project" ]
               ]
                 <>
-                  [ ( event.availableTracks # switcher \l -> D.ul (pure $ D.Class := "")
+                  [ ( event.availableTracks # switcher \l -> D.ul_
                         ( l <#> \{ id: trackId, data: tracky@(TrackV0 aTra) } -> D.li_
                             [ D.button
                                 ( oneOf
-                                    [ pure $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                                    [ klass_ $ buttonClassWithMarginAndAutoPointerEvents
                                     , pure $
                                         D.OnClick := do
                                           pushed.loadingScreenVisible true *> launchAff_ do
@@ -1186,27 +1188,27 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
         )
 
         [ D.div
-            (pure $ D.Class := "select-auto row-start-1 row-end-2 col-start-1 col-end-2")
+            (klass_ "select-auto row-start-1 row-end-2 col-start-1 col-end-2")
             [ D.button
                 ( oneOf
-                    [ pure $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                    [ klass_ $ buttonClassWithMarginAndAutoPointerEvents
                     , pure $ D.OnClick := pushed.forkingScreenVisible false
                     ]
                 )
                 [ text_ "< Back" ]
             ]
         , D.div
-            (pure $ D.Class := "col-start-2 col-end-6 row-start-2 row-end-6 flex flex-col justify-items-center overflow-scroll text-center")
+            (klass_ "col-start-2 col-end-6 row-start-2 row-end-6 flex flex-col justify-items-center overflow-scroll text-center")
             ( [ D.h2
-                  (pure $ D.Class := "pointer-events-auto text-center p-4 " <> headerCls)
+                  (klass_ $ "pointer-events-auto text-center p-4 " <> headerCls)
                   [ text_ "Fork a project" ]
               ]
                 <>
-                  [ ( event.availableTracks # switcher \l -> D.ul (pure $ D.Class := "")
+                  [ ( event.availableTracks # switcher \l -> D.ul (klass_ "")
                         ( l <#> \{ id: trackId, data: TrackV0 aTra } -> D.li_
                             [ D.button
                                 ( oneOf
-                                    [ pure $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                                    [ klass_ $ buttonClassWithMarginAndAutoPointerEvents
                                     , pure $
                                         D.OnClick := do
                                           pushed.loadingScreenVisible true *> launchAff_ do

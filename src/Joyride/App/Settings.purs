@@ -2,7 +2,7 @@
 -- _Nothing_ in it is permanent and you should assume it will be modified at
 -- _any_ time. Therefore, do not store work-in-progresses in here unless
 -- you're comfortable fishing them out of previous git commits.
-module Joyride.App.Sandbox where
+module Joyride.App.Settings where
 
 import Prelude
 
@@ -13,22 +13,28 @@ import Deku.Control (text_)
 import Deku.Core (Nut)
 import Deku.DOM as D
 import Deku.Listeners (slider)
+import Effect.Ref as Ref
+import FRP.Behavior (sample_)
+import Joyride.Constants.Visual (orientationDampening0To100, reverseOrientationDampening)
+import Joyride.FRP.Behavior (refToBehavior)
 import Joyride.Style (header2Cls, headerCls)
+import Types (SettingsNeeds)
 
-sandbox :: Nut
-sandbox = D.div (oneOf [ klass_ "h-screen w-screen bg-zinc-900 absolute" ])
-  [ D.div (oneOf [ klass_ "text-center" ])
+settings :: SettingsNeeds -> Nut
+settings { dampeningRef } = D.div (oneOf [ pure $ D.Class := "h-screen w-screen bg-zinc-900 absolute" ])
+  [ D.div (oneOf [ pure $ D.Class := "text-center" ])
       [ D.h2 (klass_ (headerCls <> " p-6")) [ text_ "Settings" ]
       , D.div (oneOf [])
-          [ D.ul (klass_ "")
+          [ D.ul (pure $ D.Class := "")
               [ D.li (klass_ "p-3")
                   [ D.h1 (klass_ header2Cls) [ text_ "Lateral speed" ]
                   , D.div (klass_ "flex flex-row p-3")
                       [ D.span (klass_ "text-white") [ text_ "🐢" ]
                       , D.input
                           ( oneOf
-                              [ slider $ pure (\_ -> pure unit)
-                              , klass_ "appearance-none grow h-6 p-0 bg-transparent focus:outline-none focus:ring-0 focus:shadow-none"
+                              [ sample_ (refToBehavior dampeningRef) (pure unit) <#> \i -> D.Value := show (reverseOrientationDampening i)
+                              , slider $ pure (orientationDampening0To100 >>> flip Ref.write dampeningRef)
+                              , klass_ "appearance-none raaaange grow h-6 p-0 bg-transparent focus:outline-none focus:ring-0 focus:shadow-none"
                               ]
                           )
                           []

@@ -22,6 +22,7 @@ import Data.Time.Duration (Milliseconds(..))
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..), fst, snd)
 import Deku.Attribute ((:=))
+import Deku.Attributes (klass_)
 import Deku.Control (blank, envy_, text_)
 import Deku.Core (Domable, Nut, bussed, vbussed)
 import Deku.DOM as D
@@ -163,10 +164,10 @@ tutorial
                     HasStarted (InFlightGameInfo t) -> pure t.startedAt
                 )
           -- stopButton :: Effect Unit -> Nut
-          stopButton off = D.div (oneOf [ pure $ D.Class := "mx-2" ])
+          stopButton off = D.div (oneOf [ klass_ "mx-2" ])
             [ D.button
                 ( oneOf
-                    [ pure $ D.Class := "pointer-events-auto p-1 " <> buttonCls
+                    [ klass_ $ "pointer-events-auto p-1 " <> buttonCls
                     , pure $ D.OnClick := do
                         off
                     ]
@@ -273,10 +274,10 @@ tutorial
           \animatedStuff -> D.div_
             [
               -- on/off
-              D.div (pure $ D.Class := "z-10 pointer-events-none absolute w-screen h-screen grid grid-rows-6 grid-cols-6")
-                [ D.div (pure $ D.Class := "row-start-1 row-end-3 col-start-1 col-end-3")
+              D.div (klass_ "z-10 pointer-events-none absolute w-screen h-screen grid grid-rows-6 grid-cols-6")
+                [ D.div (klass_ "row-start-1 row-end-3 col-start-1 col-end-3")
 
-                    [ D.div (pure $ D.Class := "mx-2 mt-2 ")
+                    [ D.div (klass_ "mx-2 mt-2 ")
                         [ (biSampleOn ((initializeWithEmpty event.iAmReady)) (map Tuple playerStatus))
                             -- we theoretically don't need to dedup because
                             -- the button should never redraw once we've started
@@ -474,7 +475,7 @@ tutorial
     Tiles -> tutorialCenterMatterFrame "Points"
       ( Just $ D.p_
           [ D.span_ [ text_ "Earn points by touching the " ]
-          , D.span (pure $ D.Class := "italic") [ text_ "gray" ]
+          , D.span (klass_ "italic") [ text_ "gray" ]
           , D.span_ [ text_ " tiles as soon as their edge touches the line. You'll lose points if you're too early or late." ]
           ]
       )
@@ -504,7 +505,7 @@ tutorial
     Leap -> tutorialCenterMatterFrame "Leaps"
       ( Just $ D.p_
           [ D.span_ [ text_ "Leap to a new line by touching a " ]
-          , D.span (pure $ D.Class := "italic") [ text_ "leap" ]
+          , D.span (klass_ "italic") [ text_ "leap" ]
           , D.span_ [ text_ " tile. Leap tiles have the same color as the line you'll leap to." ]
           ]
       )
@@ -520,7 +521,7 @@ tutorial
     Long -> tutorialCenterMatterFrame "Press"
       ( Just $ D.p_
           [ D.span_ [ text_ "Long-press the " ]
-          , D.span (pure $ D.Class := "italic") [ text_ "green" ]
+          , D.span (klass_ "italic") [ text_ "green" ]
           , D.span_ [ text_ " tiles to earn points. The closer the tile is, the higher the points!" ]
           ]
       )
@@ -558,9 +559,9 @@ tutorial
             )
       )
       [ D.div
-          (pure $ D.Class := "select-auto justify-self-center self-center row-start-3 row-end-5 col-start-2 col-end-6 md:col-start-3 md:col-end-5")
+          (klass_ "select-auto justify-self-center self-center row-start-3 row-end-5 col-start-2 col-end-6 md:col-start-3 md:col-end-5")
           ( [ D.div
-                (pure $ D.Class := "pointer-events-auto text-center p-4 " <> headerCls)
+                (klass_ $ "pointer-events-auto text-center p-4 " <> headerCls)
                 [ D.p_ [ text_ hd ]
                 ]
             ]
@@ -568,17 +569,17 @@ tutorial
                 ( case txt of
                     Just x ->
                       [ D.div
-                          (pure $ D.Class := "pointer-events-auto text-center text-white p-4")
+                          (klass_ "pointer-events-auto text-center text-white p-4")
                           [ x ]
                       ]
                     Nothing -> []
                 )
               <>
-                [ D.div (pure $ D.Class := "flex w-full justify-center items-center")
+                [ D.div (klass_ "flex w-full justify-center items-center")
                     ( guard endBtnHack
                         [ D.button
                             ( oneOf
-                                [ pure $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                                [ klass_ $ buttonCls <> " mx-2 pointer-events-auto"
                                 , pure $
                                     D.OnClick :=
                                       let
@@ -592,7 +593,7 @@ tutorial
                         ] <>
                         [ D.button
                             ( oneOf
-                                [ pure $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
+                                [ klass_ $ buttonCls <> " mx-2 pointer-events-auto"
                                 , pure $
                                     D.OnClick :=
                                       let
@@ -618,7 +619,7 @@ tutorial
   makeJoined mp (KnownPlayers m) = D.ul_
     ( map
         ( \(Tuple p x) -> D.li_
-            [ D.span (pure $ D.Class := "text-white")
+            [ D.span (klass_ "text-white")
                 [ text_ $
                     if p == mp then "You have joined!"
                     else
@@ -637,7 +638,7 @@ tutorial
   makePoints mp (KnownPlayers m) = D.ul_
     ( map
         ( \(Tuple p (InFlightGameInfo x)) -> D.li_
-            [ D.span (pure $ D.Class := "text-white")
+            [ D.span (klass_ "text-white")
                 [ text_ $
                     ( if p == mp then
                         ( "You" <> case x.name of

@@ -12,6 +12,7 @@ module Types
   , Ride(..)
   , RideV0'
   , Models(..)
+  , SettingsNeeds
   , allColumns
   , defaultRide
   , InFlightGameInfo'
@@ -35,8 +36,8 @@ module Types
   , PlayerAction(..)
   , WindowDims
   , XDirection(..)
-  , KTP
-  , GTP
+  , KTPD
+  , GTPD
   , Points(..)
   , Penalty(..)
   , BufferName(..)
@@ -132,8 +133,8 @@ type CanvasInfo = { x :: Number, y :: Number } /\ Number
 type WindowDims = { iw :: Number, ih :: Number }
 
 type Orientation = { absolute :: Number, alpha :: Number, beta :: Number, gamma :: Number }
-type GTP = { gamma :: Number, time :: Maybe JMilliseconds, pos :: Number }
-type KTP = { curXDir :: XDirection, time :: Maybe JMilliseconds, pos :: Number }
+type GTPD = { gamma :: Number, time :: Maybe JMilliseconds, pos :: Number, dampening :: Number }
+type KTPD = { curXDir :: XDirection, time :: Maybe JMilliseconds, pos :: Number, dampening :: Number }
 
 data XDirection = ToLeft | ToRight | Still
 
@@ -831,12 +832,15 @@ newtype HitLeapVisualForLabel = HitLeapVisualForLabel
 
 derive instance Newtype HitLeapVisualForLabel _
 
+
+type SettingsNeeds = {  dampeningRef::Ref.Ref Number}
 --
 data Negotiation
   = PageLoad
   | NeedsOrientation (Maybe { ride :: String, track :: String })
   | WillNotWorkWithoutOrientation 
   | ChooseRide (Array { data :: Track, id :: String })
+  | SetSomeStuff SettingsNeeds
   | GetRulesOfGame
       { cubeTextures :: CubeTextures CTL.CubeTexture
       , models :: Models GLTFLoader.GLTF
@@ -983,8 +987,8 @@ instance Show PlayerAction where
 
 data PlayerAction
   = --movement
-    XPositionKeyboard { player :: Player, ktp :: KTP }
-  | XPositionMobile { player :: Player, gtp :: GTP }
+    XPositionKeyboard { player :: Player, ktpd :: KTPD }
+  | XPositionMobile { player :: Player, gtpd :: GTPD }
   -- tap basic
   | HitBasic HitBasicOverTheWire
   -- tap leap

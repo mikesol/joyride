@@ -10,7 +10,7 @@ import Data.Number (cos, pi)
 import Data.Time.Duration (Milliseconds)
 import Data.Tuple.Nested (type (/\), (/\))
 import Deku.Attribute ((:=))
-import Deku.Attributes (klass)
+import Deku.Attributes (klass, klass_)
 import Deku.Control (text_)
 import Deku.Core (Nut, vbussed)
 import Deku.DOM as D
@@ -24,7 +24,7 @@ import Joyride.Firebase.Auth (User(..), currentUser, signInWithGoogle)
 import Joyride.Firebase.Opaque (FirebaseAuth, Firestore)
 import Joyride.FullScreen as FullScreen
 import Joyride.Navigation (navigateToHash)
-import Joyride.Style (headerCls)
+import Joyride.Style (headerCls, buttonCls)
 import Joyride.Timing.CoordinatedNow (withCTime)
 import Rito.Cameras.PerspectiveCamera (perspectiveCamera)
 import Rito.Core (Renderer(..), cameraToGroup, plain, toScene, webGLRendererToRenderer)
@@ -36,7 +36,7 @@ import Rito.Properties (positionX, positionY, positionZ, render, size)
 import Rito.Renderers.WebGL (webGLRenderer)
 import Rito.Run as Rito.Run
 import Rito.Scene (Background(..), scene)
-import Route (ridesPath)
+import Route (ridesPath, settingsPath)
 import Type.Proxy (Proxy(..))
 import Types (CubeTextures, JMilliseconds(..), ThreeDI, Track, WindowDims)
 import Web.HTML (window)
@@ -127,7 +127,7 @@ threeLoader opts = do
   opts.unsubscriber u
 
 filler :: Nut
-filler = D.div (pure $ D.Class := "grow") []
+filler = D.div (klass_ "grow") []
 
 explainerPage
   :: { ride :: (String /\ Track) -> Effect Unit
@@ -153,73 +153,81 @@ explainerPage opts = vbussed
                )
            )
   )
-  \push event -> D.div (oneOf [ pure (D.Class := "absolute") ])
-    [ D.div (oneOf [ pure (D.Class := "z-10 absolute grid grid-cols-3 grid-rows-3  place-items-center h-screen w-screen") ])
-        [ D.div (pure $ D.Class := "col-start-2 col-end-3 row-start-2 row-end-3 flex flex-col")
-            $
-              let
-                buttonCls = "my-4 bg-transparent hover:bg-slate-300 text-white font-semibold hover:text-zinc-700 py-2 px-4 border border-slate-300 hover:border-transparent rounded"
-              in
-                [ D.h1
-                    ( oneOf
-                        [ pure $ D.Class := "text-center " <> headerCls
-                        , click $ opts.signedInNonAnonymously <#> \signedInNonAnon -> when signedInNonAnon do
-                            cu <- currentUser opts.fbAuth
-                            for_ cu \(User { uid }) ->
-                              window >>= alert uid
-                        ]
-                    )
-                    [ text_ "Joyride" ]
-                , D.button
-                    ( oneOf
-                        [ pure $ D.Class := buttonCls
-                        , DL.click
-                            ( (oneOf [ pure (pure unit), event.unsubscriber ]) <#>
-                                FullScreen.fullScreenFlow <<< (opts.tutorial *> _)
-                            )
-                        ]
-                    )
-                    [ text_ "Tutorial" ]
-                , D.button
-                    ( oneOf
-                        [ klass $ pure buttonCls
-                        , click $
-                            ( (oneOf [ pure (pure unit), event.unsubscriber ]) <#>
-                                FullScreen.fullScreenFlow <<< (navigateToHash ridesPath *> _)
-                            ) <#> identity -- i think this turns stuff off? ugh, too complex, figure out why this identity is here. typical example of "clever" being to the detriment of understanding my own code a couple weeks later... 
-                              
-                        ]
-                    )
-                    [ text_ "Take a ride" ]
-                , D.button
-                    ( oneOf
-                        [ pure $ D.Class := buttonCls
-                        , DL.click
-                            ( (oneOf [ pure (pure unit), event.unsubscriber ]) <#>
-                                FullScreen.fullScreenFlow <<< (opts.editor *> _)
-                            )
-                        ]
-                    )
-                    [ text_ "Editor" ]
-                , D.button
-                    ( oneOf
-                        [ pure $ D.Id := "google_sign_in"
-                        , pure $ D.OnClick := do
-                            signInWithGoogle do
-                              window >>= alert "Sign in with google is temporarily unavailable. Please try again later."
-                        , opts.signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> if sina then " hidden" else ""
-                        ]
-                    )
-                    [ text_ "Sign In" ]
-                , D.button
-                    ( oneOf
-                        [ opts.signedInNonAnonymously <#> \na -> D.Class := buttonCls <> (if na then "" else " hidden")
-                        , click $ pure opts.signOut
-                        ]
-                    )
-                    [ text_ "Sign Out" ]
 
-                ]
+  \push event -> D.div (oneOf [ pure (D.Class := "absolute") ])
+    [ D.div (oneOf [ pure (D.Class := "z-10 absolute grid grid-cols-3 grid-rows-3 h-screen w-screen") ])
+        [ D.div (klass_ "col-start-3 col-end-3 row-start-1 row-end-1 align-top justify-self-end")
+            [ D.button
+                ( oneOf
+                    [ klass_ buttonCls
+                    , DL.click
+                        ( (oneOf [ pure (pure unit), event.unsubscriber ]) <#>
+                            FullScreen.fullScreenFlow <<< (navigateToHash settingsPath *> _)
+                        )
+                    ]
+                )
+                [ text_ "⚙" ]
+            ]
+        , D.div (klass_ "place-self-center col-start-2 col-end-3 row-start-2 row-end-3 flex flex-col")
+            [ D.h1
+                ( oneOf
+                    [ klass_ $ "text-center " <> headerCls
+                    , click $ opts.signedInNonAnonymously <#> \signedInNonAnon -> when signedInNonAnon do
+                        cu <- currentUser opts.fbAuth
+                        for_ cu \(User { uid }) ->
+                          window >>= alert uid
+                    ]
+                )
+                [ text_ "Joyride" ]
+            , D.button
+                ( oneOf
+                    [ klass_ buttonCls
+                    , DL.click
+                        ( (oneOf [ pure (pure unit), event.unsubscriber ]) <#>
+                            FullScreen.fullScreenFlow <<< (opts.tutorial *> _)
+                        )
+                    ]
+                )
+                [ text_ "Tutorial" ]
+            , D.button
+                ( oneOf
+                    [ klass $ pure buttonCls
+                    , click $
+                        ( (oneOf [ pure (pure unit), event.unsubscriber ]) <#>
+                            FullScreen.fullScreenFlow <<< (navigateToHash ridesPath *> _)
+                        ) <#> identity -- i think this turns stuff off? ugh, too complex, figure out why this identity is here. typical example of "clever" being to the detriment of understanding my own code a couple weeks later... 
+
+                    ]
+                )
+                [ text_ "Take a ride" ]
+            , D.button
+                ( oneOf
+                    [ klass_ buttonCls
+                    , DL.click
+                        ( (oneOf [ pure (pure unit), event.unsubscriber ]) <#>
+                            FullScreen.fullScreenFlow <<< (opts.editor *> _)
+                        )
+                    ]
+                )
+                [ text_ "Editor" ]
+            , D.button
+                ( oneOf
+                    [ pure $ D.Id := "google_sign_in"
+                    , pure $ D.OnClick := do
+                        signInWithGoogle do
+                          window >>= alert "Sign in with google is temporarily unavailable. Please try again later."
+                    , opts.signedInNonAnonymously <#> \sina -> D.Class := buttonCls <> if sina then " hidden" else ""
+                    ]
+                )
+                [ text_ "Sign In" ]
+            , D.button
+                ( oneOf
+                    [ opts.signedInNonAnonymously <#> \na -> D.Class := buttonCls <> (if na then "" else " hidden")
+                    , click $ pure opts.signOut
+                    ]
+                )
+                [ text_ "Sign Out" ]
+            ]
         ]
     , filler
     , D.canvas

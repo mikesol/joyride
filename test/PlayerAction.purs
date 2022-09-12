@@ -70,20 +70,22 @@ instance Arbitrary TestPlayerAction where
   arbitrary = TestPlayerAction <$> oneOf
     ( fromNonEmpty
         ( ( XPositionKeyboard <$>
-              ( { player: _, ktp: _ } <$> anyPlayer <*>
+              ( { player: _, ktpd: _ } <$> anyPlayer <*>
                   ( { curXDir: _
                     , time: _
                     , pos: _
-                    } <$> anyXDirection <*> MGC.genMaybe anyJMilliseconds <*> arbitrary
+                    , dampening: _
+                    } <$> anyXDirection <*> MGC.genMaybe anyJMilliseconds <*> arbitrary  <*> arbitrary
                   )
               )
           ) :|
             [ XPositionMobile <$>
-                ( { player: _, gtp: _ } <$> anyPlayer <*>
+                ( { player: _, gtpd: _ } <$> anyPlayer <*>
                     ( { gamma: _
                       , time: _
                       , pos: _
-                      } <$> arbitrary <*> MGC.genMaybe anyJMilliseconds <*> arbitrary
+                      , dampening: _
+                      } <$> arbitrary <*> MGC.genMaybe anyJMilliseconds <*> arbitrary  <*> arbitrary
                     )
                 )
             -- tap basic

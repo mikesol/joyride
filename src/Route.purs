@@ -14,6 +14,7 @@ data Route
   | OrientationPermissionWithoutRideRequest
   | Tutorial
   | TakeRide
+  | Settings
   | TakeThisRide String
   | Editor
   | Session String String
@@ -28,10 +29,12 @@ orientationPermissionPath = "orientation-permission" :: String
 tutorialPath = "tutorial" :: String
 editorPath = "editor" :: String
 ridesPath = "rides" :: String
+settingsPath = "settings" :: String
 route :: RouteDuplex' Route
 route = root $ G.sum
   { "Home": G.noArgs
   , "TakeThisRide": ridesPath / segment
+  , "Settings": path settingsPath G.noArgs
   , "TakeRide": path ridesPath G.noArgs
   , "Editor": path editorPath G.noArgs
   , "Tutorial": path tutorialPath G.noArgs
