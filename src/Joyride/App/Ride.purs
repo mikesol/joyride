@@ -21,6 +21,7 @@ import Data.Time.Duration (Milliseconds(..))
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..), fst, snd)
 import Deku.Attribute (cb, (:=))
+import Deku.Attributes (klass_)
 import Deku.Control (text_)
 import Deku.Core (Domable, Nut, vbussed)
 import Deku.DOM as D
@@ -407,7 +408,7 @@ ride
                     in
                       switcher case _ of
                         WaitingForMe -> frame (startButton animatedStuff)
-                        WaitingForOthers -> frame (D.span (pure $ D.Class := "text-lg text-white text-center") [ text_ "Waiting for others to join" ])
+                        WaitingForOthers -> frame (D.div (klass_ "text-center w-100") [D.span (pure $ D.Class := "text-lg text-white") [ text_ "Waiting for others to join" ]])
                         Started _ -> envy empty
                 ]
 
