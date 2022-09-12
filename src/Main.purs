@@ -15,7 +15,7 @@ import Data.List (List(..), drop, take, (:))
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.Monoid (guard)
-import Data.Newtype (unwrap)
+import Data.Newtype (unwrap, wrap)
 import Data.Number (pi, pow, sqrt)
 import Data.Profunctor (lcmap)
 import Data.Traversable (for_)
@@ -49,7 +49,7 @@ import Joyride.FRP.Orientation (hasOrientationPermission, posFromOrientation, xF
 import Joyride.FRP.SampleOnSubscribe (sampleOnSubscribe)
 import Joyride.Firebase.Auth (AuthProvider(..), authStateChangedEventWithAnonymousAccountCreation, firebaseAuthAff, initializeGoogleClient, signOut)
 import Joyride.Firebase.Config (firebaseAppAff)
-import Joyride.Firebase.Firestore (createRideIfNotExistsYet, eventChannelChanges, firestoreDbAff, getEventsAff, getPlayerForChannel, getPublicTracksAff, getTrackAff, getTracksAff, getWhitelistedTracksAff, initializeRealtimePresenceAff, sendMyPointsAndPenaltiesToFirebase)
+import Joyride.Firebase.Firestore (createRideIfNotExistsYet, getPublicTracksAff, getWhitelistedTracksAff, getTracksAff, eventChannelChanges, firestoreDbAff, getEventsAff, getPlayerForChannel, getTrackAff, turnOnRealtimePresenceAff, sendMyPointsAndPenaltiesToFirebase)
 import Joyride.Firebase.Opaque (FirebaseAuth, Firestore)
 import Joyride.IO.ParFold (ParFold(..))
 import Joyride.Ledger.Basic (basicOutcomeToPointOutcome, beatsToBasicOutcome)
@@ -73,11 +73,11 @@ import Routing.Duplex (parse)
 import Routing.Hash (matchesWith)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
-import Types (AppFSM(..), BufferName(..), Channel(..), ChannelChooser(..), CubeTexture, CubeTextures(..), HitBasicMe(..), HitBasicOverTheWire(..), HitLeapMe(..), HitLeapOverTheWire(..), HitLongMe(..), HitLongOverTheWire(..), IAm(..), InFlightGameInfo(..), InFlightGameInfo', JMilliseconds(..), KnownPlayers(..), Models(..), Negotiation(..), Penalty(..), Player(..), PlayerAction(..), PlayerPositionsF, PointOutcome, Points(..), Position, ReleaseLongMe(..), ReleaseLongOverTheWire(..), RenderingInfo, RenderingInfo', Ride(..), Shaders, StartStatus(..), Textures(..), ThreeDI, Track(..), WantsTutorial', initialPositions, touchPointZ)
+import Types (AppOrientationState(..), BufferName(..), Channel(..), ChannelChooser(..), CubeTexture, CubeTextures(..), HitBasicMe(..), HitBasicOverTheWire(..), HitLeapMe(..), HitLeapOverTheWire(..), HitLongMe(..), HitLongOverTheWire(..), IAm(..), InFlightGameInfo(..), InFlightGameInfo', JMilliseconds(..), KnownPlayers(..), Models(..), Negotiation(..), Penalty(..), Player(..), PlayerAction(..), PlayerPositionsF, PointOutcome, Points(..), Position, ReleaseLongMe(..), ReleaseLongOverTheWire(..), RenderingInfo, RenderingInfo', Ride(..), Shaders, StartStatus(..), Textures(..), ThreeDI, Track(..), WantsTutorial', initialPositions, touchPointZ)
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
 import Web.HTML (window)
-import Web.HTML.Location (hash)
+import Web.HTML.Location (hash, setHash)
 import Web.HTML.Window (innerHeight, innerWidth, localStorage, location, toEventTarget)
 import Web.Storage.Storage as LS
 
@@ -187,6 +187,12 @@ main
 main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) audio = {-monkeyPatchCreateImpl backdoor altCreate *>-}
   if sandboxed then runInBody sandbox
   else launchAff_ do
+    liftEffect do
+      l <- window >>= location
+      hash l >>= case _ of
+        "" -> do
+          setHash "/" l
+        _ -> pure unit
     -- firebsae
     fbApp <- firebaseAppAff
     -- for now don't use analytics
@@ -208,13 +214,15 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
       -- although for a single subscription it _is_ idempotent
       -- for each thunk
       -- TODO: do we want to do something interesting with unsubscrube?
-      hasSetUpPresence <- Ref.new false
+      unsubscribeFromRealtimePresence <- Ref.new (wrap (pure unit))
       _ <- subscribe (authStateChangedEventWithAnonymousAccountCreation fbAuth) \{ user, provider } -> do
         Log.info ("I'm a user: " <> JSON.writeJSON user)
-        -- todo: this must come AFTER auth has been set up above, otherwise there will be no current user!!
-        Ref.read hasSetUpPresence >>= flip unless do
-          Ref.write true hasSetUpPresence
-          launchAff_ $ initializeRealtimePresenceAff fbApp firestoreDb fbAuth
+        case provider of
+          AuthGoogle -> launchAff_ do
+            turnOnRealtimePresenceAff fbApp firestoreDb fbAuth >>= liftEffect <<< flip Ref.write unsubscribeFromRealtimePresence
+          AuthAnonymous -> do
+            Ref.read unsubscribeFromRealtimePresence >>= unwrap
+            Ref.write (wrap (pure unit)) unsubscribeFromRealtimePresence
         signedInNonAnonymously'.push case provider of
           AuthGoogle -> true
           AuthAnonymous -> false
@@ -719,10 +727,10 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                       liftEffect $ negotiation.push (ChooseRide rides)
                     OrientationPermissionWithoutRideRequest -> negotiation.push (NeedsOrientation Nothing)
                     OrientationPermissionWithRideRequest x y -> negotiation.push (NeedsOrientation (Just { ride: x, track: y }))
-                case fsm.state of
-                  FSMStartWithSuccessfulOrientationPermission -> saneStart
-                  FSMAppCannotStartDueToLackOfOrientationPermission -> negotiation.push WillNotWorkWithoutOrientation
-                  FSMStarting -> do
+                case fsm.orientationPermission of
+                  SuccessfulOrientationPermission -> saneStart
+                  CannotUseAppDueToLackOfOrientationPermission -> negotiation.push WillNotWorkWithoutOrientation
+                  UnknownOrientationPermission -> do
                     if hop then case new of
                       Session x y -> navigateToHash (orientationPermissionPath <> "/" <> x <> "/" <> y)
                       _ -> navigateToHash orientationPermissionPath
@@ -735,14 +743,14 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                       ( \{ rev: old /\ new, orev, sinon } fsm -> do
                           let
                             newFsmState = case orev of
-                              Just true -> FSMStartWithSuccessfulOrientationPermission
-                              Just false -> FSMAppCannotStartDueToLackOfOrientationPermission
-                              Nothing -> fsm.state
-                          let nfsm = fsm { state = newFsmState, signedInNonAnon = sinon }
+                              Just true -> SuccessfulOrientationPermission
+                              Just false -> CannotUseAppDueToLackOfOrientationPermission
+                              Nothing -> fsm.orientationPermission
+                          let nfsm = fsm { orientationPermission = newFsmState, signedInNonAnon = sinon }
                           nfsm /\ (nfsm /\ old /\ new)
                       )
                       ({ rev: _, orev: _, sinon: _ } <$> routeE.event <*> (pure Nothing <|> map Just orientationPerm.event) <*> signedInNonAnonymously.event)
-                      { state: FSMStarting, signedInNonAnon: false }
+                      { orientationPermission: UnknownOrientationPermission, signedInNonAnon: false }
                   )
               )
               (routyMcRouteRoute)

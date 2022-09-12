@@ -6,7 +6,7 @@ module Types
   , GalaxyAttributes
   , ToplevelInfo
   , RenderingInfo
-  , AppFSM(..)
+  , AppOrientationState(..)
   , OrientationPermissionState(..)
   , ChannelChooser(..)
   , Ride(..)
@@ -1062,14 +1062,14 @@ type ThreeDI =
 
 data OrientationPermissionState = NotNeeded | NeededButUnknown | KnownAccepted | KnownRejected
 
-data AppFSM
-  = FSMStarting
-  | FSMStartWithSuccessfulOrientationPermission
-  | FSMAppCannotStartDueToLackOfOrientationPermission
+data AppOrientationState
+  = UnknownOrientationPermission
+  | SuccessfulOrientationPermission
+  | CannotUseAppDueToLackOfOrientationPermission
 
-derive instance Eq AppFSM
-derive instance Generic AppFSM _
-instance Show AppFSM where
+derive instance Eq AppOrientationState
+derive instance Generic AppOrientationState _
+instance Show AppOrientationState where
   show = genericShow
 type Shader = { vertex :: String, fragment :: String }
 type Shaders = { galaxy :: Shader }

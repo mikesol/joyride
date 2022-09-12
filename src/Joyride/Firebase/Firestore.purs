@@ -6,6 +6,7 @@ import Control.Alt ((<|>))
 import Control.Promise (Promise, toAffE)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
+import Data.Newtype (class Newtype)
 import Effect (Effect)
 import Effect.Aff (Aff, error, launchAff_, throwError, try)
 import Effect.Class (liftEffect)
@@ -41,10 +42,12 @@ forkTrackAff au fs r = toAffE $ forkTrack au fs r
 
 foreign import getTrack :: Firestore -> String -> Effect (Promise Foreign)
 
-foreign import initializeRealtimePresence :: FirebaseApp -> Firestore -> FirebaseAuth -> Effect (Promise Unit)
+newtype UnsubscribeFromRealtimePresence = UnsubscribeFromRealtimePresence (Effect Unit)
+derive instance Newtype UnsubscribeFromRealtimePresence _
+foreign import turnOnRealtimePresence :: FirebaseApp -> Firestore -> FirebaseAuth -> Effect (Promise UnsubscribeFromRealtimePresence)
 
-initializeRealtimePresenceAff :: FirebaseApp -> Firestore -> FirebaseAuth -> Aff Unit 
-initializeRealtimePresenceAff fbApp fst auth = toAffE (initializeRealtimePresence fbApp fst auth)
+turnOnRealtimePresenceAff :: FirebaseApp -> Firestore -> FirebaseAuth -> Aff UnsubscribeFromRealtimePresence 
+turnOnRealtimePresenceAff fbApp fst auth = toAffE (turnOnRealtimePresence fbApp fst auth)
 
 getTrackAff :: Firestore -> String -> Aff (Maybe Track)
 getTrackAff fs id = do
