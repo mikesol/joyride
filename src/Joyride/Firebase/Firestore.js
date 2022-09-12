@@ -24,7 +24,7 @@ const PRIVATE = "private";
 const TAGS = "tags";
 const COLUMN = "column";
 
-export const initializeRealtimePresence = (app) => (fsdb) => (auth) => () =>
+export const turnOnRealtimePresence = (app) => (fsdb) => (auth) => () =>
 	Promise.all([import("firebase/firestore"), import("firebase/database")]).then(([firestore, database]) => {
 		var uid = auth.currentUser.uid;
 		var db = database.getDatabase(app);
@@ -53,7 +53,7 @@ export const initializeRealtimePresence = (app) => (fsdb) => (auth) => () =>
 			last_changed: firestore.serverTimestamp(),
 		};
 
-		database.onValue(database.ref(db, '.info/connected'), function (snapshot) {
+		const retval = database.onValue(database.ref(db, '.info/connected'), function (snapshot) {
 
 			if (snapshot.val() == false) {
 				// Instead of simply returning, we'll also set Firestore's state
@@ -65,11 +65,15 @@ export const initializeRealtimePresence = (app) => (fsdb) => (auth) => () =>
 			};
 			database.onDisconnect(userStatusDatabaseRef).set(isOfflineForDatabase).then(function () {
 				console.log('connected to rtdb');
-				userStatusDatabaseRef.set(isOnlineForDatabase);
+				database.set(userStatusDatabaseRef, isOnlineForDatabase);
 				// We'll also add Firestore set here for when we come online.
 				firestore.setDoc(userStatusFirestoreRef, isOnlineForFirestore);
 			});
 		});
+		return () => {
+			retval();
+			database.onDisconnect(userStatusDatabaseRef).set(null);
+		}
 	})
 
 export const addTrack = (db) => (track) => () =>

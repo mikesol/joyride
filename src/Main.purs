@@ -12,7 +12,7 @@ import Data.Int as Int
 import Data.List (List(..), drop, take, (:))
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
-import Data.Newtype (unwrap)
+import Data.Newtype (unwrap, wrap)
 import Data.Number (pi, pow, sqrt)
 import Data.Profunctor (lcmap)
 import Data.Traversable (for_, oneOf)
@@ -46,7 +46,7 @@ import Joyride.FRP.Orientation (hasOrientationPermission, posFromOrientation, xF
 import Joyride.FRP.SampleOnSubscribe (sampleOnSubscribe)
 import Joyride.Firebase.Auth (AuthProvider(..), authStateChangedEventWithAnonymousAccountCreation, firebaseAuthAff, initializeGoogleClient, signOut)
 import Joyride.Firebase.Config (firebaseAppAff)
-import Joyride.Firebase.Firestore (createRideIfNotExistsYet, eventChannelChanges, firestoreDbAff, getEventsAff, getPlayerForChannel, getTrackAff, initializeRealtimePresenceAff, sendMyPointsAndPenaltiesToFirebase)
+import Joyride.Firebase.Firestore (createRideIfNotExistsYet, eventChannelChanges, firestoreDbAff, getEventsAff, getPlayerForChannel, getTrackAff, turnOnRealtimePresenceAff, sendMyPointsAndPenaltiesToFirebase)
 import Joyride.Firebase.Opaque (FirebaseAuth, Firestore)
 import Joyride.IO.ParFold (ParFold(..))
 import Joyride.Ledger.Basic (basicOutcomeToPointOutcome, beatsToBasicOutcome)
@@ -206,13 +206,15 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
       -- although for a single subscription it _is_ idempotent
       -- for each thunk
       -- TODO: do we want to do something interesting with unsubscrube?
-      hasSetUpPresence <- Ref.new false
+      unsubscribeFromRealtimePresence <- Ref.new (wrap (pure unit))
       _ <- subscribe (authStateChangedEventWithAnonymousAccountCreation fbAuth) \{ user, provider } -> do
         Log.info ("I'm a user: " <> JSON.writeJSON user)
-        -- todo: this must come AFTER auth has been set up above, otherwise there will be no current user!!
-        Ref.read hasSetUpPresence >>= flip unless do
-          Ref.write true hasSetUpPresence
-          launchAff_ $ initializeRealtimePresenceAff fbApp firestoreDb fbAuth
+        case provider of
+          AuthGoogle -> launchAff_ do
+            turnOnRealtimePresenceAff fbApp firestoreDb fbAuth >>= liftEffect <<< flip Ref.write unsubscribeFromRealtimePresence
+          AuthAnonymous -> do
+            Ref.read unsubscribeFromRealtimePresence >>= unwrap
+            Ref.write (wrap (pure unit)) unsubscribeFromRealtimePresence
         signedInNonAnonymously'.push case provider of
           AuthGoogle -> true
           AuthAnonymous -> false
