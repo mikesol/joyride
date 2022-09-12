@@ -27,7 +27,11 @@ const COLUMN = "column";
 export const turnOnRealtimePresence = (app) => (fsdb) => (auth) => () =>
 	Promise.all([import("firebase/firestore"), import("firebase/database")]).then(([firestore, database]) => {
 		var uid = auth.currentUser.uid;
-		var db = database.getDatabase(app);
+		var db = database.getDatabase(import.meta.env.VITE_FIREBASE_BUILD === "production" ? app : undefined);
+		if (import.meta.env.VITE_FIREBASE_BUILD !== "production") {
+			database.connectDatabaseEmulator(db, "localhost", 9000);
+		}
+
 		var userStatusDatabaseRef = database.ref(db, '/status/' + uid);
 		var isOfflineForDatabase = {
 			state: 'offline',

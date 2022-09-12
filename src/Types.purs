@@ -6,6 +6,8 @@ module Types
   , GalaxyAttributes
   , ToplevelInfo
   , RenderingInfo
+  , AppOrientationState(..)
+  , OrientationPermissionState(..)
   , ChannelChooser(..)
   , Ride(..)
   , RideV0'
@@ -832,8 +834,9 @@ derive instance Newtype HitLeapVisualForLabel _
 --
 data Negotiation
   = PageLoad
-  | NeedsOrientation
-  | WillNotWorkWithoutOrientation
+  | NeedsOrientation (Maybe { ride :: String, track :: String })
+  | WillNotWorkWithoutOrientation 
+  | ChooseRide (Array { data :: Track, id :: String })
   | GetRulesOfGame
       { cubeTextures :: CubeTextures CTL.CubeTexture
       , models :: Models GLTFLoader.GLTF
@@ -1057,6 +1060,17 @@ type ThreeDI =
   , css3DRenderer :: THREE.TCSS3DRenderer
   }
 
+data OrientationPermissionState = NotNeeded | NeededButUnknown | KnownAccepted | KnownRejected
+
+data AppOrientationState
+  = UnknownOrientationPermission
+  | SuccessfulOrientationPermission
+  | CannotUseAppDueToLackOfOrientationPermission
+
+derive instance Eq AppOrientationState
+derive instance Generic AppOrientationState _
+instance Show AppOrientationState where
+  show = genericShow
 type Shader = { vertex :: String, fragment :: String }
 type Shaders = { galaxy :: Shader }
 

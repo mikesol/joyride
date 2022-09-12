@@ -21,6 +21,7 @@ import Data.Time.Duration (Milliseconds(..))
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..), fst, snd)
 import Deku.Attribute (cb, (:=))
+import Deku.Attributes (klass_)
 import Deku.Control (text_)
 import Deku.Core (Domable, Nut, vbussed)
 import Deku.DOM as D
@@ -70,6 +71,8 @@ import Web.HTML.HTMLCanvasElement as HTMLCanvasElement
 import Web.HTML.HTMLElement as HTMLElement
 import Web.HTML.HTMLInputElement (fromEventTarget, value)
 import Web.HTML.Window (RequestIdleCallbackId, Window, cancelIdleCallback, requestIdleCallback)
+
+foreign import addressHead :: String
 
 twoPi = 2.0 * pi :: Number
 
@@ -298,7 +301,7 @@ ride
                     false -> D.div (pure $ D.Class := "select-auto")
                       [ D.div (pure $ D.Class := "pointer-events-auto text-center text-white p-4")
                           let
-                            url = "joyride.fm/?ride=" <> channelName <> "&track=" <> trackId
+                            url = addressHead <> "/#/r/" <> channelName <> "/" <> trackId
                           in
                             [ D.p_
                                 [ text_ ("Press the clipboard and get a link to this ride:")
@@ -308,7 +311,7 @@ ride
                                     [ pure $ D.Class := "pointer-events-auto text-center text-xl bg-gray-800 hover:bg-gray-600 text-white mx-2 rounded"
                                     , click $ pure $ launchAff_ do
                                         liftEffect $ push.copiedToClipboard true
-                                        writeTextAff ("https://" <> url)
+                                        writeTextAff url
                                         delay (Milliseconds 2000.0)
                                         liftEffect $ push.copiedToClipboard false
                                     ]
@@ -405,7 +408,7 @@ ride
                     in
                       switcher case _ of
                         WaitingForMe -> frame (startButton animatedStuff)
-                        WaitingForOthers -> frame (D.span (pure $ D.Class := "text-lg text-white") [ text_ "Waiting for others to join" ])
+                        WaitingForOthers -> frame (D.div (klass_ "text-center w-100") [D.span (pure $ D.Class := "text-lg text-white") [ text_ "Waiting for others to join" ]])
                         Started _ -> envy empty
                 ]
 

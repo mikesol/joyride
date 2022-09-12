@@ -3,36 +3,28 @@ module Joyride.App.Explainer where
 import Prelude
 
 import Bolson.Core (Element(..), envy, fixed)
-import Control.Alt ((<|>))
-import Control.Parallel (parSequence)
-import Control.Plus (empty)
-import Data.Array (nubBy)
 import Data.Foldable (for_, oneOf, oneOfMap, traverse_)
-import Data.Function (on)
-import Data.Maybe (Maybe(..), fromMaybe, isJust, maybe)
-import Data.Monoid (guard)
+import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.Number (cos, pi)
 import Data.Time.Duration (Milliseconds)
 import Data.Tuple.Nested (type (/\), (/\))
 import Deku.Attribute ((:=))
 import Deku.Attributes (klass)
-import Deku.Control (switcher_, text_)
+import Deku.Control (text_)
 import Deku.Core (Nut, vbussed)
 import Deku.DOM as D
 import Deku.Listeners (click)
 import Deku.Listeners as DL
 import Effect (Effect)
-import Effect.Aff (launchAff_)
-import Effect.Class (liftEffect)
 import FRP.Event (Event, keepLatest, mapAccum, memoize)
 import FRP.Event.Animate (animationFrameEvent)
 import FRP.Event.VBus (V)
 import Joyride.Firebase.Auth (User(..), currentUser, signInWithGoogle)
-import Joyride.Firebase.Firestore (getPublicTracksAff, getTracksAff, getWhitelistedTracksAff)
 import Joyride.Firebase.Opaque (FirebaseAuth, Firestore)
 import Joyride.FullScreen as FullScreen
-import Joyride.Style (buttonCls, headerCls)
+import Joyride.Navigation (navigateToHash)
+import Joyride.Style (headerCls)
 import Joyride.Timing.CoordinatedNow (withCTime)
 import Rito.Cameras.PerspectiveCamera (perspectiveCamera)
 import Rito.Core (Renderer(..), cameraToGroup, plain, toScene, webGLRendererToRenderer)
@@ -44,8 +36,9 @@ import Rito.Properties (positionX, positionY, positionZ, render, size)
 import Rito.Renderers.WebGL (webGLRenderer)
 import Rito.Run as Rito.Run
 import Rito.Scene (Background(..), scene)
+import Route (ridesPath)
 import Type.Proxy (Proxy(..))
-import Types (CubeTextures, JMilliseconds(..), ThreeDI, Track(..), WindowDims)
+import Types (CubeTextures, JMilliseconds(..), ThreeDI, Track, WindowDims)
 import Web.HTML (window)
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 import Web.HTML.HTMLCanvasElement as HTMLCanvasElement
@@ -157,11 +150,10 @@ explainerPage opts = vbussed
       :: _
            ( V
                ( unsubscriber :: Effect Unit
-               , availableRides :: Maybe (Array { id :: String, data :: Track })
                )
            )
   )
-  \push event -> envy $ memoize (pure Nothing <|> event.availableRides) \availableRides -> D.div (oneOf [ pure (D.Class := "absolute") ])
+  \push event -> D.div (oneOf [ pure (D.Class := "absolute") ])
     [ D.div (oneOf [ pure (D.Class := "z-10 absolute grid grid-cols-3 grid-rows-3  place-items-center h-screen w-screen") ])
         [ D.div (pure $ D.Class := "col-start-2 col-end-3 row-start-2 row-end-3 flex flex-col")
             $
@@ -191,13 +183,11 @@ explainerPage opts = vbussed
                 , D.button
                     ( oneOf
                         [ klass $ pure buttonCls
-                        , DL.click $ (opts.signedInNonAnonymously) <#> \signedInNonAnon -> launchAff_ do
-                            rides <- map (nubBy (compare `on` _.id) <<< join) $ parSequence
-                              [ getPublicTracksAff opts.firestoreDb
-                              , guard signedInNonAnon (getTracksAff opts.fbAuth opts.firestoreDb)
-                              , guard signedInNonAnon (getWhitelistedTracksAff opts.fbAuth opts.firestoreDb)
-                              ]
-                            liftEffect $ push.availableRides (Just rides)
+                        , click $
+                            ( (oneOf [ pure (pure unit), event.unsubscriber ]) <#>
+                                FullScreen.fullScreenFlow <<< (navigateToHash ridesPath *> _)
+                            ) <#> identity -- i think this turns stuff off? ugh, too complex, figure out why this identity is here. typical example of "clever" being to the detriment of understanding my own code a couple weeks later... 
+                              
                         ]
                     )
                     [ text_ "Take a ride" ]
@@ -230,40 +220,6 @@ explainerPage opts = vbussed
                     [ text_ "Sign Out" ]
 
                 ]
-        ]
-    , D.div (oneOf [ availableRides <#> \ar -> D.Class := "z-10 bg-zinc-900 absolute grid grid-cols-6 grid-rows-6 place-items-center h-screen w-screen " <> if isJust ar then "" else " hidden" ])
-        [ D.div (pure $ D.Class := "col-start-1 col-end-2 row-start-1 row-end-2")
-            [ D.button
-                ( oneOf
-                    [ pure $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
-                    , DL.click $ pure (push.availableRides Nothing)
-                    ]
-                )
-                [ text_ "< Back" ]
-            ]
-        , D.div (pure $ D.Class := "col-start-2 col-end-6 row-start-2 row-end-6 flex flex-col justify-items-center overflow-scroll text-center")
-            [ D.h2 (pure $ D.Class := headerCls) [ text_ "Choose a ride" ]
-            , ( availableRides # switcher_ D.div \l' -> l' # maybe (envy empty) \l -> D.ul (pure $ D.Class := "")
-                  ( l <#> \{ id, data: data' } ->
-                      let
-                        TrackV0 aTra = data'
-                      in
-                        D.li_
-                          [ D.button
-                              ( oneOf
-                                  [ pure $ D.Class := buttonCls <> " mx-2 pointer-events-auto"
-                                  , DL.click
-                                      ( (oneOf [ pure (pure unit), event.unsubscriber ]) <#>
-                                          FullScreen.fullScreenFlow <<< (opts.ride (id /\ data') *> _)
-                                      )
-                                  ]
-                              )
-                              [ text_ (fromMaybe "Untitled Track" aTra.title) ]
-                          ]
-                  )
-              )
-
-            ]
         ]
     , filler
     , D.canvas

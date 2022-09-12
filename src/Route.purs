@@ -1,34 +1,41 @@
 module Route where
 
-import Prelude
+import Prelude hiding ((/))
 
-import Data.Either (Either(..))
 import Data.Generic.Rep (class Generic)
-import Data.Maybe (Maybe)
 import Data.Show.Generic (genericShow)
-import Routing.Duplex (RouteDuplex', as, optional, params, root, string)
+import Routing.Duplex (RouteDuplex', path, root, segment)
 import Routing.Duplex.Generic as G
-import Routing.Duplex.Parser as P
-import Types (Player(..))
+import Routing.Duplex.Generic.Syntax ((/))
 
-data Route = Session { ride :: Maybe String, track :: Maybe String }
+data Route
+  = Home
+  | OrientationPermissionWithRideRequest String String
+  | OrientationPermissionWithoutRideRequest
+  | Tutorial
+  | TakeRide
+  | TakeThisRide String
+  | Editor
+  | Session String String
 
 derive instance genericRoute :: Generic Route _
+derive instance eqRoute :: Eq Route
 
 instance showRoute :: Show Route where
   show = genericShow
 
-_1234 :: RouteDuplex' String -> RouteDuplex' Player
-_1234 = as show \s -> do
-  r <- P.int s
-  case r of
-    1 -> pure Player1
-    2 -> pure Player2
-    3 -> pure Player3
-    4 -> pure Player4
-    i -> Left $ "Invalid player: " <> show i
-
+orientationPermissionPath = "orientation-permission" :: String
+tutorialPath = "tutorial" :: String
+editorPath = "editor" :: String
+ridesPath = "rides" :: String
 route :: RouteDuplex' Route
 route = root $ G.sum
-  { "Session": params { ride: optional <<< string, track: optional <<< string }
+  { "Home": G.noArgs
+  , "TakeThisRide": ridesPath / segment
+  , "TakeRide": path ridesPath G.noArgs
+  , "Editor": path editorPath G.noArgs
+  , "Tutorial": path tutorialPath G.noArgs
+  , "OrientationPermissionWithoutRideRequest": path orientationPermissionPath G.noArgs
+  , "OrientationPermissionWithRideRequest": orientationPermissionPath / segment / segment
+  , "Session": "r" / segment / segment
   }

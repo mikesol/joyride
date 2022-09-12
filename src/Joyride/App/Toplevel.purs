@@ -8,6 +8,7 @@ import Data.Function (on)
 import Data.Maybe (Maybe(..))
 import Data.Number (pi)
 import Data.Time.Duration (Milliseconds)
+import Debug (spy)
 import Deku.Core (Domable)
 import Effect (Effect)
 import FRP.Event (Event, filterMap)
@@ -19,6 +20,7 @@ import Joyride.App.GameHasStarted (gameHasStarted)
 import Joyride.App.Loading (loadingPage)
 import Joyride.App.OrientationPermission (orientationPermissionPage)
 import Joyride.App.Ride (ride)
+import Joyride.App.Rides (availableRides)
 import Joyride.App.RoomIsFull (roomIsFull)
 import Joyride.App.SorryNeedPermission (sorryNeedPermissionPage)
 import Joyride.App.Tutorial (tutorial)
@@ -56,7 +58,7 @@ type UIEvents = V
 -- , longE :: forall lock payload. { | MakeLongs () } -> ASceneful lock payload
 
 data TopLevelDisplay
-  = TLNeedsOrientation
+  = TLNeedsOrientation (Maybe { ride :: String, track :: String })
   | TLWillNotWorkWithoutOrientation
   | TLExplainer
       { cubeTextures :: CubeTextures CTL.CubeTexture
@@ -72,6 +74,7 @@ data TopLevelDisplay
   | TLLoading
   | TLGameHasStarted
   | TLRoomIsFull
+  | TLChooseRide (Array { data :: Track, id :: String })
   | TLWantsTutorial WantsTutorial'
   | TLOpenEditor { oe :: OpenEditor', wt :: WantsTutorial' }
   | TLSuccess Success'
@@ -105,15 +108,15 @@ toplevel
 toplevel tli =
   ( dedup
       ( map
-          ( \{ loaded, negotiation } ->
+          ( \{ loaded, negotiation } -> -- let _ = spy "ugh" { loaded, negotiation } in
               case loaded, negotiation of
-                _, NeedsOrientation -> TLNeedsOrientation
+                _, NeedsOrientation rt -> TLNeedsOrientation rt
                 _, WillNotWorkWithoutOrientation -> TLWillNotWorkWithoutOrientation
                 _, GetRulesOfGame s -> TLExplainer s
+                _, ChooseRide cr -> TLChooseRide cr
                 -- editor does not need to be loaded for now
                 -- change if that's the case
                 false, _ -> TLLoading
-                -- should never reach
                 _, PageLoad -> TLLoading
                 _, StartingNegotiation -> TLLoading
                 _, RoomIsFull -> TLRoomIsFull
@@ -133,7 +136,8 @@ toplevel tli =
           )
       )
   ) # switcher case _ of
-    TLNeedsOrientation -> orientationPermissionPage { givePermission: tli.givePermission }
+    TLNeedsOrientation rideTrack -> orientationPermissionPage { givePermission: tli.givePermission, rideTrack }
+    TLChooseRide cr -> availableRides { availableRides: cr }
     TLWillNotWorkWithoutOrientation -> sorryNeedPermissionPage
     TLExplainer { cubeTextures, threeDI, cNow, initialDims, firestoreDb, fbAuth, signedInNonAnonymously, signOut } -> explainerPage
       { ride: tli.ride
