@@ -16,6 +16,7 @@ import Data.Time.Duration (Milliseconds(..))
 import Data.Tuple (fst, snd)
 import Data.Tuple.Nested (type (/\), (/\))
 import Deku.Attribute ((:=))
+import Deku.Attributes (klass_)
 import Deku.Control (text)
 import Deku.Core (ANut(..))
 import Deku.DOM as D
@@ -105,7 +106,7 @@ basicWord makeBasic = do
     in
       ( ( css3DObject
             { css3DObject: makeBasic.threeDI.css3DObject
-            , nut: ANut (D.span (pure $ D.Class := "text-white pointer-events-none") [ text (dedup (txt)) ])
+            , nut: ANut (D.span (klass_ "text-white pointer-events-none") [ text (dedup (txt)) ])
             }
             ( oneOf
                 [ --pure $ P.matrix4 $ makeBasic.mkMatrix4 emptyMatrix

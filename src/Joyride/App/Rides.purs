@@ -21,10 +21,10 @@ availableRides
   -> Nut
 availableRides opts = D.div (oneOf [ pure (D.Class := "absolute") ])
   [ D.div (oneOf [ klass_ "z-10 bg-zinc-900 absolute grid grid-cols-6 grid-rows-6 place-items-center h-screen w-screen" ])
-      [ D.div (pure $ D.Class := "col-start-2 col-end-6 row-start-2 row-end-6 flex flex-col justify-items-center overflow-scroll text-center")
-          [ D.h2 (pure $ D.Class := headerCls) [ text_ "Choose a ride" ]
+      [ D.div (klass_ "col-start-2 col-end-6 row-start-2 row-end-6 flex flex-col justify-items-center overflow-scroll text-center")
+          [ D.h2 (klass_ headerCls) [ text_ "Choose a ride" ]
           , D.div_
-              [ D.ul (pure $ D.Class := "")
+              [ D.ul (klass_ "")
                   ( opts.availableRides <#> \{ id, data: data' } ->
                       let
                         TrackV0 aTra = data'

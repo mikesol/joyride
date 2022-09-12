@@ -176,7 +176,7 @@ getInFlightGameInfo (HasStarted inflight) = Just inflight
 updateKnownPlayerPointsUsingRide :: Ride -> KnownPlayers -> KnownPlayers
 updateKnownPlayerPointsUsingRide a b = (constructAppendableKnownPlayersFromRide a) <> b
 
-sandboxed = true :: Boolean
+sandboxed = false :: Boolean
 
 main
   :: Models String
@@ -710,6 +710,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                     Home -> channelEvent.push NoChannel
                     Session x y -> channelProp x y
                     Tutorial -> channelEvent.push TutorialChannel
+                    Settings -> negotiation.push (SetSomeStuff {})
                     Editor -> channelEvent.push EditorChannel
                     TakeThisRide id -> do
                       cid <- randId' 6

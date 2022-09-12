@@ -21,6 +21,7 @@ import Joyride.App.OrientationPermission (orientationPermissionPage)
 import Joyride.App.Ride (ride)
 import Joyride.App.Rides (availableRides)
 import Joyride.App.RoomIsFull (roomIsFull)
+import Joyride.App.Settings (settings)
 import Joyride.App.SorryNeedPermission (sorryNeedPermissionPage)
 import Joyride.App.Tutorial (tutorial)
 import Joyride.FRP.Dedup (dedup)
@@ -35,7 +36,7 @@ import Joyride.Scores.Tutorial.Base (tutorialScore)
 import Rito.Core (ASceneful)
 import Rito.CubeTexture as CTL
 import Rito.GLTF as GLTFLoader
-import Types (CubeTextures, JMilliseconds, MakeBasics, MakeLeaps, MakeLongs, Models, Negotiation(..), OpenEditor', RateInfo, Success', ThreeDI, ToplevelInfo, Track(..), WantsTutorial', WindowDims)
+import Types (CubeTextures, JMilliseconds, MakeBasics, MakeLeaps, MakeLongs, Models, Negotiation(..), OpenEditor', RateInfo, SettingsNeeds, Success', ThreeDI, ToplevelInfo, Track(..), WantsTutorial', WindowDims)
 import Web.DOM as Web.DOM
 
 twoPi = 2.0 * pi :: Number
@@ -71,6 +72,7 @@ data TopLevelDisplay
       , signedInNonAnonymously :: Event Boolean
       }
   | TLLoading
+  | TLSettings SettingsNeeds
   | TLGameHasStarted
   | TLRoomIsFull
   | TLChooseRide (Array { data :: Track, id :: String })
@@ -112,6 +114,7 @@ toplevel tli =
                 _, NeedsOrientation rt -> TLNeedsOrientation rt
                 _, WillNotWorkWithoutOrientation -> TLWillNotWorkWithoutOrientation
                 _, GetRulesOfGame s -> TLExplainer s
+                _, SetSomeStuff s -> TLSettings s
                 _, ChooseRide cr -> TLChooseRide cr
                 -- editor does not need to be loaded for now
                 -- change if that's the case
@@ -137,6 +140,7 @@ toplevel tli =
   ) # switcher case _ of
     TLNeedsOrientation rideTrack -> orientationPermissionPage { givePermission: tli.givePermission, rideTrack }
     TLChooseRide cr -> availableRides { availableRides: cr }
+    TLSettings s -> settings s
     TLWillNotWorkWithoutOrientation -> sorryNeedPermissionPage
     TLExplainer { cubeTextures, threeDI, cNow, initialDims, firestoreDb, fbAuth, signedInNonAnonymously, signOut } -> explainerPage
       { ride: tli.ride

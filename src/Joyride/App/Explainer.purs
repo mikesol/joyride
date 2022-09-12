@@ -10,7 +10,7 @@ import Data.Number (cos, pi)
 import Data.Time.Duration (Milliseconds)
 import Data.Tuple.Nested (type (/\), (/\))
 import Deku.Attribute ((:=))
-import Deku.Attributes (klass)
+import Deku.Attributes (klass, klass_)
 import Deku.Control (text_)
 import Deku.Core (Nut, vbussed)
 import Deku.DOM as D
@@ -36,7 +36,7 @@ import Rito.Properties (positionX, positionY, positionZ, render, size)
 import Rito.Renderers.WebGL (webGLRenderer)
 import Rito.Run as Rito.Run
 import Rito.Scene (Background(..), scene)
-import Route (ridesPath)
+import Route (ridesPath, settingsPath)
 import Type.Proxy (Proxy(..))
 import Types (CubeTextures, JMilliseconds(..), ThreeDI, Track, WindowDims)
 import Web.HTML (window)
@@ -127,7 +127,7 @@ threeLoader opts = do
   opts.unsubscriber u
 
 filler :: Nut
-filler = D.div (pure $ D.Class := "grow") []
+filler = D.div (klass_ "grow") []
 
 explainerPage
   :: { ride :: (String /\ Track) -> Effect Unit
@@ -156,22 +156,22 @@ explainerPage opts = vbussed
 
   \push event -> D.div (oneOf [ pure (D.Class := "absolute") ])
     [ D.div (oneOf [ pure (D.Class := "z-10 absolute grid grid-cols-3 grid-rows-3 h-screen w-screen") ])
-        [ D.div (pure $ D.Class := "col-start-3 col-end-3 row-start-1 row-end-1 place-self-end")
+        [ D.div (klass_ "col-start-3 col-end-3 row-start-1 row-end-1 align-top justify-self-end")
             [ D.button
                 ( oneOf
-                    [ pure $ D.Class := buttonCls
+                    [ klass_ buttonCls
                     , DL.click
                         ( (oneOf [ pure (pure unit), event.unsubscriber ]) <#>
-                            FullScreen.fullScreenFlow <<< (opts.tutorial *> _)
+                            FullScreen.fullScreenFlow <<< (navigateToHash settingsPath *> _)
                         )
                     ]
                 )
                 [ text_ "⚙" ]
             ]
-        , D.div (pure $ D.Class := "place-self-center col-start-2 col-end-3 row-start-2 row-end-3 flex flex-col")
+        , D.div (klass_ "place-self-center col-start-2 col-end-3 row-start-2 row-end-3 flex flex-col")
             [ D.h1
                 ( oneOf
-                    [ pure $ D.Class := "text-center " <> headerCls
+                    [ klass_ $ "text-center " <> headerCls
                     , click $ opts.signedInNonAnonymously <#> \signedInNonAnon -> when signedInNonAnon do
                         cu <- currentUser opts.fbAuth
                         for_ cu \(User { uid }) ->
@@ -181,7 +181,7 @@ explainerPage opts = vbussed
                 [ text_ "Joyride" ]
             , D.button
                 ( oneOf
-                    [ pure $ D.Class := buttonCls
+                    [ klass_ buttonCls
                     , DL.click
                         ( (oneOf [ pure (pure unit), event.unsubscriber ]) <#>
                             FullScreen.fullScreenFlow <<< (opts.tutorial *> _)
@@ -202,7 +202,7 @@ explainerPage opts = vbussed
                 [ text_ "Take a ride" ]
             , D.button
                 ( oneOf
-                    [ pure $ D.Class := buttonCls
+                    [ klass_ buttonCls
                     , DL.click
                         ( (oneOf [ pure (pure unit), event.unsubscriber ]) <#>
                             FullScreen.fullScreenFlow <<< (opts.editor *> _)

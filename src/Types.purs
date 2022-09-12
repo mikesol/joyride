@@ -12,6 +12,7 @@ module Types
   , Ride(..)
   , RideV0'
   , Models(..)
+  , SettingsNeeds
   , allColumns
   , defaultRide
   , InFlightGameInfo'
@@ -831,12 +832,15 @@ newtype HitLeapVisualForLabel = HitLeapVisualForLabel
 
 derive instance Newtype HitLeapVisualForLabel _
 
+
+type SettingsNeeds = { }
 --
 data Negotiation
   = PageLoad
   | NeedsOrientation (Maybe { ride :: String, track :: String })
   | WillNotWorkWithoutOrientation 
   | ChooseRide (Array { data :: Track, id :: String })
+  | SetSomeStuff SettingsNeeds
   | GetRulesOfGame
       { cubeTextures :: CubeTextures CTL.CubeTexture
       , models :: Models GLTFLoader.GLTF

@@ -10,6 +10,7 @@ import Data.Newtype (unwrap)
 import Data.Number (pi)
 import Data.Time.Duration (Milliseconds(..))
 import Deku.Attribute ((:=))
+import Deku.Attributes (klass_)
 import Deku.Control (text_)
 import Deku.Core (ANut(..))
 import Deku.DOM as D
@@ -73,7 +74,7 @@ leapWord makeLeap = do
   envy $ memoize drawingMatrix' \drawingMatrix ->
     ( ( css3DObject
           { css3DObject: makeLeap.threeDI.css3DObject
-          , nut: ANut (D.span (pure $ D.Class := "text-white pointer-events-none") [ text_ makeLeap.text ])
+          , nut: ANut (D.span (klass_ "text-white pointer-events-none") [ text_ makeLeap.text ])
           }
           ( oneOf
               [ --pure $ P.matrix4 $ makeBasic.mkMatrix4 emptyMatrix

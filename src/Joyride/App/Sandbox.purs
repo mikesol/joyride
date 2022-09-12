@@ -16,11 +16,11 @@ import Deku.Listeners (slider)
 import Joyride.Style (header2Cls, headerCls)
 
 sandbox :: Nut
-sandbox = D.div (oneOf [ pure $ D.Class := "h-screen w-screen bg-zinc-900 absolute" ])
-  [ D.div (oneOf [ pure $ D.Class := "text-center" ])
+sandbox = D.div (oneOf [ klass_ "h-screen w-screen bg-zinc-900 absolute" ])
+  [ D.div (oneOf [ klass_ "text-center" ])
       [ D.h2 (klass_ (headerCls <> " p-6")) [ text_ "Settings" ]
       , D.div (oneOf [])
-          [ D.ul (pure $ D.Class := "")
+          [ D.ul (klass_ "")
               [ D.li (klass_ "p-3")
                   [ D.h1 (klass_ header2Cls) [ text_ "Lateral speed" ]
                   , D.div (klass_ "flex flex-row p-3")
