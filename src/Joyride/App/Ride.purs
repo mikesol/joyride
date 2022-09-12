@@ -407,7 +407,7 @@ ride
                     in
                       switcher case _ of
                         WaitingForMe -> frame (startButton animatedStuff)
-                        WaitingForOthers -> frame (D.span (pure $ D.Class := "text-lg text-white") [ text_ "Waiting for others to join" ])
+                        WaitingForOthers -> frame (D.span (pure $ D.Class := "text-lg text-white text-center") [ text_ "Waiting for others to join" ])
                         Started _ -> envy empty
                 ]
 
