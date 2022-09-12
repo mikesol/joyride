@@ -10,8 +10,8 @@ data BasicOutcome = Perfect | Nice | Early | Late
 
 beatsToBasicOutcome :: Beats -> BasicOutcome
 beatsToBasicOutcome a
-  | abs a < Beats 0.05 = Perfect
-  | abs a < Beats 0.1 = Nice
+  | abs a < Beats 0.085 = Perfect
+  | abs a < Beats 0.13 = Nice
   | a > Beats 0.0 = Late
   | otherwise = Early
 

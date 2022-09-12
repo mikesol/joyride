@@ -47,6 +47,7 @@
   , "record"
   , "refs"
   , "rito"
+  , "routing"
   , "routing-duplex"
   , "safe-coerce"
   , "simple-json"

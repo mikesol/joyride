@@ -8,5 +8,22 @@ import Data.Tuple (Tuple(..))
 import FRP.Event (Event, mapAccum)
 
 dedup :: forall a. Eq a => Event a -> Event a
-dedup e = compact $
-  mapAccum (\a b -> let ja = Just a in Tuple ja (if b == ja then Nothing else Just a)) e Nothing
+dedup = dedup' eq
+
+dedup' :: forall a. (a -> a -> Boolean) -> Event a -> Event a
+dedup' eqq e = compact $
+  mapAccum
+    ( \a b ->
+        let
+          ja = Just a
+        in
+          Tuple ja
+            ( case b of
+                Nothing -> Just a
+                Just b'
+                  | b' `eqq` a -> Nothing
+                  | otherwise -> Just a
+            )
+    )
+    e
+    Nothing

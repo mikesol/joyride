@@ -1,7 +1,7 @@
-export const useLilGui = () => { return import.meta.env.LIL_GUI === "true" } ;
-export const force4 = () => { return import.meta.env.FORCE_4 === "true" };
+export const useLilGui = () => { return import.meta.env.VITE_LIL_GUI === "true" } ;
+export const force4 = () => { return import.meta.env.VITE_FORCE_4 === "true" };
 export const useFirebaseEmulatorInDevMode = (db) => (auth) => () => {
-	if (import.meta.env.BUILD_TYPE !== "production") {
+	if (import.meta.env.VITE_FIREBASE_BUILD !== "production") {
 		// use the emulator
 		return import("firebase/firestore").then(({ connectFirestoreEmulator }) => {
 			connectFirestoreEmulator(db, "localhost", 8080);

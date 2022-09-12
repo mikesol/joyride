@@ -3,7 +3,10 @@ module Joyride.Constants.Visual where
 
 import Rito.Color (RGB(..))
 
-basicYThickness = 0.04 :: Number
+basicYThickness = 0.02 :: Number
+barZThickness = 0.01 :: Number
+barYThickness = 0.01 :: Number
+barXWidth = 10.0 :: Number
 
 bar1Color :: RGB
 bar1Color = RGB 0.2196078431372549 0.8431372549019608 0.9058823529411765

@@ -1,0 +1,1 @@
+export const addressHead = import.meta.env.MODE === "production" ? "https://joyride.fm" : "http://localhost:5173";
