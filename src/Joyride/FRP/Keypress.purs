@@ -10,8 +10,9 @@ import Data.Time.Duration (Milliseconds(..))
 import Effect (Effect)
 import Effect.Ref as Ref
 import FRP.Event (Event, create)
+import Joyride.Constants.Visual (keyboardInitialDampeningFactor)
 import Safe.Coerce (coerce)
-import Types (JMilliseconds(..), KTP, Player, PlayerAction(..), RateInfo, XDirection(..))
+import Types (JMilliseconds(..), KTPD, Player, PlayerAction(..), RateInfo, XDirection(..))
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
 import Web.HTML (Window)
@@ -20,27 +21,26 @@ import Web.UIEvent.KeyboardEvent (code)
 import Web.UIEvent.KeyboardEvent as KeyboardEvent
 
 -- primitive, but no need to worry about friction...
-posFromKeypress :: KTP -> JMilliseconds -> Number
-posFromKeypress ktp (JMilliseconds curMs) = case ktp.time of
+posFromKeypress :: KTPD -> JMilliseconds -> Number
+posFromKeypress ktpd (JMilliseconds curMs) = case ktpd.time of
   Nothing -> 0.0
   Just (JMilliseconds prevMs) ->
     let
       tdiff = (curMs - prevMs) * msToSeconds
       -- acceleration
-      tdiffsqo2 = dampeningFactor * (tdiff `pow` 2.0) / 2.0
+      tdiffsqo2 = ktpd.dampening * (tdiff `pow` 2.0) / 2.0
     in
-      case ktp.curXDir of
-        Still -> ktp.pos
-        ToLeft -> -2.0 * tdiffsqo2 + ktp.pos
-        ToRight -> 2.0 * tdiffsqo2 + ktp.pos
+      case ktpd.curXDir of
+        Still -> ktpd.pos
+        ToLeft -> -2.0 * tdiffsqo2 + ktpd.pos
+        ToRight -> 2.0 * tdiffsqo2 + ktpd.pos
   where
   msToSeconds = 1.0 / 1000.0
-  dampeningFactor = 0.77
 
 xForKeyboard :: Effect Milliseconds -> Window -> Player -> (PlayerAction -> Effect Unit) -> Effect (Event (RateInfo -> Number))
 xForKeyboard cnow w myPlayer pub = do
   evt <- create
-  xpe <- Ref.new { curXDir: Still, time: Nothing, pos: 0.0 }
+  xpe <- Ref.new { curXDir: Still, time: Nothing, pos: 0.0, dampening: keyboardInitialDampeningFactor }
   let
     makeListener isUp = eventListener
       $ KeyboardEvent.fromEvent >>> traverse_ \e -> do
@@ -52,9 +52,19 @@ xForKeyboard cnow w myPlayer pub = do
                 | keyCode == "ArrowLeft" = ToLeft
                 | otherwise = ToRight
             time <- coerce <$> cnow
-            nw <- Ref.modify (\ktp -> if ktp.curXDir == curXDir then ktp else { curXDir, time: Just time, pos: posFromKeypress ktp time }) xpe
+            nw <- Ref.modify
+              ( \ktpd ->
+                  if ktpd.curXDir == curXDir then ktpd
+                  else
+                    { curXDir
+                    , time: Just time
+                    , pos: posFromKeypress ktpd time
+                    , dampening: ktpd.dampening
+                    }
+              )
+              xpe
             evt.push nw
-            pub $ XPositionKeyboard { ktp: nw, player: myPlayer }
+            pub $ XPositionKeyboard { ktpd: nw, player: myPlayer }
   keydownListener <- makeListener false
   keyupListener <- makeListener true
   addEventListener (EventType "keydown") keydownListener true (toEventTarget w)

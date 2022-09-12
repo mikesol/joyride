@@ -41,6 +41,7 @@ import Foreign.Object as Object
 import Heterogeneous.Folding (hfoldlWithIndex)
 import Joyride.App.Sandbox (sandbox)
 import Joyride.App.Toplevel (toplevel)
+import Joyride.Constants.Visual (initialOrientationDampening)
 import Joyride.Effect.Ref (readFromRecord, writeToRecord)
 import Joyride.EmitsTouchEvents (emitsTouchEvents)
 import Joyride.FRP.Behavior (refToBehavior)
@@ -188,13 +189,17 @@ main
 main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) audio = {-monkeyPatchCreateImpl backdoor altCreate *>-}
   if sandboxed then runInBody sandbox
   else launchAff_ do
+    -- hash adding
     liftEffect do
       l <- window >>= location
       hash l >>= case _ of
         "" -> do
           setHash "/" l
         _ -> pure unit
-    -- firebsae
+    -- orientation dampening
+    -- todo: save in local storage
+    dampeningRef <- liftEffect $ Ref.new initialOrientationDampening
+    -- firebase
     fbApp <- firebaseAppAff
     -- for now don't use analytics
     -- fbAnalytics <- firebaseAnalyticsAff fbApp
@@ -363,7 +368,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                 knownPlayersBus <- liftEffect Event.create
                 ---- TODO: this is a copy/paste from below with the pubnub taken out
                 ---- refactor to combine!!!
-                xPosE <- liftEffect $ if isMobile then xForTouch mappedCNow w Player4 mempty else xForKeyboard mappedCNow w Player4 mempty
+                xPosE <- liftEffect $ if isMobile then xForTouch dampeningRef mappedCNow w Player4 mempty else xForKeyboard mappedCNow w Player4 mempty
                 -- ignore subscription
                 ----- player positions
                 playerPositions <- liftEffect $ Ref.read renderingInfo >>= \ri -> Ref.new (initialPositions ri)
@@ -556,9 +561,9 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                         -- mcn <- myCNow.cnow
                         -- Log.info $ show mcn
                         -- Log.info $ show ((lcmap _.epochTime $ posFromKeypress i.ktp) {epochTime: coerce mcn.time})
-                        pfun i.player (lcmap _.epochTime $ posFromKeypress i.ktp) playerPositions
+                        pfun i.player (lcmap _.epochTime $ posFromKeypress i.ktpd) playerPositions
                       -- we update the xposition for when the behavior needs it
-                      XPositionMobile i -> pfun i.player (lcmap _.epochTime $ posFromOrientation i.gtp) playerPositions
+                      XPositionMobile i -> pfun i.player (lcmap _.epochTime $ posFromOrientation i.gtpd) playerPositions
                   let
                     myPlayerHint = if f4 then Just Player4 else Nothing
                   -- collecting <- forkAff  $ collectEventToAff (Milliseconds 750.0) knownPlayersBus.event
@@ -569,7 +574,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                       never
                     Just myPlayer -> do
                       liftEffect $ Ref.modify_ (KnownPlayers (Map.singleton myPlayer HasNotStartedYet) <> _) knownPlayers
-                      xPosE <- liftEffect $ if isMobile then xForTouch mappedCNow w myPlayer pubNub.publish else xForKeyboard mappedCNow w myPlayer pubNub.publish
+                      xPosE <- liftEffect $ if isMobile then xForTouch dampeningRef mappedCNow w myPlayer pubNub.publish else xForKeyboard mappedCNow w myPlayer pubNub.publish
                       -- ignore subscription
                       _ <- liftEffect $ subscribe xPosE \xp -> case myPlayer of
                         Player1 -> writeToRecord (Proxy :: _ "p1x") xp playerPositions
@@ -710,7 +715,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                     Home -> channelEvent.push NoChannel
                     Session x y -> channelProp x y
                     Tutorial -> channelEvent.push TutorialChannel
-                    Settings -> negotiation.push (SetSomeStuff {})
+                    Settings -> negotiation.push (SetSomeStuff { dampeningRef })
                     Editor -> channelEvent.push EditorChannel
                     TakeThisRide id -> do
                       cid <- randId' 6
