@@ -8,3 +8,12 @@ export const requestFullScreen = (rej) => (res) => () => {
 		Promise.reject();
 	}
 };
+
+export const exitFullScreen = (rej) => (res) => () => {
+	if (document.body.exitFullscreen) {
+		return document.body.exitFullscreen().then(res, rej);
+	} else {
+		rej();
+		Promise.reject();
+	}
+};

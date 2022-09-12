@@ -56,6 +56,7 @@ import Joyride.FRP.Schedule (fireAndForget)
 import Joyride.Filestack.Filestack (init, picker)
 import Joyride.Firebase.Auth (User(..), currentUser, signInWithGoogle)
 import Joyride.Firebase.Firestore (DocumentReference, addEventAff, addTrackAff, deleteEventAff, forkTrackAff, getEventAff, getEventsAff, getTrackAff, getTracksAff, updateColumnAff, updateEventNameAff, updateMarker1TimeAff, updateMarker2TimeAff, updateMarker3TimeAff, updateMarker4TimeAff, updateTrackPrivateAff, updateTrackTitleAff)
+import Joyride.FullScreen (fullScreenFlow)
 import Joyride.IO.File (fileList)
 import Joyride.QualifiedDo.Apply as QDA
 import Joyride.Scores.AugmentedTypes (AugmentedEventV0(..), AugmentedEvent_(..), toAugmentedEvents)
@@ -698,7 +699,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
           ( oneOf
               [ klass_ $ buttonClassWithMarginAndAutoPointerEvents
               -- , pure $ D.OnClick := log "hello world"
-              , mostRecentData <#> \(TrackV0 ato /\ aeo) -> D.OnClick := do
+              , mostRecentData <#> \(TrackV0 ato /\ aeo) -> D.OnClick := fullScreenFlow do
                   log $ "starting from most recent data: " <> (JSON.writeJSON { track: ato, evs: Array.fromFoldable $ Map.values aeo })
                   pushed.loadingScreenVisible true
                   ctx <- context_
