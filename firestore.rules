@@ -18,6 +18,11 @@ service cloud.firestore {
       allow write, delete, create, update: if uid == request.auth.uid;
       allow read: if true == true; // is there a better way to allow all the time?
     }
+    match /profile/{uid} {
+      // add rules later
+      allow write, create, update: if uid == request.auth.uid;
+      allow read: if true == true; // is there a better way to allow all the time?
+    }
     match /rides/{ride} {
       // add rules later
       allow read, write, delete, create: if request.auth != null;
