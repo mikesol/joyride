@@ -52,6 +52,7 @@ import Joyride.FRP.Orientation (hasOrientationPermission, posFromOrientation, xF
 import Joyride.FRP.SampleOnSubscribe (sampleOnSubscribe)
 import Joyride.Firebase.Analytics (firebaseAnalyticsAff)
 import Joyride.Firebase.Auth (AuthProvider(..), authStateChangedEventWithAnonymousAccountCreation, firebaseAuthAff, initializeGoogleClient, signOut)
+import Joyride.Firebase.CloudMessaging (firebaseCloudMessagingAff)
 import Joyride.Firebase.Config (firebaseAppAff)
 import Joyride.Firebase.Firestore (createRideIfNotExistsYet, eventChannelChanges, firestoreDbAff, getEventsAff, getPlayerForChannel, getProfileAff, getPublicTracksAff, getTrackAff, getTracksAff, getWhitelistedTracksAff, profileEvent, sendMyPointsAndPenaltiesToFirebase, turnOnRealtimePresenceAff)
 import Joyride.Firebase.Opaque (FirebaseAuth, Firestore)
@@ -207,6 +208,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
     _ <- firebaseAnalyticsAff fbApp
     firestoreDb <- firestoreDbAff fbApp
     fbAuth <- firebaseAuthAff fbApp
+    cloudMessaging <- firebaseCloudMessagingAff fbApp
     toAffE $ useFirebaseEmulatorInDevMode firestoreDb fbAuth
     -- has orientation permission
     -- see if this helps get rid of the screen on iOS for successive plays
