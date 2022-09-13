@@ -7,8 +7,10 @@ module Types
   , ToplevelInfo
   , RenderingInfo
   , AppOrientationState(..)
+  , PotentiallyMissingArray(..)
   , OrientationPermissionState(..)
   , ChannelChooser(..)
+  , Profile(..)
   , Ride(..)
   , RideV0'
   , Models(..)
@@ -96,7 +98,7 @@ import Data.Either (Either(..))
 import Data.FastVect.FastVect (Vect)
 import Data.Generic.Rep (class Generic)
 import Data.Map as Map
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (class Newtype)
 import Data.NonEmpty ((:|))
 import Data.Show.Generic (genericShow)
@@ -832,13 +834,19 @@ newtype HitLeapVisualForLabel = HitLeapVisualForLabel
 
 derive instance Newtype HitLeapVisualForLabel _
 
+type SettingsNeeds =
+  { dampeningRef :: Ref.Ref Number
+  , myProfile :: Event Profile
+  , fbAuth :: FirebaseAuth
+  , firestoreDb :: Firestore
+  , signedInNonAnonymously :: Event Boolean
+  }
 
-type SettingsNeeds = {  dampeningRef::Ref.Ref Number}
 --
 data Negotiation
   = PageLoad
   | NeedsOrientation (Maybe { ride :: String, track :: String })
-  | WillNotWorkWithoutOrientation 
+  | WillNotWorkWithoutOrientation
   | ChooseRide (Array { data :: Track, id :: String })
   | SetSomeStuff SettingsNeeds
   | GetRulesOfGame
@@ -881,9 +889,10 @@ type Success' =
   , shaders :: Shaders
   , trackId :: String
   , track :: Track
+  , profileEvent :: Event Profile
   , events :: Array AugmentedEvent_
   , galaxyAttributes :: GalaxyAttributes
-  , playerName :: Maybe String
+  , locallyStoredPlayerNameInCaseThisIsAnAnonymousSession :: Maybe String
   , channelName :: String
   , initialDims :: WindowDims
   , cNow :: Effect Milliseconds
@@ -1075,6 +1084,7 @@ derive instance Eq AppOrientationState
 derive instance Generic AppOrientationState _
 instance Show AppOrientationState where
   show = genericShow
+
 type Shader = { vertex :: String, fragment :: String }
 type Shaders = { galaxy :: Shader }
 
@@ -1179,3 +1189,39 @@ type ToplevelInfo =
   , unschedule :: Ref.Ref (Map.Map JMilliseconds (Effect Unit))
   , soundObj :: Ref.Ref (Object.Object BrowserAudioBuffer)
   }
+
+newtype PotentiallyMissingArray a = PotentiallyMissingArray (Array a)
+
+derive instance Newtype (PotentiallyMissingArray a) _
+derive instance Generic (PotentiallyMissingArray a) _
+derive newtype instance Eq a => Eq (PotentiallyMissingArray a)
+derive newtype instance Ord a => Ord (PotentiallyMissingArray a)
+derive newtype instance Show a => Show (PotentiallyMissingArray a)
+
+instance JSON.ReadForeign a => JSON.ReadForeign (PotentiallyMissingArray a) where
+  readImpl i = PotentiallyMissingArray <$> do
+    a <- JSON.readImpl i
+    pure (fromMaybe [] a)
+
+instance JSON.WriteForeign a =>JSON.WriteForeign (PotentiallyMissingArray a) where
+  writeImpl (PotentiallyMissingArray a) = JSON.writeImpl a
+
+data Profile = ProfileV0
+  { username :: String
+  , avatarURL :: Maybe String
+  , friends :: PotentiallyMissingArray String
+  , rides :: PotentiallyMissingArray String
+  , version :: Version 0
+  }
+
+instance JSON.ReadForeign Profile where
+  readImpl i = ProfileV0 <$> JSON.readImpl i
+
+instance JSON.WriteForeign Profile where
+  writeImpl (ProfileV0 pv0) = JSON.writeImpl pv0
+
+derive instance Generic Profile _
+derive instance Eq Profile
+
+instance Show Profile where
+  show = genericShow

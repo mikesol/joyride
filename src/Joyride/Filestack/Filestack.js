@@ -12,3 +12,15 @@ export const picker =
 				onFileUploadFinished: (metadata) => success(metadata)(),
 			})
 			.open();
+
+export const pickerAccepting =
+	(accept) => (cancel) => (failure) => (progress) => (success) => (client) => () =>
+		client
+			.picker({
+				accept,
+				onFileUploadCancel: (metadata) => cancel(metadata)(),
+				onFileUploadFailed: (metadata, err) => failure(metadata)(err)(),
+				onFileUploadProgress: (metadata, event) => progress(metadata)(event)(),
+				onFileUploadFinished: (metadata) => success(metadata)(),
+			})
+			.open();

@@ -19,7 +19,7 @@ import Data.Newtype (unwrap, wrap)
 import Data.Number (pi, pow, sqrt)
 import Data.Profunctor (lcmap)
 import Data.String as String
-import Data.Traversable (for_)
+import Data.Traversable (for_, traverse_)
 import Data.Tuple (Tuple, curry)
 import Data.Tuple.Nested (type (/\), (/\))
 import Data.Unfoldable (replicate)
@@ -45,14 +45,16 @@ import Joyride.Constants.Visual (initialOrientationDampening)
 import Joyride.Effect.Ref (readFromRecord, writeToRecord)
 import Joyride.EmitsTouchEvents (emitsTouchEvents)
 import Joyride.FRP.Behavior (refToBehavior)
+import Joyride.FRP.BurningWhenHot (burningWhenHot)
 import Joyride.FRP.Dedup (dedup)
 import Joyride.FRP.Keypress (posFromKeypress, xForKeyboard)
 import Joyride.FRP.Orientation (hasOrientationPermission, posFromOrientation, xForTouch)
 import Joyride.FRP.SampleOnSubscribe (sampleOnSubscribe)
 import Joyride.Firebase.Analytics (firebaseAnalyticsAff)
 import Joyride.Firebase.Auth (AuthProvider(..), authStateChangedEventWithAnonymousAccountCreation, firebaseAuthAff, initializeGoogleClient, signOut)
+import Joyride.Firebase.CloudMessaging (firebaseCloudMessagingAff)
 import Joyride.Firebase.Config (firebaseAppAff)
-import Joyride.Firebase.Firestore (createRideIfNotExistsYet, getPublicTracksAff, getWhitelistedTracksAff, getTracksAff, eventChannelChanges, firestoreDbAff, getEventsAff, getPlayerForChannel, getTrackAff, turnOnRealtimePresenceAff, sendMyPointsAndPenaltiesToFirebase)
+import Joyride.Firebase.Firestore (createRideIfNotExistsYet, eventChannelChanges, firestoreDbAff, getEventsAff, getPlayerForChannel, getProfileAff, getPublicTracksAff, getTrackAff, getTracksAff, getWhitelistedTracksAff, profileEvent, sendMyPointsAndPenaltiesToFirebase, turnOnRealtimePresenceAff)
 import Joyride.Firebase.Opaque (FirebaseAuth, Firestore)
 import Joyride.IO.ParFold (ParFold(..))
 import Joyride.Ledger.Basic (basicOutcomeToPointOutcome, beatsToBasicOutcome)
@@ -206,6 +208,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
     _ <- firebaseAnalyticsAff fbApp
     firestoreDb <- firestoreDbAff fbApp
     fbAuth <- firebaseAuthAff fbApp
+    cloudMessaging <- firebaseCloudMessagingAff fbApp
     toAffE $ useFirebaseEmulatorInDevMode firestoreDb fbAuth
     -- has orientation permission
     -- see if this helps get rid of the screen on iOS for successive plays
@@ -222,12 +225,20 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
       -- for each thunk
       -- TODO: do we want to do something interesting with unsubscrube?
       unsubscribeFromRealtimePresence <- Ref.new (wrap (pure unit))
+      -- auth
+      globalProfileEvent <- burningWhenHot
+      globalProfileUnsubscribe <- Ref.new (pure unit)
       _ <- subscribe (authStateChangedEventWithAnonymousAccountCreation fbAuth) \{ user, provider } -> do
         Log.info ("I'm a user: " <> JSON.writeJSON user)
         case provider of
-          AuthGoogle -> launchAff_ do
-            turnOnRealtimePresenceAff fbApp firestoreDb fbAuth >>= liftEffect <<< flip Ref.write unsubscribeFromRealtimePresence
+          AuthGoogle -> do
+            join $ Ref.read globalProfileUnsubscribe
+            launchAff_ (getProfileAff fbAuth firestoreDb >>= liftEffect <<< traverse_ globalProfileEvent.push)
+            subscribe (profileEvent fbAuth firestoreDb) globalProfileEvent.push >>= flip Ref.write globalProfileUnsubscribe
+            launchAff_ do
+              turnOnRealtimePresenceAff fbApp firestoreDb fbAuth >>= liftEffect <<< flip Ref.write unsubscribeFromRealtimePresence
           AuthAnonymous -> do
+            join $ Ref.read globalProfileUnsubscribe
             Ref.read unsubscribeFromRealtimePresence >>= unwrap
             Ref.write (wrap (pure unit)) unsubscribeFromRealtimePresence
         signedInNonAnonymously'.push case provider of
@@ -652,7 +663,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                       dlInChunks dumb 100 n2oh ctx' soundObj
                       liftEffect $ loaded.push true
                       dlInChunks dumb 100 n2ot ctx' soundObj
-                      playerName <- liftEffect $ LS.getItem LocalStorage.playerName stor
+                      locallyStoredPlayerNameInCaseThisIsAnAnonymousSession <- liftEffect $ LS.getItem LocalStorage.playerName stor
                       myTextures <- joinFiber downloadedTextures
                       myGLTFs <- joinFiber downloadedGLTFs
                       myCubeTextures <- joinFiber downloadedCubeTextures
@@ -667,7 +678,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                         , events: toAugmentedEvents (map _.data ets)
                         , initialDims
                         , threeDI
-                        , playerName
+                        , locallyStoredPlayerNameInCaseThisIsAnAnonymousSession
                         , shaders
                         , galaxyAttributes
                         , cNow: mappedCNow
@@ -676,6 +687,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                         , channelName: myChannel
                         , pubNubEvent: pubNub.event
                         , textures: Textures myTextures
+                        , profileEvent: globalProfileEvent.event
                         , cubeTextures: CubeTextures myCubeTextures
                         , playerStatus:
                             let
@@ -688,7 +700,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                               -- regression in the incoming value (ie packets out of order)
                               folded e
                         , optMeIn: \ms name -> do
-                            let thisIsMyRealName = name <|> playerName
+                            let thisIsMyRealName = name <|> locallyStoredPlayerNameInCaseThisIsAnAnonymousSession
                             for_ name \name' -> LS.setItem LocalStorage.playerName name' stor
                             players <- Ref.modify (KnownPlayers (Map.singleton myPlayer (HasStarted $ InFlightGameInfo { startedAt: ms, points: Points 0.0, penalties: Penalty 0.0, name: thisIsMyRealName })) <> _) knownPlayers
                             -- let others know I've opted in
@@ -716,7 +728,15 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                     Home -> channelEvent.push NoChannel
                     Session x y -> channelProp x y
                     Tutorial -> channelEvent.push TutorialChannel
-                    Settings -> negotiation.push (SetSomeStuff { dampeningRef })
+                    Settings -> negotiation.push
+                      ( SetSomeStuff
+                          { dampeningRef
+                          , myProfile: globalProfileEvent.event
+                          , firestoreDb
+                          , fbAuth
+                          , signedInNonAnonymously: signedInNonAnonymously.event
+                          }
+                      )
                     Editor -> channelEvent.push EditorChannel
                     TakeThisRide id -> do
                       cid <- randId' 6
@@ -734,7 +754,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                         , guard fsm.signedInNonAnon (getWhitelistedTracksAff fbAuth firestoreDb)
                         ]
                       liftEffect do
-                        logShow { msg: "Got rides", rides } 
+                        logShow { msg: "Got rides", rides }
                         negotiation.push (ChooseRide rides)
                     OrientationPermissionWithoutRideRequest -> negotiation.push (NeedsOrientation Nothing)
                     OrientationPermissionWithRideRequest x y -> negotiation.push (NeedsOrientation (Just { ride: x, track: y }))

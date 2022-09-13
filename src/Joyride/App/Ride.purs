@@ -23,6 +23,7 @@ import Data.Tuple (Tuple(..), fst, snd)
 import Deku.Attribute (cb, (:=))
 import Deku.Attributes (klass_)
 import Deku.Control (text_)
+import Deku.Control as DC
 import Deku.Core (Domable, Nut, vbussed)
 import Deku.DOM as D
 import Deku.Listeners (click)
@@ -65,7 +66,7 @@ import Rito.Matrix4 as M4
 import Safe.Coerce (coerce)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
-import Types (Beats(..), Column, HitBasicMe, HitBasicOtherPlayer(..), HitBasicOverTheWire(..), HitLeapMe, HitLeapOtherPlayer(..), HitLeapOverTheWire(..), HitLongMe, HitLongOtherPlayer(..), HitLongOverTheWire(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, MakeLongs, Player(..), PlayerAction(..), RateInfo, ReleaseLongMe, ReleaseLongOtherPlayer(..), ReleaseLongOverTheWire(..), RenderingInfo, Seconds(..), StartStatus(..), Success', WindowDims)
+import Types (Beats(..), Column, HitBasicMe, HitBasicOtherPlayer(..), HitBasicOverTheWire(..), HitLeapMe, HitLeapOtherPlayer(..), HitLeapOverTheWire(..), HitLongMe, HitLongOtherPlayer(..), HitLongOverTheWire(..), InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, MakeLongs, Player(..), PlayerAction(..), Profile(..), RateInfo, ReleaseLongMe, ReleaseLongOtherPlayer(..), ReleaseLongOverTheWire(..), RenderingInfo, Seconds(..), StartStatus(..), Success', WindowDims)
 import Web.DOM as Web.DOM
 import Web.Event.Event (target)
 import Web.HTML.HTMLCanvasElement as HTMLCanvasElement
@@ -150,9 +151,10 @@ ride
     , trackId
     , models
     , cNow
+    , profileEvent
     , galaxyAttributes
     , shaders
-    , playerName
+    , locallyStoredPlayerNameInCaseThisIsAnAnonymousSession
     , channelName
     , initialDims
     , threeDI
@@ -321,32 +323,31 @@ ride
                                 [ text_ "👉🏽 📋 👈🏽" ]
                             , D.p_ [ text_ "You can send the link to up to 3 people. When everyone has joined, or if you're playing alone, press Start!" ]
                             ]
-                      , D.div (klass_ "flex w-full justify-center items-center")
-                          $ case playerName of
-                              Just _ ->
-                                [ D.button
-                                    (callback (changeText))
-                                    [ text_ "Start" ]
+                      , (pure locallyStoredPlayerNameInCaseThisIsAnAnonymousSession <|> fireAndForget (map (\(ProfileV0 p) -> Just p.username) profileEvent <|> pure Nothing)) # DC.switcher D.div (klass_ "flex w-full justify-center items-center") case _ of
+                          Just _ ->
+                            D.button
+                              (callback (changeText))
+                              [ text_ "Start" ]
 
-                                ]
-                              Nothing ->
-                                [ D.button
-                                    ( oneOf
-                                        [ klass_ buttonCls
-                                        , callback (changeText)
-                                        ]
-                                    )
-                                    [ text_ "Start" ]
+                          Nothing ->
+                            D.div_
+                              [ D.button
+                                  ( oneOf
+                                      [ klass_ buttonCls
+                                      , callback (changeText)
+                                      ]
+                                  )
+                                  [ text_ "Start" ]
 
-                                , D.button
-                                    ( oneOf
-                                        [ klass_ buttonCls
-                                        , click $ pure $ nPush.requestName unit
-                                        ]
-                                    )
-                                    [ text_ "Start with name" ]
+                              , D.button
+                                  ( oneOf
+                                      [ klass_ buttonCls
+                                      , click $ pure $ nPush.requestName unit
+                                      ]
+                                  )
+                                  [ text_ "Start with name" ]
 
-                                ]
+                              ]
                       ]
         envy $ memoize
           ( makeAnimatedStuff
@@ -410,7 +411,7 @@ ride
                     in
                       switcher case _ of
                         WaitingForMe -> frame (startButton animatedStuff)
-                        WaitingForOthers -> frame (D.div (klass_ "text-center w-100") [D.span (klass_ "text-lg text-white") [ text_ "Waiting for others to join" ]])
+                        WaitingForOthers -> frame (D.div (klass_ "text-center w-100") [ D.span (klass_ "text-lg text-white") [ text_ "Waiting for others to join" ] ])
                         Started _ -> envy empty
                 ]
 

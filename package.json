@@ -13,6 +13,7 @@
 		"build:prod": "npm run build-ps:prod && rm -rf dist && mkdir dist && PROD_EXPERIMENTAL=true VITE_LIL_GUI=false VITE_FORCE_4=false VITE_FIREBASE_BUILD=production vite build",
 		"build:prod-no-min": "npm run build-ps:prod && rm -rf dist && mkdir dist && DISABLE_MINIMIZATION=true PROD_EXPERIMENTAL=true VITE_LIL_GUI=false VITE_FORCE_4=false VITE_FIREBASE_BUILD=production vite build",
 		"build-ps": "spago build",
+		"ionic:build": "npm run build:prod",
 		"build-ps:prod": "spago -x prod.dhall build",
 		"test": "spago -x test.dhall test"
 	},
@@ -46,6 +47,7 @@
 		"@capacitor/android": "^3.6.0",
 		"@capacitor/core": "^3.6.0",
 		"@capacitor/ios": "^3.6.0",
+		"cordova-plugin-ionic": "5.5.2",
 		"file-select-dialog": "^1.5.4",
 		"filestack-js": "^3.25.0",
 		"firebase": "^9.8.3",
