@@ -889,9 +889,10 @@ type Success' =
   , shaders :: Shaders
   , trackId :: String
   , track :: Track
+  , profileEvent :: Event Profile
   , events :: Array AugmentedEvent_
   , galaxyAttributes :: GalaxyAttributes
-  , playerName :: Maybe String
+  , locallyStoredPlayerNameInCaseThisIsAnAnonymousSession :: Maybe String
   , channelName :: String
   , initialDims :: WindowDims
   , cNow :: Effect Milliseconds

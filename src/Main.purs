@@ -661,7 +661,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                       dlInChunks dumb 100 n2oh ctx' soundObj
                       liftEffect $ loaded.push true
                       dlInChunks dumb 100 n2ot ctx' soundObj
-                      playerName <- liftEffect $ LS.getItem LocalStorage.playerName stor
+                      locallyStoredPlayerNameInCaseThisIsAnAnonymousSession <- liftEffect $ LS.getItem LocalStorage.playerName stor
                       myTextures <- joinFiber downloadedTextures
                       myGLTFs <- joinFiber downloadedGLTFs
                       myCubeTextures <- joinFiber downloadedCubeTextures
@@ -676,7 +676,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                         , events: toAugmentedEvents (map _.data ets)
                         , initialDims
                         , threeDI
-                        , playerName
+                        , locallyStoredPlayerNameInCaseThisIsAnAnonymousSession
                         , shaders
                         , galaxyAttributes
                         , cNow: mappedCNow
@@ -685,6 +685,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                         , channelName: myChannel
                         , pubNubEvent: pubNub.event
                         , textures: Textures myTextures
+                        , profileEvent: globalProfileEvent.event
                         , cubeTextures: CubeTextures myCubeTextures
                         , playerStatus:
                             let
@@ -697,7 +698,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                               -- regression in the incoming value (ie packets out of order)
                               folded e
                         , optMeIn: \ms name -> do
-                            let thisIsMyRealName = name <|> playerName
+                            let thisIsMyRealName = name <|> locallyStoredPlayerNameInCaseThisIsAnAnonymousSession
                             for_ name \name' -> LS.setItem LocalStorage.playerName name' stor
                             players <- Ref.modify (KnownPlayers (Map.singleton myPlayer (HasStarted $ InFlightGameInfo { startedAt: ms, points: Points 0.0, penalties: Penalty 0.0, name: thisIsMyRealName })) <> _) knownPlayers
                             -- let others know I've opted in
