@@ -6,13 +6,14 @@ module Joyride.App.Settings where
 
 import Prelude
 
+import Control.Alt ((<|>))
 import Data.Foldable (oneOf)
 import Data.Maybe (Maybe(..), maybe)
 import Data.Tuple (Tuple(..))
 import Data.Tuple.Nested ((/\))
 import Deku.Attribute ((:=))
 import Deku.Attributes (klass_)
-import Deku.Control (switcher, switcher_, text_)
+import Deku.Control (switcher, switcher_, text, text_)
 import Deku.Core (Nut)
 import Deku.DOM as D
 import Deku.Do (useState')
@@ -68,14 +69,14 @@ settings
           ]
       ]
     nameSetter = D.li (klass_ "p-3")
-      [ D.h1 (klass_ header2Cls) [ text_ "Display name" ]
+      [ D.h1 (klass_ header2Cls) [ text $ (oneOf [ pure Nothing, dedup (map (\(ProfileV0 p) -> Just p.username) profileEvent) ]) <#> \t -> "Display name" <> maybe "" (": " <> _) t ]
       , D.div (klass_ "flex flex-row p-3")
           [ D.div (klass_ "grow") []
           , D.input
               ( oneOf
                   [ pure (D.Placeholder := "Namey McName")
                   , pure (D.SelfT := \i -> launchAff_ $ delay (Milliseconds 0.0) *> liftEffect (setNameInput i))
-                  , klass_ "shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                  , klass_ "shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                   , dedup (map (\(ProfileV0 p) -> p.username) profileEvent) <#> (D.Value := _)
                   ]
               )
@@ -97,7 +98,7 @@ settings
           , D.div (klass_ "grow") []
           ]
       ]
-  D.div (oneOf [ pure $ D.Class := "h-screen w-screen bg-zinc-900 absolute" ])
+  D.div (oneOf [ pure $ D.Class := "h-screen w-screen overflow-x-auto bg-zinc-900 absolute" ])
     [ D.div (oneOf [ pure $ D.Class := "text-center" ])
         [ D.h2 (klass_ (headerCls <> " p-6")) [ text_ "Settings" ]
         , ((Tuple <$> signedInNonAnonymously <*> (pure Nothing <|> map Just profileEvent)) <#> \(l /\ r) -> if l then maybe SignedInButHasNotSetProfile (const SignedInAndHasSetProfile) r else NotSignedIn) # switcher D.div (oneOf []) case _ of
@@ -107,7 +108,7 @@ settings
               [ speedSlider, nameSetter ]
             SignedInAndHasSetProfile -> do
               let
-                imageUploader = D.button
+                imageUploader txt = D.button
                   ( oneOf
                       [ klass_ buttonCls
                       , click $ pure do
@@ -124,7 +125,7 @@ settings
                             client
                       ]
                   )
-                  [ text_ "Upload image" ]
+                  [ text_ txt ]
               D.ul (pure $ D.Class := "")
                 [ speedSlider
                 , nameSetter
@@ -138,10 +139,19 @@ settings
                                 , map (\(ProfileV0 p) -> Just p.avatarURL) profileEvent
                                 ]
                             ) # switcher_ D.div case _ of
-                            Nothing -> imageUploader
+                            Nothing -> imageUploader "Upload image"
                             Just img' -> case img' of
-                              Nothing -> imageUploader
-                              Just img -> D.img (oneOf [ pure $ D.Src := img ]) []
+                              Nothing -> imageUploader "Upload image"
+                              Just img -> D.div (oneOf [klass_ "flex flex-col items-center"])
+                                [ D.img
+                                    ( oneOf
+                                        [ klass_ "object-cover rounded-full w-32 h-32"
+                                        , pure $ D.Src := img
+                                        ]
+                                    )
+                                    []
+                                , imageUploader "Change image"
+                                ]
                         , D.div (klass_ "grow") []
                         ]
                     ]
