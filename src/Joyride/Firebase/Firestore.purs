@@ -62,15 +62,19 @@ getProfileAff auth db = do
         Right r -> pure r
     )
 
-foreign import listenToProfile :: (Foreign -> Effect Unit) -> FirebaseAuth -> Firestore -> Effect (Effect Unit)
+foreign import listenToProfile :: (Foreign -> Effect Unit) -> FirebaseAuth -> Firestore -> Effect (Promise (Effect Unit))
 
 profileEvent :: FirebaseAuth -> Firestore -> Event Profile
 profileEvent auth firestore = makeEvent \k -> do
+  usu <- Ref.new (pure unit)
   let
     listener = JSON.read >>> case _ of
       Left e -> errorShow e
       Right r -> k r
-  listenToProfile listener auth firestore
+  launchAff_ do
+    u <- toAffE $ listenToProfile listener auth firestore
+    liftEffect $ Ref.write u usu
+  pure (join $ Ref.read usu)
 
 newtype UnsubscribeFromRealtimePresence = UnsubscribeFromRealtimePresence (Effect Unit)
 

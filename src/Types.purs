@@ -7,6 +7,7 @@ module Types
   , ToplevelInfo
   , RenderingInfo
   , AppOrientationState(..)
+  , PotentiallyMissingArray(..)
   , OrientationPermissionState(..)
   , ChannelChooser(..)
   , Profile(..)
@@ -97,7 +98,7 @@ import Data.Either (Either(..))
 import Data.FastVect.FastVect (Vect)
 import Data.Generic.Rep (class Generic)
 import Data.Map as Map
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (class Newtype)
 import Data.NonEmpty ((:|))
 import Data.Show.Generic (genericShow)
@@ -838,6 +839,7 @@ type SettingsNeeds =
   , myProfile :: Event Profile
   , fbAuth :: FirebaseAuth
   , firestoreDb :: Firestore
+  , signedInNonAnonymously :: Event Boolean
   }
 
 --
@@ -1187,11 +1189,27 @@ type ToplevelInfo =
   , soundObj :: Ref.Ref (Object.Object BrowserAudioBuffer)
   }
 
+newtype PotentiallyMissingArray a = PotentiallyMissingArray (Array a)
+
+derive instance Newtype (PotentiallyMissingArray a) _
+derive instance Generic (PotentiallyMissingArray a) _
+derive newtype instance Eq a => Eq (PotentiallyMissingArray a)
+derive newtype instance Ord a => Ord (PotentiallyMissingArray a)
+derive newtype instance Show a => Show (PotentiallyMissingArray a)
+
+instance JSON.ReadForeign a => JSON.ReadForeign (PotentiallyMissingArray a) where
+  readImpl i = PotentiallyMissingArray <$> do
+    a <- JSON.readImpl i
+    pure (fromMaybe [] a)
+
+instance JSON.WriteForeign a =>JSON.WriteForeign (PotentiallyMissingArray a) where
+  writeImpl (PotentiallyMissingArray a) = JSON.writeImpl a
+
 data Profile = ProfileV0
   { username :: String
-  , avatarURL :: String
-  , friends :: Array String
-  , rides :: Array String
+  , avatarURL :: Maybe String
+  , friends :: PotentiallyMissingArray String
+  , rides :: PotentiallyMissingArray String
   , version :: Version 0
   }
 

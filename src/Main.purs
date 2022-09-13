@@ -731,6 +731,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                           , myProfile: globalProfileEvent.event
                           , firestoreDb
                           , fbAuth
+                          , signedInNonAnonymously: signedInNonAnonymously.event
                           }
                       )
                     Editor -> channelEvent.push EditorChannel

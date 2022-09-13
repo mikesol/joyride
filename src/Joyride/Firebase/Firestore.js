@@ -178,9 +178,9 @@ export const updateProfileAvatarURL = (auth) => (db) => (avatarURL) => () =>
 		return updateDoc(doc(db, PROFILE, auth.currentUser.uid), update);
 	});
 
-export const listenToProfile = (pusher) => (auth) => (db) => () => onSnapshot(doc(db, PROFILE, auth.currentUser.id), (doc) => {
+export const listenToProfile = (pusher) => (auth) => (db) => () => import("firebase/firestore").then(({ onSnapshot, doc }) => onSnapshot(doc(db, PROFILE, auth.currentUser.uid), (doc) => {
 	pusher(doc.data())();
-});
+}));
 
 
 export const getWhitelistedTracks = (auth) => (db) => () =>
