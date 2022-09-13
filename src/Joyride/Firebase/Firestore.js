@@ -166,21 +166,22 @@ export const getProfile = (nothing) => (just) => (auth) => (db) => () =>
 	});
 
 export const updateProfileUsername = (auth) => (db) => (username) => () =>
-	import("firebase/firestore").then(({ updateDoc, doc }) => {
-		const update = {};
+	import("firebase/firestore").then(({ setDoc, doc }) => {
+		const update = { version: 0 };
 		update[USERNAME] = username;
-		return updateDoc(doc(db, PROFILE, auth.currentUser.uid), update);
-	});
-export const updateProfileAvatarURL = (auth) => (db) => (avatarURL) => () =>
-	import("firebase/firestore").then(({ updateDoc, doc }) => {
-		const update = {};
-		update[AVATARURL] = avatarURL;
-		return updateDoc(doc(db, PROFILE, auth.currentUser.uid), update);
+		return setDoc(doc(db, PROFILE, auth.currentUser.uid), update, { merge: true });
 	});
 
-export const listenToProfile = (pusher) => (auth) => (db) => () => import("firebase/firestore").then(({ onSnapshot, doc }) => onSnapshot(doc(db, PROFILE, auth.currentUser.uid), (doc) => {
-	pusher(doc.data())();
-}));
+export const updateProfileAvatarURL = (auth) => (db) => (avatarURL) => () =>
+	import("firebase/firestore").then(({ setDoc, doc }) => {
+		const update = { version: 0 };
+		update[AVATARURL] = avatarURL;
+		return setDoc(doc(db, PROFILE, auth.currentUser.uid), update, { merge: true });
+	});
+
+export const listenToProfile = (pusher) => (auth) => (db) => () => import("firebase/firestore").then(({ onSnapshot, doc }) => onSnapshot(doc(db, PROFILE, auth.currentUser.uid), (doc) =>
+	doc.exists() && pusher(doc.data())()
+));
 
 
 export const getWhitelistedTracks = (auth) => (db) => () =>

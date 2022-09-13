@@ -6,9 +6,9 @@ module Joyride.App.Settings where
 
 import Prelude
 
-import Bolson.Core (envy)
 import Data.Foldable (oneOf)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), maybe)
+import Data.Tuple (Tuple(..))
 import Data.Tuple.Nested ((/\))
 import Deku.Attribute ((:=))
 import Deku.Attributes (klass_)
@@ -18,11 +18,11 @@ import Deku.DOM as D
 import Deku.Do (useState')
 import Deku.Do as Deku
 import Deku.Listeners (click, slider)
-import Effect.Aff (launchAff_)
+import Effect.Aff (Milliseconds(..), delay, launchAff_)
+import Effect.Class (liftEffect)
 import Effect.Console (log)
 import Effect.Ref as Ref
 import FRP.Behavior (sample_)
-import FRP.Event (memoize)
 import Joyride.Constants.Visual (orientationDampening0To100, reverseOrientationDampening)
 import Joyride.FRP.Behavior (refToBehavior)
 import Joyride.FRP.Dedup (dedup)
@@ -39,6 +39,8 @@ import Web.HTML.Window (alert)
 -- first prevents spamming of profiles
 -- second prevents spamming of individual elements
 
+data UISwitch = NotSignedIn | SignedInButHasNotSetProfile | SignedInAndHasSetProfile
+
 settings :: SettingsNeeds -> Nut
 settings
   { dampeningRef
@@ -47,7 +49,7 @@ settings
   , firestoreDb
   , signedInNonAnonymously
   } = Deku.do
-  profileEvent <- envy <<< memoize (dedup myProfile)
+  let profileEvent = myProfile
   setNameInput /\ nameInput <- useState'
   let
     speedSlider = D.li (klass_ "p-3")
@@ -65,13 +67,45 @@ settings
           , D.span (klass_ "text-white") [ text_ "🐇" ]
           ]
       ]
+    nameSetter = D.li (klass_ "p-3")
+      [ D.h1 (klass_ header2Cls) [ text_ "Display name" ]
+      , D.div (klass_ "flex flex-row p-3")
+          [ D.div (klass_ "grow") []
+          , D.input
+              ( oneOf
+                  [ pure (D.Placeholder := "Namey McName")
+                  , pure (D.SelfT := \i -> launchAff_ $ delay (Milliseconds 0.0) *> liftEffect (setNameInput i))
+                  , klass_ "shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                  , dedup (map (\(ProfileV0 p) -> p.username) profileEvent) <#> (D.Value := _)
+                  ]
+              )
+              []
+          , D.div (klass_ "grow") []
+          ]
+      , D.div (klass_ "flex flex-row p-3")
+          [ D.div (klass_ "grow") []
+          , D.button
+              ( oneOf
+                  [ klass_ buttonCls
+                  , click $ nameInput <#> \i -> do
+                      v <- value i
+                      if (disallowedUsername v) then window >>= alert "Sorry, that username is not allowed. Please try another one!"
+                      else launchAff_ $ updateProfileUsernameAff fbAuth firestoreDb v
+                  ]
+              )
+              [ text_ "Update name" ]
+          , D.div (klass_ "grow") []
+          ]
+      ]
   D.div (oneOf [ pure $ D.Class := "h-screen w-screen bg-zinc-900 absolute" ])
     [ D.div (oneOf [ pure $ D.Class := "text-center" ])
         [ D.h2 (klass_ (headerCls <> " p-6")) [ text_ "Settings" ]
-        , signedInNonAnonymously # switcher D.div (oneOf []) case _ of
-            false -> D.ul (pure $ D.Class := "")
+        , ((Tuple <$> signedInNonAnonymously <*> (pure Nothing <|> map Just profileEvent)) <#> \(l /\ r) -> if l then maybe SignedInButHasNotSetProfile (const SignedInAndHasSetProfile) r else NotSignedIn) # switcher D.div (oneOf []) case _ of
+            NotSignedIn -> D.ul (pure $ D.Class := "")
               [ speedSlider ]
-            true -> do
+            SignedInButHasNotSetProfile -> D.ul (pure $ D.Class := "")
+              [ speedSlider, nameSetter ]
+            SignedInAndHasSetProfile -> do
               let
                 imageUploader = D.button
                   ( oneOf
@@ -93,35 +127,7 @@ settings
                   [ text_ "Upload image" ]
               D.ul (pure $ D.Class := "")
                 [ speedSlider
-                , D.li (klass_ "p-3")
-                    [ D.h1 (klass_ header2Cls) [ text_ "Display name" ]
-                    , D.div (klass_ "flex flex-row p-3")
-                        [ D.div (klass_ "grow") []
-                        , D.input
-                            ( oneOf
-                                [ pure (D.Placeholder := "Namey McName")
-                                , pure (D.SelfT := setNameInput)
-                                , dedup (map (\(ProfileV0 p) -> p.username) profileEvent) <#> (D.Value := _)
-                                ]
-                            )
-                            []
-                        , D.div (klass_ "grow") []
-                        ]
-                    , D.div (klass_ "flex flex-row p-3")
-                        [ D.div (klass_ "grow") []
-                        , D.button
-                            ( oneOf
-                                [ klass_ buttonCls
-                                , click $ nameInput <#> \i -> do
-                                    v <- value i
-                                    if (disallowedUsername v) then window >>= alert "Sorry, that username is not allowed. Please try another one!"
-                                    else launchAff_ $ updateProfileUsernameAff fbAuth firestoreDb v
-                                ]
-                            )
-                            [ text_ "Update name" ]
-                        , D.div (klass_ "grow") []
-                        ]
-                    ]
+                , nameSetter
                 , D.li (klass_ "p-3")
                     [ D.h1 (klass_ header2Cls) [ text_ "Avatar" ]
                     , D.div (klass_ "flex flex-row p-3")
