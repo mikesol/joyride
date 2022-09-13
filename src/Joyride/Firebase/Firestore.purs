@@ -7,15 +7,17 @@ import Control.Promise (Promise, toAffE)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype)
+import Data.Traversable (traverse)
 import Effect (Effect)
 import Effect.Aff (Aff, error, launchAff_, throwError, try)
 import Effect.Class (liftEffect)
+import Effect.Console (errorShow)
 import Effect.Ref as Ref
 import FRP.Event (Event, makeEvent)
 import Foreign (Foreign)
 import Joyride.Firebase.Opaque (FirebaseApp, FirebaseAuth, Firestore)
 import Simple.JSON as JSON
-import Types (Column, Event_, Penalty(..), Player(..), Points(..), Ride(..), RideV0', Track, columnToInt, defaultRide)
+import Types (Column, Event_, Penalty(..), Player(..), Points(..), Profile, Ride(..), RideV0', Track, columnToInt, defaultRide)
 
 foreign import firestoreDb :: FirebaseApp -> Effect (Promise Firestore)
 
@@ -42,11 +44,41 @@ forkTrackAff au fs r = toAffE $ forkTrack au fs r
 
 foreign import getTrack :: Firestore -> String -> Effect (Promise Foreign)
 
+foreign import getProfile :: Maybe Profile -> (Profile -> Maybe Profile) -> FirebaseAuth -> Firestore -> Effect (Promise (Maybe Foreign))
+
+foreign import updateProfileUsername :: FirebaseAuth -> Firestore -> String -> Effect (Promise Unit)
+foreign import updateProfileAvatarURL :: FirebaseAuth -> Firestore -> String -> Effect (Promise Unit)
+
+updateProfileUsernameAff :: FirebaseAuth -> Firestore -> String -> Aff Unit
+updateProfileUsernameAff auth db username = toAffE $ updateProfileUsername auth db username
+updateProfileAvatarURLAff :: FirebaseAuth -> Firestore -> String -> Aff Unit
+updateProfileAvatarURLAff auth db avatarURL = toAffE $ updateProfileAvatarURL auth db avatarURL
+
+getProfileAff :: FirebaseAuth -> Firestore -> Aff (Maybe Profile)
+getProfileAff auth db = do
+  toAffE (getProfile Nothing Just auth db) >>= traverse
+    ( JSON.read >>> case _ of
+        Left e -> throwError (error (show e))
+        Right r -> pure r
+    )
+
+foreign import listenToProfile :: (Foreign -> Effect Unit) -> FirebaseAuth -> Firestore -> Effect (Effect Unit)
+
+profileEvent :: FirebaseAuth -> Firestore -> Event Profile
+profileEvent auth firestore = makeEvent \k -> do
+  let
+    listener = JSON.read >>> case _ of
+      Left e -> errorShow e
+      Right r -> k r
+  listenToProfile listener auth firestore
+
 newtype UnsubscribeFromRealtimePresence = UnsubscribeFromRealtimePresence (Effect Unit)
+
 derive instance Newtype UnsubscribeFromRealtimePresence _
+
 foreign import turnOnRealtimePresence :: FirebaseApp -> Firestore -> FirebaseAuth -> Effect (Promise UnsubscribeFromRealtimePresence)
 
-turnOnRealtimePresenceAff :: FirebaseApp -> Firestore -> FirebaseAuth -> Aff UnsubscribeFromRealtimePresence 
+turnOnRealtimePresenceAff :: FirebaseApp -> Firestore -> FirebaseAuth -> Aff UnsubscribeFromRealtimePresence
 turnOnRealtimePresenceAff fbApp fst auth = toAffE (turnOnRealtimePresence fbApp fst auth)
 
 getTrackAff :: Firestore -> String -> Aff (Maybe Track)

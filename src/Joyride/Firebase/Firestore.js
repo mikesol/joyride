@@ -8,6 +8,7 @@ export const firestoreDb = (app) => () =>
 
 const RIDES = "rides";
 const TRACKS = "tracks";
+const PROFILE = "profile";
 const EVENTS = "events";
 const MARKER1TIME = "marker1Time";
 const MARKER2TIME = "marker2Time";
@@ -19,6 +20,8 @@ const MARKER3AUDIOURL = "marker3AudioUrl";
 const MARKER4AUDIOURL = "marker4AudioUrl";
 const LENGTH = "length";
 const NAME = "name";
+const USERNAME = "username";
+const AVATARURL = "avatarURL";
 const TITLE = "title";
 const PRIVATE = "private";
 const TAGS = "tags";
@@ -154,6 +157,31 @@ export const getTracks = (auth) => (db) => () =>
 			return data;
 		});
 	});
+
+export const getProfile = (nothing) => (just) => (auth) => (db) => () =>
+	import("firebase/firestore").then(({ getDoc, doc }) => {
+		return getDoc(doc(db, PROFILE, auth.currentUser.uid)).then((r) =>
+			r.exists() ? just(r.data()) : nothing
+		);
+	});
+
+export const updateProfileUsername = (auth) => (db) => (username) => () =>
+	import("firebase/firestore").then(({ updateDoc, doc }) => {
+		const update = {};
+		update[USERNAME] = username;
+		return updateDoc(doc(db, PROFILE, auth.currentUser.uid), update);
+	});
+export const updateProfileAvatarURL = (auth) => (db) => (avatarURL) => () =>
+	import("firebase/firestore").then(({ updateDoc, doc }) => {
+		const update = {};
+		update[AVATARURL] = avatarURL;
+		return updateDoc(doc(db, PROFILE, auth.currentUser.uid), update);
+	});
+
+export const listenToProfile = (pusher) => (auth) => (db) => () => onSnapshot(doc(db, PROFILE, auth.currentUser.id), (doc) => {
+	pusher(doc.data())();
+});
+
 
 export const getWhitelistedTracks = (auth) => (db) => () =>
 	import("firebase/firestore").then(({ query, getDocs, collection, where }) => {

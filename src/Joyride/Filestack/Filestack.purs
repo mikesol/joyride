@@ -19,3 +19,12 @@ foreign import picker
   -> (PickerFileMetadata -> Effect Unit) -- success
   -> FSClient
   -> Effect Unit
+
+foreign import pickerAccepting
+  :: Array String -- https://filestack.github.io/filestack-js/interfaces/pickeroptions.html#accept
+  -> (PickerFileMetadata -> Effect Unit) -- cancel
+  -> (PickerFileMetadata -> Error -> Effect Unit) -- error
+  -> (PickerFileMetadata -> FSProgressEvent -> Effect Unit) -- progress
+  -> (PickerFileMetadata -> Effect Unit) -- success
+  -> FSClient
+  -> Effect Unit

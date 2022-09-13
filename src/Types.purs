@@ -9,6 +9,7 @@ module Types
   , AppOrientationState(..)
   , OrientationPermissionState(..)
   , ChannelChooser(..)
+  , Profile(..)
   , Ride(..)
   , RideV0'
   , Models(..)
@@ -832,13 +833,18 @@ newtype HitLeapVisualForLabel = HitLeapVisualForLabel
 
 derive instance Newtype HitLeapVisualForLabel _
 
+type SettingsNeeds =
+  { dampeningRef :: Ref.Ref Number
+  , myProfile :: Event Profile
+  , fbAuth :: FirebaseAuth
+  , firestoreDb :: Firestore
+  }
 
-type SettingsNeeds = {  dampeningRef::Ref.Ref Number}
 --
 data Negotiation
   = PageLoad
   | NeedsOrientation (Maybe { ride :: String, track :: String })
-  | WillNotWorkWithoutOrientation 
+  | WillNotWorkWithoutOrientation
   | ChooseRide (Array { data :: Track, id :: String })
   | SetSomeStuff SettingsNeeds
   | GetRulesOfGame
@@ -1075,6 +1081,7 @@ derive instance Eq AppOrientationState
 derive instance Generic AppOrientationState _
 instance Show AppOrientationState where
   show = genericShow
+
 type Shader = { vertex :: String, fragment :: String }
 type Shaders = { galaxy :: Shader }
 
@@ -1179,3 +1186,23 @@ type ToplevelInfo =
   , unschedule :: Ref.Ref (Map.Map JMilliseconds (Effect Unit))
   , soundObj :: Ref.Ref (Object.Object BrowserAudioBuffer)
   }
+
+data Profile = ProfileV0
+  { username :: String
+  , avatarURL :: String
+  , friends :: Array String
+  , rides :: Array String
+  , version :: Version 0
+  }
+
+instance JSON.ReadForeign Profile where
+  readImpl i = ProfileV0 <$> JSON.readImpl i
+
+instance JSON.WriteForeign Profile where
+  writeImpl (ProfileV0 pv0) = JSON.writeImpl pv0
+
+derive instance Generic Profile _
+derive instance Eq Profile
+
+instance Show Profile where
+  show = genericShow
