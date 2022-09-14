@@ -126,6 +126,7 @@ import Rito.Matrix4 (Matrix4, Matrix4')
 import Rito.THREE as THREE
 import Rito.Texture (Texture)
 import Rito.Vector3 (Vector3')
+import Route (Route)
 import Simple.JSON (undefined, writeJSON)
 import Simple.JSON as JSON
 import Web.HTML.Window (RequestIdleCallbackId, Window)
@@ -847,7 +848,7 @@ data Negotiation
   = PageLoad
   | NeedsOrientation (Maybe { ride :: String, track :: String })
   | WillNotWorkWithoutOrientation
-  | ChooseRide (Array { data :: Track, id :: String })
+  | ChooseRide (Array { data :: Track, id :: String }) (Route -> Effect Unit)
   | SetSomeStuff SettingsNeeds
   | GetRulesOfGame
       { cubeTextures :: CubeTextures CTL.CubeTexture
