@@ -273,6 +273,7 @@ runThree opts = do
 
                         )
                       <>
+                        -- light illuminating far-off regions anchored on my player
                         [ do
                             let ppos = playerPosition opts.myPlayer
                             let posAx axis = map (ppos axis) mopts.playerPositions
