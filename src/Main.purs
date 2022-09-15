@@ -208,7 +208,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
     _ <- firebaseAnalyticsAff fbApp
     firestoreDb <- firestoreDbAff fbApp
     fbAuth <- firebaseAuthAff fbApp
-    cloudMessaging <- firebaseCloudMessagingAff fbApp
+    -- cloudMessaging <- firebaseCloudMessagingAff fbApp
     toAffE $ useFirebaseEmulatorInDevMode firestoreDb fbAuth
     -- has orientation permission
     -- see if this helps get rid of the screen on iOS for successive plays
@@ -342,9 +342,12 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                 SuccessfulOrientationPermission -> saneStart
                 CannotUseAppDueToLackOfOrientationPermission -> negotiation.push WillNotWorkWithoutOrientation
                 UnknownOrientationPermission -> do
-                  if hop then case new of
-                    Session x y -> navigateToHash (orientationPermissionPath <> "/" <> x <> "/" <> y)
-                    _ -> navigateToHash orientationPermissionPath
+                  case new of
+                    OrientationPermissionWithoutRideRequest -> negotiation.push (NeedsOrientation Nothing)
+                    OrientationPermissionWithRideRequest x y -> negotiation.push (NeedsOrientation (Just { ride: x, track: y }))
+                    _ -> if hop then case new of
+                        Session x y -> navigateToHash (orientationPermissionPath <> "/" <> x <> "/" <> y)
+                        _ -> navigateToHash orientationPermissionPath
                   else saneStart
           _ <- liftEffect $ subscribe
             -- sometimes the fsm will change but the route won't
