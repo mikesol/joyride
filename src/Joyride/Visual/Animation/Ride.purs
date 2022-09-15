@@ -301,6 +301,33 @@ runThree opts = do
 
                         )
                       <>
+                        -- light illuminating far-off regions anchored on my player
+                        [ do
+                            let ppos = playerPosition opts.myPlayer
+                            let posAx axis = map (ppos axis) mopts.playerPositions
+                            let posAxZ = map (\{ p1z, p2z, p3z, p4z } -> (min p1z $ min p2z $ min p3z p4z) - 2.0) mopts.playerPositions
+                            let normalDistance = 4.0
+                            let normalDecay = 2.0
+                            let normalIntensity = 1.0
+                            toGroup $ pointLight
+                              { pointLight: opts.threeDI.pointLight
+                              , distance: normalDistance
+                              , decay: normalDecay
+                              , intensity: normalIntensity
+                              , color: c3 $ RGB 1.0 1.0 1.0
+                              }
+                              ( oneOf
+                                  [ positionX <$> tameXAxis false (posAx AxisX)
+                                  , positionY <$> (sampleBy (\{ lightOffsetY } py -> (lightOffsetY + py)) opts.renderingInfo (posAx AxisY))
+                                  , positionZ <$> posAxZ
+                                  , pure $ P.decay normalDecay
+                                  , pure $ P.intensity normalIntensity
+                                  , pure $ P.distance normalDistance
+                                  ]
+                              )
+
+                        ]
+                      <>
                         -- basic notes
                         [ toGroup $ opts.basicE scenePush.hitBasicVisualForLabel columnCtor
                         ]
