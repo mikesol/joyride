@@ -208,7 +208,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
     _ <- firebaseAnalyticsAff fbApp
     firestoreDb <- firestoreDbAff fbApp
     fbAuth <- firebaseAuthAff fbApp
-    cloudMessaging <- firebaseCloudMessagingAff fbApp
+    -- cloudMessaging <- firebaseCloudMessagingAff fbApp
     toAffE $ useFirebaseEmulatorInDevMode firestoreDb fbAuth
     -- has orientation permission
     -- see if this helps get rid of the screen on iOS for successive plays

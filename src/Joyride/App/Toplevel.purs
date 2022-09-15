@@ -5,6 +5,7 @@ import Prelude
 import Bolson.Control (switcher)
 import Data.Array (sortBy)
 import Data.Function (on)
+import Debug (spy)
 import Data.Maybe (Maybe(..))
 import Data.Number (pi)
 import Data.Time.Duration (Milliseconds)
@@ -109,7 +110,7 @@ toplevel
 toplevel tli =
   ( dedup
       ( map
-          ( \{ loaded, negotiation } -> -- let _ = spy "ugh" { loaded, negotiation } in
+          ( \{ loaded, negotiation } -> let _ = spy "debugToplevel" { loaded, negotiation } in
               case loaded, negotiation of
                 _, NeedsOrientation rt -> TLNeedsOrientation rt
                 _, WillNotWorkWithoutOrientation -> TLWillNotWorkWithoutOrientation
