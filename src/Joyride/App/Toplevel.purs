@@ -36,6 +36,7 @@ import Joyride.Scores.Tutorial.Base (tutorialScore)
 import Rito.Core (ASceneful)
 import Rito.CubeTexture as CTL
 import Rito.GLTF as GLTFLoader
+import Route (Route)
 import Types (CubeTextures, JMilliseconds, MakeBasics, MakeLeaps, MakeLongs, Models, Negotiation(..), OpenEditor', RateInfo, SettingsNeeds, Success', ThreeDI, ToplevelInfo, Track(..), WantsTutorial', WindowDims)
 import Web.DOM as Web.DOM
 
@@ -75,7 +76,7 @@ data TopLevelDisplay
   | TLSettings SettingsNeeds
   | TLGameHasStarted
   | TLRoomIsFull
-  | TLChooseRide (Array { data :: Track, id :: String })
+  | TLChooseRide (Array { data :: Track, id :: String }) (Route -> Effect Unit)
   | TLWantsTutorial WantsTutorial'
   | TLOpenEditor { oe :: OpenEditor', wt :: WantsTutorial' }
   | TLSuccess Success'
@@ -115,7 +116,7 @@ toplevel tli =
                 _, WillNotWorkWithoutOrientation -> TLWillNotWorkWithoutOrientation
                 _, GetRulesOfGame s -> TLExplainer s
                 _, SetSomeStuff s -> TLSettings s
-                _, ChooseRide cr -> TLChooseRide cr
+                _, ChooseRide cr nt -> TLChooseRide cr nt
                 -- editor does not need to be loaded for now
                 -- change if that's the case
                 false, _ -> TLLoading
@@ -139,7 +140,7 @@ toplevel tli =
       )
   ) # switcher case _ of
     TLNeedsOrientation rideTrack -> orientationPermissionPage { givePermission: tli.givePermission, rideTrack }
-    TLChooseRide cr -> availableRides { availableRides: cr }
+    TLChooseRide cr nt -> availableRides { availableRides: cr, navigateTo: nt }
     TLSettings s -> settings s
     TLWillNotWorkWithoutOrientation -> sorryNeedPermissionPage
     TLExplainer { cubeTextures, threeDI, cNow, initialDims, firestoreDb, fbAuth, signedInNonAnonymously, signOut } -> explainerPage

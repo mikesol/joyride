@@ -45,7 +45,7 @@ let overrides =
       , joyride-types =
         { dependencies = [ "either" ]
         , repo = "https://github.com/mikesol/joyride-types.git"
-        , version = "v0.0.8"
+        , version = "main"
         }
       , deku =
         { dependencies =
@@ -78,6 +78,11 @@ let overrides =
           , "web-html"
           ]
         , repo = "https://github.com/mikesol/purescript-deku.git"
+        , version = "main"
+        }
+      , routing-link =
+        { dependencies = [ "routing", "routing-duplex" ]
+        , repo = "https://github.com/mikesol/purescript-routing-link.git"
         , version = "main"
         }
       , hyrule =

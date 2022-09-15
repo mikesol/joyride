@@ -49,6 +49,7 @@
   , "rito"
   , "routing"
   , "routing-duplex"
+  , "routing-link"
   , "safe-coerce"
   , "simple-json"
   , "st"
