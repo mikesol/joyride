@@ -3,20 +3,20 @@ module Joyride.App.Rides where
 import Prelude
 
 import Data.Foldable (oneOf)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (Maybe(..), fromMaybe)
 import Deku.Attribute ((:=))
 import Deku.Attributes (klass_)
 import Deku.Control (text_)
 import Deku.Core (Nut)
 import Deku.DOM as D
 import Deku.Listeners (click)
-import Joyride.Navigation (navigateToHash)
+import Effect (Effect)
 import Joyride.Style (buttonCls, headerCls)
-import Route (ridesPath)
+import Route (Route(..))
 import Types (Track(..))
 
 availableRides
-  :: { availableRides :: Array { data :: Track, id :: String }
+  :: { availableRides :: Array { data :: Track, id :: String }, navigateTo :: Route -> Effect Unit
      }
   -> Nut
 availableRides opts = D.div (oneOf [ pure (D.Class := "absolute") ])
@@ -33,7 +33,7 @@ availableRides opts = D.div (oneOf [ pure (D.Class := "absolute") ])
                           [ D.button
                               ( oneOf
                                   [ klass_ $ buttonCls <> " mx-2 pointer-events-auto"
-                                  , click $ pure (navigateToHash (ridesPath <> "/" <> id))
+                                  , click $ pure (opts.navigateTo (TakeThisRide (Just data') id))
                                   ]
                               )
                               [ text_ (fromMaybe "Untitled Track" aTra.title) ]
