@@ -36,7 +36,7 @@ import Safe.Coerce (coerce)
 import Types (Beats(..), JMilliseconds(..), MakeLongs, RateInfo, Seconds(..))
 
 lookAhead :: Beats
-lookAhead = Beats 5.0
+lookAhead = Beats 8.0
 
 singleBeat
   :: { buffer :: Behavior BrowserAudioBuffer

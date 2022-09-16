@@ -273,14 +273,11 @@ runThree opts = do
 
                         )
                       <>
-                        -- light illuminating far-off regions anchored on my player
-                        [ do
-                            let ppos = playerPosition opts.myPlayer
-                            let posAx axis = map (ppos axis) mopts.playerPositions
-                            let posAxZ = map (\{ p1z, p2z, p3z, p4z } -> (min p1z $ min p2z $ min p3z p4z) - 2.0) mopts.playerPositions
-                            let normalDistance = 0.0
+                        -- lights in the distance
+                        ( [-3.0, -1.0, 1.0, 3.0] <#> \d -> do
+                            let normalDistance = 4.0
                             let normalDecay = 1.0
-                            let normalIntensity = 1.5
+                            let normalIntensity = 1.0
                             toGroup $ pointLight
                               { pointLight: opts.threeDI.pointLight
                               , distance: normalDistance
@@ -289,16 +286,16 @@ runThree opts = do
                               , color: c3 $ RGB 1.0 1.0 1.0
                               }
                               ( oneOf
-                                  [ positionX <$> tameXAxis false (posAx AxisX)
-                                  , positionY <$> (sampleBy (\{ lightOffsetY } py -> (lightOffsetY + py)) opts.renderingInfo (posAx AxisY))
-                                  , positionZ <$> posAxZ
+                                  [ pure $ positionX d
+                                  , pure $ positionY 1.5
+                                  , pure $ positionZ (-5.25)
                                   , pure $ P.decay normalDecay
                                   , pure $ P.intensity normalIntensity
                                   , pure $ P.distance normalDistance
                                   ]
                               )
 
-                        ]
+                        )
                       <>
                         -- basic notes
                         [ toGroup $ opts.basicE scenePush.hitBasicVisualForLabel columnCtor
