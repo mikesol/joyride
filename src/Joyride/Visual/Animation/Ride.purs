@@ -301,6 +301,29 @@ runThree opts = do
 
                         )
                       <>
+                        ( [-3.0, -1.0, 1.0, 3.0] <#> \d -> do
+                            let normalDistance = 4.0
+                            let normalDecay = 1.0
+                            let normalIntensity = 1.0
+                            toGroup $ pointLight
+                              { pointLight: opts.threeDI.pointLight
+                              , distance: normalDistance
+                              , decay: normalDecay
+                              , intensity: normalIntensity
+                              , color: c3 $ RGB 1.0 1.0 1.0
+                              }
+                              ( oneOf
+                                  [ pure $ positionX d
+                                  , pure $ positionY 1.5
+                                  , pure $ positionZ (-5.25)
+                                  , pure $ P.decay normalDecay
+                                  , pure $ P.intensity normalIntensity
+                                  , pure $ P.distance normalDistance
+                                  ]
+                              )
+
+                        )
+                      <>
                         -- basic notes
                         [ toGroup $ opts.basicE scenePush.hitBasicVisualForLabel columnCtor
                         ]

@@ -1059,6 +1059,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                               , pure $ D.OnClick := do
                                   pushed.loadingScreenVisible true
                                   launchAff_ do
+                                    liftEffect $ log "Showing files"
                                     fl <- toAffE fileList
                                     FileList.item 0 fl # maybe (liftEffect (window >>= alert "No valid files found" >>= \_ -> pushed.loadingScreenVisible false)) \fi -> do
                                       res <- makeAff \cb -> do
