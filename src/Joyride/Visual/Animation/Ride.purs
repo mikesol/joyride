@@ -306,9 +306,9 @@ runThree opts = do
                             let ppos = playerPosition opts.myPlayer
                             let posAx axis = map (ppos axis) mopts.playerPositions
                             let posAxZ = map (\{ p1z, p2z, p3z, p4z } -> (min p1z $ min p2z $ min p3z p4z) - 2.0) mopts.playerPositions
-                            let normalDistance = 4.0
-                            let normalDecay = 2.0
-                            let normalIntensity = 1.0
+                            let normalDistance = 0.0
+                            let normalDecay = 1.0
+                            let normalIntensity = 1.5
                             toGroup $ pointLight
                               { pointLight: opts.threeDI.pointLight
                               , distance: normalDistance
