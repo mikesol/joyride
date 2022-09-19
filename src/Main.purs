@@ -561,7 +561,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                         , firestoreDb
                         , goBack: do
                             -- clear the channel
-                            channelEvent.push NoChannel
+                            navigateToHash ""
                         -- we throw in a dedup just cuz we only ever want to track actual changes
                         -- if random stuff fires a lot, the event should stillb e idempotent
                         , signedInNonAnonymously: dedup signedInNonAnonymously.event

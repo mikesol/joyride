@@ -9,7 +9,6 @@ import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.Number (pi)
 import Data.Time.Duration (Milliseconds(..))
-import Deku.Attribute ((:=))
 import Deku.Attributes (klass_)
 import Deku.Control (text_)
 import Deku.Core (ANut(..))
@@ -23,7 +22,7 @@ import Rito.CSS.CSS3DObject (css3DObject)
 import Rito.Core (ACSS3DObject)
 import Rito.Properties as P
 import Safe.Coerce (coerce)
-import Types (JMilliseconds(..), MakeLeapWord, Position(..), entryZ, normalizedColumn, touchPointZ)
+import Types (JMilliseconds(..), MakeLeapWord, Position(..), normalizedColumn, touchPointZ)
 
 leapWord
   :: forall r lock payload
@@ -97,6 +96,6 @@ leapWord makeLeap = do
     }
   p1bar ri = touchPointZ ri Position1
   p4bar ri = touchPointZ ri Position4
-  appearancePoint ri = entryZ ri
+  -- appearancePoint ri = entryZ ri
   ratioEvent = map (\{ iw, ih } -> { iw, ih, r: iw / ih }) (pure makeLeap.initialDims <|> makeLeap.resizeEvent)
   leapZThickness = 0.2

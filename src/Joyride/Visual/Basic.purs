@@ -34,7 +34,7 @@ import Rito.Properties as P
 import Rito.RoundRobin (InstanceId, singleInstance)
 import Safe.Coerce (coerce)
 import Type.Proxy (Proxy(..))
-import Types (Beats(..), HitBasicMe(..), HitBasicOtherPlayer(..), HitBasicVisualForLabel(..), JMilliseconds(..), MakeBasic, Position(..), RateInfo, RenderingInfo, entryZ, normalizedColumn, playerPosition', touchPointZ)
+import Types (Beats(..), HitBasicMe(..), HitBasicOtherPlayer(..), HitBasicVisualForLabel(..), JMilliseconds(..), MakeBasic, Position(..), RateInfo, RenderingInfo, normalizedColumn, playerPosition', touchPointZ)
 
 basic
   :: forall r lock payload
@@ -103,7 +103,7 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
         , n34:
             let
               o
-                | rateInfo.beats < p1.startsAt = calcSlope (unwrap makeBasic.myInfo.appearsAt) (appearancePoint renderingInfo) (unwrap p1.startsAt) (p1bar renderingInfo) (unwrap rateInfo.beats)
+                | rateInfo.beats < p1.startsAt = calcSlope (unwrap p1.startsAt) (p1bar renderingInfo) (unwrap p2.startsAt) (p2bar renderingInfo) (unwrap rateInfo.beats)
                 | rateInfo.beats < p2.startsAt = calcSlope (unwrap p1.startsAt) (p1bar renderingInfo) (unwrap p2.startsAt) (p2bar renderingInfo) (unwrap rateInfo.beats)
                 | rateInfo.beats < p3.startsAt = calcSlope (unwrap p2.startsAt) (p2bar renderingInfo) (unwrap p3.startsAt) (p3bar renderingInfo) (unwrap rateInfo.beats)
                 | rateInfo.beats < p4.startsAt = calcSlope (unwrap p3.startsAt) (p3bar renderingInfo) (unwrap p4.startsAt) (p4bar renderingInfo) (unwrap rateInfo.beats)
@@ -273,7 +273,6 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
   p2bar ri = touchPointZ ri Position2
   p3bar ri = touchPointZ ri Position3
   p4bar ri = touchPointZ ri Position4
-  appearancePoint ri = entryZ ri
   ratioEvent = map (\{ iw, ih } -> { iw, ih, r: iw / ih }) (pure makeBasic.initialDims <|> makeBasic.resizeEvent)
   shrinkRate = 3.0
   basicYThickness = Visual.Constants.basicYThickness

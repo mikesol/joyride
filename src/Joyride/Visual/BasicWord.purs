@@ -15,7 +15,6 @@ import Data.Number (pi)
 import Data.Time.Duration (Milliseconds(..))
 import Data.Tuple (fst, snd)
 import Data.Tuple.Nested (type (/\), (/\))
-import Deku.Attribute ((:=))
 import Deku.Attributes (klass_)
 import Deku.Control (text)
 import Deku.Core (ANut(..))
@@ -32,7 +31,7 @@ import Rito.Matrix4 (Matrix4')
 import Rito.Properties as P
 import Safe.Coerce (coerce)
 import Type.Proxy (Proxy(..))
-import Types (Beats, JMilliseconds(..), MakeBasicWord, Position(..), RateInfo, RenderingInfo, entryZ, normalizedColumn, touchPointZ)
+import Types (Beats, JMilliseconds(..), MakeBasicWord, Position(..), RateInfo, RenderingInfo, normalizedColumn, touchPointZ)
 
 basicWord
   :: forall r lock payload
@@ -76,7 +75,7 @@ basicWord makeBasic = do
        } -> do
         let
           o
-            | rateInfo.beats < p1.startsAt = index (Proxy :: _ 0) makeBasic.text /\ calcSlope (unwrap makeBasic.myInfo.appearsAt) (appearancePoint renderingInfo) (unwrap p1.startsAt) (p1bar renderingInfo) (unwrap rateInfo.beats)
+            -- | rateInfo.beats < p1.startsAt = index (Proxy :: _ 0) makeBasic.text /\ calcSlope (unwrap makeBasic.myInfo.appearsAt) (appearancePoint renderingInfo) (unwrap p1.startsAt) (p1bar renderingInfo) (unwrap rateInfo.beats)
             | rateInfo.beats < p2.startsAt = index (Proxy :: _ 1) makeBasic.text /\ calcSlope (unwrap p1.startsAt) (p1bar renderingInfo) (unwrap p2.startsAt) (p2bar renderingInfo) (unwrap rateInfo.beats)
             | rateInfo.beats < p3.startsAt = index (Proxy :: _ 2) makeBasic.text /\ calcSlope (unwrap p2.startsAt) (p2bar renderingInfo) (unwrap p3.startsAt) (p3bar renderingInfo) (unwrap rateInfo.beats)
             | rateInfo.beats < p4.startsAt = index (Proxy :: _ 3) makeBasic.text /\ calcSlope (unwrap p3.startsAt) (p3bar renderingInfo) (unwrap p4.startsAt) (p4bar renderingInfo) (unwrap rateInfo.beats)
@@ -135,6 +134,6 @@ basicWord makeBasic = do
   p2bar ri = touchPointZ ri Position2
   p3bar ri = touchPointZ ri Position3
   p4bar ri = touchPointZ ri Position4
-  appearancePoint ri = entryZ ri
+  -- appearancePoint ri = entryZ ri
   ratioEvent = map (\{ iw, ih } -> { iw, ih, r: iw / ih }) (pure makeBasic.initialDims <|> makeBasic.resizeEvent)
   basicZThickness = 0.2

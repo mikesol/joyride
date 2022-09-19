@@ -84,6 +84,7 @@ import Web.HTML.Window (alert)
 
 buttonClassWithMarginAndAutoPointerEvents :: String
 buttonClassWithMarginAndAutoPointerEvents = buttonCls <> " mx-2 pointer-events-auto"
+
 smplCls :: forall elt. Attr elt Class String => String -> Event (Attribute elt)
 smplCls s = oneOf [ klass_ s ]
 

@@ -1,6 +1,5 @@
 module Types
   ( Player(..)
-  , entryZ
   , Shaders
   , Shader
   , GalaxyAttributes
@@ -337,9 +336,6 @@ touchPointZ { barZSpacing } = go
   go Position2 = -2.0 * barZSpacing
   go Position3 = -1.0 * barZSpacing
   go Position4 = 0.0
-
-entryZ :: RenderingInfo -> Number
-entryZ { barZSpacing } = -5.0 * barZSpacing
 
 type PlayerPositions =
   { p1x :: Number
