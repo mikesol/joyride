@@ -10,6 +10,9 @@ barZThickness = 0.01 :: Number
 barYThickness = 0.01 :: Number
 barXWidth = 10.0 :: Number
 
+spaceshipScale = 0.02 :: Number
+tarantulaScale = 4.0 :: Number
+
 bar1Color :: RGB
 bar1Color = RGB 0.2196078431372549 0.8431372549019608 0.9058823529411765
 

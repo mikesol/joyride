@@ -18,6 +18,7 @@ import Effect (Effect)
 import FRP.Behavior (Behavior, sampleBy)
 import FRP.Event (Event, EventIO, keepLatest, mailboxed, mapAccum)
 import FRP.Event.VBus (V)
+import Joyride.Constants.Visual (tarantulaScale)
 import Joyride.Effect.Lowpass (lpf)
 import Joyride.FRP.BusT (vbust)
 import Joyride.FRP.Dedup (dedup)
@@ -151,7 +152,7 @@ runThree opts = do
             ( filter (_ /= opts.myPlayer) (toArray allPlayers) <#> \player -> do
                 let ppos = playerPosition player
                 let posAx axis = map (ppos axis) mopts.playerPositions
-                toGroup $ GLTF.scene (unwrap opts.models).spaceship
+                toGroup $ GLTF.scene (unwrap opts.models).tarantula
                   ( oneOf
                       [ (positionX <<< add n) <$> tameXAxis (isNotMe player opts.myPlayer) (posAx AxisX)
                       , positionY <$> (sampleBy (\{ sphereOffsetY } py -> sphereOffsetY + py) opts.renderingInfo (posAx AxisY))
@@ -162,15 +163,16 @@ runThree opts = do
                               Player3 -> -2.0
                               Player4 -> -1.0
                           )
-                      , positionZ <$> posAx AxisZ
-                      , pure $ scaleX 0.02
-                      , pure $ scaleY 0.02
-                      , pure $ scaleZ 0.02
-                      , case player of
-                          Player1 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: sin (unwrap rate.time * pi * 0.1) * pi * 0.02, y: sin (unwrap rate.time * pi * 0.09) * pi * -0.03, z: cos (unwrap rate.time * pi * 0.07) * pi * 0.04 })
-                          Player3 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: cos (unwrap rate.time * pi * 0.06) * pi * 0.02, y: sin (unwrap rate.time * pi * 0.11) * pi * 0.01, z: cos (unwrap rate.time * pi * 0.03) * pi * -0.03 })
-                          Player2 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: sin (unwrap rate.time * pi * 0.02) * pi * -0.05, y: cos (unwrap rate.time * pi * 0.12) * pi * -0.02, z: sin (unwrap rate.time * pi * -0.08) * pi * 0.08 })
-                          Player4 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: cos (unwrap rate.time * pi * 0.01) * pi * 0.04, y: cos (unwrap rate.time * pi * 0.03) * pi * -0.06, z: sin (unwrap rate.time * pi * 0.02) * pi * -0.09 })
+                      , (positionZ <<< add 0.1) <$> posAx AxisZ
+                      , pure $ scaleX tarantulaScale
+                      , pure $ scaleY tarantulaScale
+                      , pure $ scaleZ tarantulaScale
+                      , pure $ P.rotationFromEuler (euler opts.threeDI.euler { x: 0.0, y: pi, z:0.0 })
+                      -- , case player of
+                      --     Player1 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: sin (unwrap rate.time * pi * 0.1) * pi * 0.02, y: sin (unwrap rate.time * pi * 0.09) * pi * -0.03, z: cos (unwrap rate.time * pi * 0.07) * pi * 0.04 })
+                      --     Player3 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: cos (unwrap rate.time * pi * 0.06) * pi * 0.02, y: sin (unwrap rate.time * pi * 0.11) * pi * 0.01, z: cos (unwrap rate.time * pi * 0.03) * pi * -0.03 })
+                      --     Player2 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: sin (unwrap rate.time * pi * 0.02) * pi * -0.05, y: cos (unwrap rate.time * pi * 0.12) * pi * -0.02, z: sin (unwrap rate.time * pi * -0.08) * pi * 0.08 })
+                      --     Player4 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: cos (unwrap rate.time * pi * 0.01) * pi * 0.04, y: cos (unwrap rate.time * pi * 0.03) * pi * -0.06, z: sin (unwrap rate.time * pi * 0.02) * pi * -0.09 })
                       ]
                   )
                   []

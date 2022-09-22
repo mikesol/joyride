@@ -1158,7 +1158,7 @@ derive instance Generic ChannelChooser _
 instance Show ChannelChooser where
   show = genericShow
 
-newtype Models s = Models { spaceship :: s }
+newtype Models s = Models { spaceship :: s, tarantula :: s }
 
 derive instance Newtype (Models s) _
 
