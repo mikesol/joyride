@@ -2,7 +2,6 @@ module Joyride.App.Tutorial where
 
 import Prelude
 
-import Bolson.Control (switcher)
 import Control.Alt ((<|>))
 import Control.Monad.Except (runExcept, throwError)
 import Control.Plus (empty)
@@ -23,8 +22,8 @@ import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..), fst, snd)
 import Deku.Attribute ((:=))
 import Deku.Attributes (klass_)
-import Deku.Control (blank, envy_, text_)
-import Deku.Core (Domable, Nut, bussed, vbussed)
+import Deku.Control (blank, switcher, text_)
+import Deku.Core (Domable, envy, Nut, bussed, vbussed)
 import Deku.DOM as D
 import Effect (Effect, foreachE)
 import Effect.Aff (delay, launchAff_)
@@ -35,7 +34,6 @@ import Effect.Timer (clearInterval, setInterval)
 import FRP.Behavior (Behavior, sampleBy)
 import FRP.Event (Event, EventIO, filterMap, hot, memoize, subscribe)
 import FRP.Event.AnimationFrame (animationFrame)
-import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V)
 import Foreign.Object as Object
 import Joyride.App.RequestIdleCallbackIsDefined (requestIdleCallbackIsDefined)
@@ -254,9 +252,9 @@ tutorial
                   optMeIn t
             tutorialCenterMatter (pure (maybe Intro Preview tscore.isPreviewPage) <|> event.tutorialCenterState) push.tutorialCenterState { startCallback }
         -- todo: use Deku.do
-        envy_ D.div $ memoize
+        envy $ memoize
           ( makeAnimatedStuff
-              ( biSampleOn
+              ( (event.rateInfo <#> \ri { startTime, myTime } -> adjustRateInfoBasedOnActualStart myTime startTime ri) <*>
                   ( fireAndForget
                       ( playerStatus # filterMap
                           \m -> { startTime: _, myTime: _ } <$> allAreReady m <*>
@@ -270,7 +268,6 @@ tutorial
                               )
                       )
                   )
-                  (event.rateInfo <#> \ri { startTime, myTime } -> adjustRateInfoBasedOnActualStart myTime startTime ri)
               )
           )
           \animatedStuff -> D.div_
@@ -280,7 +277,7 @@ tutorial
                 [ D.div (klass_ "row-start-1 row-end-3 col-start-1 col-end-3")
 
                     [ D.div (klass_ "mx-2 mt-2 ")
-                        [ (biSampleOn ((initializeWithEmpty event.iAmReady)) (map Tuple playerStatus))
+                        [ ((map Tuple playerStatus) <*> ((initializeWithEmpty event.iAmReady)) )
                             -- we theoretically don't need to dedup because
                             -- the button should never redraw once we've started
                             -- if there's flicker, dedup
@@ -288,7 +285,7 @@ tutorial
                                 Nothing -> makeJoined myPlayer oi
                                 Just (Unsubscribe _) -> makePoints myPlayer oi
                         ]
-                    , envy_ D.div
+                    , envy
                         ( map stopButton
                             ( ( map
                                   ( \(Unsubscribe u) -> u *> tli.goHome

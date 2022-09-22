@@ -62,12 +62,12 @@ longLabels mbl = dyn
                       ]
                   )
                   ( mapAccum
-                      ( \a b -> case b of
+                      ( \b a -> case b of
                           Nothing -> Tuple (Just a) a
                           Just i -> Tuple (Just i) (a { z = i.z })
                       )
-                      e.translation
                       Nothing
+                      e.translation
                   )
               )
           )

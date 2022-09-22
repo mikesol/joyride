@@ -13,7 +13,7 @@ dedup = dedup' eq
 dedup' :: forall a. (a -> a -> Boolean) -> Event a -> Event a
 dedup' eqq e = compact $
   mapAccum
-    ( \a b ->
+    ( \b a ->
         let
           ja = Just a
         in
@@ -25,5 +25,5 @@ dedup' eqq e = compact $
                   | otherwise -> Just a
             )
     )
-    e
     Nothing
+    e

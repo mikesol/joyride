@@ -18,7 +18,7 @@ import Effect.Aff (joinFiber, launchAff, launchAff_)
 import Effect.Aff.AVar as AVar
 import Effect.Class (liftEffect)
 import FRP.Behavior (sampleBy, sample_)
-import FRP.Event (Event, keepLatest, mapAccum, memoize, sampleOn)
+import FRP.Event (Event, keepLatest, mapAccum, memoize, sampleOnRight)
 import FRP.Event.Time as LocalTime
 import FRP.Event.VBus (V, vbus)
 import Joyride.Constants.Visual as Visual.Constants
@@ -60,8 +60,8 @@ long makeLong = keepLatest $ vbus (Proxy :: _ LongActions) \push event -> do
     rateInfoOnAtTouch = keepLatest (fireAndForget played $> animatedStuff.rateInfo)
     rateInfoOffAtTouch = keepLatest (fireAndForget released $> animatedStuff.rateInfo)
     forRendering = sampleBy (#) makeLong.renderingInfo
-      ( sampleOn (pure Nothing <|> (released $> Nothing) <|> sample_ ((coerce :: Milliseconds -> Number) >>> Just <$> cInstant makeLong.cnow) played)
-          ( sampleOn ratioEvent
+      ( sampleOnRight (pure Nothing <|> (released $> Nothing) <|> sample_ ((coerce :: Milliseconds -> Number) >>> Just <$> cInstant makeLong.cnow) played)
+          ( sampleOnRight ratioEvent
               ( map
                   { animatedStuff: _
                   , ratio: _
@@ -74,7 +74,7 @@ long makeLong = keepLatest $ vbus (Proxy :: _ LongActions) \push event -> do
           )
       )
     newForRendering = mapAccum
-      ( \fr { prevZ, consumedByPress } ->
+      ( \{ prevZ, consumedByPress } fr ->
 
           let
             logicalZ = calcSlope (unwrap makeLong.hitsFirstPositionAt) (p1bar fr.renderingInfo) (unwrap makeLong.hitsLastPositionAt) (p4bar fr.renderingInfo) (unwrap fr.animatedStuff.rateInfo.beats)
@@ -84,8 +84,8 @@ long makeLong = keepLatest $ vbus (Proxy :: _ LongActions) \push event -> do
           in
             { prevZ: Just logicalZ, consumedByPress: newConsumed } /\ union fr { logicalZ, prevZ, consumedByPress: newConsumed }
       )
-      forRendering
       { prevZ: Nothing, consumedByPress: 0.0 }
+      forRendering
     drawingMatrix' = newForRendering <#>
       \fr@
          { ratio

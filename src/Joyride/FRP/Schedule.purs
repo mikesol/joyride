@@ -24,13 +24,13 @@ oneOff
   -> Event b
 oneOff f e = compact $ emitUntil identity
   ( mapAccum
-      ( \a b -> case f a, b of
+      ( \b a -> case f a, b of
           _, true -> true /\ Nothing
           Nothing, false -> false /\ Just Nothing
           Just x, false -> true /\ Just (Just x)
       )
-      e
       false
+      e
   )
 
 emitUntil

@@ -180,14 +180,14 @@ runThree opts = do
               [ toScene $ group { group: opts.threeDI.group }
                   ( keepLatest $
                       ( mapAccum
-                          ( \a b -> case b of
+                          ( \b a -> case b of
                               Nothing -> Just a /\ 0.0
                               Just x -> Just a /\ (a - x)
                           )
+                          Nothing
                           ( map (_.rateInfo.epochTime >>> unwrap >>> (_ / 1000.0))
                               opts.animatedStuff
                           )
-                          Nothing
                       ) <#> \t ->
                         let
                           fac = t / 1000.0
@@ -346,14 +346,14 @@ runThree opts = do
               [ toScene $ group { group: opts.threeDI.group }
                   ( keepLatest $
                       ( mapAccum
-                          ( \a b -> case b of
+                          ( \b a -> case b of
                               Nothing -> Just a /\ 0.0
                               Just x -> Just a /\ (a - x)
                           )
+                          Nothing
                           ( map (_.rateInfo.epochTime >>> unwrap >>> (_ / 1000.0))
                               opts.animatedStuff
                           )
-                          Nothing
                       ) <#> \t ->
                         let
                           fac = t / 1000.0
@@ -484,6 +484,6 @@ runThree opts = do
   tipping = 120
 
   tameXAxis :: Boolean -> Event Number -> Event Number
-  tameXAxis false = \i -> mapAccum (\(v /\ ps) c -> if ps then ((c + 1) /\ if c > tipping then v else (v * (toNumber c) / (toNumber tipping))) else 0 /\ 0.0) (Tuple <$> i <*> (pure false <|> opts.pressedStart)) 0
+  tameXAxis false = \i -> mapAccum (\c (v /\ ps) -> if ps then ((c + 1) /\ if c > tipping then v else (v * (toNumber c) / (toNumber tipping))) else 0 /\ 0.0) 0 (Tuple <$> i <*> (pure false <|> opts.pressedStart))
   tameXAxis true = lpf lowpassFactor
   lowpassFactor = 0.65

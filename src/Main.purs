@@ -354,7 +354,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
             -- to prevent this, we filter out all duplicate routes
             ( filter (\(_ /\ old /\ new) -> old /= Just new)
                 ( mapAccum
-                    ( \{ rev: old /\ new, orev, sinon } fsm -> do
+                    ( \fsm { rev: old /\ new, orev, sinon } -> do
                         let
                           newFsmState = case orev of
                             Just true -> SuccessfulOrientationPermission
@@ -363,8 +363,8 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                         let nfsm = fsm { orientationPermission = newFsmState, signedInNonAnon = sinon }
                         nfsm /\ (nfsm /\ old /\ new)
                     )
-                    ({ rev: _, orev: _, sinon: _ } <$> routeE.event <*> (pure Nothing <|> map Just orientationPerm.event) <*> signedInNonAnonymously.event)
                     { orientationPermission: UnknownOrientationPermission, signedInNonAnon: false }
+                    ({ rev: _, orev: _, sinon: _ } <$> routeE.event <*> (pure Nothing <|> map Just orientationPerm.event) <*> signedInNonAnonymously.event)
                 )
             )
             (routyMcRouteRoute)
