@@ -20,7 +20,7 @@ import Deku.Control (text)
 import Deku.Core (ANut(..))
 import Deku.DOM as D
 import FRP.Behavior (sampleBy, sample_)
-import FRP.Event (Event, memoize, sampleOn)
+import FRP.Event (Event, memoize, sampleOnRight)
 import Joyride.FRP.Dedup (dedup)
 import Joyride.FRP.Schedule (fireAndForget)
 import Joyride.Timing.CoordinatedNow (cInstant)
@@ -53,8 +53,8 @@ basicWord makeBasic = do
            , renderingInfo :: RenderingInfo
            }
     forRendering = sampleBy (#) makeBasic.renderingInfo
-      ( sampleOn (pure Nothing <|> fireAndForget (sample_ (coerce >>> Just <$> cInstant makeBasic.cnow) played))
-          ( sampleOn ratioEvent
+      ( sampleOnRight (pure Nothing <|> fireAndForget (sample_ (coerce >>> Just <$> cInstant makeBasic.cnow) played))
+          ( sampleOnRight ratioEvent
               ( map
                   { rateInfo: _
                   , ratio: _

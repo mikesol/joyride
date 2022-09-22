@@ -11,7 +11,7 @@ import Data.Profunctor (dimap)
 import Effect (Effect)
 import Effect.Console (log)
 import FRP.Behavior (Behavior, sampleBy)
-import FRP.Event (Event, sampleOn)
+import FRP.Event (Event, sampleOnRight)
 import Joyride.FRP.Schedule (fireAndForget)
 import Rito.Color (Color, RGB(..))
 import Rito.Core (ASceneful, toScene)
@@ -88,7 +88,7 @@ makeRaycastableLane input = toScene $ mesh { mesh: input.threeDI.mesh } (box { b
   ratioEvent = map (\{ iw, ih } -> { iw, ih, r: iw / ih }) (pure input.initialDims <|> input.resizeEvent)
   rateInfo = input.rateInfo
   forRendering = sampleBy (#) input.renderingInfo
-    ( sampleOn ratioEvent
+    ( sampleOnRight ratioEvent
         ( map
             { rateInfo: _
             , ratio: _

@@ -84,12 +84,12 @@ threeLoader opts = do
                 [ toScene $ group { group: opts.threeDI.group }
                     ( keepLatest $
                         ( mapAccum
-                            ( \a b -> case b of
+                            ( \b a -> case b of
                                 Nothing -> Just a /\ 0.0
                                 Just x -> Just a /\ (a - x)
                             )
-                            (map (unwrap >>> (_ / 1000.0)) animationTime)
                             Nothing
+                            (map (unwrap >>> (_ / 1000.0)) animationTime)
                         ) <#> \t ->
                           let
                             fac = t / 1000.0

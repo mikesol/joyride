@@ -7,9 +7,9 @@ import Data.Tuple.Nested ((/\))
 import FRP.Event (Event, mapAccum)
 
 lpf :: Number -> Event Number -> Event Number
-lpf lowpassFactor = flip
+lpf lowpassFactor =
   ( mapAccum
-      ( \a b -> Just a /\ case b of
+      ( \b a -> Just a /\ case b of
           Nothing -> a
           Just x -> (x * lowpassFactor) + (a * (1.0 - lowpassFactor))
       )

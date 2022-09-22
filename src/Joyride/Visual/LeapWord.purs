@@ -14,7 +14,7 @@ import Deku.Control (text_)
 import Deku.Core (ANut(..))
 import Deku.DOM as D
 import FRP.Behavior (sampleBy, sample_)
-import FRP.Event (memoize, sampleOn)
+import FRP.Event (memoize, sampleOnRight)
 import Joyride.FRP.Schedule (fireAndForget)
 import Joyride.Timing.CoordinatedNow (cInstant)
 import Ocarina.Math (calcSlope)
@@ -32,8 +32,8 @@ leapWord makeLeap = do
   let
     played = makeLeap.someonePlayedMe
     forRendering = sampleBy (#) makeLeap.renderingInfo
-      ( sampleOn (pure Nothing <|> fireAndForget (sample_ ((coerce :: Milliseconds -> JMilliseconds) >>> Just <$> cInstant makeLeap.cnow) played))
-          ( sampleOn ratioEvent
+      ( sampleOnRight (pure Nothing <|> fireAndForget (sample_ ((coerce :: Milliseconds -> JMilliseconds) >>> Just <$> cInstant makeLeap.cnow) played))
+          ( sampleOnRight ratioEvent
               ( map
                   { rateInfo: _
                   , ratio: _

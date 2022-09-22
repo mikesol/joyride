@@ -13,7 +13,7 @@ import Data.Tuple (Tuple(..))
 import Data.Tuple.Nested ((/\))
 import Deku.Attribute ((:=))
 import Deku.Attributes (klass_)
-import Deku.Control (switcher, switcher_, text, text_)
+import Deku.Control (switcher, text, text_)
 import Deku.Core (Nut)
 import Deku.DOM as D
 import Deku.Do (useState')
@@ -101,7 +101,7 @@ settings
   D.div (oneOf [ pure $ D.Class := "h-screen w-screen overflow-x-auto bg-zinc-900 absolute" ])
     [ D.div (oneOf [ pure $ D.Class := "text-center" ])
         [ D.h2 (klass_ (headerCls <> " p-6")) [ text_ "Settings" ]
-        , ((Tuple <$> signedInNonAnonymously <*> (pure Nothing <|> map Just profileEvent)) <#> \(l /\ r) -> if l then maybe SignedInButHasNotSetProfile (const SignedInAndHasSetProfile) r else NotSignedIn) # switcher D.div (oneOf []) case _ of
+        , ((Tuple <$> signedInNonAnonymously <*> (pure Nothing <|> map Just profileEvent)) <#> \(l /\ r) -> if l then maybe SignedInButHasNotSetProfile (const SignedInAndHasSetProfile) r else NotSignedIn) # switcher case _ of
             NotSignedIn -> D.ul (pure $ D.Class := "")
               [ speedSlider ]
             SignedInButHasNotSetProfile -> D.ul (pure $ D.Class := "")
@@ -138,7 +138,7 @@ settings
                                 [ pure Nothing
                                 , map (\(ProfileV0 p) -> Just p.avatarURL) profileEvent
                                 ]
-                            ) # switcher_ D.div case _ of
+                            ) # switcher case _ of
                             Nothing -> imageUploader "Upload image"
                             Just img' -> case img' of
                               Nothing -> imageUploader "Upload image"

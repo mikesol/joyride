@@ -15,7 +15,7 @@ import Data.Time.Duration (Milliseconds(..))
 import Effect.Aff (launchAff_)
 import Effect.Class (liftEffect)
 import FRP.Behavior (sampleBy, sample_)
-import FRP.Event (Event, bus, keepLatest, memoize, sampleOn)
+import FRP.Event (Event, bus, keepLatest, memoize, sampleOnRight)
 import FRP.Event.Time as LocalTime
 import Joyride.Constants.Timing (negativeTimeAftereWhichWeGiveThisPersonTheBenefitOfTheDoubtAndDoNotAssessAPenalty, timeBeforeWhichWeGiveThisPersonTheBenefitOfTheDoubtAndDoNotAssessAPenalty)
 import Joyride.Constants.Visual as Visual.Constants
@@ -57,7 +57,7 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
     -- when a tile-touch happens, we start emitting rate info to the audio engine
     rateInfoAtTouchForAudio :: Event RateInfo
     rateInfoAtTouchForAudio = compact
-      ( sampleOn (pure Nothing <|> (map Just played))
+      ( sampleOnRight (pure Nothing <|> (map Just played))
           ( animatedStuff.rateInfo <#> \ri p -> case p of
               -- only emit the rate info if the beat has not been touched
               -- or it has been touched a bit early
@@ -77,8 +77,8 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
            , renderingInfo :: RenderingInfo
            }
     forRendering = sampleBy (#) makeBasic.renderingInfo
-      ( sampleOn (pure Nothing <|> fireAndForget (sample_ (coerce >>> Just <$> cInstant makeBasic.cnow) played))
-          ( sampleOn ratioEvent
+      ( sampleOnRight (pure Nothing <|> fireAndForget (sample_ (coerce >>> Just <$> cInstant makeBasic.cnow) played))
+          ( sampleOnRight ratioEvent
               ( map
                   { rateInfo: _
                   , ratio: _
@@ -158,7 +158,7 @@ basic makeBasic = keepLatest $ bus \setPlayed iWasPlayed -> do
                   -- as we are resubscribing to the animation loop for the sampling (this already happens in for rendering)
                   -- keep an eye on this, refactor if needed
                   { event: compact
-                      ( sampleOn
+                      ( sampleOnRight
                           ( { iWasPlayed: _
                             , hbop: _
                             } <$> (pure Nothing <|> map Just iWasPlayed)

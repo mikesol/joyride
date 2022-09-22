@@ -2,11 +2,9 @@ module Joyride.App.Editor where
 
 import Prelude
 
-import Bolson.Control (switcher)
-import Bolson.Core (envy, dyn)
+import Bolson.Core (envy)
 import Control.Alt ((<|>))
 import Control.Parallel (parTraverse, parTraverse_)
-import Control.Plus (empty)
 import Control.Promise (toAffE)
 import Data.Array (intercalate, length, sortBy, (!!), (..))
 import Data.Array as Array
@@ -28,8 +26,8 @@ import Data.Tuple (Tuple(..), fst, snd)
 import Data.Tuple.Nested ((/\), type (/\))
 import Deku.Attribute (class Attr, Attribute, cb, xdata, (:=))
 import Deku.Attributes (klass_)
-import Deku.Control (text, text_)
-import Deku.Core (Domable, insert_, remove, vbussedUncurried)
+import Deku.Control (blank, switcher, text, text_)
+import Deku.Core (Domable(..), dyn, insert_, remove, vbussedUncurried)
 import Deku.DOM (Class)
 import Deku.DOM as D
 import Deku.Listeners (click, slider)
@@ -40,8 +38,7 @@ import Effect.Console (log)
 import Effect.Random (randomInt)
 import Effect.Ref as Ref
 import FRP.Behavior (sample)
-import FRP.Event (Event, fold, folded, keepLatest, mailboxed, mapAccum, memoize, sampleOn)
-import FRP.Event.Class (biSampleOn)
+import FRP.Event (Event, fold, folded, keepLatest, mailboxed, mapAccum, memoize, sampleOnRight)
 import FRP.Event.VBus (V, vbus)
 import Foreign.Object as Object
 import JSURI (encodeURIComponent)
@@ -88,7 +85,10 @@ buttonClassWithMarginAndAutoPointerEvents = buttonCls <> " mx-2 pointer-events-a
 smplCls :: forall elt. Attr elt Class String => String -> Event (Attribute elt)
 smplCls s = oneOf [ klass_ s ]
 
-infixr 4 sampleOn as 🙂
+biSampleOn :: forall f59 a60 b61. Apply f59 => f59 a60 -> f59 (a60 -> b61) -> f59 b61
+biSampleOn a fab = fab <*> a
+
+infixr 4 sampleOnRight as 🙂
 infixr 4 biSampleOn as 😄
 infixr 4 sample as 😝
 
@@ -368,15 +368,17 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
               )
           in
             fold
-              ( \a (t /\ e) -> case a of
+              ( \(t /\ e) a -> case a of
                   Left ae -> t /\ ae e
                   Right at -> (at t) /\ e
               )
-              (Left <$> (event.atomicEventOperation) <|> (Right <$> (pure (aChangeTitle (Just initialTitle)) <|> event.atomicTrackOperation)))
               pureor
+              (Left <$> (event.atomicEventOperation) <|> (Right <$> (pure (aChangeTitle (Just initialTitle)) <|> event.atomicTrackOperation)))
       )
-  let nextAttributableColumn = map snd $ fold (\_ (b /\ c) -> if b && c >= 10 then false /\ 9 else if not b && c <= 4 then true /\ 5 else (b /\ ((if b then add else sub) c 1))) (pure unit) (true /\ 7)
-  mostRecentData <- envy <<< memoBeh mostRecentData'
+  let nextAttributableColumn = map snd $ fold (\(b /\ c) _ -> if b && c >= 10 then false /\ 9 else if not b && c <= 4 then true /\ 5 else (b /\ ((if b then add else sub) c 1)))  (true /\ 7) (pure unit)
+  -- todo: use the new primitives so that you don't have to do this
+  -- wrap/unwrap
+  mostRecentData <- Domable <<< envy <<< memoBeh mostRecentData'
     ( TrackV0
         { title: Nothing
         , url: ""
@@ -426,14 +428,14 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
           ( toRide
               { event: event.waveSurfer 🙂
                   ( Tuple <$> mapAccum
-                      ( case _ of
-                          Solo x -> \s -> let o = Set.insert x s in o /\ Left o
-                          UnSolo x -> \s -> let o = Set.delete x s in o /\ Left o
-                          Mute x -> \s -> s /\ Right (Right x)
-                          UnMute x -> \s -> s /\ Right (Left x)
+                      (\s -> case _ of
+                          Solo x -> let o = Set.insert x s in o /\ Left o
+                          UnSolo x -> let o = Set.delete x s in o /\ Left o
+                          Mute x -> s /\ Right (Right x)
+                          UnMute x -> s /\ Right (Left x)
                       )
-                      ((event.solo <#> Solo) <|> (event.mute <#> Mute) <|> (event.unSolo <#> UnSolo) <|> (event.unMute <#> UnMute))
                       Set.empty
+                      ((event.solo <#> Solo) <|> (event.mute <#> Mute) <|> (event.unSolo <#> UnSolo) <|> (event.unMute <#> UnMute))
                   )
               , push: \(a /\ ws) ->
                   ( case a of
@@ -517,22 +519,22 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
     store :: Event Landmark
     store =
       ( mapAccum
-          ( \a { id, startIx } -> case a of
+          ( \{ id, startIx } a -> case a of
               CBasic (ms /\ be) -> { id: id + 1, startIx: startIx + 4 } /\ defaultBasic id startIx ms be
               CLeap (ms /\ be) -> { id: id + 1, startIx: startIx + 2 } /\ defaultLeap id startIx ms be
               CLongPress (ms /\ be) -> { id: id + 1, startIx: startIx + 2 } /\ defaultLongPress id startIx ms be
           )
-          ctrlEvent
           { id: 0, startIx: 0 }
+          ctrlEvent
       )
     markerIndices = pure (0 /\ 0) <|> fold
-      ( \a (b /\ c) -> (b + 1) /\ case a of
+      ( \(b /\ c) a -> (b + 1) /\ case a of
           CBasic _ -> c + 4
           CLeap _ -> c + 2
           CLongPress _ -> c + 2
       )
-      ctrlEvent
       (0 /\ 0)
+      ctrlEvent
     top =
       [ D.button
           ( oneOf
@@ -724,7 +726,9 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
           )
           [ text_ "Save (sign in)" ]
       ]
-  D.div
+  -- todo: update this to use new primitives so that
+  -- there's no need to do wrapping/unwrapping through bolson
+  unwrap $ D.div
     (klass_ "absolute w-screen h-screen bg-zinc-900 overflow-hidden")
     [ D.div
         ( oneOf
@@ -844,8 +848,8 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                     (nextAttributableColumn 🙂 event.waveSurfer 🙂 ({ itm: _, ws: _, nac: _ } <$> store)) <#>
                       ( \{ itm, ws } -> keepLatest $ vbus (Proxy :: _ (V (SingleItem PlainOl))) \p' e' -> do
                           let
-                            muteState = fold (const not) e'.mute false <|> pure false
-                            soloState = fold (const not) e'.solo false <|> pure false
+                            muteState = fold (\a _ -> not a) false e'.mute <|> pure false
+                            soloState = fold (\a _ -> not a) false e'.solo <|> pure false
                             defaultLabel /\ prefix = case itm of
                               LBasic v -> fromMaybe ("Tile " <> show v.id) v.name /\ "♥"
                               LLeap v -> fromMaybe ("Leap " <> show v.id) v.name /\ "♠"
@@ -889,7 +893,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
                                           ]
                                       )
                                       [ D.span (oneOf [ klass_ "mr-2", pure $ D.Style := "color: " <> dC id <> ";" ]) [ text_ (prefix) ]
-                                      , D.span_ [ text label, text_ " (Column ", text (JSON.writeJSON <$> column), text_ ") ", text $ (pure times <|> fold (\{ offset, time } tmzz -> set (ix offset) time tmzz) (markerEvent id) times) <#> \tmz -> " (" <> intercalate "," (map (toStringWith (fixed 2)) tmz) <> ")" ]
+                                      , D.span_ [ text label, text_ " (Column ", text (JSON.writeJSON <$> column), text_ ") ", text $ (pure times <|> fold (\tmzz { offset, time } -> set (ix offset) time tmzz) times (markerEvent id)) <#> \tmz -> " (" <> intercalate "," (map (toStringWith (fixed 2)) tmz) <> ")" ]
                                       , D.span
                                           ( oneOf
                                               [ soloState <#> \st -> D.Class := ("text-white font-bold pl-2 " <> if st then "" else " hidden")
@@ -1243,7 +1247,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
               let TrackV0 tv0 = fst x.mrd
               -- let _ = spy "tv0 vals" (JSON.writeJSON { tv0, vals })
               case x.psv of
-                Nothing -> envy empty
+                Nothing -> blank
                 Just success -> tutorial
                   ( tli
                       { goHome = do

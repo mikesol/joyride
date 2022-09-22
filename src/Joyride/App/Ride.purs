@@ -2,8 +2,6 @@ module Joyride.App.Ride where
 
 import Prelude
 
-import Bolson.Control (switcher)
-import Bolson.Core (envy)
 import Control.Alt ((<|>))
 import Control.Monad.Except (runExcept, throwError)
 import Control.Plus (empty)
@@ -24,7 +22,7 @@ import Deku.Attribute (cb, (:=))
 import Deku.Attributes (klass_)
 import Deku.Control (text_)
 import Deku.Control as DC
-import Deku.Core (Domable, Nut, vbussed)
+import Deku.Core (Domable, Nut, envy, vbussed)
 import Deku.DOM as D
 import Deku.Listeners (click)
 import Effect (Effect, foreachE)
@@ -37,7 +35,6 @@ import Effect.Timer (clearInterval, setInterval)
 import FRP.Behavior (Behavior, sampleBy)
 import FRP.Event (Event, EventIO, filterMap, hot, memoize, subscribe)
 import FRP.Event.AnimationFrame (animationFrame)
-import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V)
 import Foreign.Object as Object
 import Joyride.App.Clipboard (writeTextAff)
@@ -279,7 +276,7 @@ ride
                   changeText = pure Nothing <|> (Just <$> nEvent.changeText)
                   ___ = 0
                 in
-                  requestName # switcher case _ of
+                  requestName # DC.switcher case _ of
                     true -> D.div (klass_ "mb-4 select-auto")
                       [ D.input
                           ( oneOfMap pure
@@ -323,7 +320,7 @@ ride
                                 [ text_ "👉🏽 📋 👈🏽" ]
                             , D.p_ [ text_ "You can send the link to up to 3 people. When everyone has joined, or if you're playing alone, press Start!" ]
                             ]
-                      , (pure locallyStoredPlayerNameInCaseThisIsAnAnonymousSession <|> fireAndForget (map (\(ProfileV0 p) -> Just p.username) profileEvent <|> pure Nothing)) # DC.switcher D.div (klass_ "flex w-full justify-center items-center") case _ of
+                      , D.div (klass_ "flex w-full justify-center items-center") [(pure locallyStoredPlayerNameInCaseThisIsAnAnonymousSession <|> fireAndForget (map (\(ProfileV0 p) -> Just p.username) profileEvent <|> pure Nothing)) # DC.switcher case _ of
                           Just _ ->
                             D.button
                               (callback (changeText))
@@ -347,11 +344,11 @@ ride
                                   )
                                   [ text_ "Start with name" ]
 
-                              ]
+                              ]]
                       ]
         envy $ memoize
           ( makeAnimatedStuff
-              ( biSampleOn
+              ( (event.rateInfo <#> \ri { startTime, myTime } -> adjustRateInfoBasedOnActualStart myTime startTime ri) <*>
                   ( fireAndForget
                       ( playerStatus # filterMap
                           \m -> { startTime: _, myTime: _ } <$> allAreReady m <*>
@@ -365,7 +362,6 @@ ride
                               )
                       )
                   )
-                  (event.rateInfo <#> \ri { startTime, myTime } -> adjustRateInfoBasedOnActualStart myTime startTime ri)
               )
           )
           \animatedStuff -> D.div_
@@ -375,11 +371,11 @@ ride
                 [ D.div (klass_ "row-start-1 row-end-2 col-start-1 col-end-4")
                     -- fromEvent because playerStatus is effectful
                     [ D.div (klass_ "mx-2 mt-2")
-                        [ (biSampleOn ((initializeWithEmpty event.iAmReady)) (map Tuple playerStatus))
+                        [ ((map Tuple playerStatus) <*> ((initializeWithEmpty event.iAmReady)))
                             -- we theoretically don't need to dedup because
                             -- the button should never redraw once we've started
                             -- if there's flicker, dedup
-                            # switcher \(Tuple oi usu) -> case usu of
+                            # DC.switcher \(Tuple oi usu) -> case usu of
                                 Nothing -> makeJoined myPlayer oi
                                 Just (Unsubscribe _) -> makePoints myPlayer oi
                         ]
@@ -409,7 +405,7 @@ ride
                     let
                       frame x = D.div (klass_ "z-10 pointer-events-auto absolute w-screen h-screen grid grid-rows-6 grid-cols-8 bg-zinc-900") [ D.div (klass_ "col-start-2 col-end-8 row-start-3 row-end-5 bg-zinc-900") [ x ] ]
                     in
-                      switcher case _ of
+                      DC.switcher case _ of
                         WaitingForMe -> frame (startButton animatedStuff)
                         WaitingForOthers -> frame (D.div (klass_ "text-center w-100") [ D.span (klass_ "text-lg text-white") [ text_ "Waiting for others to join" ] ])
                         Started _ -> envy empty

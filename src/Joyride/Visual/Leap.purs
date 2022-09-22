@@ -14,7 +14,7 @@ import Effect.Aff (launchAff_)
 import Effect.Class (liftEffect)
 import Effect.Console (log)
 import FRP.Behavior (sampleBy, sample_)
-import FRP.Event (Event, bus, keepLatest, memoize, sampleOn)
+import FRP.Event (Event, bus, keepLatest, memoize, sampleOnRight)
 import FRP.Event.Time as LocalTime
 import Joyride.Constants.Timing (negativeTimeAftereWhichWeGiveThisPersonTheBenefitOfTheDoubtAndDoNotAssessAPenalty, timeBeforeWhichWeGiveThisPersonTheBenefitOfTheDoubtAndDoNotAssessAPenalty)
 import Joyride.Constants.Visual as Visual.Constants
@@ -46,8 +46,8 @@ leap makeLeap = keepLatest $ bus \setPlayed iWasPlayed -> do
       <|> ((filter (\(HitLeapOtherPlayer { uniqueId }) -> makeLeap.uniqueId == uniqueId) otherPlayedMe) $> unit)
     rateInfoOnAtTouch = keepLatest (fireAndForget played $> animatedStuff.rateInfo)
     forRendering = sampleBy (#) makeLeap.renderingInfo
-      ( sampleOn (pure Nothing <|> fireAndForget (sample_ (coerce >>> Just <$> cInstant makeLeap.cnow) played))
-          ( sampleOn ratioEvent
+      ( sampleOnRight (pure Nothing <|> fireAndForget (sample_ (coerce >>> Just <$> cInstant makeLeap.cnow) played))
+          ( sampleOnRight ratioEvent
               ( map
                   { rateInfo: _
                   , ratio: _
@@ -121,7 +121,7 @@ leap makeLeap = keepLatest $ bus \setPlayed iWasPlayed -> do
                   -- as we are resubscribing to the animation loop for the sampling (this already happens in for rendering)
                   -- keep an eye on this, refactor if needed
                   { event: compact
-                      ( sampleOn
+                      ( sampleOnRight
                           ( { iWasPlayed: _
                             , hbop: _
                             } <$> (pure Nothing <|> map Just iWasPlayed)

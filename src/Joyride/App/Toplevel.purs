@@ -2,7 +2,6 @@ module Joyride.App.Toplevel where
 
 import Prelude
 
-import Bolson.Control (switcher)
 import Data.Array (sortBy)
 import Data.Function (on)
 import Debug (spy)
@@ -10,9 +9,9 @@ import Data.Maybe (Maybe(..))
 import Data.Number (pi)
 import Data.Time.Duration (Milliseconds)
 import Deku.Core (Domable)
+import Deku.Control (switcher)
 import Effect (Effect)
 import FRP.Event (Event, filterMap)
-import FRP.Event.Class (biSampleOn)
 import FRP.Event.VBus (V)
 import Joyride.App.Editor (editorPage)
 import Joyride.App.Explainer (explainerPage)
@@ -132,11 +131,11 @@ toplevel tli =
                 true, WantsTutorial s -> TLWantsTutorial s
                 true, OpenEditor s -> TLOpenEditor s
           )
-          ( biSampleOn
-              (startingWith PageLoad $ tli.negotiation)
-              ( map { loaded: _, negotiation: _ }
+          (    { loaded: _, negotiation: _ } <$>
                   (startingWith false $ tli.loaded)
-              )
+               <*>
+              (startingWith PageLoad $ tli.negotiation)
+             
           )
       )
   ) # switcher case _ of
