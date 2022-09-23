@@ -425,6 +425,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
               { scene: THREE.sceneAff
               , vector2: THREE.vector2Aff
               , vector3: THREE.vector3Aff
+              , meshBasicMaterial: THREE.meshBasicMaterialAff
               , meshStandardMaterial: THREE.meshStandardMaterialAff
               , bufferGeometry: THREE.bufferGeometryAff
               , points: THREE.pointsAff

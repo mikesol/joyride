@@ -30,6 +30,7 @@ import Record (union)
 import Rito.Color (RGB(..))
 import Rito.Core (ASceneful, Instance, toScene)
 import Rito.Geometries.Box (box)
+import Rito.Materials.MeshBasicMaterial (meshBasicMaterial)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.RoundRobin (InstanceId, Semaphore(..), roundRobinInstancedMesh)
 import Safe.Coerce (coerce)
@@ -69,10 +70,9 @@ data IO = I | O
 rideLongs :: forall lock payload. Array AugmentedLongEventV0' -> { | MakeLongs () } -> ASceneful lock payload
 rideLongs levs makeLongs = toScene
   ( roundRobinInstancedMesh { instancedMesh: makeLongs.threeDI.instancedMesh, mesh: makeLongs.threeDI.mesh, matrix4: makeLongs.threeDI.matrix4 } 100 (box { box: makeLongs.threeDI.boxGeometry })
-      ( meshStandardMaterial
-          { meshStandardMaterial: makeLongs.threeDI.meshStandardMaterial
+      ( meshBasicMaterial
+          { meshBasicMaterial: makeLongs.threeDI.meshBasicMaterial
           , color: makeLongs.mkColor (RGB 0.49 0.83 0.45)
-          , roughness: 0.1
           }
           empty
       )

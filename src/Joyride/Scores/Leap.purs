@@ -33,6 +33,7 @@ import Record (union)
 import Rito.Color (RGB)
 import Rito.Core (Instance, ASceneful, toScene)
 import Rito.Geometries.Cylinder (cylinder)
+import Rito.Materials.MeshBasicMaterial (meshBasicMaterial)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.RoundRobin (InstanceId, Semaphore(..), roundRobinInstancedMesh)
 import Safe.Coerce (coerce)
@@ -84,10 +85,9 @@ rideLeaps i makeLeaps = fixed
         -- todo: usually, we wouldn't set a geometry size property like radius top or radius bottom
         -- but until widths are standardized across the game, this is the easiest way to get it right
         (cylinder { cylinder: makeLeaps.threeDI.cylinderGeometry, radialSegments: 32 })
-        ( meshStandardMaterial
-            { meshStandardMaterial: makeLeaps.threeDI.meshStandardMaterial
+        ( meshBasicMaterial
+            { meshBasicMaterial: makeLeaps.threeDI.meshBasicMaterial
             , color: makeLeaps.mkColor couleur
-            , roughness: 0.4
             }
             empty
         )
