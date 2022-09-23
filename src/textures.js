@@ -31,6 +31,12 @@ import skyboxTop from "./textures/skybox/top.png";
 // import skybox2Left from "./textures/skybox2/left.png";
 // import skybox2Right from "./textures/skybox2/right.png";
 // import skybox2Top from "./textures/skybox2/top.png";
+import ruinsBack from "./textures/ruins/back.png";
+import ruinsBottom from "./textures/ruins/bottom.png";
+import ruinsFront from "./textures/ruins/front.png";
+import ruinsLeft from "./textures/ruins/left.png";
+import ruinsRight from "./textures/ruins/right.png";
+import ruinsTop from "./textures/ruins/top.png";
 
 export const cubeTextures = {
 	skybox: {
@@ -49,6 +55,14 @@ export const cubeTextures = {
 	// 	right: skybox2Right,
 	// 	top: skybox2Top,
 	// },
+	ruins: {
+		back: ruinsBack,
+		bottom: ruinsBottom,
+		front: ruinsFront,
+		left: ruinsLeft,
+		right: ruinsRight,
+		top: ruinsTop,
+	},
 };
 
 export const textures = {

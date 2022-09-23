@@ -6,7 +6,6 @@ import Bolson.Core (Element(..), envy, fixed)
 import Data.Foldable (for_, oneOf, oneOfMap, traverse_)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
-import Data.Number (cos, pi)
 import Data.Time.Duration (Milliseconds)
 import Data.Tuple.Nested (type (/\), (/\))
 import Deku.Attribute ((:=))
@@ -20,6 +19,7 @@ import Effect (Effect)
 import FRP.Event (Event, keepLatest, mapAccum, memoize)
 import FRP.Event.Animate (animationFrameEvent)
 import FRP.Event.VBus (V)
+import Joyride.Constants.Visual (backgroundXRotation, backgroundYRotation, backgroundZRotation)
 import Joyride.Firebase.Auth (User(..), currentUser, signInWithGoogle)
 import Joyride.Firebase.Opaque (FirebaseAuth, Firestore)
 import Joyride.FullScreen as FullScreen
@@ -80,24 +80,21 @@ threeLoader opts = do
 
           )
           \myCamera -> globalScenePortal1
-            ( scene { scene: opts.threeDI.scene } (pure $ P.background (CubeTexture (unwrap opts.cubeTextures).skybox))
+            ( scene { scene: opts.threeDI.scene } (pure $ P.background (CubeTexture (unwrap opts.cubeTextures).ruins))
                 [ toScene $ group { group: opts.threeDI.group }
                     ( keepLatest $
                         ( mapAccum
                             ( \b a -> case b of
                                 Nothing -> Just a /\ 0.0
-                                Just x -> Just a /\ (a - x)
+                                Just x -> Just x /\ (a - x)
                             )
                             Nothing
                             (map (unwrap >>> (_ / 1000.0)) animationTime)
                         ) <#> \t ->
-                          let
-                            fac = t / 1000.0
-                          in
                             oneOfMap pure
-                              [ P.rotateX $ 0.001 * cos (fac * pi * 0.01)
-                              , P.rotateY $ 0.001 * cos (fac * pi * 0.01)
-                              , P.rotateZ $ 0.001 * cos (fac * pi * 0.01)
+                              [ P.rotateX $ backgroundXRotation t
+                              , P.rotateY $ backgroundYRotation t
+                              , P.rotateZ $ backgroundZRotation t
                               ]
                     )
                     -- camera

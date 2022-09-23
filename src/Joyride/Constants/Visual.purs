@@ -2,7 +2,8 @@ module Joyride.Constants.Visual where
 
 import Prelude
 
-import Data.Number (pow)
+import Data.Number (cos, pi, pow, sin)
+import Debug (spy)
 import Rito.Color (RGB(..))
 
 basicYThickness = 0.02 :: Number
@@ -37,3 +38,11 @@ reverseOrientationDampening x = clamp 0.0 100.0 $ (((x - 0.01) / 0.3) `pow` 0.5)
 -- but as desktop mode isn't really supported outside of development for now
 -- we can safely lock this
 keyboardInitialDampeningFactor = 0.77 :: Number
+
+
+backgroundXRotation ∷ Number → Number
+backgroundXRotation fac = 0.001 * sin (fac * pi * 0.1 )
+backgroundYRotation ∷ Number → Number
+backgroundYRotation fac = 0.0001 * sin (fac * pi * 0.5 )
+backgroundZRotation ∷ Number → Number
+backgroundZRotation fac = 0.0 -- 0.001 * cos ((fac / 1000.0) * pi * 0.01)

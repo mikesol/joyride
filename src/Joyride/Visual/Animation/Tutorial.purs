@@ -11,14 +11,14 @@ import Data.Foldable (oneOf, oneOfMap)
 import Data.Int (toNumber)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
-import Data.Number (cos, pi, sin)
+import Data.Number (pi)
 import Data.Tuple (Tuple(..))
 import Data.Tuple.Nested ((/\))
 import Effect (Effect)
 import FRP.Behavior (Behavior, sampleBy)
 import FRP.Event (Event, EventIO, keepLatest, mailboxed, mapAccum)
 import FRP.Event.VBus (V)
-import Joyride.Constants.Visual (tarantulaScale)
+import Joyride.Constants.Visual (backgroundXRotation, backgroundYRotation, backgroundZRotation, tarantulaScale)
 import Joyride.Effect.Lowpass (lpf)
 import Joyride.FRP.BusT (vbust)
 import Joyride.FRP.Dedup (dedup)
@@ -167,7 +167,7 @@ runThree opts = do
                       , pure $ scaleX tarantulaScale
                       , pure $ scaleY tarantulaScale
                       , pure $ scaleZ tarantulaScale
-                      , pure $ P.rotationFromEuler (euler opts.threeDI.euler { x: 0.0, y: pi, z:0.0 })
+                      , pure $ P.rotationFromEuler (euler opts.threeDI.euler { x: 0.0, y: pi, z: 0.0 })
                       -- , case player of
                       --     Player1 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: sin (unwrap rate.time * pi * 0.1) * pi * 0.02, y: sin (unwrap rate.time * pi * 0.09) * pi * -0.03, z: cos (unwrap rate.time * pi * 0.07) * pi * 0.04 })
                       --     Player3 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: cos (unwrap rate.time * pi * 0.06) * pi * 0.02, y: sin (unwrap rate.time * pi * 0.11) * pi * 0.01, z: cos (unwrap rate.time * pi * 0.03) * pi * -0.03 })
@@ -178,27 +178,24 @@ runThree opts = do
                   []
             )
         myScene <- globalScenePortal1
-          ( scene { scene: opts.threeDI.scene } (pure $ P.background (CubeTexture (unwrap opts.cubeTextures).skybox))
+          ( scene { scene: opts.threeDI.scene } (pure $ P.background (CubeTexture (unwrap opts.cubeTextures).ruins))
               [ toScene $ group { group: opts.threeDI.group }
                   ( keepLatest $
                       ( mapAccum
                           ( \b a -> case b of
                               Nothing -> Just a /\ 0.0
-                              Just x -> Just a /\ (a - x)
+                              Just x -> Just x /\ (a - x)
                           )
                           Nothing
                           ( map (_.rateInfo.epochTime >>> unwrap >>> (_ / 1000.0))
                               opts.animatedStuff
                           )
                       ) <#> \t ->
-                        let
-                          fac = t / 1000.0
-                        in
                           if false then empty
                           else oneOfMap pure
-                            [ P.rotateX $ 0.001 * cos (fac * pi * 0.01)
-                            , P.rotateY $ 0.001 * cos (fac * pi * 0.01)
-                            , P.rotateZ $ 0.001 * cos (fac * pi * 0.01)
+                            [ P.rotateX $ backgroundXRotation t
+                            , P.rotateY $ backgroundYRotation t
+                            , P.rotateZ $ backgroundZRotation t
                             ]
                   )
                   ( shipsssss 0.00
@@ -276,7 +273,7 @@ runThree opts = do
                         )
                       <>
                         -- lights in the distance
-                        ( [-3.0, -1.0, 1.0, 3.0] <#> \d -> do
+                        ( [ -3.0, -1.0, 1.0, 3.0 ] <#> \d -> do
                             let normalDistance = 4.0
                             let normalDecay = 1.0
                             let normalIntensity = 1.0
@@ -350,21 +347,18 @@ runThree opts = do
                       ( mapAccum
                           ( \b a -> case b of
                               Nothing -> Just a /\ 0.0
-                              Just x -> Just a /\ (a - x)
+                              Just x -> Just x /\ (a - x)
                           )
                           Nothing
                           ( map (_.rateInfo.epochTime >>> unwrap >>> (_ / 1000.0))
                               opts.animatedStuff
                           )
                       ) <#> \t ->
-                        let
-                          fac = t / 1000.0
-                        in
                           if false then empty
                           else oneOfMap pure
-                            [ P.rotateX $ 0.001 * cos (fac * pi * 0.01)
-                            , P.rotateY $ 0.001 * cos (fac * pi * 0.01)
-                            , P.rotateZ $ 0.001 * cos (fac * pi * 0.01)
+                            [ P.rotateX $ backgroundXRotation t
+                            , P.rotateY $ backgroundYRotation t
+                            , P.rotateZ $ backgroundZRotation t
                             ]
                   )
                   ( shipsssss 0.0

@@ -454,6 +454,7 @@ derive instance Newtype (CubeTexture a) _
 newtype CubeTextures a = CubeTextures
   { skybox :: a
   -- , skybox2 :: a
+  , ruins :: a
   }
 
 derive instance Newtype (CubeTextures a) _
