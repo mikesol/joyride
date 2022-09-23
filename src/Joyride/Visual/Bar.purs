@@ -17,6 +17,7 @@ import Joyride.FRP.Schedule (fireAndForget)
 import Rito.Color (Color, RGB(..))
 import Rito.Core (ASceneful, toScene)
 import Rito.Geometries.Box (box)
+import Rito.Materials.MeshBasicMaterial (meshBasicMaterial)
 import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.Mesh (mesh)
 import Rito.Properties (positionX, positionY, positionZ, scaleX, scaleY, scaleZ)
@@ -36,12 +37,12 @@ makeBar
      }
   -> ASceneful lock payload
 makeBar { c3, threeDI, renderingInfo, isMe, position, debug, rateE } = toScene $ mesh { mesh: threeDI.mesh } (box { box: threeDI.boxGeometry })
-  ( meshStandardMaterial
-      { meshStandardMaterial: threeDI.meshStandardMaterial
+  ( meshBasicMaterial
+      { meshBasicMaterial: threeDI.meshBasicMaterial
       , color: makeColor position
       }
       ( oneOf
-          [ (Tuple <$> rateE <*> (dedup' (\a b -> a == false && b == a) isMe)) <#> \(Tuple re i) -> (wrap $ inj (Proxy :: _ "emissive") $ c3 if i then let s = sin (unwrap (re.beats) * pi * 0.7) * 0.14 + 0.14 in RGB s s s else RGB 0.0 0.0 0.0)
+          [ -- (Tuple <$> rateE <*> (dedup' (\a b -> a == false && b == a) isMe)) <#> \(Tuple re i) -> (wrap $ inj (Proxy :: _ "emissive") $ c3 if i then let s = sin (unwrap (re.beats) * pi * 0.7) * 0.14 + 0.14 in RGB s s s else RGB 0.0 0.0 0.0)
           ]
       )
   )

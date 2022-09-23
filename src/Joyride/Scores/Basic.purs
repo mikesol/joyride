@@ -32,6 +32,7 @@ import Record (union)
 import Rito.Color (RGB(..))
 import Rito.Core (ASceneful, Instance, toScene)
 import Rito.Geometries.Box (box)
+import Rito.Materials.MeshBasicMaterial (meshBasicMaterial)
 import Rito.Materials.MeshPhongMaterial (meshPhongMaterial)
 import Rito.RoundRobin (InstanceId, Semaphore(..), roundRobinInstancedMesh)
 import Safe.Coerce (coerce)
@@ -118,8 +119,8 @@ rideBasics bevs makeBasics =
               }
               100
               (box { box: makeBasics.threeDI.boxGeometry })
-              ( meshPhongMaterial
-                  { meshPhongMaterial: makeBasics.threeDI.meshPhongMaterial
+              ( meshBasicMaterial
+                  { meshBasicMaterial: makeBasics.threeDI.meshBasicMaterial
                   , color: makeBasics.mkColor (RGB 0.798 0.927 0.778)
                   }
                   empty

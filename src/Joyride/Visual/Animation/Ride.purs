@@ -270,59 +270,59 @@ runThree opts = do
                       <>
                         [ toGroup $ ambientLight
                             { ambientLight: opts.threeDI.ambientLight
-                            , intensity: 0.1
+                            , intensity: 1.0 -- 0.1
                             , color: c3 $ RGB 1.0 1.0 1.0
                             }
                             empty
                         ]
-                      <>
-                        ( (toArray allPlayers) <#> \player -> do
-                            let ppos = playerPosition player
-                            let posAx axis = map (ppos axis) mopts.playerPositions
-                            let normalDistance = 4.0
-                            let normalDecay = 2.0
-                            let normalIntensity = 1.0
-                            toGroup $ pointLight
-                              { pointLight: opts.threeDI.pointLight
-                              , distance: normalDistance
-                              , decay: normalDecay
-                              , intensity: normalIntensity
-                              , color: c3 $ RGB 1.0 1.0 1.0
-                              }
-                              ( oneOf
-                                  [ positionX <$> tameXAxis (isNotMe player opts.myPlayer) (posAx AxisX)
-                                  , positionY <$> (sampleBy (\{ sphereOffsetY } py -> (sphereOffsetY / 2.0) + py) opts.renderingInfo (posAx AxisY))
-                                  , positionZ <$> posAx AxisZ
-                                  , pure $ P.decay normalDecay
-                                  , pure $ P.intensity normalIntensity
-                                  , pure $ P.distance normalDistance
-                                  ]
-                              )
+                      -- <>
+                      --   ( (toArray allPlayers) <#> \player -> do
+                      --       let ppos = playerPosition player
+                      --       let posAx axis = map (ppos axis) mopts.playerPositions
+                      --       let normalDistance = 4.0
+                      --       let normalDecay = 2.0
+                      --       let normalIntensity = 1.0
+                      --       toGroup $ pointLight
+                      --         { pointLight: opts.threeDI.pointLight
+                      --         , distance: normalDistance
+                      --         , decay: normalDecay
+                      --         , intensity: normalIntensity
+                      --         , color: c3 $ RGB 1.0 1.0 1.0
+                      --         }
+                      --         ( oneOf
+                      --             [ positionX <$> tameXAxis (isNotMe player opts.myPlayer) (posAx AxisX)
+                      --             , positionY <$> (sampleBy (\{ sphereOffsetY } py -> (sphereOffsetY / 2.0) + py) opts.renderingInfo (posAx AxisY))
+                      --             , positionZ <$> posAx AxisZ
+                      --             , pure $ P.decay normalDecay
+                      --             , pure $ P.intensity normalIntensity
+                      --             , pure $ P.distance normalDistance
+                      --             ]
+                      --         )
 
-                        )
-                      <>
-                        ( [-3.0, -1.0, 1.0, 3.0] <#> \d -> do
-                            let normalDistance = 4.0
-                            let normalDecay = 1.0
-                            let normalIntensity = 1.0
-                            toGroup $ pointLight
-                              { pointLight: opts.threeDI.pointLight
-                              , distance: normalDistance
-                              , decay: normalDecay
-                              , intensity: normalIntensity
-                              , color: c3 $ RGB 1.0 1.0 1.0
-                              }
-                              ( oneOf
-                                  [ pure $ positionX d
-                                  , pure $ positionY 1.5
-                                  , pure $ positionZ (-5.25)
-                                  , pure $ P.decay normalDecay
-                                  , pure $ P.intensity normalIntensity
-                                  , pure $ P.distance normalDistance
-                                  ]
-                              )
+                      --   )
+                      -- <>
+                      --   ( [-3.0, -1.0, 1.0, 3.0] <#> \d -> do
+                      --       let normalDistance = 4.0
+                      --       let normalDecay = 1.0
+                      --       let normalIntensity = 1.0
+                      --       toGroup $ pointLight
+                      --         { pointLight: opts.threeDI.pointLight
+                      --         , distance: normalDistance
+                      --         , decay: normalDecay
+                      --         , intensity: normalIntensity
+                      --         , color: c3 $ RGB 1.0 1.0 1.0
+                      --         }
+                      --         ( oneOf
+                      --             [ pure $ positionX d
+                      --             , pure $ positionY 1.5
+                      --             , pure $ positionZ (-5.25)
+                      --             , pure $ P.decay normalDecay
+                      --             , pure $ P.intensity normalIntensity
+                      --             , pure $ P.distance normalDistance
+                      --             ]
+                      --         )
 
-                        )
+                      --   )
                       <>
                         -- basic notes
                         [ toGroup $ opts.basicE scenePush.hitBasicVisualForLabel columnCtor
@@ -381,80 +381,80 @@ runThree opts = do
                   ]
               )
           )
-        myShips <- globalScenePortal1
-          ( scene { scene: opts.threeDI.scene } empty
-              [ toScene $ group { group: opts.threeDI.group }
-                  ( keepLatest $
-                      ( mapAccum
-                          ( \b a -> case b of
-                              Nothing -> Just a /\ 0.0
-                              Just x -> Just a /\ (a - x)
-                          )
-                          Nothing
-                          ( map (_.rateInfo.epochTime >>> unwrap >>> (_ / 1000.0))
-                              opts.animatedStuff
-                          )
-                      ) <#> \t ->
-                        let
-                          fac = t / 1000.0
-                        in
-                          if false then empty
-                          else oneOfMap pure
-                            [ P.rotateX $ 0.001 * cos (fac * pi * 0.01)
-                            , P.rotateY $ 0.001 * cos (fac * pi * 0.01)
-                            , P.rotateZ $ 0.001 * cos (fac * pi * 0.01)
-                            ]
-                  )
-                  ( shipsssss 0.0
-                      <>
-                        ( (toArray allPlayers) <#> \player -> do
-                            let ppos = playerPosition player
-                            let posAx axis = map (ppos axis) mopts.playerPositions
-                            let normalDistance = 4.0
-                            let normalDecay = 2.0
-                            let normalIntensity = 1.0
-                            toGroup $ pointLight
-                              { pointLight: opts.threeDI.pointLight
-                              , distance: normalDistance
-                              , decay: normalDecay
-                              , intensity: normalIntensity
-                              , color: c3 $ RGB 1.0 1.0 1.0
-                              }
-                              ( oneOf
-                                  [ positionX <$> tameXAxis (isNotMe player opts.myPlayer) (posAx AxisX)
-                                  , positionY <$> (sampleBy (\{ lightOffsetY } py -> (lightOffsetY + py)) opts.renderingInfo (posAx AxisY))
-                                  , positionZ <$> posAx AxisZ
-                                  , pure $ P.decay normalDecay
-                                  , pure $ P.intensity normalIntensity
-                                  , pure $ P.distance normalDistance
-                                  ]
-                              )
+        -- myShips <- globalScenePortal1
+        --   ( scene { scene: opts.threeDI.scene } empty
+        --       [ toScene $ group { group: opts.threeDI.group }
+        --           ( keepLatest $
+        --               ( mapAccum
+        --                   ( \b a -> case b of
+        --                       Nothing -> Just a /\ 0.0
+        --                       Just x -> Just a /\ (a - x)
+        --                   )
+        --                   Nothing
+        --                   ( map (_.rateInfo.epochTime >>> unwrap >>> (_ / 1000.0))
+        --                       opts.animatedStuff
+        --                   )
+        --               ) <#> \t ->
+        --                 let
+        --                   fac = t / 1000.0
+        --                 in
+        --                   if false then empty
+        --                   else oneOfMap pure
+        --                     [ P.rotateX $ 0.001 * cos (fac * pi * 0.01)
+        --                     , P.rotateY $ 0.001 * cos (fac * pi * 0.01)
+        --                     , P.rotateZ $ 0.001 * cos (fac * pi * 0.01)
+        --                     ]
+        --           )
+        --           ( shipsssss 0.0
+        --               <>
+        --                 ( (toArray allPlayers) <#> \player -> do
+        --                     let ppos = playerPosition player
+        --                     let posAx axis = map (ppos axis) mopts.playerPositions
+        --                     let normalDistance = 4.0
+        --                     let normalDecay = 2.0
+        --                     let normalIntensity = 1.0
+        --                     toGroup $ pointLight
+        --                       { pointLight: opts.threeDI.pointLight
+        --                       , distance: normalDistance
+        --                       , decay: normalDecay
+        --                       , intensity: normalIntensity
+        --                       , color: c3 $ RGB 1.0 1.0 1.0
+        --                       }
+        --                       ( oneOf
+        --                           [ positionX <$> tameXAxis (isNotMe player opts.myPlayer) (posAx AxisX)
+        --                           , positionY <$> (sampleBy (\{ lightOffsetY } py -> (lightOffsetY + py)) opts.renderingInfo (posAx AxisY))
+        --                           , positionZ <$> posAx AxisZ
+        --                           , pure $ P.decay normalDecay
+        --                           , pure $ P.intensity normalIntensity
+        --                           , pure $ P.distance normalDistance
+        --                           ]
+        --                       )
 
-                        )
-                  )
-              ]
-          )
-        myShipComposer <- globalEffectComposerPortal1
-          ( effectComposer
-              { effectComposer: opts.threeDI.effectComposer
-              }
-              myWebGLRenderer
-              empty
-              [ renderPass
-                  { renderPass: opts.threeDI.renderPass
-                  }
-                  myShips
-                  myCamera
-              , unrealBloomPass
-                  { unrealBloomPass: opts.threeDI.unrealBloomPass
-                  , radius: 1.0
-                  , resolution: vector2 opts.threeDI.vector2 { x: 1000.0, y: 1000.0 }
-                  , strength: 3.0
-                  , threshold: 0.1
-                  }
-                  empty
-              ]
-          )
+        --                 )
+        --           )
+        --       ]
+        --   )
+        -- myShipComposer <- globalEffectComposerPortal1
+        --   ( effectComposer
+        --       { effectComposer: opts.threeDI.effectComposer
+        --       }
+        --       myWebGLRenderer
+        --       empty
+        --       [ renderPass
+        --           { renderPass: opts.threeDI.renderPass
+        --           }
+        --           myShips
+        --           myCamera
+        --       , unrealBloomPass
+        --           { unrealBloomPass: opts.threeDI.unrealBloomPass
+        --           , radius: 1.0
+        --           , resolution: vector2 opts.threeDI.vector2 { x: 1000.0, y: 1000.0 }
+        --           , strength: 3.0
+        --           , threshold: 0.1
+        --           }
+        --           empty
+        --       ]
+        --   )
         fixed
           [ raycaster
               { raycaster: opts.threeDI.raycaster
@@ -475,7 +475,7 @@ runThree opts = do
                   }
                   myScene
                   myCamera
-              , effectComposerPass { effectComposerPass: opts.threeDI.effectComposerPass } myShipComposer
+              -- , effectComposerPass { effectComposerPass: opts.threeDI.effectComposerPass } myShipComposer
               ]
           , envy $ map
               ( \element -> css2DRenderer

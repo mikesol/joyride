@@ -1045,6 +1045,7 @@ type ThreeDI =
   , gltfLoader :: THREE.TGLTFLoader
   , meshPhongMaterial :: THREE.TMeshPhongMaterial
   , meshStandardMaterial :: THREE.TMeshStandardMaterial
+  , meshBasicMaterial :: THREE.TMeshBasicMaterial
   , bufferAttribute :: THREE.TBufferAttribute
   , instancedBufferAttribute :: THREE.TInstancedBufferAttribute
   , ambientLight :: THREE.TAmbientLight
