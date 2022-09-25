@@ -48,7 +48,7 @@ import Joyride.FRP.Behavior (refToBehavior)
 import Joyride.FRP.BurningWhenHot (burningWhenHot)
 import Joyride.FRP.Dedup (dedup)
 import Joyride.FRP.Keypress (posFromKeypress, xForKeyboard)
-import Joyride.FRP.Orientation (hasOrientationPermission, posFromOrientation, xForTouch)
+import Joyride.FRP.Orientation (requestPermissionIsAFunction, posFromOrientation, xForTouch)
 import Joyride.FRP.SampleOnSubscribe (sampleOnSubscribe)
 import Joyride.Firebase.Analytics (firebaseAnalyticsAff)
 import Joyride.Firebase.Auth (AuthProvider(..), authStateChangedEventWithAnonymousAccountCreation, firebaseAuthAff, initializeGoogleClient, signOut)
@@ -214,7 +214,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
     -- has orientation permission
     -- see if this helps get rid of the screen on iOS for successive plays
     -- if not, get rid of it and just use hasOrientationPermission
-    hop <- liftEffect hasOrientationPermission
+    canRequestPermission <- liftEffect requestPermissionIsAFunction
     liftEffect do
       -- auth
       signedInNonAnonymously' <- create
@@ -340,16 +340,26 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                   OrientationPermissionWithoutRideRequest -> negotiation.push (NeedsOrientation Nothing)
                   OrientationPermissionWithRideRequest x y -> negotiation.push (NeedsOrientation (Just { ride: x, track: y }))
               case fsm.orientationPermission of
+                -- if we have successfully gotten the orientation permission, then we just start
                 SuccessfulOrientationPermission -> saneStart
+                -- if we have rejected the orientation permission, then show a screen stating that
                 CannotUseAppDueToLackOfOrientationPermission -> negotiation.push WillNotWorkWithoutOrientation
+                -- if we don't know the orientation permission, then...
                 UnknownOrientationPermission -> do
                   case new of
+                    -- if we are navigating to an orientation permission page, show it
                     OrientationPermissionWithoutRideRequest -> negotiation.push (NeedsOrientation Nothing)
+                    -- if we are navigating to an orientation permission page, show it
                     OrientationPermissionWithRideRequest x y -> negotiation.push (NeedsOrientation (Just { ride: x, track: y }))
-                    _ -> if hop then case new of
-                        Session x y -> navigateToHash (orientationPermissionPath <> "/" <> x <> "/" <> y)
-                        _ -> navigateToHash orientationPermissionPath
-                  else saneStart
+                    -- if it is any other page...
+                    _ ->
+                      ( -- if we do not have the orientation permission, then navigate to the orientation permission path
+                        if canRequestPermission then case new of
+                          Session x y ->  navigateToHash (orientationPermissionPath <> "/" <> x <> "/" <> y)
+                          _ -> navigateToHash orientationPermissionPath
+                        -- otherwise just start
+                        else saneStart
+                      )
           _ <- liftEffect $ subscribe
             -- sometimes the fsm will change but the route won't
             -- to prevent this, we filter out all duplicate routes
@@ -380,13 +390,9 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                 routeE.push (Nothing /\ h)
             pure unit
           ----- END ROUTING
-
-
-
-
-
-
-
+          ----- END ROUTING
+          ----- END ROUTING
+          ----- END ROUTING
           -- get the html. could be even sooner if we passed more stuff in on success instead of creating it at the top level
           runInBody
             ( toplevel
@@ -808,6 +814,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                               }
                             knownPlayersBus.push players
                         }
+
 defaultInFlightGameInfo :: InFlightGameInfo'
 defaultInFlightGameInfo =
   { points: Points 0.0
