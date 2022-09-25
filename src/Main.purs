@@ -92,6 +92,7 @@ type StartStop = V (start :: Unit, stop :: Effect Unit)
 type CanvasInfo = { x :: Number, y :: Number } /\ Number
 
 foreign import useLilGui :: Effect Boolean
+foreign import addStats :: Effect Boolean
 foreign import force4 :: Effect Boolean
 
 renderingInfoDesktop :: RenderingInfo' Slider
