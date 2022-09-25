@@ -19,7 +19,7 @@ import Web.Event.EventTarget (addEventListener, eventListener)
 import Web.HTML (Window)
 import Web.HTML.Window (toEventTarget)
 
-foreign import hasOrientationPermission :: Effect Boolean
+foreign import requestPermissionIsAFunction :: Effect Boolean
 foreign import orientationPermission :: Effect (Promise Boolean)
 
 posFromOrientation :: GTPD -> JMilliseconds -> Number
