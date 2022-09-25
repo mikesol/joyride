@@ -1,4 +1,5 @@
 export const useLilGui = () => { return import.meta.env.VITE_LIL_GUI === "true" } ;
+export const addStats = () => { return import.meta.env.VITE_ADD_STATS === "true" } ;
 export const force4 = () => { return import.meta.env.VITE_FORCE_4 === "true" };
 export const useFirebaseEmulatorInDevMode = (db) => (auth) => () => {
 	if (import.meta.env.VITE_FIREBASE_BUILD !== "production") {
