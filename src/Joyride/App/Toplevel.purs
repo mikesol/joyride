@@ -4,12 +4,11 @@ import Prelude
 
 import Data.Array (sortBy)
 import Data.Function (on)
-import Debug (spy)
 import Data.Maybe (Maybe(..))
 import Data.Number (pi)
 import Data.Time.Duration (Milliseconds)
-import Deku.Core (Domable)
 import Deku.Control (switcher)
+import Deku.Core (Domable)
 import Effect (Effect)
 import FRP.Event (Event, filterMap)
 import FRP.Event.VBus (V)
@@ -33,6 +32,7 @@ import Joyride.Scores.Basic (rideBasics)
 import Joyride.Scores.Leap (rideLeaps)
 import Joyride.Scores.Long (rideLongs)
 import Joyride.Scores.Tutorial.Base (tutorialScore)
+import Joyride.Stats (Stats)
 import Rito.Core (ASceneful)
 import Rito.CubeTexture as CTL
 import Rito.GLTF as GLTFLoader
@@ -65,6 +65,7 @@ data TopLevelDisplay
       { cubeTextures :: CubeTextures CTL.CubeTexture
       , models :: Models GLTFLoader.GLTF
       , threeDI :: ThreeDI
+      , stats :: Maybe Stats
       , signOut :: Effect Unit
       , fbAuth :: FirebaseAuth
       , firestoreDb :: Firestore
@@ -110,7 +111,7 @@ toplevel
 toplevel tli =
   ( dedup
       ( map
-          ( \{ loaded, negotiation } -> let _ = spy "debugToplevel" { loaded, negotiation } in
+          ( \{ loaded, negotiation } -> -- let _ = spy "debugToplevel" { loaded, negotiation } in
               case loaded, negotiation of
                 _, NeedsOrientation rt -> TLNeedsOrientation rt
                 _, WillNotWorkWithoutOrientation -> TLWillNotWorkWithoutOrientation
@@ -143,12 +144,13 @@ toplevel tli =
     TLChooseRide cr nt -> availableRides { availableRides: cr, navigateTo: nt }
     TLSettings s -> settings s
     TLWillNotWorkWithoutOrientation -> sorryNeedPermissionPage
-    TLExplainer { cubeTextures, threeDI, cNow, initialDims, firestoreDb, fbAuth, signedInNonAnonymously, signOut } -> explainerPage
+    TLExplainer { cubeTextures, stats, threeDI, cNow, initialDims, firestoreDb, fbAuth, signedInNonAnonymously, signOut } -> explainerPage
       { ride: tli.ride
       , editor: tli.editor
       , tutorial: tli.tutorial
       , isMobile: tli.isMobile
       , cnow: cNow
+      , stats
       , signOut
       , resizeE: tli.resizeE
       , initialDims

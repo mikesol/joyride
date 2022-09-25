@@ -4,6 +4,7 @@ import Prelude
 
 import Bolson.Core (Element(..), envy, fixed)
 import Data.Foldable (for_, oneOf, oneOfMap, traverse_)
+import Data.Maybe (Maybe)
 import Data.Newtype (unwrap)
 import Data.Time.Duration (Milliseconds)
 import Data.Tuple.Nested (type (/\))
@@ -23,6 +24,7 @@ import Joyride.Firebase.Auth (User(..), currentUser, signInWithGoogle)
 import Joyride.Firebase.Opaque (FirebaseAuth, Firestore)
 import Joyride.FullScreen as FullScreen
 import Joyride.Navigation (navigateToHash)
+import Joyride.Stats (Stats)
 import Joyride.Style (headerCls, buttonCls)
 import Joyride.Timing.CoordinatedNow (withCTime)
 import Rito.Cameras.PerspectiveCamera (perspectiveCamera)
@@ -121,6 +123,7 @@ explainerPage
      , tutorial :: Effect Unit
      , editor :: Effect Unit
      , isMobile :: Boolean
+     , stats :: Maybe Stats
      , signOut :: Effect Unit
      , resizeE :: Event WindowDims
      , cnow :: Effect Milliseconds
