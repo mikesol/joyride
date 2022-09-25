@@ -9,7 +9,6 @@ import Data.Array.NonEmpty (toArray)
 import Data.Filterable (filter)
 import Data.Foldable (oneOf, oneOfMap)
 import Data.Int (toNumber)
-import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.Number (cos, pi, sin)
 import Data.Tuple (Tuple(..))
@@ -18,6 +17,7 @@ import Effect (Effect)
 import FRP.Behavior (Behavior, sampleBy)
 import FRP.Event (Event, EventIO, keepLatest, mailboxed, mapAccum)
 import FRP.Event.VBus (V)
+import Joyride.Constants.Visual (rotationConstantForBackground)
 import Joyride.Effect.Lowpass (lpf)
 import Joyride.FRP.BusT (vbust)
 import Joyride.FRP.Dedup (dedup)
@@ -177,27 +177,12 @@ runThree opts = do
         myScene <- globalScenePortal1
           ( scene { scene: opts.threeDI.scene } (pure $ P.background (CubeTexture (unwrap opts.cubeTextures).skybox))
               [ toScene $ group { group: opts.threeDI.group }
-                  ( keepLatest $
-                      ( mapAccum
-                          ( \b a -> case b of
-                              Nothing -> Just a /\ 0.0
-                              Just x -> Just a /\ (a - x)
-                          )
-                          Nothing
-                          ( map (_.rateInfo.epochTime >>> unwrap >>> (_ / 1000.0))
-                              opts.animatedStuff
-                          )
-                      ) <#> \t ->
-                        let
-                          fac = t / 1000.0
-                        in
-                          if false then empty
-                          else oneOfMap pure
-                            [ P.rotateX $ 0.001 * cos (fac * pi * 0.01)
-                            , P.rotateY $ 0.001 * cos (fac * pi * 0.01)
-                            , P.rotateZ $ 0.001 * cos (fac * pi * 0.01)
-                            ]
-                  )
+                  ( oneOfMap pure
+                        [ P.rotateX rotationConstantForBackground
+                        , P.rotateY rotationConstantForBackground
+                        , P.rotateZ rotationConstantForBackground
+                        ]
+                    )
                   ( shipsssss 0.00
                       <> map toGroup
                         ( ( \position -> makeBar $
@@ -384,27 +369,12 @@ runThree opts = do
         myShips <- globalScenePortal1
           ( scene { scene: opts.threeDI.scene } empty
               [ toScene $ group { group: opts.threeDI.group }
-                  ( keepLatest $
-                      ( mapAccum
-                          ( \b a -> case b of
-                              Nothing -> Just a /\ 0.0
-                              Just x -> Just a /\ (a - x)
-                          )
-                          Nothing
-                          ( map (_.rateInfo.epochTime >>> unwrap >>> (_ / 1000.0))
-                              opts.animatedStuff
-                          )
-                      ) <#> \t ->
-                        let
-                          fac = t / 1000.0
-                        in
-                          if false then empty
-                          else oneOfMap pure
-                            [ P.rotateX $ 0.001 * cos (fac * pi * 0.01)
-                            , P.rotateY $ 0.001 * cos (fac * pi * 0.01)
-                            , P.rotateZ $ 0.001 * cos (fac * pi * 0.01)
-                            ]
-                  )
+                  ( oneOfMap pure
+                        [ P.rotateX rotationConstantForBackground
+                        , P.rotateY rotationConstantForBackground
+                        , P.rotateZ rotationConstantForBackground
+                        ]
+                    )
                   ( shipsssss 0.0
                       <>
                         ( (toArray allPlayers) <#> \player -> do
