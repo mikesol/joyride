@@ -23,9 +23,9 @@ import Joyride.FRP.BusT (vbust)
 import Joyride.FRP.Dedup (dedup)
 import Joyride.QualifiedDo.Apply as QDA
 import Joyride.Visual.Bar (makeBar)
-import Joyride.Visual.BasicLabels (basicLabels)
-import Joyride.Visual.LeapLabels (leapLabels)
-import Joyride.Visual.LongLabels (longLabels)
+-- import Joyride.Visual.BasicLabels (basicLabels)
+-- import Joyride.Visual.LeapLabels (leapLabels)
+-- import Joyride.Visual.LongLabels (longLabels)
 import Joyride.Visual.RaycastableLane (makeRaycastableLane)
 import Rito.Cameras.PerspectiveCamera (perspectiveCamera)
 import Rito.Color (RGB(..), color)
@@ -285,14 +285,14 @@ runThree opts = do
                         -- basic notes
                         [ toGroup $ opts.basicE scenePush.hitBasicVisualForLabel columnCtor
                         ]
-                      <>
-                        -- basic labels
-                        [ toGroup $ basicLabels
-                            { threeDI: opts.threeDI
-                            , basicTap: sceneEvent.hitBasicVisualForLabel
-                            , lpsCallback: opts.lowPriorityCb
-                            }
-                        ]
+                      -- <>
+                      --   -- basic labels
+                      --   [ toGroup $ basicLabels
+                      --       { threeDI: opts.threeDI
+                      --       , basicTap: sceneEvent.hitBasicVisualForLabel
+                      --       , lpsCallback: opts.lowPriorityCb
+                      --       }
+                      --   ]
                       <>
                         -- leap notes
                         [ toGroup $ opts.leapE scenePush.hitLeapVisualForLabel columnCtor
@@ -301,23 +301,23 @@ runThree opts = do
                         -- long notes
                         [ toGroup $ opts.longE scenePush.hitLongVisualForLabel scenePush.releaseLongVisualForLabel columnCtor
                         ]
-                      <>
-                        -- leap labels
-                        [ toGroup $ leapLabels
-                            { threeDI: opts.threeDI
-                            , leapTap: sceneEvent.hitLeapVisualForLabel
-                            , lpsCallback: opts.lowPriorityCb
-                            }
-                        ]
-                      <>
-                        -- leap labels
-                        [ toGroup $ longLabels
-                            { threeDI: opts.threeDI
-                            , longTap: sceneEvent.hitLongVisualForLabel
-                            , longRelease: sceneEvent.releaseLongVisualForLabel
-                            , lpsCallback: opts.lowPriorityCb
-                            }
-                        ]
+                      -- <>
+                      --   -- leap labels
+                      --   [ toGroup $ leapLabels
+                      --       { threeDI: opts.threeDI
+                      --       , leapTap: sceneEvent.hitLeapVisualForLabel
+                      --       , lpsCallback: opts.lowPriorityCb
+                      --       }
+                      --   ]
+                      -- <>
+                      --   -- long labels
+                      --   [ toGroup $ longLabels
+                      --       { threeDI: opts.threeDI
+                      --       , longTap: sceneEvent.hitLongVisualForLabel
+                      --       , longRelease: sceneEvent.releaseLongVisualForLabel
+                      --       , lpsCallback: opts.lowPriorityCb
+                      --       }
+                      --   ]
                       <>
                         -- camera
                         -- needs to be part of the group to rotate correctly
@@ -420,32 +420,32 @@ runThree opts = do
                   myCamera
               , effectComposerPass { effectComposerPass: opts.threeDI.effectComposerPass } myShipComposer
               ]
-          , envy $ map
-              ( \element -> css2DRenderer
-                  myScene
-                  myCamera
-                  { canvas: opts.canvas, element, css2DRenderer: opts.threeDI.css2DRenderer }
-                  ( oneOf
-                      [ opts.resizeE <#> \i -> size { width: i.iw, height: i.ih }
-                      , pure render
-                      , (mopts.rateInfo $> render)
-                      ]
-                  )
-              )
-              opts.css2DRendererElt
-          , envy $ map
-              ( \element -> css3DRenderer
-                  myScene
-                  myCamera
-                  { canvas: opts.canvas, element, css3DRenderer: opts.threeDI.css3DRenderer }
-                  ( oneOf
-                      [ opts.resizeE <#> \i -> size { width: i.iw, height: i.ih }
-                      , pure render
-                      , (mopts.rateInfo $> render)
-                      ]
-                  )
-              )
-              opts.css3DRendererElt
+          -- , envy $ map
+          --     ( \element -> css2DRenderer
+          --         myScene
+          --         myCamera
+          --         { canvas: opts.canvas, element, css2DRenderer: opts.threeDI.css2DRenderer }
+          --         ( oneOf
+          --             [ opts.resizeE <#> \i -> size { width: i.iw, height: i.ih }
+          --             , pure render
+          --             , (mopts.rateInfo $> render)
+          --             ]
+          --         )
+          --     )
+          --     opts.css2DRendererElt
+          -- , envy $ map
+          --     ( \element -> css3DRenderer
+          --         myScene
+          --         myCamera
+          --         { canvas: opts.canvas, element, css3DRenderer: opts.threeDI.css3DRenderer }
+          --         ( oneOf
+          --             [ opts.resizeE <#> \i -> size { width: i.iw, height: i.ih }
+          --             , pure render
+          --             , (mopts.rateInfo $> render)
+          --             ]
+          --         )
+          --     )
+          --     opts.css3DRendererElt
           ]
     )
   pure unit
