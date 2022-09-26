@@ -5,6 +5,7 @@
 	"main": "index.js",
 	"scripts": {
 		"start": "spago build && vite --open",
+		"start:backend-optimizer": "npm run build-ps:prod && PROD_EXPERIMENTAL=true vite --open",
 		"start:real": "npm run build-ps:prod && rm -rf dist && mkdir dist && PROD_EXPERIMENTAL=true VITE_LIL_GUI=false VITE_FORCE_4=false vite --open",
 		"start:force-4": "spago build && VITE_FORCE_4=true vite --open",
 		"start:no-gui": "spago build && VITE_LIL_GUI=false vite --open",
