@@ -6,7 +6,7 @@ import Control.Alt ((<|>))
 import Control.Parallel (parSequence, parTraverse, sequential)
 import Control.Promise (Promise, toAffE)
 import Data.Array (nubBy)
-import Data.Either (Either(..))
+import Data.Either (Either(..), hush)
 import Data.Filterable (filter)
 import Data.Function (on)
 import Data.Homogeneous.Record (fromHomogeneous, homogeneous)
@@ -52,7 +52,6 @@ import Joyride.FRP.Orientation (requestPermissionIsAFunction, posFromOrientation
 import Joyride.FRP.SampleOnSubscribe (sampleOnSubscribe)
 import Joyride.Firebase.Analytics (firebaseAnalyticsAff)
 import Joyride.Firebase.Auth (AuthProvider(..), authStateChangedEventWithAnonymousAccountCreation, firebaseAuthAff, initializeGoogleClient, signOut)
-import Joyride.Firebase.CloudMessaging (firebaseCloudMessagingAff)
 import Joyride.Firebase.Config (firebaseAppAff)
 import Joyride.Firebase.Firestore (createRideIfNotExistsYet, eventChannelChanges, firestoreDbAff, getEventsAff, getPlayerForChannel, getProfileAff, getPublicTracksAff, getTrackAff, getTracksAff, getWhitelistedTracksAff, profileEvent, sendMyPointsAndPenaltiesToFirebase, turnOnRealtimePresenceAff)
 import Joyride.Firebase.Opaque (FirebaseAuth, Firestore)
@@ -66,6 +65,7 @@ import Joyride.Network.Download (dlInChunks)
 import Joyride.Random (randId', randId)
 import Joyride.Scores.AugmentedTypes (toAugmentedEvents)
 import Joyride.Shaders.Galaxy (makeGalaxyAttributes)
+import Joyride.Stats (makeStats)
 import Joyride.Timing.CoordinatedNow (cnow)
 import Joyride.Transport.PubNub as PN
 import Ocarina.Interpret (AudioBuffer(..), context, makeAudioBuffer)
@@ -75,6 +75,7 @@ import Rito.THREE as THREE
 import Rito.Texture (loadAff, loader)
 import Route (Route(..), editorPath, orientationPermissionPath, route, tutorialPath)
 import Routing.Duplex (parse)
+import Routing.Duplex as R
 import Routing.Hash.Link (matchesWith)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
@@ -82,7 +83,7 @@ import Types (AppOrientationState(..), BufferName(..), Channel(..), ChannelChoos
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
 import Web.HTML (window)
-import Web.HTML.Location (hash, setHash)
+import Web.HTML.Location (hash, pathname, search, setHash)
 import Web.HTML.Window (innerHeight, innerWidth, localStorage, location, toEventTarget)
 import Web.Storage.Storage as LS
 
@@ -92,6 +93,7 @@ type StartStop = V (start :: Unit, stop :: Effect Unit)
 type CanvasInfo = { x :: Number, y :: Number } /\ Number
 
 foreign import useLilGui :: Effect Boolean
+foreign import addStats :: Effect Boolean
 foreign import force4 :: Effect Boolean
 
 renderingInfoDesktop :: RenderingInfo' Slider
@@ -181,6 +183,15 @@ updateKnownPlayerPointsUsingRide :: Ride -> KnownPlayers -> KnownPlayers
 updateKnownPlayerPointsUsingRide a b = (constructAppendableKnownPlayersFromRide a) <> b
 
 sandboxed = false :: Boolean
+type Query = { stats :: Maybe Boolean }
+
+parseQuery :: String -> Maybe Query
+parseQuery s = hush $ R.parse parser s
+  where
+  parser =
+    R.params
+      { stats: R.optional <<< R.boolean
+      }
 
 main
   :: Models String
@@ -193,6 +204,11 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
   if sandboxed then runInBody sandbox
   else launchAff_ do
     -- hash adding
+    askedForFPS <- liftEffect do
+      sch <- window >>= location >>= search
+      let res = fromMaybe false (join (_.stats <$> parseQuery sch))
+      log ("Asked for stats: " <> show res)
+      pure res
     liftEffect do
       l <- window >>= location
       hash l >>= case _ of
@@ -268,6 +284,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
       ----- gui
       launchAff_ do
         { debug, renderingInfo } <- liftEffect useLilGui >>= (if _ then gui else noGui) >>> (_ $ (if isMobile then renderingInfoMobile else renderingInfoDesktop))
+        stats <- liftEffect (addStats >>= ((_ || askedForFPS) >>> if _ then Just <$> makeStats else pure Nothing))
         liftEffect do
           let renderingInfoBehavior = refToBehavior renderingInfo
           -- low priority event
@@ -354,7 +371,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                     _ ->
                       ( -- if we do not have the orientation permission, then navigate to the orientation permission path
                         if canRequestPermission then case new of
-                          Session x y ->  navigateToHash (orientationPermissionPath <> "/" <> x <> "/" <> y)
+                          Session x y -> navigateToHash (orientationPermissionPath <> "/" <> x <> "/" <> y)
                           _ -> navigateToHash orientationPermissionPath
                         -- otherwise just start
                         else saneStart
@@ -532,6 +549,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                     { player: Player4
                     , threeDI
                     , initialDims
+                    , stats
                     , shaders
                     , galaxyAttributes
                     , cNow: mappedCNow
@@ -565,6 +583,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                     { oe:
                         { fbAuth
                         , firestoreDb
+                        , stats
                         , goBack: do
                             -- clear the channel
                             navigateToHash ""
@@ -588,6 +607,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                     ( GetRulesOfGame
                         { threeDI
                         , initialDims
+                        , stats
                         , firestoreDb
                         , fbAuth
                         , models: Models myGLTFs
@@ -776,6 +796,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                       liftEffect $ negotiation.push $ Success
                         { player: myPlayer
                         , trackId
+                        , stats
                         , track
                         , events: toAugmentedEvents (map _.data ets)
                         , initialDims

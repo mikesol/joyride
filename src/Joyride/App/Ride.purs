@@ -12,7 +12,7 @@ import Data.Filterable (filter)
 import Data.Foldable (foldl, for_, oneOf, oneOfMap, traverse_)
 import Data.Int (round)
 import Data.Map as Map
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), maybe)
 import Data.Newtype (over, unwrap)
 import Data.Number (pi)
 import Data.Time.Duration (Milliseconds(..))
@@ -40,6 +40,7 @@ import Foreign.Object as Object
 import Joyride.App.Clipboard (writeTextAff)
 import Joyride.App.RequestIdleCallbackIsDefined (requestIdleCallbackIsDefined)
 import Joyride.Audio.Graph.Ride (graph)
+import Joyride.FRP.AnimateWithStats (animationFrameEventWithStats)
 import Joyride.FRP.Behavior (refToBehavior)
 import Joyride.FRP.Dedup (dedup)
 import Joyride.FRP.LowPrioritySchedule (schedulingIntervalInMS)
@@ -230,7 +231,7 @@ ride
                                 pure unit
                             if ricid then (requestIdleCallback { timeout: 0 } icb tli.wdw <#> Just >>= flip Ref.write tli.icid) else icb
                           afE <- hot
-                            ( withACTime ctx animationFrame <#>
+                            ( withACTime ctx (maybe animationFrame animationFrameEventWithStats success.stats) <#>
                                 _.acTime
                             )
                           withRate <-

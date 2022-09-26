@@ -34,3 +34,5 @@ reverseOrientationDampening x = clamp 0.0 100.0 $ (((x - 0.01) / 0.3) `pow` 0.5)
 -- but as desktop mode isn't really supported outside of development for now
 -- we can safely lock this
 keyboardInitialDampeningFactor = 0.77 :: Number
+
+rotationConstantForBackground = 0.01 :: Number

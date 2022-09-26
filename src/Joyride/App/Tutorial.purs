@@ -33,11 +33,12 @@ import Effect.Ref as Ref
 import Effect.Timer (clearInterval, setInterval)
 import FRP.Behavior (Behavior, sampleBy)
 import FRP.Event (Event, EventIO, filterMap, hot, memoize, subscribe)
-import FRP.Event.AnimationFrame (animationFrame)
+import FRP.Event.Animate (animationFrameEvent)
 import FRP.Event.VBus (V)
 import Foreign.Object as Object
 import Joyride.App.RequestIdleCallbackIsDefined (requestIdleCallbackIsDefined)
 import Joyride.Audio.Graph.Tutorial (graph)
+import Joyride.FRP.AnimateWithStats (animationFrameEventWithStats)
 import Joyride.FRP.Behavior (refToBehavior)
 import Joyride.FRP.LowPrioritySchedule (schedulingIntervalInMS)
 import Joyride.FRP.Rate (timeFromRate)
@@ -214,7 +215,7 @@ tutorial
                         pure unit
                     if ricid then (requestIdleCallback { timeout: 0 } icb tli.wdw <#> Just >>= flip Ref.write tli.icid) else icb
                   afE <- hot
-                    ( withACTime ctx animationFrame <#>
+                    ( withACTime ctx (maybe animationFrameEvent animationFrameEventWithStats wt.stats) <#>
                         _.acTime
                     )
                   withRate <-

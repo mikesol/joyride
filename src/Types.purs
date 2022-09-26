@@ -113,6 +113,7 @@ import Foreign.Object as Object
 import Joyride.Firebase.Opaque (FirebaseAuth, Firestore)
 import Joyride.Ocarina (AudibleChildEnd, AudibleEnd)
 import Joyride.Scores.AugmentedTypes (AugmentedEvent_)
+import Joyride.Stats (Stats)
 import Joyride.Types (BasicEventV0', Column(..), EventV0(..), Event_(..), LeapEventV0', LongEventV0', Position(..), Track(..), TrackV0', Version(..), Whitelist(..), columnToInt, intToColumn)
 import Ocarina.Math (calcSlope)
 import Ocarina.WebAPI (BrowserAudioBuffer)
@@ -849,6 +850,7 @@ data Negotiation
   | GetRulesOfGame
       { cubeTextures :: CubeTextures CTL.CubeTexture
       , models :: Models GLTFLoader.GLTF
+      , stats :: Maybe Stats
       , initialDims :: WindowDims
       , signOut :: Effect Unit
       , firestoreDb :: Firestore
@@ -884,6 +886,7 @@ instance JSON.WriteForeign StartStatus where
 type Success' =
   { player :: Player
   , shaders :: Shaders
+  , stats :: Maybe Stats
   , trackId :: String
   , track :: Track
   , profileEvent :: Event Profile
@@ -906,6 +909,7 @@ type Success' =
 type OpenEditor' =
   { fbAuth :: FirebaseAuth
   , goBack :: Effect Unit
+  , stats :: Maybe Stats
   , signedInNonAnonymously :: Event Boolean
   , firestoreDb :: Firestore
   }
@@ -915,6 +919,7 @@ type WantsTutorial' =
   , shaders :: Shaders
   , longVerb :: BrowserAudioBuffer
   , initialDims :: WindowDims
+  , stats :: Maybe Stats
   , galaxyAttributes :: GalaxyAttributes
   , playerPositions :: Behavior PlayerPositionsF
   , cNow :: Effect Milliseconds
@@ -1200,7 +1205,7 @@ instance JSON.ReadForeign a => JSON.ReadForeign (PotentiallyMissingArray a) wher
     a <- JSON.readImpl i
     pure (fromMaybe [] a)
 
-instance JSON.WriteForeign a =>JSON.WriteForeign (PotentiallyMissingArray a) where
+instance JSON.WriteForeign a => JSON.WriteForeign (PotentiallyMissingArray a) where
   writeImpl (PotentiallyMissingArray a) = JSON.writeImpl a
 
 data Profile = ProfileV0
