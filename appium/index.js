@@ -1,10 +1,29 @@
 const wdio = require("webdriverio");
 
+console.log('Joyride test: running in environment', JSON.stringify(process.env));
+let platformName;
+let browserName;
+if (process.env.DEVICEFARM_DEVICE_PLATFORM_NAME === "Android") {
+    console.log('Joyride Test: Running on Android.');
+    platformName = 'Android';
+    browserName = 'chrome';
+} else if (process.env.DEVICEFARM_DEVICE_PLATFORM_NAME === "iOS") {
+    console.log('Joyride Test: Running on iOS.');
+    platformName = 'iOS';
+    browserName = 'safari';
+} else {
+    console.log('Joyride Test: Running on Desktop.');
+    platformName = undefined;
+    browserName = 'chrome';
+}
+
 const opts = {
     capabilities: {
+        platformName: 'Android',
         browserName: 'chrome'
     }
 };
+
 
 async function main() {
     const browser = await wdio.remote(opts);
@@ -17,6 +36,7 @@ async function main() {
     await browser.pause(3000)
     const tutorialButton = await browser.$('#tutorialButton')
     await tutorialButton.click()
+    await browser.pause(1500)
     const startTutorial = await browser.$('#startTutorial')
     await startTutorial.click()
     await browser.pause(2000)

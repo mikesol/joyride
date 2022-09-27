@@ -4,14 +4,21 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node index.js",
+    "bundle": "npm-bundle && zip -r MyTests.zip *.tgz"
   },
   "keywords": [],
   "author": "Mike Solomon",
   "license": "ISC",
-  "devDependencies": {
+  "dependencies": {
     "appium": "^1.22.3",
-    "npm-bundle": "^3.0.3",
     "webdriverio": "^7.25.0"
-  }
+  },
+  "devDependencies": {
+    "npm-bundle": "^3.0.3"
+  },
+  "bundledDependencies": [
+    "appium",
+    "webdriverio"
+  ]
 }
