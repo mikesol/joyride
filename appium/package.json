@@ -1,0 +1,17 @@
+{
+  "name": "joyride-appium",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Mike Solomon",
+  "license": "ISC",
+  "devDependencies": {
+    "appium": "^1.22.3",
+    "npm-bundle": "^3.0.3",
+    "webdriverio": "^7.25.0"
+  }
+}
