@@ -9,7 +9,7 @@ import Data.Newtype (unwrap)
 import Data.Time.Duration (Milliseconds)
 import Data.Tuple.Nested (type (/\))
 import Deku.Attribute ((:=))
-import Deku.Attributes (klass, klass_)
+import Deku.Attributes (id_, klass, klass_)
 import Deku.Control (text_)
 import Deku.Core (Nut, vbussed)
 import Deku.DOM as D
@@ -172,6 +172,7 @@ explainerPage opts = vbussed
             , D.button
                 ( oneOf
                     [ klass_ buttonCls
+                    , id_ "tutorialButton"
                     , DL.click
                         ( (oneOf [ pure (pure unit), event.unsubscriber ]) <#>
                             FullScreen.fullScreenFlow <<< (opts.tutorial *> _)

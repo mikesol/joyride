@@ -38,10 +38,10 @@ export const initializeGoogleClient = (auth) => (success) => () => {
 };
 
 export const signInWithGoogle = (err) => () => {
-	google.accounts.id.prompt((notification) => {
+	window.google.accounts.id.prompt((notification) => {
 		// console.log(notification)
 		if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-			google.accounts.id.renderButton(
+			window.google.accounts.id.renderButton(
 				document.getElementById("google_sign_in"),
 				{} // { theme: "outline", size: "large" } // customization attributes
 			);
