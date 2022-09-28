@@ -39,7 +39,6 @@ reverseOrientationDampening x = clamp 0.0 100.0 $ (((x - 0.01) / 0.3) `pow` 0.5)
 -- we can safely lock this
 keyboardInitialDampeningFactor = 0.77 :: Number
 
-
 backgroundXRotation ∷ Number → Number
 backgroundXRotation fac = 0.001 * sin (fac * pi * 0.1 )
 backgroundYRotation ∷ Number → Number

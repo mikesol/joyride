@@ -1,0 +1,24 @@
+{
+  "name": "joyride-appium",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "node index.js",
+    "bundle": "npm-bundle && zip -r MyTests.zip *.tgz"
+  },
+  "keywords": [],
+  "author": "Mike Solomon",
+  "license": "ISC",
+  "dependencies": {
+    "appium": "^1.22.3",
+    "webdriverio": "^7.25.0"
+  },
+  "devDependencies": {
+    "npm-bundle": "^3.0.3"
+  },
+  "bundledDependencies": [
+    "appium",
+    "webdriverio"
+  ]
+}

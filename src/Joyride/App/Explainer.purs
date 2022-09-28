@@ -9,7 +9,7 @@ import Data.Newtype (unwrap)
 import Data.Time.Duration (Milliseconds)
 import Data.Tuple.Nested (type (/\), (/\))
 import Deku.Attribute ((:=))
-import Deku.Attributes (klass, klass_)
+import Deku.Attributes (id_, klass, klass_)
 import Deku.Control (text_)
 import Deku.Core (Nut, vbussed)
 import Deku.DOM as D
@@ -24,6 +24,7 @@ import Joyride.Firebase.Auth (User(..), currentUser, signInWithGoogle)
 import Joyride.Firebase.Opaque (FirebaseAuth, Firestore)
 import Joyride.FullScreen as FullScreen
 import Joyride.Navigation (navigateToHash)
+import Joyride.Stats (Stats)
 import Joyride.Style (headerCls, buttonCls)
 import Joyride.Timing.CoordinatedNow (withCTime)
 import Rito.Cameras.PerspectiveCamera (perspectiveCamera)
@@ -131,6 +132,7 @@ explainerPage
      , tutorial :: Effect Unit
      , editor :: Effect Unit
      , isMobile :: Boolean
+     , stats :: Maybe Stats
      , signOut :: Effect Unit
      , resizeE :: Event WindowDims
      , cnow :: Effect Milliseconds
@@ -179,6 +181,7 @@ explainerPage opts = vbussed
             , D.button
                 ( oneOf
                     [ klass_ buttonCls
+                    , id_ "tutorialButton"
                     , DL.click
                         ( (oneOf [ pure (pure unit), event.unsubscriber ]) <#>
                             FullScreen.fullScreenFlow <<< (opts.tutorial *> _)

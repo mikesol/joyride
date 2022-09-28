@@ -21,7 +21,7 @@ import Data.Time.Duration (Milliseconds(..))
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..), fst, snd)
 import Deku.Attribute ((:=))
-import Deku.Attributes (klass_)
+import Deku.Attributes (id_, klass_)
 import Deku.Control (blank, switcher, text_)
 import Deku.Core (Domable, envy, Nut, bussed, vbussed)
 import Deku.DOM as D
@@ -33,11 +33,12 @@ import Effect.Ref as Ref
 import Effect.Timer (clearInterval, setInterval)
 import FRP.Behavior (Behavior, sampleBy)
 import FRP.Event (Event, EventIO, filterMap, hot, memoize, subscribe)
-import FRP.Event.AnimationFrame (animationFrame)
+import FRP.Event.Animate (animationFrameEvent)
 import FRP.Event.VBus (V)
 import Foreign.Object as Object
 import Joyride.App.RequestIdleCallbackIsDefined (requestIdleCallbackIsDefined)
 import Joyride.Audio.Graph.Tutorial (graph)
+import Joyride.FRP.AnimateWithStats (animationFrameEventWithStats)
 import Joyride.FRP.Behavior (refToBehavior)
 import Joyride.FRP.LowPrioritySchedule (schedulingIntervalInMS)
 import Joyride.FRP.Rate (timeFromRate)
@@ -214,7 +215,7 @@ tutorial
                         pure unit
                     if ricid then (requestIdleCallback { timeout: 0 } icb tli.wdw <#> Just >>= flip Ref.write tli.icid) else icb
                   afE <- hot
-                    ( withACTime ctx animationFrame <#>
+                    ( withACTime ctx (maybe animationFrameEvent animationFrameEventWithStats wt.stats) <#>
                         _.acTime
                     )
                   withRate <-
@@ -458,11 +459,12 @@ tutorial
           ]
       )
       false
+      "startPreview"
       "Start"
       FadeOut
       (FullScreen.fullScreenFlow startCallback)
       pushCurrentState
-    Intro -> tutorialCenterMatterFrame "Welcome to Joyride!" Nothing false "Start Tutorial" FadeOut
+    Intro -> tutorialCenterMatterFrame "Welcome to Joyride!" Nothing false "startTutorial" "Start Tutorial" FadeOut
       ( FullScreen.fullScreenFlow
           ( startCallback *> launchAff_
               ( delay (Milliseconds 4000.0)
@@ -479,6 +481,7 @@ tutorial
           ]
       )
       false
+      "nextEarnPoints"
       "Next >"
       FadeInOut
       ( launchAff_
@@ -493,6 +496,7 @@ tutorial
           ]
       )
       false
+      "nextTilt"
       "Next >"
       FadeInOut
       ( launchAff_
@@ -509,6 +513,7 @@ tutorial
           ]
       )
       false
+      "nextLeap"
       "Next >"
       FadeInOut
       ( launchAff_
@@ -525,6 +530,7 @@ tutorial
           ]
       )
       false
+      "nextLong"
       "Next >"
       FadeInOut
       ( launchAff_
@@ -533,7 +539,7 @@ tutorial
           )
       )
       pushCurrentState
-    End -> tutorialCenterMatterFrame "That's it!" (Just $ D.p_ [ text_ "Play against up to four people! The ride is more fun when shared with friends 🤗" ]) true "Home >" FadeIn
+    End -> tutorialCenterMatterFrame "That's it!" (Just $ D.p_ [ text_ "Play against up to four people! The ride is more fun when shared with friends 🤗" ]) true "goHome" "Home >" FadeIn
       tli.goHome
       pushCurrentState
     Empty -> blank
@@ -543,7 +549,7 @@ tutorial
   replaceFadeInWithFadeOut = ((if _ then _ else _) <$> String.contains (String.Pattern tutorialFadeInAnimation) <*> String.replace (String.Pattern tutorialFadeInAnimation) (String.Replacement (tutorialFadeOutAnimation <> space <> "opacity-0 ")) <*> append (tutorialFadeOutAnimation <> space <> "opacity-0 "))
   space = " "
 
-  tutorialCenterMatterFrame hd txt endBtnHack action fade cb pcenter = bussed \setFadeOut fadeOut' -> do
+  tutorialCenterMatterFrame hd txt endBtnHack actionId action fade cb pcenter = bussed \setFadeOut fadeOut' -> do
     let
       fadeOut = pure identity <|> fadeOut'
     D.div
@@ -593,6 +599,7 @@ tutorial
                         [ D.button
                             ( oneOf
                                 [ klass_ $ buttonCls <> " mx-2 pointer-events-auto"
+                                , id_ actionId
                                 , pure $
                                     D.OnClick :=
                                       let

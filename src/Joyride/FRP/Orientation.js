@@ -1,4 +1,4 @@
-export const hasOrientationPermission = () => 	typeof DeviceMotionEvent !== "undefined" &&
+export const requestPermissionIsAFunction = () => 	typeof DeviceMotionEvent !== "undefined" &&
 		typeof DeviceMotionEvent.requestPermission === "function"
 
 
