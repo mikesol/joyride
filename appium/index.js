@@ -1,26 +1,32 @@
 const wdio = require("webdriverio");
 
-console.log('Joyride test: running in environment', JSON.stringify(process.env));
+// console.log('Joyride test: running in environment', JSON.stringify(process.env));
 let platformName;
 let browserName;
+let automationName;
 if (process.env.DEVICEFARM_DEVICE_PLATFORM_NAME === "Android") {
     console.log('Joyride Test: Running on Android.');
     platformName = 'Android';
-    browserName = 'chrome';
+    browserName = 'Chrome';
+    automationName = 'UIAutomator2';
 } else if (process.env.DEVICEFARM_DEVICE_PLATFORM_NAME === "iOS") {
     console.log('Joyride Test: Running on iOS.');
     platformName = 'iOS';
-    browserName = 'safari';
+    browserName = 'Safari';
+    automationName = 'XCUITest';
 } else {
     console.log('Joyride Test: Running on Desktop.');
     platformName = undefined;
-    browserName = 'chrome';
+    browserName = 'Chrome';
 }
 
 const opts = {
+    path: '/wd/hub',
+    port: 4723,
     capabilities: {
-        platformName: 'Android',
-        browserName: 'chrome'
+        platformName,
+        browserName,
+        automationName
     }
 };
 
