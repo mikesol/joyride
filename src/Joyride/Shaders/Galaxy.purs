@@ -76,16 +76,16 @@ makeGalaxyAttributes tba = instancedBufferAttributes
       --   : ((sin branchAngle) * radius + randomZ)
       --   : empty
       normalizeRand x = x * 2.0 - 1.0
-      xpos =normalizeRand x0R.r
-      ypos =normalizeRand y0R.r
-      zpos =normalizeRand z0R.r
+      xpos = normalizeRand x0R.r
+      ypos = normalizeRand y0R.r
+      zpos = normalizeRand z0R.r
       position = xpos : ypos : zpos : empty
-      xpos2 =normalizeRand x1R.r
-      ypos2 =normalizeRand y1R.r
-      zpos2 =normalizeRand z1R.r
+      xpos2 = normalizeRand x1R.r
+      ypos2 = normalizeRand y1R.r
+      zpos2 = normalizeRand z1R.r
       position2 = xpos2 : ypos2 : zpos2 : empty
       -- radius = sqrt((xpos `pow` 2.0) + (ypos `pow` 2.0) + (zpos `pow` 2.0))
-      color = r0R.r : g0R.r : b0R.r : empty-- let RGB r g b = lerp (radius / galaxyParams.radius) galaxyParams.insideColor galaxyParams.outsideColor in r : g : b : empty
+      color = r0R.r : g0R.r : b0R.r : empty -- let RGB r g b = lerp (radius / galaxyParams.radius) galaxyParams.insideColor galaxyParams.outsideColor in r : g : b : empty
       color2 = r1R.r : g1R.r : b1R.r : empty
     { aPosition: position, aPosition2: position2, aColor: color, aColor2: color2 } /\ (delete (Proxy :: _ "r") final)
   where

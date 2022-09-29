@@ -123,6 +123,7 @@ rideLongs levs makeLongs = toScene
             , tag: x.audioURL
             , length: x.length
             , column: x.column
-            , raycastingCanStartAt:  map (add (unwrap startOffset)) x.raycastingCanStartAt
+            , raycastingCanStartAt: map (add (unwrap startOffset)) x.raycastingCanStartAt
             }
-      ) levs
+      )
+      levs

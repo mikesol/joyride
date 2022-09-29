@@ -112,6 +112,7 @@ toplevel tli =
   ( dedup
       ( map
           ( \{ loaded, negotiation } -> -- let _ = spy "debugToplevel" { loaded, negotiation } in
+
               case loaded, negotiation of
                 _, NeedsOrientation rt -> TLNeedsOrientation rt
                 _, WillNotWorkWithoutOrientation -> TLWillNotWorkWithoutOrientation
@@ -132,11 +133,11 @@ toplevel tli =
                 true, WantsTutorial s -> TLWantsTutorial s
                 true, OpenEditor s -> TLOpenEditor s
           )
-          (    { loaded: _, negotiation: _ } <$>
-                  (startingWith false $ tli.loaded)
-               <*>
-              (startingWith PageLoad $ tli.negotiation)
-             
+          ( { loaded: _, negotiation: _ }
+              <$> (startingWith false $ tli.loaded)
+              <*>
+                (startingWith PageLoad $ tli.negotiation)
+
           )
       )
   ) # switcher case _ of

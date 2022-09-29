@@ -189,12 +189,12 @@ runThree opts = do
                               opts.animatedStuff
                           )
                       ) <#> \t ->
-                          if false then empty
-                          else oneOfMap pure
-                            [ P.rotateX $ backgroundXRotation t
-                            , P.rotateY $ backgroundYRotation t
-                            , P.rotateZ $ backgroundZRotation t
-                            ]
+                        if false then empty
+                        else oneOfMap pure
+                          [ P.rotateX $ backgroundXRotation t
+                          , P.rotateY $ backgroundYRotation t
+                          , P.rotateZ $ backgroundZRotation t
+                          ]
                   )
                   ( shipsssss 0.00
                       <> map toGroup
@@ -393,12 +393,12 @@ runThree opts = do
                               opts.animatedStuff
                           )
                       ) <#> \t ->
-                          if false then empty
-                          else oneOfMap pure
-                            [ P.rotateX $ backgroundXRotation t
-                            , P.rotateY $ backgroundYRotation t
-                            , P.rotateZ $ backgroundZRotation t
-                            ]
+                        if false then empty
+                        else oneOfMap pure
+                          [ P.rotateX $ backgroundXRotation t
+                          , P.rotateY $ backgroundYRotation t
+                          , P.rotateZ $ backgroundZRotation t
+                          ]
                   )
                   ( shipsssss 0.0
                       <>

@@ -418,29 +418,30 @@ playerPosition' Player4 = _.p4p
 
 newtype Textures a = Textures
   { -- hockeyAO :: a
-  -- , hockeyCOL :: a
-  -- , hockeyDISP :: a
-  -- , hockeyGLOSS :: a
-  -- , hockeyNRM :: a
-  -- , hockeyREFL :: a
-  -- , marble19COL :: a
-  -- , marble19GLOSS :: a
-  -- , marble19NRM :: a
-  -- , marble19REFL :: a
-  -- , marble21COL :: a
-  -- , marble21GLOSS :: a
-  -- , marble21NRM :: a
-  -- , marble21REFL :: a
-  -- , tilesZelligeHexAO :: a
-  -- , tilesZelligeHexBUMP :: a
-  -- , tilesZelligeHexCOL :: a
-  -- , tilesZelligeHexDISP :: a
-  -- , tilesZelligeHexGLOSS :: a
-  -- , tilesZelligeHexREFL :: a
-  -- , butterfly0 :: a
+    -- , hockeyCOL :: a
+    -- , hockeyDISP :: a
+    -- , hockeyGLOSS :: a
+    -- , hockeyNRM :: a
+    -- , hockeyREFL :: a
+    -- , marble19COL :: a
+    -- , marble19GLOSS :: a
+    -- , marble19NRM :: a
+    -- , marble19REFL :: a
+    -- , marble21COL :: a
+    -- , marble21GLOSS :: a
+    -- , marble21NRM :: a
+    -- , marble21REFL :: a
+    -- , tilesZelligeHexAO :: a
+    -- , tilesZelligeHexBUMP :: a
+    -- , tilesZelligeHexCOL :: a
+    -- , tilesZelligeHexDISP :: a
+    -- , tilesZelligeHexGLOSS :: a
+    -- , tilesZelligeHexREFL :: a
+    -- , butterfly0 :: a
     smoke :: a
   , rain1 :: a
   , rain2 :: a
+  , mansion :: a
   }
 
 newtype CubeTexture a = CubeTexture
@@ -1043,6 +1044,7 @@ type ThreeDI =
   , group :: THREE.TGroup
   , euler :: THREE.TEuler
   , points :: THREE.TPoints
+  , fogExp2 :: THREE.TFogExp2
   , vector2 :: THREE.TVector2
   , vector3 :: THREE.TVector3
   , plane :: THREE.TPlaneGeometry
@@ -1051,6 +1053,8 @@ type ThreeDI =
   , textureLoader :: THREE.TTextureLoader
   , cubeTextureLoader :: THREE.TCubeTextureLoader
   , gltfLoader :: THREE.TGLTFLoader
+  , meshLambertMaterial :: THREE.TMeshLambertMaterial
+  , meshBasicMaterial :: THREE.TMeshBasicMaterial
   , meshPhongMaterial :: THREE.TMeshPhongMaterial
   , meshStandardMaterial :: THREE.TMeshStandardMaterial
   , bufferAttribute :: THREE.TBufferAttribute

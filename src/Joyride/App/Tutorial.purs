@@ -278,7 +278,7 @@ tutorial
                 [ D.div (klass_ "row-start-1 row-end-3 col-start-1 col-end-3")
 
                     [ D.div (klass_ "mx-2 mt-2 ")
-                        [ ((map Tuple playerStatus) <*> ((initializeWithEmpty event.iAmReady)) )
+                        [ ((map Tuple playerStatus) <*> ((initializeWithEmpty event.iAmReady)))
                             -- we theoretically don't need to dedup because
                             -- the button should never redraw once we've started
                             -- if there's flicker, dedup
@@ -315,6 +315,7 @@ tutorial
                                 , isMobile: tli.isMobile
                                 , galaxyAttributes
                                 , shaders
+                                , mkColor: color threeDI.color
                                 , renderingInfo: tli.renderingInfo
                                 , columnPusher: tli.columnPusher
                                 , lowPriorityCb: tli.lpsCallback

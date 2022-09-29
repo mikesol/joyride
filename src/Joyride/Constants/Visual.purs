@@ -33,15 +33,20 @@ orientationDampening0To100 x = ((x / 100.0) `pow` 2.0) * 0.3 + 0.01
 
 reverseOrientationDampening :: Number -> Number
 reverseOrientationDampening x = clamp 0.0 100.0 $ (((x - 0.01) / 0.3) `pow` 0.5) * 100.0
+
 -- todo: make this variable
 -- even though it is sent over the wire, it is currently not responsive to settings
 -- but as desktop mode isn't really supported outside of development for now
 -- we can safely lock this
 keyboardInitialDampeningFactor = 0.77 :: Number
 
+globalInternalFac = 0.25
+
 backgroundXRotation ∷ Number → Number
-backgroundXRotation fac = 0.001 * sin (fac * pi * 0.1 )
+backgroundXRotation fac = 0.001 * sin (fac * pi * 0.1 * globalInternalFac)
+
 backgroundYRotation ∷ Number → Number
-backgroundYRotation fac = 0.0001 * sin (fac * pi * 0.5 )
+backgroundYRotation fac = 0.0001 * sin (fac * pi * 0.5 * globalInternalFac)
+
 backgroundZRotation ∷ Number → Number
 backgroundZRotation fac = 0.0 -- 0.001 * cos ((fac / 1000.0) * pi * 0.01)

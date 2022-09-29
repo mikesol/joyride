@@ -5,7 +5,7 @@ import Prelude
 import Bolson.Core (Element(..), envy, fixed)
 import Control.Alt ((<|>))
 import Control.Plus (empty)
-import Data.Array (zipWith, (..))
+import Data.Array ((..))
 import Data.Array.NonEmpty (toArray)
 import Data.Filterable (filter)
 import Data.Foldable (oneOf, oneOfMap)
@@ -25,6 +25,7 @@ import Joyride.Constants.Visual (backgroundXRotation, backgroundYRotation, backg
 import Joyride.Effect.Lowpass (lpf)
 import Joyride.FRP.BusT (vbust)
 import Joyride.FRP.Dedup (dedup)
+import Joyride.Math.Matrix4 as M4
 import Joyride.QualifiedDo.Apply as QDA
 import Joyride.Visual.Bar (makeBar)
 import Joyride.Visual.BasicLabels (basicLabels)
@@ -32,8 +33,8 @@ import Joyride.Visual.LeapLabels (leapLabels)
 import Joyride.Visual.LongLabels (longLabels)
 import Joyride.Visual.RaycastableLane (makeRaycastableLane)
 import Rito.Cameras.PerspectiveCamera (perspectiveCamera)
-import Rito.Color (RGB(..), color)
-import Rito.Core (ASceneful, Renderer(..), cameraToGroup, effectComposerToRenderer, plain, toGroup, toScene)
+import Rito.Color (Color, RGB(..), color)
+import Rito.Core (ASceneful, FogInfo(..), Renderer(..), cameraToGroup, effectComposerToRenderer, plain, toGroup, toScene)
 import Rito.CubeTexture (CubeTexture)
 import Rito.Euler (euler)
 import Rito.GLTF (GLTF)
@@ -42,7 +43,8 @@ import Rito.Geometries.Plane (plane)
 import Rito.Group (group)
 import Rito.Lights.AmbientLight (ambientLight)
 import Rito.Lights.PointLight (pointLight)
-import Rito.Materials.MeshPhongMaterial (meshPhongMaterial)
+import Rito.Materials.MeshBasicMaterial (meshBasicMaterial)
+import Rito.Materials.MeshLambertMaterial (meshLambertMaterial)
 import Rito.Matrix4 (Matrix4', Matrix4)
 import Rito.Portal (globalCameraPortal1, globalEffectComposerPortal1, globalScenePortal1, globalWebGLRendererPortal1)
 import Rito.Properties (aspect, background, decay, distance, intensity, matrix4, rotateX, rotateY, rotateZ, rotationFromEuler) as P
@@ -61,7 +63,7 @@ import Rito.Scene (Background(..), scene)
 import Rito.Texture (Texture)
 import Rito.Vector2 (vector2)
 import Type.Proxy (Proxy(..))
-import Types (Axis(..), Column, CubeTextures, GalaxyAttributes, HitBasicMe, HitBasicVisualForLabel, HitLeapVisualForLabel, HitLongVisualForLabel, JMilliseconds, Models, Player(..), PlayerPositions, Position(..), RateInfo, ReleaseLongVisualForLabel, RenderingInfo, Shaders, Textures, ThreeDI, WindowDims, allColumns, allPlayers, allPositions, playerPosition)
+import Types (Axis(..), Beats(..), Column, CubeTextures, GalaxyAttributes, HitBasicMe, HitBasicVisualForLabel, HitLeapVisualForLabel, HitLongVisualForLabel, JMilliseconds, Models, Player(..), PlayerPositions, Position(..), RateInfo, ReleaseLongVisualForLabel, RenderingInfo, Shaders, Textures, ThreeDI, WindowDims, allColumns, allPlayers, allPositions, playerPosition)
 import Web.DOM as Web.DOM
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 
@@ -75,6 +77,7 @@ runThree
      , pressedStart :: Event Boolean
      , galaxyAttributes :: GalaxyAttributes
      , shaders :: Shaders
+     , mkColor :: RGB -> Color
      , mkMatrix4 :: Matrix4' -> Matrix4
      , columnPusher :: EventIO Column
      , css2DRendererElt :: Event Web.DOM.Element
@@ -114,25 +117,27 @@ runThree
      }
   -> Effect Unit
 runThree opts = do
-  let nClouds = 25
-  cloudPosX <- traverse (const random) (0 .. (nClouds - 1))
-  cloudPosY <- traverse (const random) (0 .. (nClouds - 1))
-  cloudPosZ <- traverse (const random) (0 .. (nClouds - 1))
-  let cloudLR = 6.0
-  let cloudUD = 6.0
+  let nClouds = 40
+  let cloudLR = 10.0
+  let cloudUD = 8.0
   let cloudFB = -0.0
+  let cloudBS = 0.6
+  let cloudFS = 0.03
   let cloudX = 0.0
-  let cloudY = -0.5
+  let cloudY = -1.5
   let cloudZ = -3.0
+  let cloudS = 5.0
+  let cloudR = 0.0
   let positionCloud w c n = (n - 0.5) * w + c
-  let
-    allPos = zipWith ($)
-      ( zipWith { x: _, y: _, z: _ }
-          (map (positionCloud cloudLR cloudX) cloudPosX)
-          (map (positionCloud cloudUD cloudY) cloudPosY)
-      )
-      (map (positionCloud cloudFB cloudZ) cloudPosZ)
-  let cloudScale = 4.0
+  allPos <- traverse
+    ( const $ { x: _, y: _, z: _, s: _, r: _ }
+        <$> (positionCloud cloudLR cloudX <$> random)
+        <*> (positionCloud cloudUD cloudY <$> random)
+        <*> (positionCloud cloudFB cloudZ <$> random)
+        <*> (positionCloud cloudBS cloudS <$> random)
+        <*> (positionCloud cloudFS cloudR <$> random)
+    )
+    (0 .. (nClouds - 1))
   let c3 = color opts.threeDI.color
   let mopts = { playerPositions: _.playerPositions <$> opts.animatedStuff, rateInfo: _.rateInfo <$> opts.animatedStuff }
   _ <- Rito.Run.run
@@ -205,7 +210,15 @@ runThree opts = do
                   []
             )
         myScene <- globalScenePortal1
-          ( scene { scene: opts.threeDI.scene } (pure $ P.background (CubeTexture (unwrap opts.cubeTextures).ruins))
+          ( scene
+              { scene: opts.threeDI.scene
+              , fog: FogExp2Info
+                  { color: opts.mkColor $ RGB 17.0 17.0 31.0
+                  , ctor: opts.threeDI.fogExp2
+                  , density: 0.01
+                  }
+              }
+              (pure $ P.background (Texture (unwrap opts.textures).mansion))
               [ toScene $ group { group: opts.threeDI.group }
                   ( keepLatest $
                       ( mapAccum
@@ -232,8 +245,8 @@ runThree opts = do
                         }
                         nClouds
                         (plane { plane: opts.threeDI.plane })
-                        ( meshPhongMaterial
-                            { meshPhongMaterial: opts.threeDI.meshPhongMaterial
+                        ( meshLambertMaterial
+                            { meshLambertMaterial: opts.threeDI.meshLambertMaterial
                             , map: (unwrap opts.textures).smoke
                             , transparent: true
                             }
@@ -245,25 +258,10 @@ runThree opts = do
                                     ( Acquire
                                         ( singleInstance
                                             ( oneOf
-                                                [ pure $ P.matrix4
+                                                [ mopts.rateInfo <#> \{ beats: Beats beats } -> P.matrix4
                                                     ( opts.mkMatrix4
-                                                        { n14: myPos.x
-                                                        , n24: myPos.y
-                                                        , n34: myPos.z
-                                                        , n11: cloudScale
-                                                        , n22: cloudScale
-                                                        , n33: cloudScale
-                                                        , n12: 0.0
-                                                        , n13: 0.0
-                                                        , n21: 0.0
-                                                        , n23: 0.0
-                                                        , n31: 0.0
-                                                        , n32: 0.0
-                                                        , n41: 0.0
-                                                        , n42: 0.0
-                                                        , n43: 0.0
-                                                        , n44: 1.0
-                                                        }
+                                                        ( M4.scale { x: myPos.s, y: myPos.s, z: myPos.s } $ M4.rotateZ (pi * beats * myPos.r) $ M4.translate { x: myPos.x, y: myPos.y, z: myPos.z } $ M4.rotateX (pi * -0.1) $ M4.identity
+                                                        )
                                                     )
                                                 ]
                                             )
@@ -416,7 +414,10 @@ runThree opts = do
               ]
           )
         myShips <- globalScenePortal1
-          ( scene { scene: opts.threeDI.scene } empty
+          ( scene
+              { scene: opts.threeDI.scene
+              }
+              empty
               [ toScene $ group { group: opts.threeDI.group }
                   ( keepLatest $
                       ( mapAccum

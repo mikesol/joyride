@@ -92,11 +92,11 @@ threeLoader opts = do
                             Nothing
                             (map (unwrap >>> (_ / 1000.0)) animationTime)
                         ) <#> \t ->
-                            oneOfMap pure
-                              [ P.rotateX $ backgroundXRotation t
-                              , P.rotateY $ backgroundYRotation t
-                              , P.rotateZ $ backgroundZRotation t
-                              ]
+                          oneOfMap pure
+                            [ P.rotateX $ backgroundXRotation t
+                            , P.rotateY $ backgroundYRotation t
+                            , P.rotateZ $ backgroundZRotation t
+                            ]
                     )
                     -- camera
                     -- needs to be part of the group to rotate correctly

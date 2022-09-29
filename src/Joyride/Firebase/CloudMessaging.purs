@@ -1,6 +1,5 @@
 module Joyride.Firebase.CloudMessaging where
 
-
 import Prelude
 
 import Control.Promise (Promise, toAffE)

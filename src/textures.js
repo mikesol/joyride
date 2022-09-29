@@ -40,6 +40,7 @@ import ruinsTop from "./textures/ruins/top.png";
 import smoke from "./textures/smoke/smoke.png";
 import rain1 from "./textures/rain/12.png";
 import rain2 from "./textures/rain/13.png";
+import mansion from "./textures/Mansion/mansion.jpeg";
 
 export const cubeTextures = {
 	skybox: {
@@ -71,7 +72,8 @@ export const cubeTextures = {
 export const textures = {
 	smoke,
 	rain1,
-	rain2
+	rain2,
+	mansion
 	// hockeyAO,
 	// hockeyCOL,
 	// hockeyDISP,

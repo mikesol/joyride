@@ -83,7 +83,7 @@ import Types (AppOrientationState(..), BufferName(..), Channel(..), ChannelChoos
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
 import Web.HTML (window)
-import Web.HTML.Location (hash, pathname, search, setHash)
+import Web.HTML.Location (hash, search, setHash)
 import Web.HTML.Window (innerHeight, innerWidth, localStorage, location, toEventTarget)
 import Web.Storage.Storage as LS
 
@@ -448,10 +448,13 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
               { scene: THREE.sceneAff
               , vector2: THREE.vector2Aff
               , vector3: THREE.vector3Aff
+              , fogExp2: THREE.fogExp2Aff
               , meshStandardMaterial: THREE.meshStandardMaterialAff
+              , meshLambertMaterial: THREE.meshLambertMaterialAff
               , bufferGeometry: THREE.bufferGeometryAff
               , points: THREE.pointsAff
               , meshPhongMaterial: THREE.meshPhongMaterialAff
+              , meshBasicMaterial: THREE.meshBasicMaterialAff
               , boxGeometry: THREE.boxGeometryAff
               , cylinderGeometry: THREE.cylinderGeometryAff
               , pointLight: THREE.pointLightAff

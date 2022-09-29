@@ -37,6 +37,7 @@ tutorialPath = "tutorial" :: String
 editorPath = "editor" :: String
 ridesPath = "rides" :: String
 settingsPath = "settings" :: String
+
 route :: RouteDuplex' Route
 route = root $ G.sum
   { "Home": G.noArgs

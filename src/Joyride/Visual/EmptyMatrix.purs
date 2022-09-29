@@ -1,8 +1,6 @@
 module Joyride.Visual.EmptyMatrix where
 
-
 import Rito.Matrix4 (Matrix4')
-
 
 emptyMatrix :: Matrix4'
 emptyMatrix =
