@@ -416,7 +416,6 @@ playerPosition' Player2 = _.p2p
 playerPosition' Player3 = _.p3p
 playerPosition' Player4 = _.p4p
 
-newtype Textures :: forall k. k -> Type
 newtype Textures a = Textures
   { -- hockeyAO :: a
   -- , hockeyCOL :: a
@@ -439,6 +438,9 @@ newtype Textures a = Textures
   -- , tilesZelligeHexGLOSS :: a
   -- , tilesZelligeHexREFL :: a
   -- , butterfly0 :: a
+    smoke :: a
+  , rain1 :: a
+  , rain2 :: a
   }
 
 newtype CubeTexture a = CubeTexture

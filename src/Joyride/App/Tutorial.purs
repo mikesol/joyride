@@ -319,6 +319,7 @@ tutorial
                                 , columnPusher: tli.columnPusher
                                 , lowPriorityCb: tli.lpsCallback
                                 , myPlayer
+                                , mkMatrix4: M4.set threeDI.matrix4
                                 , debug: tli.debug
                                 , models
                                 , textures

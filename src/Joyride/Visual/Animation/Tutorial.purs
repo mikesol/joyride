@@ -5,6 +5,7 @@ import Prelude
 import Bolson.Core (Element(..), envy, fixed)
 import Control.Alt ((<|>))
 import Control.Plus (empty)
+import Data.Array (zipWith, (..))
 import Data.Array.NonEmpty (toArray)
 import Data.Filterable (filter)
 import Data.Foldable (oneOf, oneOfMap)
@@ -12,9 +13,11 @@ import Data.Int (toNumber)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.Number (pi)
+import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..))
 import Data.Tuple.Nested ((/\))
 import Effect (Effect)
+import Effect.Random (random)
 import FRP.Behavior (Behavior, sampleBy)
 import FRP.Event (Event, EventIO, keepLatest, mailboxed, mapAccum)
 import FRP.Event.VBus (V)
@@ -35,11 +38,14 @@ import Rito.CubeTexture (CubeTexture)
 import Rito.Euler (euler)
 import Rito.GLTF (GLTF)
 import Rito.GLTF as GLTF
+import Rito.Geometries.Plane (plane)
 import Rito.Group (group)
 import Rito.Lights.AmbientLight (ambientLight)
 import Rito.Lights.PointLight (pointLight)
+import Rito.Materials.MeshPhongMaterial (meshPhongMaterial)
+import Rito.Matrix4 (Matrix4', Matrix4)
 import Rito.Portal (globalCameraPortal1, globalEffectComposerPortal1, globalScenePortal1, globalWebGLRendererPortal1)
-import Rito.Properties (aspect, background, decay, distance, intensity, rotateX, rotateY, rotateZ, rotationFromEuler) as P
+import Rito.Properties (aspect, background, decay, distance, intensity, matrix4, rotateX, rotateY, rotateZ, rotationFromEuler) as P
 import Rito.Properties (positionX, positionY, positionZ, render, scaleX, scaleY, scaleZ, size)
 import Rito.Renderers.CSS2D (css2DRenderer)
 import Rito.Renderers.CSS3D (css3DRenderer)
@@ -49,6 +55,7 @@ import Rito.Renderers.WebGL.EffectComposer (effectComposer)
 import Rito.Renderers.WebGL.EffectComposerPass (effectComposerPass)
 import Rito.Renderers.WebGL.RenderPass (renderPass)
 import Rito.Renderers.WebGL.UnrealBloomPass (unrealBloomPass)
+import Rito.RoundRobin (Semaphore(..), roundRobinInstancedMesh, singleInstance)
 import Rito.Run as Rito.Run
 import Rito.Scene (Background(..), scene)
 import Rito.Texture (Texture)
@@ -68,6 +75,7 @@ runThree
      , pressedStart :: Event Boolean
      , galaxyAttributes :: GalaxyAttributes
      , shaders :: Shaders
+     , mkMatrix4 :: Matrix4' -> Matrix4
      , columnPusher :: EventIO Column
      , css2DRendererElt :: Event Web.DOM.Element
      , css3DRendererElt :: Event Web.DOM.Element
@@ -106,6 +114,25 @@ runThree
      }
   -> Effect Unit
 runThree opts = do
+  let nClouds = 25
+  cloudPosX <- traverse (const random) (0 .. (nClouds - 1))
+  cloudPosY <- traverse (const random) (0 .. (nClouds - 1))
+  cloudPosZ <- traverse (const random) (0 .. (nClouds - 1))
+  let cloudLR = 6.0
+  let cloudUD = 6.0
+  let cloudFB = -0.0
+  let cloudX = 0.0
+  let cloudY = -0.5
+  let cloudZ = -3.0
+  let positionCloud w c n = (n - 0.5) * w + c
+  let
+    allPos = zipWith ($)
+      ( zipWith { x: _, y: _, z: _ }
+          (map (positionCloud cloudLR cloudX) cloudPosX)
+          (map (positionCloud cloudUD cloudY) cloudPosY)
+      )
+      (map (positionCloud cloudFB cloudZ) cloudPosZ)
+  let cloudScale = 4.0
   let c3 = color opts.threeDI.color
   let mopts = { playerPositions: _.playerPositions <$> opts.animatedStuff, rateInfo: _.rateInfo <$> opts.animatedStuff }
   _ <- Rito.Run.run
@@ -191,14 +218,62 @@ runThree opts = do
                               opts.animatedStuff
                           )
                       ) <#> \t ->
-                          if false then empty
-                          else oneOfMap pure
-                            [ P.rotateX $ backgroundXRotation t
-                            , P.rotateY $ backgroundYRotation t
-                            , P.rotateZ $ backgroundZRotation t
-                            ]
+                        if false then empty
+                        else oneOfMap pure
+                          [ P.rotateX $ backgroundXRotation t
+                          , P.rotateY $ backgroundYRotation t
+                          , P.rotateZ $ backgroundZRotation t
+                          ]
                   )
-                  ( shipsssss 0.00
+                  ( [ toGroup $ roundRobinInstancedMesh
+                        { instancedMesh: opts.threeDI.instancedMesh
+                        , matrix4: opts.threeDI.matrix4
+                        , mesh: opts.threeDI.mesh
+                        }
+                        nClouds
+                        (plane { plane: opts.threeDI.plane })
+                        ( meshPhongMaterial
+                            { meshPhongMaterial: opts.threeDI.meshPhongMaterial
+                            , map: (unwrap opts.textures).smoke
+                            , transparent: true
+                            }
+                            empty
+                        )
+                        ( oneOfMap pure
+                            ( map
+                                ( \myPos -> pure
+                                    ( Acquire
+                                        ( singleInstance
+                                            ( oneOf
+                                                [ pure $ P.matrix4
+                                                    ( opts.mkMatrix4
+                                                        { n14: myPos.x
+                                                        , n24: myPos.y
+                                                        , n34: myPos.z
+                                                        , n11: cloudScale
+                                                        , n22: cloudScale
+                                                        , n33: cloudScale
+                                                        , n12: 0.0
+                                                        , n13: 0.0
+                                                        , n21: 0.0
+                                                        , n23: 0.0
+                                                        , n31: 0.0
+                                                        , n32: 0.0
+                                                        , n41: 0.0
+                                                        , n42: 0.0
+                                                        , n43: 0.0
+                                                        , n44: 1.0
+                                                        }
+                                                    )
+                                                ]
+                                            )
+                                        )
+                                    )
+                                )
+                                allPos
+                            )
+                        )
+                    ] <> shipsssss 0.00
                       <> map toGroup
                         ( ( \position -> makeBar $
                               { c3
@@ -354,12 +429,12 @@ runThree opts = do
                               opts.animatedStuff
                           )
                       ) <#> \t ->
-                          if false then empty
-                          else oneOfMap pure
-                            [ P.rotateX $ backgroundXRotation t
-                            , P.rotateY $ backgroundYRotation t
-                            , P.rotateZ $ backgroundZRotation t
-                            ]
+                        if false then empty
+                        else oneOfMap pure
+                          [ P.rotateX $ backgroundXRotation t
+                          , P.rotateY $ backgroundYRotation t
+                          , P.rotateZ $ backgroundZRotation t
+                          ]
                   )
                   ( shipsssss 0.0
                       <>

@@ -37,6 +37,9 @@ import ruinsFront from "./textures/ruins/front.png";
 import ruinsLeft from "./textures/ruins/left.png";
 import ruinsRight from "./textures/ruins/right.png";
 import ruinsTop from "./textures/ruins/top.png";
+import smoke from "./textures/smoke/smoke.png";
+import rain1 from "./textures/rain/12.png";
+import rain2 from "./textures/rain/13.png";
 
 export const cubeTextures = {
 	skybox: {
@@ -66,6 +69,9 @@ export const cubeTextures = {
 };
 
 export const textures = {
+	smoke,
+	rain1,
+	rain2
 	// hockeyAO,
 	// hockeyCOL,
 	// hockeyDISP,
