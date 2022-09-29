@@ -16,6 +16,7 @@ import Data.Number (pi)
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..))
 import Data.Tuple.Nested ((/\))
+import Debug (spy)
 import Effect (Effect)
 import Effect.Random (random)
 import FRP.Behavior (Behavior, sampleBy)
@@ -117,22 +118,24 @@ runThree
      }
   -> Effect Unit
 runThree opts = do
-  let nClouds = 40
-  let cloudLR = 10.0
+  let nClouds = 30
+  let cloudLR = 18.0
   let cloudUD = 8.0
   let cloudFB = -0.0
-  let cloudBS = 0.6
+  let cloudBS = 1.0
   let cloudFS = 0.03
   let cloudX = 0.0
   let cloudY = -1.5
   let cloudZ = -3.0
-  let cloudS = 5.0
+  let cloudS = 6.5
   let cloudR = 0.0
   let positionCloud w c n = (n - 0.5) * w + c
+  let positionCloudY i w c n = (0.75 * (positionCloud w c (toNumber (i `mod` 5) / 4.0)) + (0.25 * (positionCloud w c n))) 
+  let positionCloudX i w c n = 0.75 * positionCloud w c ((toNumber (i / 6) / 4.0)) + (0.25 * positionCloud w c n)
   allPos <- traverse
-    ( const $ { x: _, y: _, z: _, s: _, r: _ }
-        <$> (positionCloud cloudLR cloudX <$> random)
-        <*> (positionCloud cloudUD cloudY <$> random)
+    ( \i -> { x: _, y: _, z: _, s: _, r: _ }
+        <$> (positionCloudX i cloudLR cloudX <$> random)
+        <*> (positionCloudY i cloudUD cloudY <$> random)
         <*> (positionCloud cloudFB cloudZ <$> random)
         <*> (positionCloud cloudBS cloudS <$> random)
         <*> (positionCloud cloudFS cloudR <$> random)
