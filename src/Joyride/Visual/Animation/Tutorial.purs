@@ -134,6 +134,9 @@ runThree opts = do
   let positionCloud w c n = (n - 0.5) * w + c
   let positionCloudY i w c n = (0.75 * (positionCloud w c (toNumber (i `mod` 5) / 4.0)) + (0.25 * (positionCloud w c n)))
   let positionCloudX i w c n = 0.75 * positionCloud w c ((toNumber (i / (nClouds / 5)) / 4.0)) + (0.25 * positionCloud w c n)
+  let c3 = color opts.threeDI.color
+  let mopts = { playerPositions: _.playerPositions <$> opts.animatedStuff, rateInfo: _.rateInfo <$> opts.animatedStuff }
+  let posAx' plyr axis = map (playerPosition plyr axis) mopts.playerPositions
   allPos <- traverse
     ( \i -> { x: _, y: _, z: _, s: _, r: _ }
         <$> (positionCloudX i cloudLR cloudX <$> random)
@@ -143,8 +146,6 @@ runThree opts = do
         <*> (positionCloud cloudFS cloudR <$> random)
     )
     (0 .. (nClouds - 1))
-  let c3 = color opts.threeDI.color
-  let mopts = { playerPositions: _.playerPositions <$> opts.animatedStuff, rateInfo: _.rateInfo <$> opts.animatedStuff }
   _ <- Rito.Run.run
     ( envy QDA.do
         columnCtor <- keepLatest <<< mailboxed (map { payload: unit, address: _ } opts.columnPusher.event)
@@ -168,8 +169,7 @@ runThree opts = do
               , far: 100.0
               }
               ( let
-                  ppos = playerPosition opts.myPlayer
-                  posAx axis = map (ppos axis) mopts.playerPositions
+                  posAx = posAx' opts.myPlayer
                   px = posAx AxisX
                   py = posAx AxisY
                   pz = posAx AxisZ
@@ -187,8 +187,7 @@ runThree opts = do
         let
           shipsssss n =
             ( filter (_ /= opts.myPlayer) (toArray allPlayers) <#> \player -> do
-                let ppos = playerPosition player
-                let posAx axis = map (ppos axis) mopts.playerPositions
+                let posAx = posAx' player
                 toGroup $ GLTF.scene (unwrap opts.models).tarantula
                   ( oneOf
                       [ (positionX <<< add n) <$> tameXAxis (isNotMe player opts.myPlayer) (posAx AxisX)
@@ -253,7 +252,7 @@ runThree opts = do
                         ( oneOf
                             [ pure (positionX 0.0)
                             , pure (positionY 0.0)
-                            , pure (positionZ (-3.5))
+                            , posAx' opts.myPlayer AxisZ <#> \pz -> (positionZ (-3.5 + pz))
                             , pure (scaleX (16.0))
                             , pure (scaleY (8.0))
                             , pure (rotateX (pi * -0.1))
@@ -345,8 +344,7 @@ runThree opts = do
                         ]
                       <>
                         ( (toArray allPlayers) <#> \player -> do
-                            let ppos = playerPosition player
-                            let posAx axis = map (ppos axis) mopts.playerPositions
+                            let posAx = posAx' player
                             let normalDistance = 4.0
                             let normalDecay = 2.0
                             let normalIntensity = 1.0
@@ -464,8 +462,7 @@ runThree opts = do
                   ( shipsssss 0.0
                       <>
                         ( (toArray allPlayers) <#> \player -> do
-                            let ppos = playerPosition player
-                            let posAx axis = map (ppos axis) mopts.playerPositions
+                            let posAx = posAx' player
                             let normalDistance = 4.0
                             let normalDecay = 2.0
                             let normalIntensity = 1.0
