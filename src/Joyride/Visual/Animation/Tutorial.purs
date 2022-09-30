@@ -217,11 +217,11 @@ runThree opts = do
         myScene <- globalScenePortal1
           ( scene
               { scene: opts.threeDI.scene
-              , fog: FogExp2Info
-                  { color: opts.mkColor $ RGB 17.0 17.0 31.0
-                  , ctor: opts.threeDI.fogExp2
-                  , density: 0.01
-                  }
+              -- , fog: FogExp2Info
+              --     { color: opts.mkColor $ RGB 17.0 17.0 31.0
+              --     , ctor: opts.threeDI.fogExp2
+              --     , density: 0.01
+              --     }
               }
               empty -- (pure $ P.background (Texture (unwrap opts.textures).mansion))
               [ toScene $ group { group: opts.threeDI.group }
@@ -261,7 +261,7 @@ runThree opts = do
                         )
                     ]
                       <>
-                        guard false [ toGroup $ roundRobinInstancedMesh
+                        (guard false [ toGroup $ roundRobinInstancedMesh
                             { instancedMesh: opts.threeDI.instancedMesh
                             , matrix4: opts.threeDI.matrix4
                             , mesh: opts.threeDI.mesh
@@ -294,7 +294,7 @@ runThree opts = do
                                     allPos
                                 )
                             )
-                        ]
+                        ])
                       <> shipsssss 0.00
                       <> map toGroup
                         ( ( \position -> makeBar $
