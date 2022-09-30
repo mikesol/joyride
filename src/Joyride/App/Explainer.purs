@@ -3,6 +3,7 @@ module Joyride.App.Explainer where
 import Prelude
 
 import Bolson.Core (Element(..), envy, fixed)
+import Control.Plus (empty)
 import Data.Foldable (for_, oneOf, oneOfMap, traverse_)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
@@ -86,21 +87,22 @@ threeLoader opts = do
             ( scene { scene: opts.threeDI.scene }
                 (pure $ P.background (Texture (unwrap opts.textures).mansion))
                 [ toScene $ group { group: opts.threeDI.group }
-                    ( keepLatest $
-                        ( mapAccum
-                            ( \b a -> case b of
-                                Nothing -> Just a /\ 0.0
-                                Just x -> Just x /\ (a - x)
-                            )
-                            Nothing
-                            (map (unwrap >>> (_ / 1000.0)) animationTime)
-                        ) <#> \t ->
-                          oneOfMap pure
-                            [ P.rotateX $ backgroundXRotation t
-                            , P.rotateY $ backgroundYRotation t
-                            , P.rotateZ $ backgroundZRotation t
-                            ]
-                    )
+                    empty
+                    -- ( keepLatest $
+                    --     ( mapAccum
+                    --         ( \b a -> case b of
+                    --             Nothing -> Just a /\ 0.0
+                    --             Just x -> Just x /\ (a - x)
+                    --         )
+                    --         Nothing
+                    --         (map (unwrap >>> (_ / 1000.0)) animationTime)
+                    --     ) <#> \t ->
+                    --       oneOfMap pure
+                    --         [ P.rotateX $ backgroundXRotation t
+                    --         , P.rotateY $ backgroundYRotation t
+                    --         , P.rotateZ $ backgroundZRotation t
+                    --         ]
+                    -- )
                     -- camera
                     -- needs to be part of the group to rotate correctly
                     [ cameraToGroup myCamera

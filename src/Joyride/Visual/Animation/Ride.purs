@@ -178,24 +178,25 @@ runThree opts = do
         myScene <- globalScenePortal1
           ( scene { scene: opts.threeDI.scene } (pure $ P.background (Texture (unwrap opts.textures).mansion))
               [ toScene $ group { group: opts.threeDI.group }
-                  ( keepLatest $
-                      ( mapAccum
-                          ( \b a -> case b of
-                              Nothing -> Just a /\ 0.0
-                              Just x -> Just x /\ (a - x)
-                          )
-                          Nothing
-                          ( map (_.rateInfo.epochTime >>> unwrap >>> (_ / 1000.0))
-                              opts.animatedStuff
-                          )
-                      ) <#> \t ->
-                        if false then empty
-                        else oneOfMap pure
-                          [ P.rotateX $ backgroundXRotation t
-                          , P.rotateY $ backgroundYRotation t
-                          , P.rotateZ $ backgroundZRotation t
-                          ]
-                  )
+                  empty
+                  -- ( keepLatest $
+                  --     ( mapAccum
+                  --         ( \b a -> case b of
+                  --             Nothing -> Just a /\ 0.0
+                  --             Just x -> Just x /\ (a - x)
+                  --         )
+                  --         Nothing
+                  --         ( map (_.rateInfo.epochTime >>> unwrap >>> (_ / 1000.0))
+                  --             opts.animatedStuff
+                  --         )
+                  --     ) <#> \t ->
+                  --       if false then empty
+                  --       else oneOfMap pure
+                  --         [ P.rotateX $ backgroundXRotation t
+                  --         , P.rotateY $ backgroundYRotation t
+                  --         , P.rotateZ $ backgroundZRotation t
+                  --         ]
+                  -- )
                   ( shipsssss 0.00
                       <> map toGroup
                         ( ( \position -> makeBar $
@@ -382,24 +383,25 @@ runThree opts = do
         myShips <- globalScenePortal1
           ( scene { scene: opts.threeDI.scene } empty
               [ toScene $ group { group: opts.threeDI.group }
-                  ( keepLatest $
-                      ( mapAccum
-                          ( \b a -> case b of
-                              Nothing -> Just a /\ 0.0
-                              Just x -> Just x /\ (a - x)
-                          )
-                          Nothing
-                          ( map (_.rateInfo.epochTime >>> unwrap >>> (_ / 1000.0))
-                              opts.animatedStuff
-                          )
-                      ) <#> \t ->
-                        if false then empty
-                        else oneOfMap pure
-                          [ P.rotateX $ backgroundXRotation t
-                          , P.rotateY $ backgroundYRotation t
-                          , P.rotateZ $ backgroundZRotation t
-                          ]
-                  )
+                  empty
+                  -- ( keepLatest $
+                  --     ( mapAccum
+                  --         ( \b a -> case b of
+                  --             Nothing -> Just a /\ 0.0
+                  --             Just x -> Just x /\ (a - x)
+                  --         )
+                  --         Nothing
+                  --         ( map (_.rateInfo.epochTime >>> unwrap >>> (_ / 1000.0))
+                  --             opts.animatedStuff
+                  --         )
+                  --     ) <#> \t ->
+                  --       if false then empty
+                  --       else oneOfMap pure
+                  --         [ P.rotateX $ backgroundXRotation t
+                  --         , P.rotateY $ backgroundYRotation t
+                  --         , P.rotateZ $ backgroundZRotation t
+                  --         ]
+                  -- )
                   ( shipsssss 0.0
                       <>
                         ( (toArray allPlayers) <#> \player -> do

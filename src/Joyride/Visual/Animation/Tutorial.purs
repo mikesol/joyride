@@ -225,24 +225,25 @@ runThree opts = do
               }
               empty -- (pure $ P.background (Texture (unwrap opts.textures).mansion))
               [ toScene $ group { group: opts.threeDI.group }
-                  ( keepLatest $
-                      ( mapAccum
-                          ( \b a -> case b of
-                              Nothing -> Just a /\ 0.0
-                              Just x -> Just x /\ (a - x)
-                          )
-                          Nothing
-                          ( map (_.rateInfo.epochTime >>> unwrap >>> (_ / 1000.0))
-                              opts.animatedStuff
-                          )
-                      ) <#> \t ->
-                        if false then empty
-                        else oneOfMap pure
-                          [ P.rotateX $ backgroundXRotation t
-                          , P.rotateY $ backgroundYRotation t
-                          , P.rotateZ $ backgroundZRotation t
-                          ]
-                  )
+                  empty
+                  -- ( keepLatest $
+                  --     ( mapAccum
+                  --         ( \b a -> case b of
+                  --             Nothing -> Just a /\ 0.0
+                  --             Just x -> Just x /\ (a - x)
+                  --         )
+                  --         Nothing
+                  --         ( map (_.rateInfo.epochTime >>> unwrap >>> (_ / 1000.0))
+                  --             opts.animatedStuff
+                  --         )
+                  --     ) <#> \t ->
+                  --       if false then empty
+                  --       else oneOfMap pure
+                  --         [ P.rotateX $ backgroundXRotation t
+                  --         , P.rotateY $ backgroundYRotation t
+                  --         , P.rotateZ $ backgroundZRotation t
+                  --         ]
+                  -- )
                   ( [ toGroup $ mesh { mesh: opts.threeDI.mesh } (plane { plane: opts.threeDI.plane })
                         ( meshStandardMaterial
                             { meshStandardMaterial: opts.threeDI.meshStandardMaterial
@@ -442,24 +443,25 @@ runThree opts = do
               }
               empty
               [ toScene $ group { group: opts.threeDI.group }
-                  ( keepLatest $
-                      ( mapAccum
-                          ( \b a -> case b of
-                              Nothing -> Just a /\ 0.0
-                              Just x -> Just x /\ (a - x)
-                          )
-                          Nothing
-                          ( map (_.rateInfo.epochTime >>> unwrap >>> (_ / 1000.0))
-                              opts.animatedStuff
-                          )
-                      ) <#> \t ->
-                        if false then empty
-                        else oneOfMap pure
-                          [ P.rotateX $ backgroundXRotation t
-                          , P.rotateY $ backgroundYRotation t
-                          , P.rotateZ $ backgroundZRotation t
-                          ]
-                  )
+                  empty
+                  -- ( keepLatest $
+                  --     ( mapAccum
+                  --         ( \b a -> case b of
+                  --             Nothing -> Just a /\ 0.0
+                  --             Just x -> Just x /\ (a - x)
+                  --         )
+                  --         Nothing
+                  --         ( map (_.rateInfo.epochTime >>> unwrap >>> (_ / 1000.0))
+                  --             opts.animatedStuff
+                  --         )
+                  --     ) <#> \t ->
+                  --       if false then empty
+                  --       else oneOfMap pure
+                  --         [ P.rotateX $ backgroundXRotation t
+                  --         , P.rotateY $ backgroundYRotation t
+                  --         , P.rotateZ $ backgroundZRotation t
+                  --         ]
+                  -- )
                   ( shipsssss 0.0
                       <>
                         ( (toArray allPlayers) <#> \player -> do
