@@ -120,7 +120,7 @@ runThree
      }
   -> Effect Unit
 runThree opts = do
-  let nClouds = 30
+  let nClouds = 25
   let cloudLR = 18.0
   let cloudUD = 8.0
   let cloudFB = -0.0
@@ -133,7 +133,7 @@ runThree opts = do
   let cloudR = 0.0
   let positionCloud w c n = (n - 0.5) * w + c
   let positionCloudY i w c n = (0.75 * (positionCloud w c (toNumber (i `mod` 5) / 4.0)) + (0.25 * (positionCloud w c n)))
-  let positionCloudX i w c n = 0.75 * positionCloud w c ((toNumber (i / 6) / 4.0)) + (0.25 * positionCloud w c n)
+  let positionCloudX i w c n = 0.75 * positionCloud w c ((toNumber (i / (nClouds / 5)) / 4.0)) + (0.25 * positionCloud w c n)
   allPos <- traverse
     ( \i -> { x: _, y: _, z: _, s: _, r: _ }
         <$> (positionCloudX i cloudLR cloudX <$> random)
