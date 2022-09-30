@@ -261,7 +261,7 @@ runThree opts = do
                         )
                     ]
                       <>
-                        (guard false [ toGroup $ roundRobinInstancedMesh
+                        (guard true [ toGroup $ roundRobinInstancedMesh
                             { instancedMesh: opts.threeDI.instancedMesh
                             , matrix4: opts.threeDI.matrix4
                             , mesh: opts.threeDI.mesh
