@@ -176,7 +176,7 @@ runThree opts = do
                   []
             )
         myScene <- globalScenePortal1
-          ( scene { scene: opts.threeDI.scene } (pure $ P.background (CubeTexture (unwrap opts.cubeTextures).ruins))
+          ( scene { scene: opts.threeDI.scene } (pure $ P.background (Texture (unwrap opts.textures).mansion))
               [ toScene $ group { group: opts.threeDI.group }
                   ( keepLatest $
                       ( mapAccum
