@@ -46,10 +46,12 @@ import Rito.Lights.AmbientLight (ambientLight)
 import Rito.Lights.PointLight (pointLight)
 import Rito.Materials.MeshBasicMaterial (meshBasicMaterial)
 import Rito.Materials.MeshLambertMaterial (meshLambertMaterial)
+import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.Matrix4 (Matrix4', Matrix4)
+import Rito.Mesh (mesh)
 import Rito.Portal (globalCameraPortal1, globalEffectComposerPortal1, globalScenePortal1, globalWebGLRendererPortal1)
 import Rito.Properties (aspect, background, decay, distance, intensity, matrix4, rotateX, rotateY, rotateZ, rotationFromEuler) as P
-import Rito.Properties (positionX, positionY, positionZ, render, scaleX, scaleY, scaleZ, size)
+import Rito.Properties (positionX, positionY, positionZ, render, rotateX, scaleX, scaleY, scaleZ, size)
 import Rito.Renderers.CSS2D (css2DRenderer)
 import Rito.Renderers.CSS3D (css3DRenderer)
 import Rito.Renderers.Raycaster (raycaster)
@@ -130,7 +132,7 @@ runThree opts = do
   let cloudS = 6.5
   let cloudR = 0.0
   let positionCloud w c n = (n - 0.5) * w + c
-  let positionCloudY i w c n = (0.75 * (positionCloud w c (toNumber (i `mod` 5) / 4.0)) + (0.25 * (positionCloud w c n))) 
+  let positionCloudY i w c n = (0.75 * (positionCloud w c (toNumber (i `mod` 5) / 4.0)) + (0.25 * (positionCloud w c n)))
   let positionCloudX i w c n = 0.75 * positionCloud w c ((toNumber (i / 6) / 4.0)) + (0.25 * positionCloud w c n)
   allPos <- traverse
     ( \i -> { x: _, y: _, z: _, s: _, r: _ }
@@ -221,7 +223,7 @@ runThree opts = do
                   , density: 0.01
                   }
               }
-              (pure $ P.background (Texture (unwrap opts.textures).mansion))
+              empty -- (pure $ P.background (Texture (unwrap opts.textures).mansion))
               [ toScene $ group { group: opts.threeDI.group }
                   ( keepLatest $
                       ( mapAccum
@@ -241,40 +243,59 @@ runThree opts = do
                           , P.rotateZ $ backgroundZRotation t
                           ]
                   )
-                  ( [ toGroup $ roundRobinInstancedMesh
-                        { instancedMesh: opts.threeDI.instancedMesh
-                        , matrix4: opts.threeDI.matrix4
-                        , mesh: opts.threeDI.mesh
-                        }
-                        nClouds
-                        (plane { plane: opts.threeDI.plane })
-                        ( meshLambertMaterial
-                            { meshLambertMaterial: opts.threeDI.meshLambertMaterial
-                            , map: (unwrap opts.textures).smoke
-                            , transparent: true
+                  ( [ toGroup $ mesh { mesh: opts.threeDI.mesh } (plane { plane: opts.threeDI.plane })
+                        ( meshStandardMaterial
+                            { meshStandardMaterial: opts.threeDI.meshStandardMaterial
+                            , map: (unwrap opts.textures).mansion
                             }
                             empty
                         )
-                        ( oneOfMap pure
-                            ( map
-                                ( \myPos -> pure
-                                    ( Acquire
-                                        ( singleInstance
-                                            ( oneOf
-                                                [ mopts.rateInfo <#> \{ beats: Beats beats } -> P.matrix4
-                                                    ( opts.mkMatrix4
-                                                        ( M4.scale { x: myPos.s, y: myPos.s, z: myPos.s } $ M4.rotateZ (pi * beats * myPos.r) $ M4.translate { x: myPos.x, y: myPos.y, z: myPos.z } $ M4.rotateX (pi * -0.1) $ M4.identity
+                        ( oneOf
+                            [ pure (positionX 0.0)
+                            , pure (positionY 0.0)
+                            , pure (positionZ (-3.5))
+                            , pure (scaleX (16.0))
+                            , pure (scaleY (8.0))
+                            , pure (rotateX (pi * -0.1))
+                            ]
+                        )
+                    ]
+                      <>
+                        [ toGroup $ roundRobinInstancedMesh
+                            { instancedMesh: opts.threeDI.instancedMesh
+                            , matrix4: opts.threeDI.matrix4
+                            , mesh: opts.threeDI.mesh
+                            }
+                            nClouds
+                            (plane { plane: opts.threeDI.plane })
+                            ( meshLambertMaterial
+                                { meshLambertMaterial: opts.threeDI.meshLambertMaterial
+                                , map: (unwrap opts.textures).smoke
+                                , transparent: true
+                                }
+                                empty
+                            )
+                            ( oneOfMap pure
+                                ( map
+                                    ( \myPos -> pure
+                                        ( Acquire
+                                            ( singleInstance
+                                                ( oneOf
+                                                    [ mopts.rateInfo <#> \{ beats: Beats beats } -> P.matrix4
+                                                        ( opts.mkMatrix4
+                                                            ( M4.scale { x: myPos.s, y: myPos.s, z: myPos.s } $ M4.rotateZ (pi * beats * myPos.r) $ M4.translate { x: myPos.x, y: myPos.y, z: myPos.z } $ M4.rotateX (pi * -0.1) $ M4.identity
+                                                            )
                                                         )
-                                                    )
-                                                ]
+                                                    ]
+                                                )
                                             )
                                         )
                                     )
+                                    allPos
                                 )
-                                allPos
                             )
-                        )
-                    ] <> shipsssss 0.00
+                        ]
+                      <> shipsssss 0.00
                       <> map toGroup
                         ( ( \position -> makeBar $
                               { c3
