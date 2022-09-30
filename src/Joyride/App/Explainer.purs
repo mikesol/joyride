@@ -37,9 +37,10 @@ import Rito.Properties (positionX, positionY, positionZ, render, size)
 import Rito.Renderers.WebGL (webGLRenderer)
 import Rito.Run as Rito.Run
 import Rito.Scene (Background(..), scene)
+import Rito.Texture (Texture)
 import Route (ridesPath, settingsPath)
 import Type.Proxy (Proxy(..))
-import Types (CubeTextures, JMilliseconds(..), ThreeDI, Track, WindowDims)
+import Types (CubeTextures, JMilliseconds(..), Textures, ThreeDI, Track, WindowDims)
 import Web.HTML (window)
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 import Web.HTML.HTMLCanvasElement as HTMLCanvasElement
@@ -49,6 +50,7 @@ threeLoader
   :: { threeDI :: ThreeDI
      , isMobile :: Boolean
      , unsubscriber :: Effect Unit -> Effect Unit
+     , textures :: Textures Texture
      , cubeTextures :: CubeTextures CubeTexture
      , resizeE :: Event WindowDims
      , initialDims :: WindowDims
@@ -81,7 +83,8 @@ threeLoader opts = do
 
           )
           \myCamera -> globalScenePortal1
-            ( scene { scene: opts.threeDI.scene } (pure $ P.background (CubeTexture (unwrap opts.cubeTextures).ruins))
+            ( scene { scene: opts.threeDI.scene }
+                (pure $ P.background (Texture (unwrap opts.textures).mansion))
                 [ toScene $ group { group: opts.threeDI.group }
                     ( keepLatest $
                         ( mapAccum
@@ -136,6 +139,7 @@ explainerPage
      , signOut :: Effect Unit
      , resizeE :: Event WindowDims
      , cnow :: Effect Milliseconds
+     , textures :: Textures Texture
      , cubeTextures :: CubeTextures CubeTexture
      , initialDims :: WindowDims
      , threeDI :: ThreeDI
@@ -237,6 +241,7 @@ explainerPage opts = vbussed
                 ( threeLoader <<<
                     { threeDI: opts.threeDI
                     , isMobile: opts.isMobile
+                    , textures: opts.textures
                     , cubeTextures: opts.cubeTextures
                     , unsubscriber: push.unsubscriber
                     , resizeE: opts.resizeE

@@ -853,6 +853,7 @@ data Negotiation
   | SetSomeStuff SettingsNeeds
   | GetRulesOfGame
       { cubeTextures :: CubeTextures CTL.CubeTexture
+      , textures :: Textures Texture
       , models :: Models GLTFLoader.GLTF
       , stats :: Maybe Stats
       , initialDims :: WindowDims

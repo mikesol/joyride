@@ -603,6 +603,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                 NoChannel -> do
                   myGLTFs <- joinFiber downloadedGLTFs
                   myCubeTextures <- joinFiber downloadedCubeTextures
+                  myTexures <- joinFiber downloadedTextures
                   initialDims <- liftEffect $ { iw: _, ih: _ }
                     <$> (Int.toNumber <$> innerWidth w)
                     <*> (Int.toNumber <$> innerHeight w)
@@ -617,6 +618,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                         , signOut: launchAff_ do
                             toAffE $ signOut fbAuth (pure unit)
                         , cubeTextures: CubeTextures myCubeTextures
+                        , textures: Textures myTexures
                         , cNow: mappedCNow
                         , signedInNonAnonymously: signedInNonAnonymously.event
                         }
