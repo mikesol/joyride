@@ -11,6 +11,7 @@ import Data.Filterable (filter)
 import Data.Foldable (oneOf, oneOfMap)
 import Data.Int (toNumber)
 import Data.Maybe (Maybe(..))
+import Data.Monoid (guard)
 import Data.Newtype (unwrap)
 import Data.Number (pi)
 import Data.Traversable (traverse)
@@ -260,7 +261,7 @@ runThree opts = do
                         )
                     ]
                       <>
-                        [ toGroup $ roundRobinInstancedMesh
+                        guard false [ toGroup $ roundRobinInstancedMesh
                             { instancedMesh: opts.threeDI.instancedMesh
                             , matrix4: opts.threeDI.matrix4
                             , mesh: opts.threeDI.mesh
