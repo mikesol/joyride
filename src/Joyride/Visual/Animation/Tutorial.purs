@@ -117,7 +117,7 @@ runThree
      , initialDims :: WindowDims
      , canvas :: HTMLCanvasElement
      }
-  -> Effect Unit
+  -> Effect (Effect Unit)
 runThree opts = do
   let nClouds = 25
   let cloudLR = 18.0
@@ -145,7 +145,7 @@ runThree opts = do
         <*> (positionCloud cloudFS cloudR <$> random)
     )
     (0 .. (nClouds - 1))
-  _ <- Rito.Run.run
+  Rito.Run.run
     ( envy QDA.do
         columnCtor <- keepLatest <<< mailboxed (map { payload: unit, address: _ } opts.columnPusher.event)
         scenePush /\ sceneEvent <- vbust
@@ -572,7 +572,6 @@ runThree opts = do
               opts.css3DRendererElt
           ]
     )
-  pure unit
   where
   isNotMe a b = a /= b
   tipping = 120

@@ -32,10 +32,10 @@ foreign import runThree
      , textures :: Textures Texture
      , models :: Models GLTF
      , cubeTextures :: CubeTextures CubeTexture
-     , renderingInfo :: Behavior RenderingInfo
      , animatedStuff ::
          Event
            { rateInfo :: RateInfo
+           , renderingInfo :: RenderingInfo
            , playerPositions :: PlayerPositions
            }
      , resizeE :: Event WindowDims
@@ -103,4 +103,4 @@ foreign import runThree
          -> Position
          -> a
      }
-  -> Effect Unit
+  -> Effect (Effect Unit)
