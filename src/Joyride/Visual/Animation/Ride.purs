@@ -7,9 +7,8 @@ import Control.Alt ((<|>))
 import Control.Plus (empty)
 import Data.Array.NonEmpty (toArray)
 import Data.Filterable (filter)
-import Data.Foldable (oneOf, oneOfMap)
+import Data.Foldable (oneOf)
 import Data.Int (toNumber)
-import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.Number (pi)
 import Data.Tuple (Tuple(..))
@@ -18,7 +17,7 @@ import Effect (Effect)
 import FRP.Behavior (Behavior, sampleBy)
 import FRP.Event (Event, EventIO, keepLatest, mailboxed, mapAccum)
 import FRP.Event.VBus (V)
-import Joyride.Constants.Visual (backgroundXRotation, backgroundYRotation, backgroundZRotation, tarantulaScale)
+import Joyride.Constants.Visual (tarantulaScale)
 import Joyride.Effect.Lowpass (lpf)
 import Joyride.FRP.BusT (vbust)
 import Joyride.FRP.Dedup (dedup)
@@ -35,12 +34,15 @@ import Rito.CubeTexture (CubeTexture)
 import Rito.Euler (euler)
 import Rito.GLTF (GLTF)
 import Rito.GLTF as GLTF
+import Rito.Geometries.Plane (plane)
 import Rito.Group (group)
 import Rito.Lights.AmbientLight (ambientLight)
 import Rito.Lights.PointLight (pointLight)
+import Rito.Materials.MeshBasicMaterial (meshBasicMaterial)
+import Rito.Mesh (mesh)
 import Rito.Portal (globalCameraPortal1, globalEffectComposerPortal1, globalScenePortal1, globalWebGLRendererPortal1)
-import Rito.Properties (aspect, background, decay, distance, intensity, rotateX, rotateY, rotateZ, rotationFromEuler) as P
-import Rito.Properties (positionX, positionY, positionZ, render, scaleX, scaleY, scaleZ, size)
+import Rito.Properties (aspect, decay, distance, intensity, rotationFromEuler) as P
+import Rito.Properties (positionX, positionY, positionZ, render, rotateX, scaleX, scaleY, scaleZ, size)
 import Rito.Renderers.CSS2D (css2DRenderer)
 import Rito.Renderers.CSS3D (css3DRenderer)
 import Rito.Renderers.Raycaster (raycaster)
@@ -50,7 +52,7 @@ import Rito.Renderers.WebGL.EffectComposerPass (effectComposerPass)
 import Rito.Renderers.WebGL.RenderPass (renderPass)
 import Rito.Renderers.WebGL.UnrealBloomPass (unrealBloomPass)
 import Rito.Run as Rito.Run
-import Rito.Scene (Background(..), scene)
+import Rito.Scene (scene)
 import Rito.Texture (Texture)
 import Rito.Vector2 (vector2)
 import Type.Proxy (Proxy(..))
@@ -108,6 +110,7 @@ runThree
 runThree opts = do
   let c3 = color opts.threeDI.color
   let mopts = { playerPositions: _.playerPositions <$> opts.animatedStuff, rateInfo: _.rateInfo <$> opts.animatedStuff }
+  let posAx' plyr axis = map (playerPosition plyr axis) mopts.playerPositions
   _ <- Rito.Run.run
     ( envy QDA.do
         columnCtor <- keepLatest <<< mailboxed (map { payload: unit, address: _ } opts.columnPusher.event)
@@ -176,7 +179,7 @@ runThree opts = do
                   []
             )
         myScene <- globalScenePortal1
-          ( scene { scene: opts.threeDI.scene } (pure $ P.background (Texture (unwrap opts.textures).mansion))
+          ( scene { scene: opts.threeDI.scene } empty
               [ toScene $ group { group: opts.threeDI.group }
                   empty
                   -- ( keepLatest $
@@ -197,7 +200,23 @@ runThree opts = do
                   --         , P.rotateZ $ backgroundZRotation t
                   --         ]
                   -- )
-                  ( shipsssss 0.00
+                  ( [ toGroup $ mesh { mesh: opts.threeDI.mesh } (plane { plane: opts.threeDI.plane })
+                        ( meshBasicMaterial
+                            { meshBasicMaterial: opts.threeDI.meshBasicMaterial
+                            , map: (unwrap opts.textures).mansion
+                            }
+                            empty
+                        )
+                        ( oneOf
+                            [ pure (positionX 0.0)
+                            , pure (positionY 0.0)
+                            , posAx' opts.myPlayer AxisZ <#> \pz -> (positionZ (-3.5 + pz))
+                            , pure (scaleX (16.0))
+                            , pure (scaleY (8.0))
+                            , pure (rotateX (pi * -0.1))
+                            ]
+                        )
+                    ] <> shipsssss 0.00
                       <> map toGroup
                         ( ( \position -> makeBar $
                               { c3

@@ -10,20 +10,18 @@ import Data.Array.NonEmpty (toArray)
 import Data.Filterable (filter)
 import Data.Foldable (oneOf, oneOfMap)
 import Data.Int (toNumber)
-import Data.Maybe (Maybe(..))
 import Data.Monoid (guard)
 import Data.Newtype (unwrap)
 import Data.Number (pi)
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..))
 import Data.Tuple.Nested ((/\))
-import Debug (spy)
 import Effect (Effect)
 import Effect.Random (random)
 import FRP.Behavior (Behavior, sampleBy)
 import FRP.Event (Event, EventIO, keepLatest, mailboxed, mapAccum)
 import FRP.Event.VBus (V)
-import Joyride.Constants.Visual (backgroundXRotation, backgroundYRotation, backgroundZRotation, tarantulaScale)
+import Joyride.Constants.Visual (tarantulaScale)
 import Joyride.Effect.Lowpass (lpf)
 import Joyride.FRP.BusT (vbust)
 import Joyride.FRP.Dedup (dedup)
@@ -36,7 +34,7 @@ import Joyride.Visual.LongLabels (longLabels)
 import Joyride.Visual.RaycastableLane (makeRaycastableLane)
 import Rito.Cameras.PerspectiveCamera (perspectiveCamera)
 import Rito.Color (Color, RGB(..), color)
-import Rito.Core (ASceneful, FogInfo(..), Renderer(..), cameraToGroup, effectComposerToRenderer, plain, toGroup, toScene)
+import Rito.Core (ASceneful, Renderer(..), cameraToGroup, effectComposerToRenderer, plain, toGroup, toScene)
 import Rito.CubeTexture (CubeTexture)
 import Rito.Euler (euler)
 import Rito.GLTF (GLTF)
@@ -51,7 +49,7 @@ import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
 import Rito.Matrix4 (Matrix4', Matrix4)
 import Rito.Mesh (mesh)
 import Rito.Portal (globalCameraPortal1, globalEffectComposerPortal1, globalScenePortal1, globalWebGLRendererPortal1)
-import Rito.Properties (aspect, background, decay, distance, intensity, matrix4, rotateX, rotateY, rotateZ, rotationFromEuler) as P
+import Rito.Properties (aspect, decay, distance, intensity, matrix4, rotationFromEuler) as P
 import Rito.Properties (positionX, positionY, positionZ, render, rotateX, scaleX, scaleY, scaleZ, size)
 import Rito.Renderers.CSS2D (css2DRenderer)
 import Rito.Renderers.CSS3D (css3DRenderer)
@@ -63,7 +61,7 @@ import Rito.Renderers.WebGL.RenderPass (renderPass)
 import Rito.Renderers.WebGL.UnrealBloomPass (unrealBloomPass)
 import Rito.RoundRobin (Semaphore(..), roundRobinInstancedMesh, singleInstance)
 import Rito.Run as Rito.Run
-import Rito.Scene (Background(..), scene)
+import Rito.Scene (scene)
 import Rito.Texture (Texture)
 import Rito.Vector2 (vector2)
 import Type.Proxy (Proxy(..))
@@ -245,8 +243,8 @@ runThree opts = do
                   --         ]
                   -- )
                   ( [ toGroup $ mesh { mesh: opts.threeDI.mesh } (plane { plane: opts.threeDI.plane })
-                        ( meshStandardMaterial
-                            { meshStandardMaterial: opts.threeDI.meshStandardMaterial
+                        ( meshBasicMaterial
+                            { meshBasicMaterial: opts.threeDI.meshBasicMaterial
                             , map: (unwrap opts.textures).mansion
                             }
                             empty
