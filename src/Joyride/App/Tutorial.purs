@@ -49,6 +49,7 @@ import Joyride.FullScreen as FullScreen
 import Joyride.Ocarina (AudibleChildEnd)
 import Joyride.Style (buttonCls, headerCls)
 import Joyride.Visual.Animation.Tutorial (runThree)
+import Joyride.Visual.Animation.TutorialJS as TJS
 import Ocarina.Clock (withACTime)
 import Ocarina.Interpret (close, constant0Hack, context)
 import Ocarina.Run (run2)
@@ -59,7 +60,7 @@ import Rito.Matrix4 as M4
 import Safe.Coerce (coerce)
 import Simple.JSON as JSON
 import Type.Proxy (Proxy(..))
-import Types (Beats(..), Column, HitBasicMe, HitLeapMe, HitLongMe, InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, MakeLongs, Player(..), RateInfo, ReleaseLongMe, RenderingInfo, Seconds(..), StartStatus(..), WantsTutorial', WindowDims)
+import Types (Beats(..), Column(..), HitBasicMe, HitLeapMe, HitLongMe, InFlightGameInfo(..), JMilliseconds(..), KnownPlayers(..), MakeBasics, MakeLeaps, MakeLongs, Player(..), Position(..), RateInfo, ReleaseLongMe, RenderingInfo, Seconds(..), StartStatus(..), WantsTutorial', WindowDims, allPositions)
 import Web.DOM as Web.DOM
 import Web.HTML.HTMLCanvasElement as HTMLCanvasElement
 import Web.HTML.Window (RequestIdleCallbackId, Window, cancelIdleCallback, requestIdleCallback)
@@ -278,7 +279,7 @@ tutorial
                 [ D.div (klass_ "row-start-1 row-end-3 col-start-1 col-end-3")
 
                     [ D.div (klass_ "mx-2 mt-2 ")
-                        [ ((map Tuple playerStatus) <*> ((initializeWithEmpty event.iAmReady)) )
+                        [ ((map Tuple playerStatus) <*> ((initializeWithEmpty event.iAmReady)))
                             -- we theoretically don't need to dedup because
                             -- the button should never redraw once we've started
                             -- if there's flicker, dedup
@@ -306,101 +307,139 @@ tutorial
                         -- one gratuitous lookup as if all are ready then myPlayer
                         -- must be ready, but should be computationally fine
                         -- fireAndForget so that it only ever fires once
-                        , pure $ D.Self := HTMLCanvasElement.fromElement >>> traverse_
-                            ( runThree <<<
-                                { threeDI: threeDI
-                                , css2DRendererElt: event.render2DElement
-                                , css3DRendererElt: event.render3DElement
-                                , pressedStart: event.pressedStart
-                                , isMobile: tli.isMobile
-                                , galaxyAttributes
-                                , shaders
-                                , renderingInfo: tli.renderingInfo
-                                , columnPusher: tli.columnPusher
-                                , lowPriorityCb: tli.lpsCallback
-                                , myPlayer
-                                , debug: tli.debug
-                                , models
-                                , textures
-                                , cubeTextures
-                                , pushBasic: tli.pushBasic
-                                , basicE: \pushBasicVisualForLabel columnEventConstructor -> tscore.basicE
-                                    { initialDims
-                                    , renderingInfo: tli.renderingInfo
-                                    , textures
-                                    , columnEventConstructor
-                                    , cnow: cNow
-                                    , threeDI
-                                    , myPlayer
-                                    , debug: tli.debug
-                                    , notifications: { hitBasic: empty }
-                                    , resizeEvent: tli.resizeE
-                                    , isMobile: tli.isMobile
-                                    , lpsCallback: tli.lpsCallback
-                                    , pushAudio: push.basicAudio
-                                    , mkColor: color threeDI.color
-                                    , mkMatrix4: M4.set threeDI.matrix4
-                                    , buffers: refToBehavior tli.soundObj
-                                    , silence: tli.silence
-                                    , animatedStuff
-                                    , pushBasic: tli.pushBasic
-                                    , pushBasicVisualForLabel
-                                    }
-                                , leapE: \pushLeapVisualForLabel columnEventConstructor -> tscore.leapE
-                                    { initialDims
-                                    , renderingInfo: tli.renderingInfo
-                                    , textures
-                                    , myPlayer
-                                    , cnow: cNow
-                                    , columnEventConstructor
-                                    , debug: tli.debug
-                                    , notifications: { hitLeap: empty }
-                                    , resizeEvent: tli.resizeE
-                                    , isMobile: tli.isMobile
-                                    , lpsCallback: tli.lpsCallback
-                                    , pushAudio: push.leapAudio
-                                    , mkColor: color threeDI.color
-                                    , mkMatrix4: M4.set threeDI.matrix4
-                                    , threeDI
-                                    , buffers: refToBehavior tli.soundObj
-                                    , silence: tli.silence
-                                    , animatedStuff
-                                    , pushLeap: tli.pushLeap
-                                    , pushLeapVisualForLabel
-                                    }
-                                , longE: \pushHitLongVisualForLabel pushReleaseLongVisualForLabel columnEventConstructor -> tscore.longE
-                                    { initialDims
-                                    , columnEventConstructor
-                                    , renderingInfo: tli.renderingInfo
-                                    , textures
-                                    , myPlayer
-                                    , cnow: cNow
-                                    , debug: tli.debug
-                                    , notifications:
-                                        { hitLong: empty
-                                        , releaseLong: empty
-                                        }
-                                    , resizeEvent: tli.resizeE
-                                    , isMobile: tli.isMobile
-                                    , lpsCallback: tli.lpsCallback
-                                    , pushAudio: push.longAudio
-                                    , mkColor: color threeDI.color
-                                    , mkMatrix4: M4.set threeDI.matrix4
-                                    , threeDI
-                                    , buffers: refToBehavior tli.soundObj
-                                    , silence: tli.silence
-                                    , animatedStuff
-                                    , pushHitLong: tli.pushHitLong
-                                    , pushReleaseLong: tli.pushReleaseLong
-                                    , pushHitLongVisualForLabel
-                                    , pushReleaseLongVisualForLabel
-                                    }
-                                , animatedStuff
-                                , resizeE: tli.resizeE
-                                , initialDims
-                                , canvas: _
-                                }
-                            )
+                        , pure $ D.Self := \e -> do
+                            let melt = HTMLCanvasElement.fromElement e
+                            unsub <- maybe (pure (pure unit))
+                              ( TJS.runThree <<<
+                                  { threeDI: threeDI
+                                  -- , renderingInfo: tli.renderingInfo
+                                  -- , animatedStuff
+                                  , animatedStuff: sampleBy (\renderingInfo { playerPositions, rateInfo } -> { renderingInfo, playerPositions, rateInfo }) tli.renderingInfo animatedStuff
+                                  , allColumns: [ C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, C16, C17 ]
+                                  , allPlayers: [ Player1, Player2, Player3, Player4 ]
+                                  , allPositions: [ Position1, Position2, Position3, Position4 ]
+                                  , positionPatternMatch: \v -> case _ of
+                                      Position1 -> v.position1
+                                      Position2 -> v.position2
+                                      Position3 -> v.position3
+                                      Position4 -> v.position4
+                                  , playerPatternMatch: \v -> case _ of
+                                      Player1 -> v.player1
+                                      Player2 -> v.player2
+                                      Player3 -> v.player3
+                                      Player4 -> v.player4
+                                  , columnPatternMatch: \v -> case _ of
+                                      C1 -> v.c1
+                                      C2 -> v.c2
+                                      C3 -> v.c3
+                                      C4 -> v.c4
+                                      C5 -> v.c5
+                                      C6 -> v.c6
+                                      C7 -> v.c7
+                                      C8 -> v.c8
+                                      C9 -> v.c9
+                                      C10 -> v.c10
+                                      C11 -> v.c11
+                                      C12 -> v.c12
+                                      C13 -> v.c13
+                                      C14 -> v.c14
+                                      C15 -> v.c15
+                                      C16 -> v.c16
+                                      C17 -> v.c17
+                                  , css2DRendererElt: event.render2DElement
+                                  , css3DRendererElt: event.render3DElement
+                                  , pressedStart: event.pressedStart
+                                  , isMobile: tli.isMobile
+                                  , galaxyAttributes
+                                  , shaders
+                                  , mkColor: color threeDI.color
+                                  , columnPusher: tli.columnPusher
+                                  , lowPriorityCb: tli.lpsCallback
+                                  , myPlayer
+                                  , mkMatrix4: M4.set threeDI.matrix4
+                                  , debug: tli.debug
+                                  , models
+                                  , textures
+                                  , cubeTextures
+                                  , pushBasic: tli.pushBasic
+                                  , basicE: \pushBasicVisualForLabel columnEventConstructor -> tscore.basicE
+                                      { initialDims
+                                      , renderingInfo: tli.renderingInfo
+                                      , textures
+                                      , columnEventConstructor
+                                      , cnow: cNow
+                                      , threeDI
+                                      , myPlayer
+                                      , debug: tli.debug
+                                      , notifications: { hitBasic: empty }
+                                      , resizeEvent: tli.resizeE
+                                      , isMobile: tli.isMobile
+                                      , lpsCallback: tli.lpsCallback
+                                      , pushAudio: push.basicAudio
+                                      , mkColor: color threeDI.color
+                                      , mkMatrix4: M4.set threeDI.matrix4
+                                      , buffers: refToBehavior tli.soundObj
+                                      , silence: tli.silence
+                                      , animatedStuff
+                                      , pushBasic: tli.pushBasic
+                                      , pushBasicVisualForLabel
+                                      }
+                                  , leapE: \pushLeapVisualForLabel columnEventConstructor -> tscore.leapE
+                                      { initialDims
+                                      , renderingInfo: tli.renderingInfo
+                                      , textures
+                                      , myPlayer
+                                      , cnow: cNow
+                                      , columnEventConstructor
+                                      , debug: tli.debug
+                                      , notifications: { hitLeap: empty }
+                                      , resizeEvent: tli.resizeE
+                                      , isMobile: tli.isMobile
+                                      , lpsCallback: tli.lpsCallback
+                                      , pushAudio: push.leapAudio
+                                      , mkColor: color threeDI.color
+                                      , mkMatrix4: M4.set threeDI.matrix4
+                                      , threeDI
+                                      , buffers: refToBehavior tli.soundObj
+                                      , silence: tli.silence
+                                      , animatedStuff
+                                      , pushLeap: tli.pushLeap
+                                      , pushLeapVisualForLabel
+                                      }
+                                  , longE: \pushHitLongVisualForLabel pushReleaseLongVisualForLabel columnEventConstructor -> tscore.longE
+                                      { initialDims
+                                      , columnEventConstructor
+                                      , renderingInfo: tli.renderingInfo
+                                      , textures
+                                      , myPlayer
+                                      , cnow: cNow
+                                      , debug: tli.debug
+                                      , notifications:
+                                          { hitLong: empty
+                                          , releaseLong: empty
+                                          }
+                                      , resizeEvent: tli.resizeE
+                                      , isMobile: tli.isMobile
+                                      , lpsCallback: tli.lpsCallback
+                                      , pushAudio: push.longAudio
+                                      , mkColor: color threeDI.color
+                                      , mkMatrix4: M4.set threeDI.matrix4
+                                      , threeDI
+                                      , buffers: refToBehavior tli.soundObj
+                                      , silence: tli.silence
+                                      , animatedStuff
+                                      , pushHitLong: tli.pushHitLong
+                                      , pushReleaseLong: tli.pushReleaseLong
+                                      , pushHitLongVisualForLabel
+                                      , pushReleaseLongVisualForLabel
+                                      }
+                                  , resizeE: tli.resizeE
+                                  , initialDims
+                                  , canvas: _
+                                  }
+                              )
+                              melt
+                            pure unit
                         ]
                     )
                     []

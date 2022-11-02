@@ -6,7 +6,9 @@ import Type.Proxy (Proxy(..))
 
 roomIsFull :: Nut
 roomIsFull =
-  ( Proxy :: _ """
+  ( Proxy
+      :: _
+           """
 <div>
   <h1>Sorry :(</h1>
   <p>It looks like four players have already joined this joyride. Pick another slug to get started.</p>

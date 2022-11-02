@@ -1,6 +1,5 @@
 module Joyride.Constants.Audio where
 
-
 import Types (Beats(..))
 
 startOffset :: Beats

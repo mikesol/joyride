@@ -3,10 +3,10 @@ module Joyride.App.Explainer where
 import Prelude
 
 import Bolson.Core (Element(..), envy, fixed)
+import Control.Plus (empty)
 import Data.Foldable (for_, oneOf, oneOfMap, traverse_)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
-import Data.Number (cos, pi)
 import Data.Time.Duration (Milliseconds)
 import Data.Tuple.Nested (type (/\), (/\))
 import Deku.Attribute ((:=))
@@ -20,7 +20,7 @@ import Effect (Effect)
 import FRP.Event (Event, keepLatest, mapAccum, memoize)
 import FRP.Event.Animate (animationFrameEvent)
 import FRP.Event.VBus (V)
-import Joyride.Constants.Visual (rotationConstantForBackground)
+import Joyride.Constants.Visual (backgroundXRotation, backgroundYRotation, backgroundZRotation)
 import Joyride.Firebase.Auth (User(..), currentUser, signInWithGoogle)
 import Joyride.Firebase.Opaque (FirebaseAuth, Firestore)
 import Joyride.FullScreen as FullScreen
@@ -38,9 +38,10 @@ import Rito.Properties (positionX, positionY, positionZ, render, size)
 import Rito.Renderers.WebGL (webGLRenderer)
 import Rito.Run as Rito.Run
 import Rito.Scene (Background(..), scene)
+import Rito.Texture (Texture)
 import Route (ridesPath, settingsPath)
 import Type.Proxy (Proxy(..))
-import Types (CubeTextures, JMilliseconds(..), ThreeDI, Track, WindowDims)
+import Types (CubeTextures, JMilliseconds(..), Textures, ThreeDI, Track, WindowDims)
 import Web.HTML (window)
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 import Web.HTML.HTMLCanvasElement as HTMLCanvasElement
@@ -50,6 +51,7 @@ threeLoader
   :: { threeDI :: ThreeDI
      , isMobile :: Boolean
      , unsubscriber :: Effect Unit -> Effect Unit
+     , textures :: Textures Texture
      , cubeTextures :: CubeTextures CubeTexture
      , resizeE :: Event WindowDims
      , initialDims :: WindowDims
@@ -82,26 +84,25 @@ threeLoader opts = do
 
           )
           \myCamera -> globalScenePortal1
-            ( scene { scene: opts.threeDI.scene } (pure $ P.background (CubeTexture (unwrap opts.cubeTextures).skybox))
+            ( scene { scene: opts.threeDI.scene }
+                (pure $ P.background (Texture (unwrap opts.textures).mansion))
                 [ toScene $ group { group: opts.threeDI.group }
-                    ( keepLatest $
-                        ( mapAccum
-                            ( \b a -> case b of
-                                Nothing -> Just a /\ 0.0
-                                Just x -> Just a /\ (a - x)
-                            )
-                            Nothing
-                            (map (unwrap >>> (_ / 1000.0)) animationTime)
-                        ) <#> \t ->
-                          let
-                            fac = t / 1000.0
-                          in
-                            oneOfMap pure
-                              [ P.rotateX $ 0.001 * cos (fac * pi * 0.01)
-                              , P.rotateY $ 0.001 * cos (fac * pi * 0.01)
-                              , P.rotateZ $ 0.001 * cos (fac * pi * 0.01)
-                              ]
-                    )
+                    empty
+                    -- ( keepLatest $
+                    --     ( mapAccum
+                    --         ( \b a -> case b of
+                    --             Nothing -> Just a /\ 0.0
+                    --             Just x -> Just x /\ (a - x)
+                    --         )
+                    --         Nothing
+                    --         (map (unwrap >>> (_ / 1000.0)) animationTime)
+                    --     ) <#> \t ->
+                    --       oneOfMap pure
+                    --         [ P.rotateX $ backgroundXRotation t
+                    --         , P.rotateY $ backgroundYRotation t
+                    --         , P.rotateZ $ backgroundZRotation t
+                    --         ]
+                    -- )
                     -- camera
                     -- needs to be part of the group to rotate correctly
                     [ cameraToGroup myCamera
@@ -140,6 +141,7 @@ explainerPage
      , signOut :: Effect Unit
      , resizeE :: Event WindowDims
      , cnow :: Effect Milliseconds
+     , textures :: Textures Texture
      , cubeTextures :: CubeTextures CubeTexture
      , initialDims :: WindowDims
      , threeDI :: ThreeDI
@@ -241,6 +243,7 @@ explainerPage opts = vbussed
                 ( threeLoader <<<
                     { threeDI: opts.threeDI
                     , isMobile: opts.isMobile
+                    , textures: opts.textures
                     , cubeTextures: opts.cubeTextures
                     , unsubscriber: push.unsubscriber
                     , resizeE: opts.resizeE

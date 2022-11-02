@@ -375,7 +375,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
               pureor
               (Left <$> (event.atomicEventOperation) <|> (Right <$> (pure (aChangeTitle (Just initialTitle)) <|> event.atomicTrackOperation)))
       )
-  let nextAttributableColumn = map snd $ fold (\(b /\ c) _ -> if b && c >= 10 then false /\ 9 else if not b && c <= 4 then true /\ 5 else (b /\ ((if b then add else sub) c 1)))  (true /\ 7) (pure unit)
+  let nextAttributableColumn = map snd $ fold (\(b /\ c) _ -> if b && c >= 10 then false /\ 9 else if not b && c <= 4 then true /\ 5 else (b /\ ((if b then add else sub) c 1))) (true /\ 7) (pure unit)
   -- todo: use the new primitives so that you don't have to do this
   -- wrap/unwrap
   mostRecentData <- Domable <<< envy <<< memoBeh mostRecentData'
@@ -428,7 +428,7 @@ editorPage tli { fbAuth, goBack, firestoreDb, signedInNonAnonymously } wtut = QD
           ( toRide
               { event: event.waveSurfer 🙂
                   ( Tuple <$> mapAccum
-                      (\s -> case _ of
+                      ( \s -> case _ of
                           Solo x -> let o = Set.insert x s in o /\ Left o
                           UnSolo x -> let o = Set.delete x s in o /\ Left o
                           Mute x -> s /\ Right (Right x)

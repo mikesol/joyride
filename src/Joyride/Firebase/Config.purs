@@ -1,6 +1,5 @@
 module Joyride.Firebase.Config where
 
-
 import Control.Promise (Promise, toAffE)
 import Effect (Effect)
 import Effect.Aff (Aff)

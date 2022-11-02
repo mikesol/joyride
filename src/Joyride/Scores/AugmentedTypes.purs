@@ -101,9 +101,9 @@ toAugmentedEvents arr = evalState
           raycastingCanStartAt <- fromMaybe (const 0.0) <$> gets (Map.lookup column)
           modify_ (Map.insert column newRaycastingCanStartAt)
           pure $ case i of
-            BasicEventV0 b -> AugmentedEventV0 (AugmentedBasicEventV0 ( { raycastingCanStartAt } `union` b))
-            LeapEventV0 b -> AugmentedEventV0 (AugmentedLeapEventV0 ( { raycastingCanStartAt } `union` b))
-            LongEventV0 b -> AugmentedEventV0 (AugmentedLongEventV0 ( { raycastingCanStartAt } `union` b))
+            BasicEventV0 b -> AugmentedEventV0 (AugmentedBasicEventV0 ({ raycastingCanStartAt } `union` b))
+            LeapEventV0 b -> AugmentedEventV0 (AugmentedLeapEventV0 ({ raycastingCanStartAt } `union` b))
+            LongEventV0 b -> AugmentedEventV0 (AugmentedLongEventV0 ({ raycastingCanStartAt } `union` b))
       )
       ( sortBy
           ( compare `on` case _ of

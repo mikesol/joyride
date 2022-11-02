@@ -7,17 +7,17 @@ import Control.Alt ((<|>))
 import Control.Plus (empty)
 import Data.Array.NonEmpty (toArray)
 import Data.Filterable (filter)
-import Data.Foldable (oneOf, oneOfMap)
+import Data.Foldable (oneOf)
 import Data.Int (toNumber)
-import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
-import Data.Number (cos, pi, sin)
+import Data.Number (pi)
 import Data.Tuple (Tuple(..))
 import Data.Tuple.Nested ((/\))
 import Effect (Effect)
 import FRP.Behavior (Behavior, sampleBy)
 import FRP.Event (Event, EventIO, keepLatest, mailboxed, mapAccum)
 import FRP.Event.VBus (V)
+import Joyride.Constants.Visual (tarantulaScale)
 import Joyride.Effect.Lowpass (lpf)
 import Joyride.FRP.BusT (vbust)
 import Joyride.FRP.Dedup (dedup)
@@ -34,12 +34,15 @@ import Rito.CubeTexture (CubeTexture)
 import Rito.Euler (euler)
 import Rito.GLTF (GLTF)
 import Rito.GLTF as GLTF
+import Rito.Geometries.Plane (plane)
 import Rito.Group (group)
 import Rito.Lights.AmbientLight (ambientLight)
 import Rito.Lights.PointLight (pointLight)
+import Rito.Materials.MeshBasicMaterial (meshBasicMaterial)
+import Rito.Mesh (mesh)
 import Rito.Portal (globalCameraPortal1, globalEffectComposerPortal1, globalScenePortal1, globalWebGLRendererPortal1)
-import Rito.Properties (aspect, background, decay, distance, intensity, rotateX, rotateY, rotateZ, rotationFromEuler) as P
-import Rito.Properties (positionX, positionY, positionZ, render, scaleX, scaleY, scaleZ, size)
+import Rito.Properties (aspect, decay, distance, intensity, rotationFromEuler) as P
+import Rito.Properties (positionX, positionY, positionZ, render, rotateX, scaleX, scaleY, scaleZ, size)
 import Rito.Renderers.CSS2D (css2DRenderer)
 import Rito.Renderers.CSS3D (css3DRenderer)
 import Rito.Renderers.Raycaster (raycaster)
@@ -49,7 +52,7 @@ import Rito.Renderers.WebGL.EffectComposerPass (effectComposerPass)
 import Rito.Renderers.WebGL.RenderPass (renderPass)
 import Rito.Renderers.WebGL.UnrealBloomPass (unrealBloomPass)
 import Rito.Run as Rito.Run
-import Rito.Scene (Background(..), scene)
+import Rito.Scene (scene)
 import Rito.Texture (Texture)
 import Rito.Vector2 (vector2)
 import Type.Proxy (Proxy(..))
@@ -107,6 +110,7 @@ runThree
 runThree opts = do
   let c3 = color opts.threeDI.color
   let mopts = { playerPositions: _.playerPositions <$> opts.animatedStuff, rateInfo: _.rateInfo <$> opts.animatedStuff }
+  let posAx' plyr axis = map (playerPosition plyr axis) mopts.playerPositions
   _ <- Rito.Run.run
     ( envy QDA.do
         columnCtor <- keepLatest <<< mailboxed (map { payload: unit, address: _ } opts.columnPusher.event)
@@ -150,7 +154,7 @@ runThree opts = do
             ( filter (_ /= opts.myPlayer) (toArray allPlayers) <#> \player -> do
                 let ppos = playerPosition player
                 let posAx axis = map (ppos axis) mopts.playerPositions
-                toGroup $ GLTF.scene (unwrap opts.models).spaceship
+                toGroup $ GLTF.scene (unwrap opts.models).tarantula
                   ( oneOf
                       [ (positionX <<< add n) <$> tameXAxis (isNotMe player opts.myPlayer) (posAx AxisX)
                       , positionY <$> (sampleBy (\{ sphereOffsetY } py -> sphereOffsetY + py) opts.renderingInfo (posAx AxisY))
@@ -162,43 +166,57 @@ runThree opts = do
                               Player4 -> -1.0
                           )
                       , positionZ <$> posAx AxisZ
-                      , pure $ scaleX 0.02
-                      , pure $ scaleY 0.02
-                      , pure $ scaleZ 0.02
-                      , case player of
-                          Player1 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: sin (unwrap rate.time * pi * 0.1) * pi * 0.02, y: sin (unwrap rate.time * pi * 0.09) * pi * -0.03, z: cos (unwrap rate.time * pi * 0.07) * pi * 0.04 })
-                          Player3 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: cos (unwrap rate.time * pi * 0.06) * pi * 0.02, y: sin (unwrap rate.time * pi * 0.11) * pi * 0.01, z: cos (unwrap rate.time * pi * 0.03) * pi * -0.03 })
-                          Player2 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: sin (unwrap rate.time * pi * 0.02) * pi * -0.05, y: cos (unwrap rate.time * pi * 0.12) * pi * -0.02, z: sin (unwrap rate.time * pi * -0.08) * pi * 0.08 })
-                          Player4 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: cos (unwrap rate.time * pi * 0.01) * pi * 0.04, y: cos (unwrap rate.time * pi * 0.03) * pi * -0.06, z: sin (unwrap rate.time * pi * 0.02) * pi * -0.09 })
+                      , pure $ scaleX tarantulaScale
+                      , pure $ scaleY tarantulaScale
+                      , pure $ scaleZ tarantulaScale
+                      -- , case player of
+                      --     Player1 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: sin (unwrap rate.time * pi * 0.1) * pi * 0.02, y: sin (unwrap rate.time * pi * 0.09) * pi * -0.03, z: cos (unwrap rate.time * pi * 0.07) * pi * 0.04 })
+                      --     Player3 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: cos (unwrap rate.time * pi * 0.06) * pi * 0.02, y: sin (unwrap rate.time * pi * 0.11) * pi * 0.01, z: cos (unwrap rate.time * pi * 0.03) * pi * -0.03 })
+                      --     Player2 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: sin (unwrap rate.time * pi * 0.02) * pi * -0.05, y: cos (unwrap rate.time * pi * 0.12) * pi * -0.02, z: sin (unwrap rate.time * pi * -0.08) * pi * 0.08 })
+                      --     Player4 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: cos (unwrap rate.time * pi * 0.01) * pi * 0.04, y: cos (unwrap rate.time * pi * 0.03) * pi * -0.06, z: sin (unwrap rate.time * pi * 0.02) * pi * -0.09 })
                       ]
                   )
                   []
             )
         myScene <- globalScenePortal1
-          ( scene { scene: opts.threeDI.scene } (pure $ P.background (CubeTexture (unwrap opts.cubeTextures).skybox))
+          ( scene { scene: opts.threeDI.scene } empty
               [ toScene $ group { group: opts.threeDI.group }
-                  ( keepLatest $
-                      ( mapAccum
-                          ( \b a -> case b of
-                              Nothing -> Just a /\ 0.0
-                              Just x -> Just a /\ (a - x)
-                          )
-                          Nothing
-                          ( map (_.rateInfo.epochTime >>> unwrap >>> (_ / 1000.0))
-                              opts.animatedStuff
-                          )
-                      ) <#> \t ->
-                        let
-                          fac = t / 1000.0
-                        in
-                          if false then empty
-                          else oneOfMap pure
-                            [ P.rotateX $ 0.001 * cos (fac * pi * 0.01)
-                            , P.rotateY $ 0.001 * cos (fac * pi * 0.01)
-                            , P.rotateZ $ 0.001 * cos (fac * pi * 0.01)
+                  empty
+                  -- ( keepLatest $
+                  --     ( mapAccum
+                  --         ( \b a -> case b of
+                  --             Nothing -> Just a /\ 0.0
+                  --             Just x -> Just x /\ (a - x)
+                  --         )
+                  --         Nothing
+                  --         ( map (_.rateInfo.epochTime >>> unwrap >>> (_ / 1000.0))
+                  --             opts.animatedStuff
+                  --         )
+                  --     ) <#> \t ->
+                  --       if false then empty
+                  --       else oneOfMap pure
+                  --         [ P.rotateX $ backgroundXRotation t
+                  --         , P.rotateY $ backgroundYRotation t
+                  --         , P.rotateZ $ backgroundZRotation t
+                  --         ]
+                  -- )
+                  ( [ toGroup $ mesh { mesh: opts.threeDI.mesh } (plane { plane: opts.threeDI.plane })
+                        ( meshBasicMaterial
+                            { meshBasicMaterial: opts.threeDI.meshBasicMaterial
+                            , map: (unwrap opts.textures).mansion
+                            }
+                            empty
+                        )
+                        ( oneOf
+                            [ pure (positionX 0.0)
+                            , pure (positionY 0.0)
+                            , posAx' opts.myPlayer AxisZ <#> \pz -> (positionZ (-3.5 + pz))
+                            , pure (scaleX (16.0))
+                            , pure (scaleY (8.0))
+                            , pure (rotateX (pi * -0.1))
                             ]
-                  )
-                  ( shipsssss 0.00
+                        )
+                    ] <> shipsssss 0.00
                       <> map toGroup
                         ( ( \position -> makeBar $
                               { c3
@@ -243,7 +261,7 @@ runThree opts = do
                         ( filter (_ /= opts.myPlayer) (toArray allPlayers) <#> \player -> do
                             let ppos = playerPosition player
                             let posAx axis = map (ppos axis) mopts.playerPositions
-                            toGroup $ GLTF.scene (unwrap opts.models).spaceship
+                            toGroup $ GLTF.scene (unwrap opts.models).tarantula
                               ( oneOf
                                   [ positionX <$> tameXAxis (isNotMe player opts.myPlayer) (posAx AxisX)
                                   , positionY <$> (sampleBy (\{ sphereOffsetY } py -> sphereOffsetY + py) opts.renderingInfo (posAx AxisY))
@@ -255,14 +273,14 @@ runThree opts = do
                                           Player4 -> -1.0
                                       )
                                   , positionZ <$> posAx AxisZ
-                                  , pure $ scaleX 0.02
-                                  , pure $ scaleY 0.02
-                                  , pure $ scaleZ 0.02
-                                  , case player of
-                                      Player1 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: sin (unwrap rate.time * pi * 0.1) * pi * 0.02, y: sin (unwrap rate.time * pi * 0.09) * pi * -0.03, z: cos (unwrap rate.time * pi * 0.07) * pi * 0.04 })
-                                      Player3 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: cos (unwrap rate.time * pi * 0.06) * pi * 0.02, y: sin (unwrap rate.time * pi * 0.11) * pi * 0.01, z: cos (unwrap rate.time * pi * 0.03) * pi * -0.03 })
-                                      Player2 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: sin (unwrap rate.time * pi * 0.02) * pi * -0.05, y: cos (unwrap rate.time * pi * 0.12) * pi * -0.02, z: sin (unwrap rate.time * pi * -0.08) * pi * 0.08 })
-                                      Player4 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: cos (unwrap rate.time * pi * 0.01) * pi * 0.04, y: cos (unwrap rate.time * pi * 0.03) * pi * -0.06, z: sin (unwrap rate.time * pi * 0.02) * pi * -0.09 })
+                                  , pure $ scaleX tarantulaScale
+                                  , pure $ scaleY tarantulaScale
+                                  , pure $ scaleZ tarantulaScale
+                                  -- , case player of
+                                  --     Player1 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: sin (unwrap rate.time * pi * 0.1) * pi * 0.02, y: sin (unwrap rate.time * pi * 0.09) * pi * -0.03, z: cos (unwrap rate.time * pi * 0.07) * pi * 0.04 })
+                                  --     Player3 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: cos (unwrap rate.time * pi * 0.06) * pi * 0.02, y: sin (unwrap rate.time * pi * 0.11) * pi * 0.01, z: cos (unwrap rate.time * pi * 0.03) * pi * -0.03 })
+                                  --     Player2 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: sin (unwrap rate.time * pi * 0.02) * pi * -0.05, y: cos (unwrap rate.time * pi * 0.12) * pi * -0.02, z: sin (unwrap rate.time * pi * -0.08) * pi * 0.08 })
+                                  --     Player4 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: cos (unwrap rate.time * pi * 0.01) * pi * 0.04, y: cos (unwrap rate.time * pi * 0.03) * pi * -0.06, z: sin (unwrap rate.time * pi * 0.02) * pi * -0.09 })
                                   ]
                               )
                               []
@@ -384,27 +402,25 @@ runThree opts = do
         myShips <- globalScenePortal1
           ( scene { scene: opts.threeDI.scene } empty
               [ toScene $ group { group: opts.threeDI.group }
-                  ( keepLatest $
-                      ( mapAccum
-                          ( \b a -> case b of
-                              Nothing -> Just a /\ 0.0
-                              Just x -> Just a /\ (a - x)
-                          )
-                          Nothing
-                          ( map (_.rateInfo.epochTime >>> unwrap >>> (_ / 1000.0))
-                              opts.animatedStuff
-                          )
-                      ) <#> \t ->
-                        let
-                          fac = t / 1000.0
-                        in
-                          if false then empty
-                          else oneOfMap pure
-                            [ P.rotateX $ 0.001 * cos (fac * pi * 0.01)
-                            , P.rotateY $ 0.001 * cos (fac * pi * 0.01)
-                            , P.rotateZ $ 0.001 * cos (fac * pi * 0.01)
-                            ]
-                  )
+                  empty
+                  -- ( keepLatest $
+                  --     ( mapAccum
+                  --         ( \b a -> case b of
+                  --             Nothing -> Just a /\ 0.0
+                  --             Just x -> Just x /\ (a - x)
+                  --         )
+                  --         Nothing
+                  --         ( map (_.rateInfo.epochTime >>> unwrap >>> (_ / 1000.0))
+                  --             opts.animatedStuff
+                  --         )
+                  --     ) <#> \t ->
+                  --       if false then empty
+                  --       else oneOfMap pure
+                  --         [ P.rotateX $ backgroundXRotation t
+                  --         , P.rotateY $ backgroundYRotation t
+                  --         , P.rotateZ $ backgroundZRotation t
+                  --         ]
+                  -- )
                   ( shipsssss 0.0
                       <>
                         ( (toArray allPlayers) <#> \player -> do

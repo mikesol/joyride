@@ -83,7 +83,7 @@ import Types (AppOrientationState(..), BufferName(..), Channel(..), ChannelChoos
 import Web.Event.Event (EventType(..))
 import Web.Event.EventTarget (addEventListener, eventListener)
 import Web.HTML (window)
-import Web.HTML.Location (hash, pathname, search, setHash)
+import Web.HTML.Location (hash, search, setHash)
 import Web.HTML.Window (innerHeight, innerWidth, localStorage, location, toEventTarget)
 import Web.Storage.Storage as LS
 
@@ -104,7 +104,7 @@ renderingInfoDesktop =
   , cameraRotationAroundX: Slider { default: -0.45, min: -1.0 * pi, max: pi, step: 0.05 }
   , cameraOffsetZ: Slider { default: 0.35, min: -0.5, max: 3.0, step: 0.05 }
   , lightOffsetY: Slider { default: 0.9, min: 0.00, max: 2.0, step: 0.05 }
-  , sphereOffsetY: Slider { default: 0.2, min: 0.05, max: 0.5, step: 0.05 }
+  , sphereOffsetY: Slider { default: 0.1, min: 0.05, max: 0.5, step: 0.05 }
   }
 
 renderingInfoMobile :: RenderingInfo' Slider
@@ -115,7 +115,7 @@ renderingInfoMobile =
   , cameraRotationAroundX: Slider { default: -0.15, min: -1.0 * pi, max: pi, step: 0.05 }
   , cameraOffsetZ: Slider { default: 1.45, min: -0.5, max: 3.0, step: 0.05 }
   , lightOffsetY: Slider { default: 0.9, min: 0.00, max: 2.0, step: 0.05 }
-  , sphereOffsetY: Slider { default: 0.2, min: 0.05, max: 0.5, step: 0.05 }
+  , sphereOffsetY: Slider { default: 0.1, min: 0.05, max: 0.5, step: 0.05 }
   }
 
 channelFromRoute :: Route -> Maybe String
@@ -448,10 +448,13 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
               { scene: THREE.sceneAff
               , vector2: THREE.vector2Aff
               , vector3: THREE.vector3Aff
+              , fogExp2: THREE.fogExp2Aff
               , meshStandardMaterial: THREE.meshStandardMaterialAff
+              , meshLambertMaterial: THREE.meshLambertMaterialAff
               , bufferGeometry: THREE.bufferGeometryAff
               , points: THREE.pointsAff
               , meshPhongMaterial: THREE.meshPhongMaterialAff
+              , meshBasicMaterial: THREE.meshBasicMaterialAff
               , boxGeometry: THREE.boxGeometryAff
               , cylinderGeometry: THREE.cylinderGeometryAff
               , pointLight: THREE.pointLightAff
@@ -600,6 +603,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                 NoChannel -> do
                   myGLTFs <- joinFiber downloadedGLTFs
                   myCubeTextures <- joinFiber downloadedCubeTextures
+                  myTexures <- joinFiber downloadedTextures
                   initialDims <- liftEffect $ { iw: _, ih: _ }
                     <$> (Int.toNumber <$> innerWidth w)
                     <*> (Int.toNumber <$> innerHeight w)
@@ -614,6 +618,7 @@ main (Models models) shaders (CubeTextures cubeTextures) (Textures textures) aud
                         , signOut: launchAff_ do
                             toAffE $ signOut fbAuth (pure unit)
                         , cubeTextures: CubeTextures myCubeTextures
+                        , textures: Textures myTexures
                         , cNow: mappedCNow
                         , signedInNonAnonymously: signedInNonAnonymously.event
                         }

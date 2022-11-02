@@ -1,11 +1,11 @@
 module Joyride.Editor.ADT where
 
-
 import Data.Maybe (Maybe)
 import Data.Newtype (class Newtype)
 import Types (Column, Position)
 
 newtype Marker = Marker { at :: Number }
+
 derive instance Newtype Marker _
 newtype LongLength = LongLength { len :: Number }
 

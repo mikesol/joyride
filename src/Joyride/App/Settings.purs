@@ -142,7 +142,7 @@ settings
                             Nothing -> imageUploader "Upload image"
                             Just img' -> case img' of
                               Nothing -> imageUploader "Upload image"
-                              Just img -> D.div (oneOf [klass_ "flex flex-col items-center"])
+                              Just img -> D.div (oneOf [ klass_ "flex flex-col items-center" ])
                                 [ D.img
                                     ( oneOf
                                         [ klass_ "object-cover rounded-full w-32 h-32"

@@ -1,6 +1,5 @@
 module Joyride.Color where
 
-
 import Rito.Color (RGB(..))
 import Ocarina.Math (calcSlope)
 

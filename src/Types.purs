@@ -416,29 +416,32 @@ playerPosition' Player2 = _.p2p
 playerPosition' Player3 = _.p3p
 playerPosition' Player4 = _.p4p
 
-newtype Textures :: forall k. k -> Type
 newtype Textures a = Textures
   { -- hockeyAO :: a
-  -- , hockeyCOL :: a
-  -- , hockeyDISP :: a
-  -- , hockeyGLOSS :: a
-  -- , hockeyNRM :: a
-  -- , hockeyREFL :: a
-  -- , marble19COL :: a
-  -- , marble19GLOSS :: a
-  -- , marble19NRM :: a
-  -- , marble19REFL :: a
-  -- , marble21COL :: a
-  -- , marble21GLOSS :: a
-  -- , marble21NRM :: a
-  -- , marble21REFL :: a
-  -- , tilesZelligeHexAO :: a
-  -- , tilesZelligeHexBUMP :: a
-  -- , tilesZelligeHexCOL :: a
-  -- , tilesZelligeHexDISP :: a
-  -- , tilesZelligeHexGLOSS :: a
-  -- , tilesZelligeHexREFL :: a
-  -- , butterfly0 :: a
+    -- , hockeyCOL :: a
+    -- , hockeyDISP :: a
+    -- , hockeyGLOSS :: a
+    -- , hockeyNRM :: a
+    -- , hockeyREFL :: a
+    -- , marble19COL :: a
+    -- , marble19GLOSS :: a
+    -- , marble19NRM :: a
+    -- , marble19REFL :: a
+    -- , marble21COL :: a
+    -- , marble21GLOSS :: a
+    -- , marble21NRM :: a
+    -- , marble21REFL :: a
+    -- , tilesZelligeHexAO :: a
+    -- , tilesZelligeHexBUMP :: a
+    -- , tilesZelligeHexCOL :: a
+    -- , tilesZelligeHexDISP :: a
+    -- , tilesZelligeHexGLOSS :: a
+    -- , tilesZelligeHexREFL :: a
+    -- , butterfly0 :: a
+    smoke :: a
+  , rain1 :: a
+  , rain2 :: a
+  , mansion :: a
   }
 
 newtype CubeTexture a = CubeTexture
@@ -455,6 +458,7 @@ derive instance Newtype (CubeTexture a) _
 newtype CubeTextures a = CubeTextures
   { skybox :: a
   -- , skybox2 :: a
+  , ruins :: a
   }
 
 derive instance Newtype (CubeTextures a) _
@@ -849,6 +853,7 @@ data Negotiation
   | SetSomeStuff SettingsNeeds
   | GetRulesOfGame
       { cubeTextures :: CubeTextures CTL.CubeTexture
+      , textures :: Textures Texture
       , models :: Models GLTFLoader.GLTF
       , stats :: Maybe Stats
       , initialDims :: WindowDims
@@ -1040,6 +1045,7 @@ type ThreeDI =
   , group :: THREE.TGroup
   , euler :: THREE.TEuler
   , points :: THREE.TPoints
+  , fogExp2 :: THREE.TFogExp2
   , vector2 :: THREE.TVector2
   , vector3 :: THREE.TVector3
   , plane :: THREE.TPlaneGeometry
@@ -1048,6 +1054,8 @@ type ThreeDI =
   , textureLoader :: THREE.TTextureLoader
   , cubeTextureLoader :: THREE.TCubeTextureLoader
   , gltfLoader :: THREE.TGLTFLoader
+  , meshLambertMaterial :: THREE.TMeshLambertMaterial
+  , meshBasicMaterial :: THREE.TMeshBasicMaterial
   , meshPhongMaterial :: THREE.TMeshPhongMaterial
   , meshStandardMaterial :: THREE.TMeshStandardMaterial
   , bufferAttribute :: THREE.TBufferAttribute
@@ -1163,7 +1171,7 @@ derive instance Generic ChannelChooser _
 instance Show ChannelChooser where
   show = genericShow
 
-newtype Models s = Models { spaceship :: s }
+newtype Models s = Models { spaceship :: s, tarantula :: s }
 
 derive instance Newtype (Models s) _
 
