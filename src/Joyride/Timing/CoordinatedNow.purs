@@ -66,7 +66,7 @@ cnow = do
         pr <- Ref.read preading
         n <- now
         case pr of
-          Nothing -> pure $ {time:unInstant n, diff:0.0, pdiff:0.0}
+          Nothing -> pure $ { time: unInstant n, diff: 0.0, pdiff: 0.0 }
           Just p -> do
             let uin = unInstant n
             -- we apply a lowpass filter, smoothly transitioning to the new value

@@ -22,7 +22,6 @@ debugX' tf e r = if tf then sampleOnRight_ e r else e
 foreign import incrSub :: Effect Unit
 foreign import decrSub :: Effect Unit
 
-
 altCreate :: Create
 altCreate = Create do
   subscribers <- liftST $ Ref.new []

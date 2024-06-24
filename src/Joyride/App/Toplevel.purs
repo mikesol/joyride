@@ -35,9 +35,10 @@ import Joyride.Scores.Tutorial.Base (tutorialScore)
 import Joyride.Stats (Stats)
 import Rito.Core (ASceneful)
 import Rito.CubeTexture as CTL
+import Rito.Texture as TL
 import Rito.GLTF as GLTFLoader
 import Route (Route)
-import Types (CubeTextures, JMilliseconds, MakeBasics, MakeLeaps, MakeLongs, Models, Negotiation(..), OpenEditor', RateInfo, SettingsNeeds, Success', ThreeDI, ToplevelInfo, Track(..), WantsTutorial', WindowDims)
+import Types (CubeTextures, JMilliseconds, MakeBasics, MakeLeaps, MakeLongs, Models, Negotiation(..), OpenEditor', RateInfo, SettingsNeeds, Success', Textures, ThreeDI, ToplevelInfo, Track(..), WantsTutorial', WindowDims)
 import Web.DOM as Web.DOM
 
 twoPi = 2.0 * pi :: Number
@@ -63,6 +64,7 @@ data TopLevelDisplay
   | TLWillNotWorkWithoutOrientation
   | TLExplainer
       { cubeTextures :: CubeTextures CTL.CubeTexture
+      , textures :: Textures TL.Texture
       , models :: Models GLTFLoader.GLTF
       , threeDI :: ThreeDI
       , stats :: Maybe Stats
@@ -112,6 +114,7 @@ toplevel tli =
   ( dedup
       ( map
           ( \{ loaded, negotiation } -> -- let _ = spy "debugToplevel" { loaded, negotiation } in
+
               case loaded, negotiation of
                 _, NeedsOrientation rt -> TLNeedsOrientation rt
                 _, WillNotWorkWithoutOrientation -> TLWillNotWorkWithoutOrientation
@@ -132,11 +135,11 @@ toplevel tli =
                 true, WantsTutorial s -> TLWantsTutorial s
                 true, OpenEditor s -> TLOpenEditor s
           )
-          (    { loaded: _, negotiation: _ } <$>
-                  (startingWith false $ tli.loaded)
-               <*>
-              (startingWith PageLoad $ tli.negotiation)
-             
+          ( { loaded: _, negotiation: _ }
+              <$> (startingWith false $ tli.loaded)
+              <*>
+                (startingWith PageLoad $ tli.negotiation)
+
           )
       )
   ) # switcher case _ of
@@ -144,10 +147,11 @@ toplevel tli =
     TLChooseRide cr nt -> availableRides { availableRides: cr, navigateTo: nt }
     TLSettings s -> settings s
     TLWillNotWorkWithoutOrientation -> sorryNeedPermissionPage
-    TLExplainer { cubeTextures, stats, threeDI, cNow, initialDims, firestoreDb, fbAuth, signedInNonAnonymously, signOut } -> explainerPage
+    TLExplainer { cubeTextures, stats, threeDI, textures, cNow, initialDims, firestoreDb, fbAuth, signedInNonAnonymously, signOut } -> explainerPage
       { ride: tli.ride
       , editor: tli.editor
       , tutorial: tli.tutorial
+      , textures
       , isMobile: tli.isMobile
       , cnow: cNow
       , stats

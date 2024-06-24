@@ -51,6 +51,7 @@ foreign import updateProfileAvatarURL :: FirebaseAuth -> Firestore -> String -> 
 
 updateProfileUsernameAff :: FirebaseAuth -> Firestore -> String -> Aff Unit
 updateProfileUsernameAff auth db username = toAffE $ updateProfileUsername auth db username
+
 updateProfileAvatarURLAff :: FirebaseAuth -> Firestore -> String -> Aff Unit
 updateProfileAvatarURLAff auth db avatarURL = toAffE $ updateProfileAvatarURL auth db avatarURL
 

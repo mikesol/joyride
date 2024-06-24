@@ -53,7 +53,7 @@ pubnub (IAm iAm) (Channel channel) = do
   pure
     { event: eventIO.event
     , publish: \action -> do
-      publish_ pn channel (writeImpl { iAm, action })
+        publish_ pn channel (writeImpl { iAm, action })
     }
 
 foreign import publish_ :: PubNub -> String -> Foreign -> Effect Unit

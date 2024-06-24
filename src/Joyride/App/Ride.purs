@@ -321,31 +321,33 @@ ride
                                 [ text_ "👉🏽 📋 👈🏽" ]
                             , D.p_ [ text_ "You can send the link to up to 3 people. When everyone has joined, or if you're playing alone, press Start!" ]
                             ]
-                      , D.div (klass_ "flex w-full justify-center items-center") [(pure locallyStoredPlayerNameInCaseThisIsAnAnonymousSession <|> fireAndForget (map (\(ProfileV0 p) -> Just p.username) profileEvent <|> pure Nothing)) # DC.switcher case _ of
-                          Just _ ->
-                            D.button
-                              (callback (changeText))
-                              [ text_ "Start" ]
-
-                          Nothing ->
-                            D.div_
-                              [ D.button
-                                  ( oneOf
-                                      [ klass_ buttonCls
-                                      , callback (changeText)
-                                      ]
-                                  )
+                      , D.div (klass_ "flex w-full justify-center items-center")
+                          [ (pure locallyStoredPlayerNameInCaseThisIsAnAnonymousSession <|> fireAndForget (map (\(ProfileV0 p) -> Just p.username) profileEvent <|> pure Nothing)) # DC.switcher case _ of
+                              Just _ ->
+                                D.button
+                                  (callback (changeText))
                                   [ text_ "Start" ]
 
-                              , D.button
-                                  ( oneOf
-                                      [ klass_ buttonCls
-                                      , click $ pure $ nPush.requestName unit
-                                      ]
-                                  )
-                                  [ text_ "Start with name" ]
+                              Nothing ->
+                                D.div_
+                                  [ D.button
+                                      ( oneOf
+                                          [ klass_ buttonCls
+                                          , callback (changeText)
+                                          ]
+                                      )
+                                      [ text_ "Start" ]
 
-                              ]]
+                                  , D.button
+                                      ( oneOf
+                                          [ klass_ buttonCls
+                                          , click $ pure $ nPush.requestName unit
+                                          ]
+                                      )
+                                      [ text_ "Start with name" ]
+
+                                  ]
+                          ]
                       ]
         envy $ memoize
           ( makeAnimatedStuff

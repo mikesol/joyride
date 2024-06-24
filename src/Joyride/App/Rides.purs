@@ -16,7 +16,8 @@ import Route (Route(..))
 import Types (Track(..))
 
 availableRides
-  :: { availableRides :: Array { data :: Track, id :: String }, navigateTo :: Route -> Effect Unit
+  :: { availableRides :: Array { data :: Track, id :: String }
+     , navigateTo :: Route -> Effect Unit
      }
   -> Nut
 availableRides opts = D.div (oneOf [ pure (D.Class := "absolute") ])

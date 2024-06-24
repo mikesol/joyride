@@ -34,17 +34,17 @@ p2s Player4 = "Player 4"
 
 css2DNut :: MakeLongLabels -> HitLongVisualForLabel -> ANut
 css2DNut mbl (HitLongVisualForLabel e) = ANut
-              ( D.span
-                  ( oneOfMap pure
-                      [ D.Class := "text-zinc-100 fade-out"
-                      ]
-                  )
-                  [ text $ oneOf
-                      [ pure (p2s e.player <> " Long on!")
-                      , (mbl.longRelease) <#> \_ -> (p2s e.player <> " Long off!")
-                      ]
-                  ]
-              )
+  ( D.span
+      ( oneOfMap pure
+          [ D.Class := "text-zinc-100 fade-out"
+          ]
+      )
+      [ text $ oneOf
+          [ pure (p2s e.player <> " Long on!")
+          , (mbl.longRelease) <#> \_ -> (p2s e.player <> " Long off!")
+          ]
+      ]
+  )
 
 longLabels :: forall lock payload. MakeLongLabels -> ACSS2DObject lock payload
 longLabels mbl = dyn
@@ -72,8 +72,8 @@ longLabels mbl = dyn
               )
           )
       ) <|>
-          ( lowPrioritySchedule mbl.lpsCallback
-              (JMilliseconds 3000.0 + e.issuedAt)
-              (pure $ Remove)
-          )
+        ( lowPrioritySchedule mbl.lpsCallback
+            (JMilliseconds 3000.0 + e.issuedAt)
+            (pure $ Remove)
+        )
   )

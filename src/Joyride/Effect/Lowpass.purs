@@ -14,4 +14,4 @@ lpf lowpassFactor =
           Just x -> (x * lowpassFactor) + (a * (1.0 - lowpassFactor))
       )
   )
-  Nothing
+    Nothing

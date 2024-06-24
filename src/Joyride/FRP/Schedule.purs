@@ -45,7 +45,7 @@ emitUntil aToB e = makeEvent \k -> do
       Nothing -> unsubscribe
   pure o
 
-withUnsubscribe :: forall a. Event a -> Event {unsubscribe :: Effect Unit, value :: a}
+withUnsubscribe :: forall a. Event a -> Event { unsubscribe :: Effect Unit, value :: a }
 withUnsubscribe e = makeEvent \ff -> do
   let f unsubscribe value = ff { unsubscribe, value }
   active <- liftST $ Ref.new true

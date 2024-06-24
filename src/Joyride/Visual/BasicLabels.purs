@@ -68,8 +68,8 @@ basicLabels mbl = dyn
               )
           )
       ) <|>
-          ( lowPrioritySchedule mbl.lpsCallback
-              (JMilliseconds 3000.0 + e.issuedAt)
-              (pure $ Remove)
-          )
+        ( lowPrioritySchedule mbl.lpsCallback
+            (JMilliseconds 3000.0 + e.issuedAt)
+            (pure $ Remove)
+        )
   )

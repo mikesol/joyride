@@ -49,4 +49,4 @@ xForTouch dampeningRef cnow w myPlayer pub = do
       pub $ XPositionMobile { gtpd: nw, player: myPlayer }
       evt.push nw
     addEventListener (EventType "deviceorientation") orientationListener true (toEventTarget w)
-    pure ((posFromOrientation  >>> lcmap _.epochTime) <$> evt.event)
+    pure ((posFromOrientation >>> lcmap _.epochTime) <$> evt.event)

@@ -5,22 +5,27 @@ import Prelude
 import Bolson.Core (Element(..), envy, fixed)
 import Control.Alt ((<|>))
 import Control.Plus (empty)
+import Data.Array ((..))
 import Data.Array.NonEmpty (toArray)
 import Data.Filterable (filter)
 import Data.Foldable (oneOf, oneOfMap)
 import Data.Int (toNumber)
-import Data.Maybe (Maybe(..))
+import Data.Monoid (guard)
 import Data.Newtype (unwrap)
-import Data.Number (cos, pi, sin)
+import Data.Number (pi)
+import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..))
 import Data.Tuple.Nested ((/\))
 import Effect (Effect)
+import Effect.Random (random)
 import FRP.Behavior (Behavior, sampleBy)
 import FRP.Event (Event, EventIO, keepLatest, mailboxed, mapAccum)
 import FRP.Event.VBus (V)
+import Joyride.Constants.Visual (tarantulaScale)
 import Joyride.Effect.Lowpass (lpf)
 import Joyride.FRP.BusT (vbust)
 import Joyride.FRP.Dedup (dedup)
+import Joyride.Math.Matrix4 as M4
 import Joyride.QualifiedDo.Apply as QDA
 import Joyride.Visual.Bar (makeBar)
 import Joyride.Visual.BasicLabels (basicLabels)
@@ -28,18 +33,24 @@ import Joyride.Visual.LeapLabels (leapLabels)
 import Joyride.Visual.LongLabels (longLabels)
 import Joyride.Visual.RaycastableLane (makeRaycastableLane)
 import Rito.Cameras.PerspectiveCamera (perspectiveCamera)
-import Rito.Color (RGB(..), color)
+import Rito.Color (Color, RGB(..), color)
 import Rito.Core (ASceneful, Renderer(..), cameraToGroup, effectComposerToRenderer, plain, toGroup, toScene)
 import Rito.CubeTexture (CubeTexture)
 import Rito.Euler (euler)
 import Rito.GLTF (GLTF)
 import Rito.GLTF as GLTF
+import Rito.Geometries.Plane (plane)
 import Rito.Group (group)
 import Rito.Lights.AmbientLight (ambientLight)
 import Rito.Lights.PointLight (pointLight)
+import Rito.Materials.MeshBasicMaterial (meshBasicMaterial)
+import Rito.Materials.MeshLambertMaterial (meshLambertMaterial)
+import Rito.Materials.MeshStandardMaterial (meshStandardMaterial)
+import Rito.Matrix4 (Matrix4', Matrix4)
+import Rito.Mesh (mesh)
 import Rito.Portal (globalCameraPortal1, globalEffectComposerPortal1, globalScenePortal1, globalWebGLRendererPortal1)
-import Rito.Properties (aspect, background, decay, distance, intensity, rotateX, rotateY, rotateZ, rotationFromEuler) as P
-import Rito.Properties (positionX, positionY, positionZ, render, scaleX, scaleY, scaleZ, size)
+import Rito.Properties (aspect, decay, distance, intensity, matrix4, rotationFromEuler) as P
+import Rito.Properties (positionX, positionY, positionZ, render, rotateX, scaleX, scaleY, scaleZ, size)
 import Rito.Renderers.CSS2D (css2DRenderer)
 import Rito.Renderers.CSS3D (css3DRenderer)
 import Rito.Renderers.Raycaster (raycaster)
@@ -48,12 +59,13 @@ import Rito.Renderers.WebGL.EffectComposer (effectComposer)
 import Rito.Renderers.WebGL.EffectComposerPass (effectComposerPass)
 import Rito.Renderers.WebGL.RenderPass (renderPass)
 import Rito.Renderers.WebGL.UnrealBloomPass (unrealBloomPass)
+import Rito.RoundRobin (Semaphore(..), roundRobinInstancedMesh, singleInstance)
 import Rito.Run as Rito.Run
-import Rito.Scene (Background(..), scene)
+import Rito.Scene (scene)
 import Rito.Texture (Texture)
 import Rito.Vector2 (vector2)
 import Type.Proxy (Proxy(..))
-import Types (Axis(..), Column, CubeTextures, GalaxyAttributes, HitBasicMe, HitBasicVisualForLabel, HitLeapVisualForLabel, HitLongVisualForLabel, JMilliseconds, Models, Player(..), PlayerPositions, Position(..), RateInfo, ReleaseLongVisualForLabel, RenderingInfo, Shaders, Textures, ThreeDI, WindowDims, allColumns, allPlayers, allPositions, playerPosition)
+import Types (Axis(..), Beats(..), Column, CubeTextures, GalaxyAttributes, HitBasicMe, HitBasicVisualForLabel, HitLeapVisualForLabel, HitLongVisualForLabel, JMilliseconds, Models, Player(..), PlayerPositions, Position(..), RateInfo, ReleaseLongVisualForLabel, RenderingInfo, Shaders, Textures, ThreeDI, WindowDims, allColumns, allPlayers, allPositions, playerPosition)
 import Web.DOM as Web.DOM
 import Web.HTML.HTMLCanvasElement (HTMLCanvasElement)
 
@@ -67,6 +79,8 @@ runThree
      , pressedStart :: Event Boolean
      , galaxyAttributes :: GalaxyAttributes
      , shaders :: Shaders
+     , mkColor :: RGB -> Color
+     , mkMatrix4 :: Matrix4' -> Matrix4
      , columnPusher :: EventIO Column
      , css2DRendererElt :: Event Web.DOM.Element
      , css3DRendererElt :: Event Web.DOM.Element
@@ -103,11 +117,35 @@ runThree
      , initialDims :: WindowDims
      , canvas :: HTMLCanvasElement
      }
-  -> Effect Unit
+  -> Effect (Effect Unit)
 runThree opts = do
+  let nClouds = 25
+  let cloudLR = 18.0
+  let cloudUD = 8.0
+  let cloudFB = -0.0
+  let cloudBS = 1.0
+  let cloudFS = 0.03
+  let cloudX = 0.0
+  let cloudY = -1.5
+  let cloudZ = -3.0
+  let cloudS = 6.5
+  let cloudR = 0.0
+  let positionCloud w c n = (n - 0.5) * w + c
+  let positionCloudY i w c n = (0.75 * (positionCloud w c (toNumber (i `mod` 5) / 4.0)) + (0.25 * (positionCloud w c n)))
+  let positionCloudX i w c n = 0.75 * positionCloud w c ((toNumber (i / (nClouds / 5)) / 4.0)) + (0.25 * positionCloud w c n)
   let c3 = color opts.threeDI.color
   let mopts = { playerPositions: _.playerPositions <$> opts.animatedStuff, rateInfo: _.rateInfo <$> opts.animatedStuff }
-  _ <- Rito.Run.run
+  let posAx' plyr axis = map (playerPosition plyr axis) mopts.playerPositions
+  allPos <- traverse
+    ( \i -> { x: _, y: _, z: _, s: _, r: _ }
+        <$> (positionCloudX i cloudLR cloudX <$> random)
+        <*> (positionCloudY i cloudUD cloudY <$> random)
+        <*> (positionCloud cloudFB cloudZ <$> random)
+        <*> (positionCloud cloudBS cloudS <$> random)
+        <*> (positionCloud cloudFS cloudR <$> random)
+    )
+    (0 .. (nClouds - 1))
+  Rito.Run.run
     ( envy QDA.do
         columnCtor <- keepLatest <<< mailboxed (map { payload: unit, address: _ } opts.columnPusher.event)
         scenePush /\ sceneEvent <- vbust
@@ -130,8 +168,7 @@ runThree opts = do
               , far: 100.0
               }
               ( let
-                  ppos = playerPosition opts.myPlayer
-                  posAx axis = map (ppos axis) mopts.playerPositions
+                  posAx = posAx' opts.myPlayer
                   px = posAx AxisX
                   py = posAx AxisY
                   pz = posAx AxisZ
@@ -149,9 +186,8 @@ runThree opts = do
         let
           shipsssss n =
             ( filter (_ /= opts.myPlayer) (toArray allPlayers) <#> \player -> do
-                let ppos = playerPosition player
-                let posAx axis = map (ppos axis) mopts.playerPositions
-                toGroup $ GLTF.scene (unwrap opts.models).spaceship
+                let posAx = posAx' player
+                toGroup $ GLTF.scene (unwrap opts.models).tarantula
                   ( oneOf
                       [ (positionX <<< add n) <$> tameXAxis (isNotMe player opts.myPlayer) (posAx AxisX)
                       , positionY <$> (sampleBy (\{ sphereOffsetY } py -> sphereOffsetY + py) opts.renderingInfo (posAx AxisY))
@@ -162,44 +198,103 @@ runThree opts = do
                               Player3 -> -2.0
                               Player4 -> -1.0
                           )
-                      , positionZ <$> posAx AxisZ
-                      , pure $ scaleX 0.02
-                      , pure $ scaleY 0.02
-                      , pure $ scaleZ 0.02
-                      , case player of
-                          Player1 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: sin (unwrap rate.time * pi * 0.1) * pi * 0.02, y: sin (unwrap rate.time * pi * 0.09) * pi * -0.03, z: cos (unwrap rate.time * pi * 0.07) * pi * 0.04 })
-                          Player3 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: cos (unwrap rate.time * pi * 0.06) * pi * 0.02, y: sin (unwrap rate.time * pi * 0.11) * pi * 0.01, z: cos (unwrap rate.time * pi * 0.03) * pi * -0.03 })
-                          Player2 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: sin (unwrap rate.time * pi * 0.02) * pi * -0.05, y: cos (unwrap rate.time * pi * 0.12) * pi * -0.02, z: sin (unwrap rate.time * pi * -0.08) * pi * 0.08 })
-                          Player4 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: cos (unwrap rate.time * pi * 0.01) * pi * 0.04, y: cos (unwrap rate.time * pi * 0.03) * pi * -0.06, z: sin (unwrap rate.time * pi * 0.02) * pi * -0.09 })
+                      , (positionZ <<< add 0.1) <$> posAx AxisZ
+                      , pure $ scaleX tarantulaScale
+                      , pure $ scaleY tarantulaScale
+                      , pure $ scaleZ tarantulaScale
+                      , pure $ P.rotationFromEuler (euler opts.threeDI.euler { x: 0.0, y: pi, z: 0.0 })
+                      -- , case player of
+                      --     Player1 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: sin (unwrap rate.time * pi * 0.1) * pi * 0.02, y: sin (unwrap rate.time * pi * 0.09) * pi * -0.03, z: cos (unwrap rate.time * pi * 0.07) * pi * 0.04 })
+                      --     Player3 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: cos (unwrap rate.time * pi * 0.06) * pi * 0.02, y: sin (unwrap rate.time * pi * 0.11) * pi * 0.01, z: cos (unwrap rate.time * pi * 0.03) * pi * -0.03 })
+                      --     Player2 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: sin (unwrap rate.time * pi * 0.02) * pi * -0.05, y: cos (unwrap rate.time * pi * 0.12) * pi * -0.02, z: sin (unwrap rate.time * pi * -0.08) * pi * 0.08 })
+                      --     Player4 -> mopts.rateInfo <#> \rate -> P.rotationFromEuler (euler opts.threeDI.euler { x: cos (unwrap rate.time * pi * 0.01) * pi * 0.04, y: cos (unwrap rate.time * pi * 0.03) * pi * -0.06, z: sin (unwrap rate.time * pi * 0.02) * pi * -0.09 })
                       ]
                   )
                   []
             )
         myScene <- globalScenePortal1
-          ( scene { scene: opts.threeDI.scene } (pure $ P.background (CubeTexture (unwrap opts.cubeTextures).skybox))
+          ( scene
+              { scene: opts.threeDI.scene
+              -- , fog: FogExp2Info
+              --     { color: opts.mkColor $ RGB 17.0 17.0 31.0
+              --     , ctor: opts.threeDI.fogExp2
+              --     , density: 0.01
+              --     }
+              }
+              empty -- (pure $ P.background (Texture (unwrap opts.textures).mansion))
               [ toScene $ group { group: opts.threeDI.group }
-                  ( keepLatest $
-                      ( mapAccum
-                          ( \b a -> case b of
-                              Nothing -> Just a /\ 0.0
-                              Just x -> Just a /\ (a - x)
-                          )
-                          Nothing
-                          ( map (_.rateInfo.epochTime >>> unwrap >>> (_ / 1000.0))
-                              opts.animatedStuff
-                          )
-                      ) <#> \t ->
-                        let
-                          fac = t / 1000.0
-                        in
-                          if false then empty
-                          else oneOfMap pure
-                            [ P.rotateX $ 0.001 * cos (fac * pi * 0.01)
-                            , P.rotateY $ 0.001 * cos (fac * pi * 0.01)
-                            , P.rotateZ $ 0.001 * cos (fac * pi * 0.01)
+                  empty
+                  -- ( keepLatest $
+                  --     ( mapAccum
+                  --         ( \b a -> case b of
+                  --             Nothing -> Just a /\ 0.0
+                  --             Just x -> Just x /\ (a - x)
+                  --         )
+                  --         Nothing
+                  --         ( map (_.rateInfo.epochTime >>> unwrap >>> (_ / 1000.0))
+                  --             opts.animatedStuff
+                  --         )
+                  --     ) <#> \t ->
+                  --       if false then empty
+                  --       else oneOfMap pure
+                  --         [ P.rotateX $ backgroundXRotation t
+                  --         , P.rotateY $ backgroundYRotation t
+                  --         , P.rotateZ $ backgroundZRotation t
+                  --         ]
+                  -- )
+                  ( [ toGroup $ mesh { mesh: opts.threeDI.mesh } (plane { plane: opts.threeDI.plane })
+                        ( meshBasicMaterial
+                            { meshBasicMaterial: opts.threeDI.meshBasicMaterial
+                            , map: (unwrap opts.textures).mansion
+                            }
+                            empty
+                        )
+                        ( oneOf
+                            [ pure (positionX 0.0)
+                            , pure (positionY 0.0)
+                            , posAx' opts.myPlayer AxisZ <#> \pz -> (positionZ (-3.5 + pz))
+                            , pure (scaleX (16.0))
+                            , pure (scaleY (8.0))
+                            , pure (rotateX (pi * -0.1))
                             ]
-                  )
-                  ( shipsssss 0.00
+                        )
+                    ]
+                      <>
+                        (guard false [ toGroup $ roundRobinInstancedMesh
+                            { instancedMesh: opts.threeDI.instancedMesh
+                            , matrix4: opts.threeDI.matrix4
+                            , mesh: opts.threeDI.mesh
+                            }
+                            nClouds
+                            (plane { plane: opts.threeDI.plane })
+                            ( meshLambertMaterial
+                                { meshLambertMaterial: opts.threeDI.meshLambertMaterial
+                                , map: (unwrap opts.textures).smoke
+                                , transparent: true
+                                }
+                                empty
+                            )
+                            ( oneOfMap pure
+                                ( map
+                                    ( \myPos -> pure
+                                        ( Acquire
+                                            ( singleInstance
+                                                ( oneOf
+                                                    [ mopts.rateInfo <#> \{ beats: Beats beats } -> P.matrix4
+                                                        ( opts.mkMatrix4
+                                                            ( M4.scale { x: myPos.s, y: myPos.s, z: myPos.s } $ M4.rotateZ (pi * beats * myPos.r) $ M4.translate { x: myPos.x, y: myPos.y, z: myPos.z } $ M4.rotateX (pi * -0.1) $ M4.identity
+                                                            )
+                                                        )
+                                                    ]
+                                                )
+                                            )
+                                        )
+                                    )
+                                    allPos
+                                )
+                            )
+                        ])
+                      <> shipsssss 0.00
                       <> map toGroup
                         ( ( \position -> makeBar $
                               { c3
@@ -249,8 +344,7 @@ runThree opts = do
                         ]
                       <>
                         ( (toArray allPlayers) <#> \player -> do
-                            let ppos = playerPosition player
-                            let posAx axis = map (ppos axis) mopts.playerPositions
+                            let posAx = posAx' player
                             let normalDistance = 4.0
                             let normalDecay = 2.0
                             let normalIntensity = 1.0
@@ -342,34 +436,34 @@ runThree opts = do
               ]
           )
         myShips <- globalScenePortal1
-          ( scene { scene: opts.threeDI.scene } empty
+          ( scene
+              { scene: opts.threeDI.scene
+              }
+              empty
               [ toScene $ group { group: opts.threeDI.group }
-                  ( keepLatest $
-                      ( mapAccum
-                          ( \b a -> case b of
-                              Nothing -> Just a /\ 0.0
-                              Just x -> Just a /\ (a - x)
-                          )
-                          Nothing
-                          ( map (_.rateInfo.epochTime >>> unwrap >>> (_ / 1000.0))
-                              opts.animatedStuff
-                          )
-                      ) <#> \t ->
-                        let
-                          fac = t / 1000.0
-                        in
-                          if false then empty
-                          else oneOfMap pure
-                            [ P.rotateX $ 0.001 * cos (fac * pi * 0.01)
-                            , P.rotateY $ 0.001 * cos (fac * pi * 0.01)
-                            , P.rotateZ $ 0.001 * cos (fac * pi * 0.01)
-                            ]
-                  )
+                  empty
+                  -- ( keepLatest $
+                  --     ( mapAccum
+                  --         ( \b a -> case b of
+                  --             Nothing -> Just a /\ 0.0
+                  --             Just x -> Just x /\ (a - x)
+                  --         )
+                  --         Nothing
+                  --         ( map (_.rateInfo.epochTime >>> unwrap >>> (_ / 1000.0))
+                  --             opts.animatedStuff
+                  --         )
+                  --     ) <#> \t ->
+                  --       if false then empty
+                  --       else oneOfMap pure
+                  --         [ P.rotateX $ backgroundXRotation t
+                  --         , P.rotateY $ backgroundYRotation t
+                  --         , P.rotateZ $ backgroundZRotation t
+                  --         ]
+                  -- )
                   ( shipsssss 0.0
                       <>
                         ( (toArray allPlayers) <#> \player -> do
-                            let ppos = playerPosition player
-                            let posAx axis = map (ppos axis) mopts.playerPositions
+                            let posAx = posAx' player
                             let normalDistance = 4.0
                             let normalDecay = 2.0
                             let normalIntensity = 1.0
@@ -478,7 +572,6 @@ runThree opts = do
               opts.css3DRendererElt
           ]
     )
-  pure unit
   where
   isNotMe a b = a /= b
   tipping = 120

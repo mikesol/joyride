@@ -6,7 +6,8 @@ import Deku.Pursx ((~~))
 
 --import Prelude
 
-type Loading = """
+type Loading =
+  """
     <div class="wave-center">
       <div class="wave-loader"></div>
       <div class="wave-loader"></div>
